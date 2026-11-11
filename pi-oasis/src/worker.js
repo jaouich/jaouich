@@ -1,10 +1,13 @@
 // Pi Oasis – Cloudflare Worker (server)
-// Pi sign-in, server-side game (anti-cheat), VIP payments, 10% referrals, weekly leaderboard.
+// Pi sign-in (via App Studio), server-side game (anti-cheat), VIP payments, 10% referrals, weekly leaderboard.
 // Static files in /public are served by Workers Static Assets (see wrangler.toml).
 import "../public/logic.js";
 
 const L = globalThis.OasisLogic;
 const PI_API = "https://api.minepi.com/v2";
+// Pi sign-in: the access token is exchanged with App Studio, which checks it with
+// the Pi Platform. Only the identity it returns is trusted.
+const APP_STUDIO_LOGIN = "https://backend.appstudio-u7cm9zhmha0ruwv8.piappengine.com/pi/auth/v1/login";
 const VIP_PRICE = 0.25;
 const VIP_DAYS = 30;
 const REFERRAL_RATE = 0.1; // 10% on every monthly renewal
@@ -23,12 +26,12 @@ class HttpError extends Error {
 const bad = (code) => { throw new HttpError(400, code); };
 
 // ---------- Pi API ----------
-async function pi(env, path, { method = "GET", body, userToken } = {}) {
+async function pi(env, path, { method = "GET", body } = {}) {
   const r = await fetch(PI_API + path, {
     method,
     headers: {
       "Content-Type": "application/json",
-      Authorization: userToken ? `Bearer ${userToken}` : `Key ${env.PI_API_KEY}`,
+      Authorization: `Key ${env.PI_API_KEY}`,
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -38,6 +41,20 @@ async function pi(env, path, { method = "GET", body, userToken } = {}) {
     throw new HttpError(r.status === 401 ? 401 : 502, r.status === 401 ? "session" : "server");
   }
   return data;
+}
+
+async function appStudioLogin(accessToken) {
+  const r = await fetch(APP_STUDIO_LOGIN, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accessToken }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || !data.user || !data.user.uid || !data.user.username) {
+    console.error("App Studio login", r.status, JSON.stringify(data));
+    throw new HttpError(r.status >= 500 ? 502 : 401, r.status >= 500 ? "server" : "session");
+  }
+  return { uid: String(data.user.uid), username: String(data.user.username) };
 }
 
 // ---------- DB helpers ----------
@@ -99,10 +116,11 @@ function randomToken() {
 
 // ---------- Routes ----------
 const routes = {
-  // Sign in: verify the user's token with Pi
+  // Sign in: exchange the Pi access token with App Studio (one exchange per sign-in).
+  // Any uid/username sent by the browser is ignored.
   "POST /api/auth": async (req, env, body) => {
-    if (!body.accessToken) bad("session");
-    const me = await pi(env, "/me", { userToken: body.accessToken });
+    if (!body.accessToken || typeof body.accessToken !== "string") bad("session");
+    const me = await appStudioLogin(body.accessToken);
     const now = Date.now();
     let u = await one(env, "SELECT * FROM users WHERE uid = ?", me.uid);
     if (!u) {

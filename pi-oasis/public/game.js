@@ -213,7 +213,7 @@
   });
 
   // ---------- Sign in ----------
-  $("loginBtn").addEventListener("click", async () => {
+  async function signIn(silent) {
     $("loginBtn").disabled = true;
     try {
       const res = await Pi.login();
@@ -225,9 +225,12 @@
       $("loginBtn").classList.add("hidden");
       render();
     } catch (e) {
-      toast(e.message === "timeout" ? t("t.openInPi") : e.message);
+      if (!silent) toast(e.message === "timeout" ? t("t.openInPi") : e.message);
     } finally { $("loginBtn").disabled = false; }
-  });
+  }
+  $("loginBtn").addEventListener("click", () => signIn(false));
+  // Inside Pi Browser, sign in automatically on load
+  if (window.Pi) signIn(true);
 
   // ---------- Tabs & language ----------
   document.querySelector(".tabs").addEventListener("click", (e) => {

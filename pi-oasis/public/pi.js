@@ -1,10 +1,10 @@
-// ربط اللعبة مع Pi SDK والسيرفر.
-// خارج Pi Browser كتخدم اللعبة فـ"وضع التجربة" (demo) بلا خلاص حقيقي.
+// Connects the game to the Pi SDK and our server.
+// Outside Pi Browser the game runs as a local demo (no sign-in, no payments).
 (function () {
   const cfg = window.OASIS_CONFIG;
   let piReady = false;
-  let user = null; // { username, uid }
-  let session = null; // التوكن ديال السيرفر
+  let user = null; // { username } as verified by our server via App Studio
+  let session = null; // our server's session token
 
   function api(path, body) {
     return fetch(cfg.API_BASE + path, {
@@ -32,27 +32,35 @@
     ]);
   }
 
-  try {
-    if (window.Pi) {
-      window.Pi.init({ version: "2.0", sandbox: cfg.SANDBOX });
+  // Pi.init must finish before Pi.authenticate. Sandbox is detected automatically.
+  const initDone = (async () => {
+    if (!window.Pi) return false;
+    try {
+      await window.Pi.init({ version: "2.0" });
       piReady = true;
+      return true;
+    } catch (e) {
+      console.warn("Pi SDK init failed", e);
+      return false;
     }
-  } catch (e) {
-    console.warn("Pi SDK init failed", e);
-  }
+  })();
 
-  // خلاص ما كملش من قبل (مثلا تقطع الإنترنت): كنصيفطوه للسيرفر يكملو
+  // A payment that didn't finish earlier (e.g. connection lost): let the server complete it
   function onIncompletePaymentFound(payment) {
     return api("/api/payments/incomplete", { payment }).catch(console.error);
   }
 
   async function login() {
-    if (!piReady) throw new Error(I18N.t("t.openInPi"));
-    const ref = new URLSearchParams(location.search).get("ref") || localStorage.getItem("oasis_ref");
+    if (!(await initDone)) throw new Error(I18N.t("t.openInPi"));
+    let ref = null;
+    try { ref = new URLSearchParams(location.search).get("ref") || localStorage.getItem("oasis_ref"); } catch {}
+    // "payments" scope is required for the VIP subscription (Pi.createPayment).
     const auth = await withTimeout(
       window.Pi.authenticate(["username", "payments"], onIncompletePaymentFound),
       15000
     );
+    // Only the accessToken is sent. The server exchanges it with App Studio
+    // and trusts only the identity App Studio returns (uid/username here are ignored).
     const res = await api("/api/auth", { accessToken: auth.accessToken, ref });
     session = res.session;
     user = res.user;

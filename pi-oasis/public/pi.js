@@ -50,14 +50,18 @@
     return api("/api/payments/incomplete", { payment }).catch(console.error);
   }
 
-  async function login() {
+  let pending = null;
+  function login() {
+    return (pending ||= doLogin().finally(() => { pending = null; }));
+  }
+  async function doLogin() {
     if (!(await initDone)) throw new Error(I18N.t("t.openInPi"));
     let ref = null;
     try { ref = new URLSearchParams(location.search).get("ref") || localStorage.getItem("oasis_ref"); } catch {}
     // "payments" scope is required for the VIP subscription (Pi.createPayment).
     const auth = await withTimeout(
       window.Pi.authenticate(["username", "payments"], onIncompletePaymentFound),
-      15000
+      120000
     );
     // Only the accessToken is sent. The server exchanges it with App Studio
     // and trusts only the identity App Studio returns (uid/username here are ignored).

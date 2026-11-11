@@ -214,7 +214,7 @@
 
   // ---------- Sign in ----------
   async function signIn(silent) {
-    $("loginBtn").disabled = true;
+    if (!silent) $("loginBtn").disabled = true;
     try {
       const res = await Pi.login();
       clockOffset = res.now - Date.now();

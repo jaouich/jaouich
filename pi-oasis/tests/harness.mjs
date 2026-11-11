@@ -32,7 +32,7 @@ globalThis.fetch = async (url, opt = {}) => {
   }
   if (u.endsWith("/v2/me")) {
     const t = (opt.headers?.Authorization || "").replace("Bearer ", "");
-    const devApp = { tokC: { uid: "uC", username: "carol" } };
+    const devApp = { tokC: { uid: "uC", username: "carol" }, tokA2: { uid: "uA2", username: "alice" } };
     return devApp[t] ? new Response(JSON.stringify(devApp[t])) : new Response("{}", { status: 401 });
   }
   if (!u.startsWith("https://api.minepi.com/v2")) return realFetch(url, opt);

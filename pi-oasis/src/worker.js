@@ -75,6 +75,20 @@ async function verifyPiUser(accessToken) {
   return { uid: String(me.uid), username: String(me.username) };
 }
 
+async function moveAccount(env, from, to) {
+  const q = (sql) => env.DB.prepare(sql).bind(to, from);
+  await env.DB.batch([
+    q("UPDATE users SET uid = ? WHERE uid = ?"),
+    q("UPDATE users SET referrer = ? WHERE referrer = ?"),
+    q("UPDATE sessions SET uid = ? WHERE uid = ?"),
+    q("UPDATE state SET uid = ? WHERE uid = ?"),
+    q("UPDATE payments SET uid = ? WHERE uid = ?"),
+    q("UPDATE payments SET referrer_uid = ? WHERE referrer_uid = ?"),
+    q("UPDATE withdrawals SET uid = ? WHERE uid = ?"),
+    q("UPDATE ads SET uid = ? WHERE uid = ?"),
+  ]);
+}
+
 // ---------- DB helpers ----------
 // Tables are created on first use, so a brand-new database works right away.
 const SCHEMA = [
@@ -142,6 +156,14 @@ const routes = {
     const now = Date.now();
     let u = await one(env, "SELECT * FROM users WHERE uid = ?", me.uid);
     if (!u) {
+      // Pi gives each app its own uid for the same person. If this verified username
+      // already has an account under another uid (e.g. the App Studio app), move that
+      // account to the new uid so progress, VIP and referrals carry over.
+      const prev = await one(env, "SELECT uid FROM users WHERE username = ?", me.username);
+      if (prev) await moveAccount(env, prev.uid, me.uid);
+      u = await one(env, "SELECT * FROM users WHERE uid = ?", me.uid);
+    }
+    if (!u) {
       // Referral: only for new accounts, never yourself, one level only
       let referrer = null;
       if (body.ref && body.ref !== me.username) {
@@ -150,6 +172,8 @@ const routes = {
       }
       await run(env, "INSERT INTO users (uid, username, referrer, vip_until, ref_balance, created_at) VALUES (?, ?, ?, 0, 0, ?)", me.uid, me.username, referrer, now);
     } else if (u.username !== me.username) {
+      // Username changed on Pi: free the name if a stale row still holds it
+      await run(env, "UPDATE users SET username = username || '#' || uid WHERE username = ? AND uid != ?", me.username, me.uid);
       await run(env, "UPDATE users SET username = ? WHERE uid = ?", me.username, me.uid);
     }
     u = await one(env, "SELECT * FROM users WHERE uid = ?", me.uid);

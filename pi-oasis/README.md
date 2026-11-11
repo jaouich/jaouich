@@ -1,45 +1,37 @@
-# 🌴 Pi Oasis – واحة باي
+# 🌴 Pi Oasis
 
-لعبة فلاحة وتجارة فواحة مغربية، مبنية لـ **Pi Network** (Pi Browser).
+A farming & trading game for **Pi Network** (Pi Browser), in English, Arabic and French.
+Runs on **Cloudflare Workers** with a **D1** database.
 
-## المميزات
-- 🌾 **الفلاحة:** تزرع وتحصد باش تجمع التمر 🪙 (عملة داخل اللعبة)
-- 🏺 **المطمورة (ستيكينغ بالتمر):** ساعة +5%، نهار +30%، سيمانة +150% مع شجرة نادرة
-- 👑 **VIP بـ 0.25 Pi فالشهر:** 10 خانات ستيكينغ، +20% أرباح، بلا إعلانات، مكافأة يومية دوبل
-- 🤝 **الإحالة 10% على كل تجديد شهري:** مستوى واحد فقط. الرصيد كيتجمع، وكتقدر تبدلو بشهر VIP ولا تسحبو من 1 Pi
-- 🏆 **ترتيب أسبوعي مجاني:** الـ Top 3 كياخدو جائزة من 15% من مداخيل الاشتراكات (50% / 30% / 20%)
-- 📺 **إعلانات Pi Ad Network:** تفرج فإعلان باش يطيب الزرع دغيا (غير لي ماشي VIP)
+## Features
+- 🌾 **Farm:** plant and harvest to earn dates 🪙 (in-game currency, no monetary value)
+- 🏺 **Granary (staking with dates):** 1 h +5%, 24 h +30%, 7 days +150% + rare tree
+- 👑 **VIP – 0.25 Pi / month:** 10 staking slots, +20% staking rewards, no ads, double daily reward
+- 🤝 **Referrals – 10% of every monthly renewal:** one level only; balance can be swapped for VIP or withdrawn from 1 Pi
+- 🏆 **Weekly leaderboard (free to enter):** Top 3 share 15% of subscription revenue (50% / 30% / 20%)
+- 📺 **Pi Ad Network:** watch a rewarded ad to finish a crop (non-VIP)
+- 🛡️ **Anti-cheat:** signed-in players' game runs on the server with the server's clock (`public/logic.js` holds the rules, shared by the browser demo and the server). Ads are verified with Pi and each ad can be used once.
 
-## قسمة كل اشتراك (0.25 Pi)
-| الوجهة | النسبة |
+## Revenue split per subscription (0.25 Pi)
+| Goes to | Share |
 |---|---|
-| الإحالة | 10% |
-| الجائزة الأسبوعية | 15% |
-| محفظة التطبيق (المصاريف وأرباح المطور) | 75% (85% إلا ما كانتش إحالة) |
+| Referrer | 10% |
+| Weekly prize pool | 15% |
+| App wallet (costs + developer) | 75% (85% without a referrer) |
 
-## البنية
+## Layout
 ```
-public/   الواجهة (HTML/CSS/JS) + Pi SDK
-server/   السيرفر (Node.js بلا مكتبات خارجية)
+public/        game screens (HTML/CSS/JS) + Pi SDK + shared rules (logic.js)
+src/worker.js  Cloudflare Worker: Pi sign-in, game actions, payments, referrals, ranking
+schema.sql     D1 database tables
+wrangler.toml  Cloudflare config (D1 database "pi-oasis-db")
 ```
 
-## التشغيل
-```bash
-cd server
-cp .env.example .env     # عمر PI_API_KEY و ADMIN_TOKEN
-node server.js           # http://localhost:3000
-```
-السيرفر كيعرض حتى صفحات اللعبة. خارج Pi Browser اللعبة كتخدم فوضع التجربة، بلا دخول وبلا خلاص.
+## Deploy (Cloudflare)
+1. Cloudflare dashboard → **Workers & Pages → Create → Import a repository** → this repo, root directory `pi-oasis`
+2. Worker **Settings → Variables and Secrets** → add secrets `PI_API_KEY` (Pi Developer Portal) and `ADMIN_TOKEN` (any long password)
+3. Database tables: run `schema.sql` on `pi-oasis-db` (already done for the current database)
 
-## الربط مع Pi
-1. فـ Pi Browser دخل لـ `develop.pi` وصاوب تطبيق جديد (ولا من App Studio → Use External AI)
-2. حط الرابط ديال السيرفر ديالك (HTTPS) كـ App URL
-3. حط ملف `validation-key.txt` لي كتعطيك Pi فالدوسي `public/`
-4. خود الـ **API Key** وحطو فـ `server/.env`. **ماتحطوش فالكود ولا فـ GitHub**
-5. جرب فـ Sandbox (`SANDBOX: true` فـ `public/config.js`)، ومن بعد بدلها لـ `false` فالـ Mainnet
-
-## ⚠️ قبل ما تطلق الجوائز الحقيقية
-- **السكور كيتحسب فالتليفون** دابا، يعني ممكن واحد يغش. قبل ما تعطي Pi حقيقي، خاص حالة اللعبة تنتقل للسيرفر (النسخة الجاية).
-- **صيفطة Pi للرابحين والسحب (App → User)** مازال ما مبرمجينش. `GET /api/admin/payouts` (مع الهيدر `x-admin-token`) كيعطيك اللائحة ديال لي خاصهم يتخلصو.
-- قاعدة البيانات ملف JSON (`server/data.json`). كافي للبداية، ولكن ملي يكثرو اللاعبين بدلها بقاعدة بيانات حقيقية.
-- قرا **Pi Developer Terms** وتأكد من الشروط ديال الجوائز والإحالة.
+## Still to do before real prizes
+- **Sending Pi to winners / referral withdrawals (App → User)** isn't automated yet. `GET /api/admin/payouts` (header `x-admin-token`) lists who to pay.
+- Read the **Pi Developer Terms** about prizes and referrals.

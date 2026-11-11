@@ -1,0 +1,16 @@
+name = "pi-oasis"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pi-oasis-db"
+database_id = "6a348503-955f-4d8a-906c-515ab5317aed"
+
+# Secrets (set in the Cloudflare dashboard, never in this file):
+#   PI_API_KEY   – from the Pi Developer Portal
+#   ADMIN_TOKEN  – a long password of your choice

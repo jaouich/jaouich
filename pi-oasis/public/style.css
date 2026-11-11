@@ -114,3 +114,4 @@ h3 { font-size: 1rem; margin: 16px 0 6px; }
   padding: 4px 6px; font: inherit; font-size: .9rem; cursor: pointer;
 }
 .lang option { color: #3b2a1a; }
+#stakeAmt { width: 110px; padding: 8px; border-radius: 10px; border: 1px solid var(--line); font: inherit; }

@@ -16,7 +16,11 @@
       body: body ? JSON.stringify(body) : undefined,
     }).then(async (r) => {
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(I18N.t("e." + (data.error || "server")));
+      if (!r.ok) {
+        const code = data.error || "server";
+        const msg = I18N.has("t." + code) ? I18N.t("t." + code, data.vars) : I18N.t("e." + code);
+        throw Object.assign(new Error(msg), { code, data });
+      }
       return data;
     });
   }
@@ -76,20 +80,21 @@
     });
   }
 
-  // إعلان بمكافأة (Pi Ad Network). كيرجع true إلا تفرج اللاعب فالإعلان كامل.
+  // Rewarded ad (Pi Ad Network). Returns the adId when fully watched, otherwise null.
+  // The server double-checks the adId with Pi before giving the reward.
   async function showRewardedAd() {
     try {
-      if (!piReady || !window.Pi.Ads) return false;
+      if (!piReady || !window.Pi.Ads) return null;
       const ready = await window.Pi.Ads.isAdReady("rewarded");
       if (!ready.ready) {
         const req = await window.Pi.Ads.requestAd("rewarded");
-        if (req.result !== "AD_LOADED") return false;
+        if (req.result !== "AD_LOADED") return null;
       }
       const res = await window.Pi.Ads.showAd("rewarded");
-      return res.result === "AD_REWARDED";
+      return res.result === "AD_REWARDED" ? res.adId || null : null;
     } catch (e) {
       console.warn("ad error", e);
-      return false;
+      return null;
     }
   }
 
@@ -101,7 +106,7 @@
     buyVip,
     showRewardedAd,
     me: () => api("/api/me"),
-    submitScore: (weekScore) => api("/api/score", { weekScore }),
+    action: (action) => api("/api/action", { action }),
     leaderboard: () => api("/api/leaderboard"),
     redeemVip: () => api("/api/referral/redeem-vip", {}),
     withdraw: () => api("/api/referral/withdraw", {}),

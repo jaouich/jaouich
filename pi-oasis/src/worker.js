@@ -390,10 +390,19 @@ export default {
         if (text.length > 50000) bad("badAction");
         if (text) body = JSON.parse(text);
       }
+      if (url.pathname.startsWith("/api/payments/")) {
+        const id = body.paymentId || body.payment?.identifier || "";
+        await logError(env, `called ${url.pathname} ${String(id).slice(0, 12)}`, 0, "");
+      }
       const out = await handler(req, env, body);
       return out instanceof Response ? out : json(out);
     } catch (e) {
-      if (e instanceof HttpError) return json({ error: e.code }, e.status);
+      if (e instanceof HttpError) {
+        if (url.pathname.startsWith("/api/payments/") || url.pathname === "/api/auth") {
+          await logError(env, `refused ${req.method} ${url.pathname}`, e.status, e.code);
+        }
+        return json({ error: e.code }, e.status);
+      }
       if (e instanceof SyntaxError) return json({ error: "badAction" }, 400);
       console.error(e && e.stack);
       await logError(env, `${req.method} ${url.pathname}`, 500, (e && e.message) || "error");

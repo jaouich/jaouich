@@ -82,7 +82,10 @@
         },
         {
           onReadyForServerApproval: (paymentId) =>
-            api("/api/payments/approve", { paymentId }).catch(reject),
+            api("/api/payments/approve", { paymentId }).catch((e) => {
+              console.error("approve failed", e.code);
+              reject(e);
+            }),
           onReadyForServerCompletion: (paymentId, txid) =>
             api("/api/payments/complete", { paymentId, txid }).then(resolve, reject),
           onCancel: () => reject(new Error(I18N.t("e.cancelled"))),

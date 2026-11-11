@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pi Oasis</title>
+  <meta name="theme-color" content="#2f7d4f">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand" data-i18n="brand"></div>
+    <div class="wallet">
+      <span class="pill">🪙 <b id="dates">0</b></span>
+      <span class="pill vip-badge hidden" id="vipBadge">👑 VIP</span>
+      <select id="langSelect" class="lang" aria-label="Language">
+        <option value="en">EN</option>
+        <option value="ar">ع</option>
+        <option value="fr">FR</option>
+      </select>
+    </div>
+  </header>
+
+  <div id="loginBar" class="login-bar">
+    <span id="userLabel" data-i18n="login.prompt"></span>
+    <button id="loginBtn" class="btn small" data-i18n="login.btn"></button>
+  </div>
+
+  <main>
+    <section id="tab-farm" class="tab active">
+      <h2 data-i18n="farm.title"></h2>
+      <div class="seed-picker" id="seedPicker"></div>
+      <div class="grid" id="farm"></div>
+      <p class="hint" data-i18n="farm.hint"></p>
+    </section>
+
+    <section id="tab-stake" class="tab">
+      <h2 data-i18n="stake.title"></h2>
+      <p class="hint" data-i18n="stake.hint"></p>
+      <div class="cards" id="stakeOptions"></div>
+      <h3><span data-i18n="stake.slots"></span> <small id="slotInfo"></small></h3>
+      <div id="stakes" class="list"></div>
+    </section>
+
+    <section id="tab-rank" class="tab">
+      <h2 data-i18n="rank.title"></h2>
+      <div class="prize"><span data-i18n="rank.prize"></span> <b id="prizePool">—</b> <span data-i18n="rank.prizeEnd"></span></div>
+      <p class="hint" data-i18n="rank.hint"></p>
+      <ol id="leaderboard" class="list"></ol>
+      <p class="hint"><span data-i18n="rank.left"></span> <b id="weekLeft"></b></p>
+    </section>
+
+    <section id="tab-vip" class="tab">
+      <h2 data-i18n="vip.title"></h2>
+      <div class="vip-card">
+        <div class="price">0.25 Pi <small data-i18n="vip.month"></small></div>
+        <ul>
+          <li data-i18n="vip.p1"></li>
+          <li data-i18n="vip.p2"></li>
+          <li data-i18n="vip.p3"></li>
+          <li data-i18n="vip.p4"></li>
+          <li data-i18n="vip.p5"></li>
+        </ul>
+        <p class="hint" id="vipStatus"></p>
+        <button id="buyVip" class="btn"></button>
+      </div>
+
+      <h2 data-i18n="daily.title"></h2>
+      <button id="dailyBtn" class="btn secondary"></button>
+
+      <h2 data-i18n="ref.title"></h2>
+      <div class="vip-card">
+        <p data-i18n="ref.desc"></p>
+        <div class="ref-row">
+          <input id="refLink" readonly data-i18n-ph="ref.placeholder">
+          <button id="copyRef" class="btn small" data-i18n="ref.copy"></button>
+        </div>
+        <p><span data-i18n="ref.balance"></span> <b id="refBalance">0</b> Pi · <span data-i18n="ref.count"></span> <b id="refCount">0</b></p>
+        <div class="row">
+          <button id="redeemVip" class="btn secondary small" data-i18n="ref.redeem"></button>
+          <button id="withdraw" class="btn secondary small" data-i18n="ref.withdraw"></button>
+        </div>
+        <p class="hint" data-i18n="ref.hint"></p>
+      </div>
+
+      <p class="hint terms" data-i18n="terms"></p>
+    </section>
+  </main>
+
+  <nav class="tabs">
+    <button data-tab="farm" class="active">🌾<span data-i18n="tab.farm"></span></button>
+    <button data-tab="stake">🏺<span data-i18n="tab.stake"></span></button>
+    <button data-tab="rank">🏆<span data-i18n="tab.rank"></span></button>
+    <button data-tab="vip">👑<span data-i18n="tab.vip"></span></button>
+  </nav>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="config.js"></script>
+  <script src="i18n.js"></script>
+  <script src="pi.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

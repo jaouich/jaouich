@@ -1,6 +1,8 @@
 name = "pi-oasis"
 main = "src/worker.js"
 compatibility_date = "2025-09-01"
+# Public link: https://pi-oasis.<account>.workers.dev
+workers_dev = true
 
 [assets]
 directory = "./public"

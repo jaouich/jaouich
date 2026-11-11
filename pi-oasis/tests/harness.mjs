@@ -30,7 +30,11 @@ globalThis.fetch = async (url, opt = {}) => {
     globalThis.__studioCalls = (globalThis.__studioCalls || 0) + 1;
     return users[t] ? new Response(JSON.stringify({ sessionToken: "st", user: users[t] })) : new Response("{}", { status: 401 });
   }
-  if (u.endsWith("/v2/me")) throw new Error("must not call /v2/me");
+  if (u.endsWith("/v2/me")) {
+    const t = (opt.headers?.Authorization || "").replace("Bearer ", "");
+    const devApp = { tokC: { uid: "uC", username: "carol" } };
+    return devApp[t] ? new Response(JSON.stringify(devApp[t])) : new Response("{}", { status: 401 });
+  }
   if (!u.startsWith("https://api.minepi.com/v2")) return realFetch(url, opt);
   const p = u.slice("https://api.minepi.com/v2".length);
   const auth = opt.headers.Authorization;

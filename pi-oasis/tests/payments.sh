@@ -35,5 +35,7 @@ check "alice VIP after resume" "$(curl -s $B/api/me -H "Authorization: Bearer $S
 check "alice got 10% of bob's payment (10% of 0.175)" "$(curl -s $B/api/me -H "Authorization: Bearer $SA")" '"referralBalance":0.0175'
 check "Pi /complete called exactly twice (p1, p6)" "$(curl -s $B/__test/completes)" '^2$'
 check "prize pool = 15% of 0.175 x 2 payments" "$(curl -s $B/api/leaderboard)" '"prizePool":0.0525'
+check "Developer Portal app sign-in (Pi /v2/me)" "$(P /api/auth '{"accessToken":"tokC"}')" '"username":"carol"'
+check "unknown token refused" "$(P /api/auth '{"accessToken":"nope"}')" session
 check "no session -> refused" "$(P /api/payments/approve '{"paymentId":"p1"}')" session
 echo "== $pass passed, $fail failed"

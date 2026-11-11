@@ -47,18 +47,32 @@ async function pi(env, path, { method = "GET", body } = {}) {
   return data;
 }
 
-async function appStudioLogin(accessToken) {
-  const r = await fetch(APP_STUDIO_LOGIN, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accessToken }),
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok || !data.user || !data.user.uid || !data.user.username) {
-    console.error("App Studio login", r.status, JSON.stringify(data));
+// Verifies a Pi access token on the server and returns the trusted identity.
+// 1) App Studio exchange (for the App Studio app).
+// 2) Otherwise the Pi Platform /v2/me check, which is the documented method for apps
+//    registered in the Pi Developer Portal (App Studio doesn't know those apps).
+async function verifyPiUser(accessToken) {
+  try {
+    const r = await fetch(APP_STUDIO_LOGIN, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessToken }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.ok && data.user && data.user.uid && data.user.username) {
+      return { uid: String(data.user.uid), username: String(data.user.username) };
+    }
+    console.log("App Studio login not accepted", r.status);
+  } catch (e) {
+    console.log("App Studio login unreachable", e && e.message);
+  }
+  const r = await fetch(`${PI_API}/me`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const me = await r.json().catch(() => ({}));
+  if (!r.ok || !me.uid || !me.username) {
+    console.error("Pi /me", r.status);
     throw new HttpError(r.status >= 500 ? 502 : 401, r.status >= 500 ? "server" : "session");
   }
-  return { uid: String(data.user.uid), username: String(data.user.username) };
+  return { uid: String(me.uid), username: String(me.username) };
 }
 
 // ---------- DB helpers ----------
@@ -124,7 +138,7 @@ const routes = {
   // Any uid/username sent by the browser is ignored.
   "POST /api/auth": async (req, env, body) => {
     if (!body.accessToken || typeof body.accessToken !== "string") bad("session");
-    const me = await appStudioLogin(body.accessToken);
+    const me = await verifyPiUser(body.accessToken);
     const now = Date.now();
     let u = await one(env, "SELECT * FROM users WHERE uid = ?", me.uid);
     if (!u) {

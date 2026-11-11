@@ -42,9 +42,23 @@ async function pi(env, path, { method = "GET", body } = {}) {
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
     console.error("Pi API", path, r.status, JSON.stringify(data));
-    throw new HttpError(r.status === 401 ? 401 : 502, r.status === 401 ? "session" : "server");
+    await logError(env, `Pi API ${method} ${path}`, r.status, data.error_message || data.error || data.message || "");
+    // A Pi API failure is a server-side problem (e.g. wrong API key), never the player's session
+    throw new HttpError(502, "server");
   }
   return data;
+}
+
+// Recent server errors, kept so problems can be diagnosed without dashboard access.
+// Never stores secrets: only the route, HTTP status and Pi's error message.
+async function logError(env, where, status, message) {
+  try {
+    await ensureSchema(env);
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO errlog (at, place, status, message) VALUES (?, ?, ?, ?)").bind(Date.now(), String(where).slice(0, 200), status || 0, String(message).slice(0, 300)),
+      env.DB.prepare("DELETE FROM errlog WHERE at < ?").bind(Date.now() - 7 * DAY),
+    ]);
+  } catch {}
 }
 
 // Verifies a Pi access token on the server and returns the trusted identity.
@@ -101,6 +115,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS weeks ( id INTEGER PRIMARY KEY, prize_pool REAL NOT NULL DEFAULT 0, paid INTEGER NOT NULL DEFAULT 0 )",
   "CREATE TABLE IF NOT EXISTS withdrawals ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, username TEXT NOT NULL, amount REAL NOT NULL, status TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS ads ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, created_at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS errlog ( at INTEGER NOT NULL, place TEXT NOT NULL, status INTEGER, message TEXT )",
 ];
 let schemaReady = null;
 const ensureSchema = (env) =>
@@ -245,6 +260,16 @@ const routes = {
   },
 
   // ---------- Leaderboard ----------
+  // Health check: is the server set up, and what failed recently (no secrets shown)
+  "GET /api/status": async (req, env) => {
+    const errors = await all(env, "SELECT at, place, status, message FROM errlog ORDER BY at DESC LIMIT 10");
+    return {
+      piApiKeyConfigured: !!env.PI_NETWORK_API_KEY,
+      adminTokenConfigured: !!env.ADMIN_TOKEN,
+      recentErrors: errors.map((e) => ({ ...e, at: new Date(e.at).toISOString() })),
+    };
+  },
+
   "GET /api/leaderboard": async (req, env) => {
     const wid = L.weekId(Date.now());
     const w = await one(env, "SELECT prize_pool FROM weeks WHERE id = ?", wid);
@@ -371,6 +396,7 @@ export default {
       if (e instanceof HttpError) return json({ error: e.code }, e.status);
       if (e instanceof SyntaxError) return json({ error: "badAction" }, 400);
       console.error(e && e.stack);
+      await logError(env, `${req.method} ${url.pathname}`, 500, (e && e.message) || "error");
       return json({ error: "server" }, 500);
     }
   },

@@ -48,3 +48,9 @@ CREATE TABLE IF NOT EXISTS ads (
   uid TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS errlog (
+  at INTEGER NOT NULL,
+  place TEXT NOT NULL,
+  status INTEGER,
+  message TEXT
+);

@@ -6,10 +6,11 @@ compatibility_date = "2025-09-01"
 directory = "./public"
 binding = "ASSETS"
 
+# No database_id: Wrangler creates the D1 database in the deploying account
+# automatically on first deploy. The Worker creates its own tables (src/worker.js).
 [[d1_databases]]
 binding = "DB"
 database_name = "pi-oasis-db"
-database_id = "6a348503-955f-4d8a-906c-515ab5317aed"
 
 # Secrets (set in the Cloudflare dashboard, never in this file):
 #   PI_API_KEY   – from the Pi Developer Portal

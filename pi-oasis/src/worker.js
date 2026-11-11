@@ -31,7 +31,7 @@ async function pi(env, path, { method = "GET", body } = {}) {
     method,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Key ${env.PI_API_KEY}`,
+      Authorization: `Key ${env.PI_NETWORK_API_KEY}`,
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -166,31 +166,39 @@ const routes = {
   },
 
   // ---------- Payments (User → App) ----------
+  // Product: VIP membership, 0.25 Pi, metadata { type: "vip_month" } (server-owned price).
   "POST /api/payments/approve": async (req, env, body) => {
     const u = await auth(req, env);
     const id = String(body.paymentId || "");
+    if (!id) bad("badPayment");
     const p = await pi(env, `/payments/${encodeURIComponent(id)}`);
-    if (p.user_uid !== u.uid) bad("notYours");
-    if (Number(p.amount) !== VIP_PRICE || p.metadata?.type !== "vip_month") bad("badPayment");
-    await pi(env, `/payments/${encodeURIComponent(id)}/approve`, { method: "POST" });
-    await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'approved', ?)", id, u.uid, VIP_PRICE, Date.now());
+    checkPayment(p, u.uid);
+    // Persist the payment id before approving (irreversible on Pi's side)
+    await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'pending', ?)", id, u.uid, VIP_PRICE, Date.now());
+    const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
+    if (row.uid !== u.uid) bad("notYours");
+    if (!p.status?.developer_approved) await pi(env, `/payments/${encodeURIComponent(id)}/approve`, { method: "POST" });
+    await run(env, "UPDATE payments SET status = 'approved' WHERE id = ? AND status = 'pending'", id);
     return { ok: true };
   },
 
   "POST /api/payments/complete": async (req, env, body) => {
     const u = await auth(req, env);
     if (!body.paymentId || !body.txid) bad("badPayment");
-    await completePayment(env, String(body.paymentId), String(body.txid));
+    await completePayment(env, String(body.paymentId), String(body.txid), u.uid);
     const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
     return { ok: true, account: await account(env, fresh) };
   },
 
-  // A payment that didn't finish earlier (e.g. connection lost)
+  // A payment that didn't finish earlier (e.g. connection lost). Called during sign-in,
+  // before our session exists, so everything is re-checked with Pi and our own records.
   "POST /api/payments/incomplete": async (req, env, body) => {
-    const p = body.payment;
-    const txid = p?.transaction?.txid;
-    if (!p?.identifier || !txid) return { ok: false };
-    await completePayment(env, String(p.identifier), String(txid));
+    const id = body.payment?.identifier;
+    if (!id) return { ok: false };
+    const p = await pi(env, `/payments/${encodeURIComponent(String(id))}`);
+    const txid = p.transaction?.txid;
+    if (!txid) return { ok: false }; // user never sent the transaction: nothing to complete
+    await completePayment(env, String(id), String(txid), null);
     return { ok: true };
   },
 
@@ -249,15 +257,28 @@ const routes = {
   },
 };
 
-async function completePayment(env, id, txid) {
-  const p = await pi(env, `/payments/${encodeURIComponent(id)}`);
+// Checks a Pi payment against what this app sells. Browser input is never trusted.
+function checkPayment(p, uid) {
+  if (p.direction && p.direction !== "user_to_app") bad("badPayment");
+  if (uid && p.user_uid !== uid) bad("notYours");
   if (Number(p.amount) !== VIP_PRICE || p.metadata?.type !== "vip_month") bad("badPayment");
+  if (p.status?.cancelled || p.status?.user_cancelled) bad("badPayment");
+}
+
+async function completePayment(env, id, txid, uid) {
+  const p = await pi(env, `/payments/${encodeURIComponent(id)}`);
+  checkPayment(p, uid);
+  // Must be a payment this server approved for this same user
+  const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
+  if (!row || row.uid !== p.user_uid) bad("badPayment");
+  if (row.status === "completed") return; // already granted: idempotent
+  // The txid must be the one Pi recorded for this payment
+  if (!p.transaction || p.transaction.txid !== txid) bad("badPayment");
   if (!p.status?.developer_completed) {
     await pi(env, `/payments/${encodeURIComponent(id)}/complete`, { method: "POST", body: { txid } });
   }
   const now = Date.now();
-  await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'approved', ?)", id, p.user_uid, VIP_PRICE, now);
-  // Mark completed once; only the first call credits anything
+  // Mark completed once; only the first call grants VIP and credits anything
   const r = await run(env, "UPDATE payments SET status = 'completed', txid = ? WHERE id = ? AND status != 'completed'", txid, id);
   if (!r.meta.changes) return;
   const u = await one(env, "SELECT * FROM users WHERE uid = ?", p.user_uid);

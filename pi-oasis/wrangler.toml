@@ -15,5 +15,5 @@ binding = "DB"
 database_name = "pi-oasis-db"
 
 # Secrets (set in the Cloudflare dashboard, never in this file):
-#   PI_API_KEY   – from the Pi Developer Portal
+#   PI_NETWORK_API_KEY – Pi Developers → this app → Settings → API key
 #   ADMIN_TOKEN  – a long password of your choice

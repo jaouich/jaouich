@@ -29,9 +29,15 @@ wrangler.toml  Cloudflare config (D1 database "pi-oasis-db")
 
 ## Deploy (Cloudflare)
 1. Cloudflare dashboard → **Workers & Pages → Create → Import a repository** → this repo, root directory `pi-oasis`
-2. Worker **Settings → Variables and Secrets** → add secrets `PI_API_KEY` (Pi Developer Portal) and `ADMIN_TOKEN` (any long password)
+2. Worker **Settings → Variables and Secrets** → add secrets `PI_NETWORK_API_KEY` (Pi Developers → this app → Settings → API key) and `ADMIN_TOKEN` (any long password)
 3. Database tables: run `schema.sql` on `pi-oasis-db` (already done for the current database)
 
 ## Still to do before real prizes
 - **Sending Pi to winners / referral withdrawals (App → User)** isn't automated yet. `GET /api/admin/payouts` (header `x-admin-token`) lists who to pay.
 - Read the **Pi Developer Terms** about prizes and referrals.
+
+## Tests
+```bash
+node --no-warnings tests/harness.mjs &   # Worker + SQLite + fake Pi API/App Studio on :3457
+bash tests/payments.sh                   # U2A payment checks (16 cases)
+```

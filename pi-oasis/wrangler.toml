@@ -18,14 +18,3 @@ database_name = "pi-oasis-db"
 #   PI_NETWORK_API_KEY – Pi Developers → this app → Settings → API key
 #   ADMIN_TOKEN  – a long password of your choice
 
-# Second copy of the game for the Pi Developer Portal app "Oasis pi JDT".
-# Pi links a domain to one app, so this app needs its own address:
-#   https://pi-oasis-jdt.jaouich.workers.dev
-# Deploy with: npx wrangler deploy --env jdt
-[env.jdt]
-name = "pi-oasis-jdt"
-workers_dev = true
-
-[[env.jdt.d1_databases]]
-binding = "DB"
-database_name = "pi-oasis-jdt-db"

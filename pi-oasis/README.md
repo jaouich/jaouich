@@ -40,6 +40,14 @@ wrangler.toml  Cloudflare config (D1 database "pi-oasis-db")
 - **Sending Pi to winners / referral withdrawals (App → User)** isn't automated yet. `GET /api/admin/payouts` (header `x-admin-token`) lists who to pay.
 - Read the **Pi Developer Terms** about prizes and referrals.
 
+## Pi apps
+- **Oasis pi JDT** (Pi Developer Portal, Testnet) – app URL `https://pi-oasis.jaouich.workers.dev`, app wallet
+  [GCFCP…PSNU4](https://blockexplorer.minepi.com/testnet/accounts/GCFCPBGLHIBERD22GROFLC42XR6KO7DZKTMV4PRNQTV4GKTAHN4PSNU4).
+  VIP payment (0.25 Test-Pi) verified end to end in Pi Browser.
+- **Pi Oasis** (App Studio) – earlier registration; its payments can't be approved (no API key).
+
+`GET /api/status` shows whether the API key is set and recent server errors (no secrets).
+
 ## Tests
 ```bash
 node --no-warnings tests/harness.mjs &   # Worker + SQLite + fake Pi API/App Studio on :3457

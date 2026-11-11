@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f7d4f"/>
+      <stop offset="0.55" stop-color="#3f9a63"/>
+      <stop offset="1" stop-color="#f2c45a"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe9a3"/>
+      <stop offset="1" stop-color="#f6b83c"/>
+    </linearGradient>
+    <linearGradient id="dune" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f1d49a"/>
+      <stop offset="1" stop-color="#d9a965"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4fb3c9"/>
+      <stop offset="1" stop-color="#2d8fb0"/>
+    </linearGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#d99a1e"/>
+    </linearGradient>
+    <clipPath id="r"><rect width="512" height="512" rx="112"/></clipPath>
+  </defs>
+  <g clip-path="url(#r)">
+    <rect width="512" height="512" fill="url(#sky)"/>
+    <!-- sun -->
+    <circle cx="256" cy="300" r="120" fill="url(#sun)" opacity="0.95"/>
+    <!-- dunes -->
+    <path d="M0 360 C110 320 190 330 270 360 C350 390 430 360 512 330 L512 512 L0 512 Z" fill="url(#dune)"/>
+    <path d="M0 410 C120 380 230 400 320 425 C400 447 460 430 512 415 L512 512 L0 512 Z" fill="#c9924f" opacity="0.55"/>
+    <!-- oasis pool -->
+    <ellipse cx="300" cy="402" rx="120" ry="24" fill="url(#water)"/>
+    <ellipse cx="282" cy="396" rx="60" ry="6" fill="#bfe9f2" opacity="0.7"/>
+    <!-- palm trunk -->
+    <path d="M214 400 C220 330 236 260 262 200 L278 206 C254 266 240 334 236 400 Z" fill="#7a4b2a"/>
+    <g stroke="#5e3920" stroke-width="5" stroke-linecap="round" opacity="0.6">
+      <line x1="222" y1="370" x2="240" y2="372"/>
+      <line x1="226" y1="335" x2="245" y2="338"/>
+      <line x1="233" y1="300" x2="252" y2="304"/>
+      <line x1="241" y1="266" x2="260" y2="271"/>
+      <line x1="251" y1="233" x2="268" y2="238"/>
+    </g>
+    <!-- palm fronds -->
+    <g fill="#1f6b3e">
+      <path d="M268 200 C226 160 170 156 120 182 C170 176 214 188 252 216 Z"/>
+      <path d="M268 200 C250 148 206 118 150 120 C200 136 236 166 256 210 Z"/>
+      <path d="M270 198 C286 146 326 116 382 112 C334 134 302 166 284 210 Z"/>
+      <path d="M272 202 C318 166 376 166 420 196 C370 186 326 196 288 222 Z"/>
+      <path d="M270 200 C270 150 252 110 220 86 C258 104 284 140 286 200 Z" fill="#2a8a52"/>
+      <path d="M272 204 C300 214 330 246 340 290 C318 258 296 238 268 224 Z" fill="#2a8a52"/>
+      <path d="M266 204 C236 218 210 250 200 292 C220 260 244 240 272 226 Z" fill="#2a8a52"/>
+    </g>
+    <!-- dates -->
+    <g fill="#8b3a1a">
+      <ellipse cx="256" cy="222" rx="9" ry="12"/>
+      <ellipse cx="274" cy="226" rx="9" ry="12"/>
+      <ellipse cx="265" cy="238" rx="9" ry="12"/>
+    </g>
+    <!-- gold date coin -->
+    <g transform="translate(392 380)">
+      <circle r="62" fill="#b07a12"/>
+      <circle r="56" fill="url(#coin)"/>
+      <circle r="44" fill="none" stroke="#b07a12" stroke-width="5" opacity="0.6"/>
+      <path d="M0 -26 C16 -26 22 -10 22 4 C22 20 12 30 0 30 C-12 30 -22 20 -22 4 C-22 -10 -16 -26 0 -26 Z" fill="#8b3a1a"/>
+      <path d="M-6 -18 C-12 -10 -14 0 -12 10" stroke="#c46a3a" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <path d="M0 -26 C2 -34 8 -38 14 -40" stroke="#2a8a52" stroke-width="5" fill="none" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

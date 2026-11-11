@@ -32,7 +32,8 @@ P /api/payments/approve '{"paymentId":"p6"}' $SA >/dev/null
 pay '{"id":"p6","uid":"uA","amount":0.25,"txid":"tx6"}'
 check "incomplete payment resumed" "$(P /api/payments/incomplete '{"payment":{"identifier":"p6","transaction":{"txid":"FAKE"}}}')" '"ok":true'
 check "alice VIP after resume" "$(curl -s $B/api/me -H "Authorization: Bearer $SA")" '"vipUntil":[1-9]'
-check "alice got 10% of bob's payment" "$(curl -s $B/api/me -H "Authorization: Bearer $SA")" '"referralBalance":0.025'
+check "alice got 10% of bob's payment (10% of 0.175)" "$(curl -s $B/api/me -H "Authorization: Bearer $SA")" '"referralBalance":0.0175'
 check "Pi /complete called exactly twice (p1, p6)" "$(curl -s $B/__test/completes)" '^2$'
+check "prize pool = 15% of 0.175 x 2 payments" "$(curl -s $B/api/leaderboard)" '"prizePool":0.0525'
 check "no session -> refused" "$(P /api/payments/approve '{"paymentId":"p1"}')" session
 echo "== $pass passed, $fail failed"

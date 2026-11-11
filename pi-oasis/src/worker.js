@@ -10,8 +10,12 @@ const PI_API = "https://api.minepi.com/v2";
 const APP_STUDIO_LOGIN = "https://backend.appstudio-u7cm9zhmha0ruwv8.piappengine.com/pi/auth/v1/login";
 const VIP_PRICE = 0.25;
 const VIP_DAYS = 30;
-const REFERRAL_RATE = 0.1; // 10% on every monthly renewal
-const PRIZE_RATE = 0.15; // 15% goes to the weekly prize pool
+// On Mainnet Pi keeps 30% of App Studio item sales, so the app receives 70%.
+// Referral and prize shares are taken from what the app actually receives.
+const APP_SHARE = 0.7;
+const NET = VIP_PRICE * APP_SHARE; // 0.175 Pi
+const REFERRAL_RATE = 0.1; // 10% of NET on every monthly renewal
+const PRIZE_RATE = 0.15; // 15% of NET goes to the weekly prize pool
 const PRIZE_SPLIT = [0.5, 0.3, 0.2];
 const MIN_WITHDRAW = 1;
 const SESSION_DAYS = 30;
@@ -284,12 +288,12 @@ async function completePayment(env, id, txid, uid) {
   const u = await one(env, "SELECT * FROM users WHERE uid = ?", p.user_uid);
   const wid = L.weekId(now);
   const stmts = [
-    env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(wid, round(VIP_PRICE * PRIZE_RATE)),
+    env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(wid, round(NET * PRIZE_RATE)),
   ];
   if (u) {
     stmts.push(env.DB.prepare("UPDATE users SET vip_until = MAX(vip_until, ?) + ? WHERE uid = ?").bind(now, VIP_DAYS * DAY, u.uid));
     if (u.referrer) {
-      stmts.push(env.DB.prepare("UPDATE users SET ref_balance = ROUND(ref_balance + ?, 7) WHERE uid = ?").bind(round(VIP_PRICE * REFERRAL_RATE), u.referrer));
+      stmts.push(env.DB.prepare("UPDATE users SET ref_balance = ROUND(ref_balance + ?, 7) WHERE uid = ?").bind(round(NET * REFERRAL_RATE), u.referrer));
       stmts.push(env.DB.prepare("UPDATE payments SET referrer_uid = ? WHERE id = ?").bind(u.referrer, id));
     }
   }

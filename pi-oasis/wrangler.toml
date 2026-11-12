@@ -45,8 +45,8 @@ name = "jaouich"
 workers_dev = true
 
 [env.main.vars]
-VALIDATION_KEY = ""
-PUBLIC_URL = ""
+VALIDATION_KEY = "cfb33204e47b668bdf431d538a789aee8d5c9ad41e8776add3badba149589757ed2624b7483fcfa080e4a303b76e13805a954244fb95e966be6fa5d9049c21f3"
+PUBLIC_URL = "https://jaouich.jaouich.workers.dev"
 ADMIN_USERNAMES = "jaouich"
 
 [[env.main.d1_databases]]

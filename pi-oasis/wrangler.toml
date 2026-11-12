@@ -38,9 +38,10 @@ crons = ["23 * * * *"]
 # Mainnet app gets its own address, database and secrets:
 #   https://pi-oasis-main.jaouich.workers.dev
 # Deploy: npx wrangler deploy --env main
-# Secrets to set on the "pi-oasis-main" Worker: PI_NETWORK_API_KEY, PI_WALLET_SEED
+# Secrets to set on the "jaouich" (Mainnet) Worker: PI_NETWORK_API_KEY, PI_WALLET_SEED
 [env.main]
-name = "pi-oasis-main"
+# Must match the Worker name in the Cloudflare dashboard (Workers Builds checks this)
+name = "jaouich"
 workers_dev = true
 
 [env.main.vars]

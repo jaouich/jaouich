@@ -359,6 +359,18 @@
     if (!account) return toast(t("t.loginFirst"));
     navigator.clipboard?.writeText($("refLink").value).then(() => toast(t("t.copied")), () => $("refLink").select());
   });
+  // A link can't force Pi Browser to open, so offer a ready-made message and a pi:// link as well
+  $("copyPiRef").addEventListener("click", () => {
+    if (!account) return toast(t("t.loginFirst"));
+    const link = $("refLink").value.replace(/^https?:\/\//, "pi://");
+    navigator.clipboard?.writeText(link).then(() => toast(t("t.copied")), () => {});
+  });
+  $("shareRef").addEventListener("click", async () => {
+    if (!account) return toast(t("t.loginFirst"));
+    const text = t("share.text", { link: $("refLink").value, code: account.username });
+    try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+    navigator.clipboard?.writeText(text).then(() => toast(t("t.copied")), () => {});
+  });
   $("saveInviter").addEventListener("click", async () => {
     if (!account) return toast(t("t.loginFirst"));
     const name = $("inviterInput").value.trim().replace(/^@/, "");

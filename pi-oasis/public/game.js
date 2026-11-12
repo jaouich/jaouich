@@ -88,6 +88,7 @@
     const before = S.dates;
     const done = (state, msg) => {
       S = state; render(); toast(msgText(msg));
+      if (msg && (msg.key === "t.levelUp" || msg.key === "t.streakBonus")) burst();
       if (S.dates > before) fly(S.dates - before);
     };
     if (!account) {
@@ -346,6 +347,7 @@
       const res = await Pi.buyVip(b.dataset.buy);
       account = res.account;
       toast(t("t.memberOk", { tier: tierName(myTier()) }));
+      burst();
     } catch (err) { toast(err.message); }
     render();
   });
@@ -438,8 +440,109 @@
   document.addEventListener("langchange", () => {
     if (account) $("userLabel").textContent = t("welcome", { name: account.username });
     renderSeeds(); renderStakeOptions(); render();
+    if (tourI >= 0) showTour(tourI);
+    if (helpOpen()) renderHelp();
     if (document.querySelector("#tab-rank.active")) renderRank();
     if (account && account.isAdmin) partners("list");
+  });
+
+  // ---------- Daily missions ----------
+  const M_ICON = { harvest: "🌾", plant: "🌱", deliver: "📦", craft: "🥖", stake: "🏺", collect: "🐪" };
+  function renderMissions() {
+    const m = S.missions;
+    const nextBonus = Math.min(m.streak + 1, L.STREAK.MAX) * L.STREAK.BONUS;
+    $("missions").innerHTML =
+      `<div class="mhead"><span>${t("mission.title")}</span><span class="streak">${m.streak ? t("mission.streak", { n: m.streak }) : ""}</span></div>` +
+      m.list.map((x, i) => {
+        const ready = x.p >= x.n && !x.c;
+        return `<div class="mission"><span class="mi">${M_ICON[x.k]}</span>
+          <div class="mt"><b>${esc(t("mission." + x.k, { n: x.n }))}</b><div class="mbar"><i style="width:${(x.p / x.n) * 100}%"></i></div></div>
+          <div class="mr">🪙 ${x.r}<br><small>${x.p}/${x.n}</small></div>
+          ${x.c ? `<span class="chip-ok">${t("mission.claimed")}</span>` : `<button class="btn small ${ready ? "gold" : ""}" data-mission="${i}" ${ready ? "" : "disabled"}>${t("mission.claim")}</button>`}</div>`;
+      }).join("") + (m.done ? "" : `<p class="hint" style="margin:8px 0 0">${t("mission.bonus", { n: nextBonus })}</p>`);
+  }
+  $("missions").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-mission]");
+    if (b && !b.disabled) act({ type: "mission", index: +b.dataset.mission });
+  });
+
+  // Red dots on the tabs: something is waiting for you there
+  function renderBadges() {
+    const n = now(), c = S.city;
+    const set = (tab, on) => { const d = document.querySelector(`.tabs [data-tab="${tab}"] .dot`); if (d) d.classList.toggle("hidden", !on); };
+    set("farm", S.plots.some((p) => p && L.readyAt(p) <= n) || S.missions.list.some((x) => x.p >= x.n && !x.c));
+    set("camels", S.animals.some((a) => L.animalReady(a, n) >= 10));
+    set("city", c.tiles.some((x) => x && x.job && x.job.end <= n) || L.taxPending(c, n) >= 1 ||
+      c.orders.some((o) => o.need && Object.keys(o.need).every((g) => (c.goods[g] || 0) >= o.need[g])));
+    set("stake", S.stakes.some((s) => s.end <= n));
+    set("vip", S.lastDaily !== L.dayId(n));
+  }
+
+  // Small celebration (level up, streak bonus…)
+  function burst() {
+    const list = ["🎉", "✨", "🪙", "⭐", "🌴"];
+    for (let i = 0; i < 22; i++) {
+      const el = document.createElement("div");
+      const a = Math.random() * Math.PI * 2, d = 90 + Math.random() * 140;
+      el.className = "confetti";
+      el.textContent = list[i % list.length];
+      el.style.setProperty("--dx", Math.cos(a) * d + "px");
+      el.style.setProperty("--dy", Math.sin(a) * d - 40 + "px");
+      el.style.setProperty("--rot", Math.random() * 540 - 270 + "deg");
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1200);
+    }
+  }
+
+  // ---------- Guide: first-time tour + help center ----------
+  const TOUR = [null, "farm", "camels", "city", "stake", "rank", "vip", null];
+  const HELP = ["basics", "farm", "camels", "city", "granary", "ranking", "club", "referral", "missions", "safety", "faq"];
+  let tourI = -1;
+  const goTab = (tab) => document.querySelector(`.tabs [data-tab="${tab}"]`).click();
+  function showTour(i) {
+    tourI = i;
+    const tab = TOUR[i];
+    if (tab) goTab(tab);
+    document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("ring", !!tab && b.dataset.tab === tab));
+    const last = i === TOUR.length - 1;
+    $("tour").classList.remove("hidden");
+    $("tour").innerHTML = `<div class="tour-dots">${TOUR.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div>
+      <h3>${t(`tour.s${i + 1}.t`)}</h3><p>${t(`tour.s${i + 1}.d`)}</p>
+      <div class="tour-actions">${i > 0 ? `<button class="btn secondary small" data-tour="back">${t("tour.back")}</button>` : ""}
+        <button class="btn ${last ? "gold" : ""}" data-tour="next">${last ? t("tour.finish") : t("tour.next")}</button>
+        ${last ? "" : `<button class="skip" data-tour="skip">${t("tour.skip")}</button>`}</div>`;
+  }
+  function endTour() {
+    tourI = -1;
+    $("tour").classList.add("hidden");
+    document.querySelectorAll(".tabs button").forEach((b) => b.classList.remove("ring"));
+    try { localStorage.setItem("oasis_tour", "1"); } catch {}
+    goTab("farm");
+  }
+  $("tour").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tour]");
+    if (!b) return;
+    if (b.dataset.tour === "skip") return endTour();
+    if (b.dataset.tour === "back") return showTour(tourI - 1);
+    if (tourI >= TOUR.length - 1) return endTour();
+    showTour(tourI + 1);
+  });
+  function renderHelp() {
+    $("helpCard").innerHTML = `<div class="grab"></div><h3>${t("help.title")}</h3><p class="hint">${t("help.intro")}</p>` +
+      HELP.map((k, i) => `<details class="hsec" ${i === 0 ? "open" : ""}><summary>${t(`help.${k}.t`)}</summary><p>${t(`help.${k}.d`)}</p></details>`).join("") +
+      `<button class="btn" data-replay style="margin-top:10px">${t("help.replay")}</button>
+       <button class="btn secondary" data-close style="margin-top:8px">${t("help.close")}</button>`;
+  }
+  const helpOpen = () => !$("help").classList.contains("hidden");
+  function openHelp() { renderHelp(); $("help").classList.remove("hidden"); }
+  const closeHelp = () => $("help").classList.add("hidden");
+  $("helpBtn").addEventListener("click", openHelp);
+  $("helpBg").addEventListener("click", closeHelp);
+  $("helpCard").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.close !== undefined) closeHelp();
+    if (b.dataset.replay !== undefined) { closeHelp(); showTour(0); }
   });
 
   // ---------- Oasis City ----------
@@ -614,7 +717,7 @@
   function render() {
     S = L.normalize(S, now());
     $("dates").textContent = S.dates.toLocaleString("en-US");
-    renderFarm(); renderStakes(); renderClub(); renderCamels(); renderCity();
+    renderFarm(); renderStakes(); renderClub(); renderCamels(); renderCity(); renderMissions(); renderBadges();
     if (selTile >= 0 && !$("sheet").classList.contains("hidden")) renderSheet();
     if (!document.activeElement || document.activeElement.id !== "stakeAmt") renderStakeOptions();
   }
@@ -649,12 +752,16 @@
   if (OLD_APPS.some((h) => parents.includes(h))) enterOldApp();
 
   window.I18N.apply();
+  // First visit: start the guided tour once the screen has settled
+  try {
+    if (!localStorage.getItem("oasis_tour")) setTimeout(() => { if ($("gate").classList.contains("hidden") && tourI < 0) showTour(0); }, 1400);
+  } catch {}
   setSky();
   setInterval(setSky, 60000);
   renderSeeds();
   render();
   setInterval(() => {
-    renderFarm(); renderStakes();
+    renderFarm(); renderStakes(); renderBadges();
     if (document.querySelector("#tab-camels.active")) renderCamels();
     if (document.querySelector("#tab-city.active")) { renderCity(); maybeCityTick(); }
   }, 1000);

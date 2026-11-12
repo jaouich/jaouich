@@ -127,6 +127,42 @@
     return cityLevel(city.xp) > before;
   }
 
+  // ---------- Daily missions ----------
+  // Three missions per day, picked from a pool by a seed that depends on the day, so the
+  // server and the screen always agree. Finishing all three grows a streak with a bonus.
+  const MISSION_POOL = [
+    { k: "harvest", n: 15, r: 120 },
+    { k: "plant", n: 20, r: 100 },
+    { k: "deliver", n: 3, r: 220 },
+    { k: "craft", n: 4, r: 150 },
+    { k: "stake", n: 1, r: 80 },
+    { k: "collect", n: 2, r: 90 },
+  ];
+  const STREAK = { BONUS: 40, MAX: 7 };
+  function seeded(seed) { // small deterministic random generator (mulberry32)
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function newMissions(prev, now) {
+    const day = Math.floor(now / 86400000), r = seeded(day * 2654435761 + 12345);
+    const pool = MISSION_POOL.slice(), list = [];
+    for (let i = 0; i < 3; i++) {
+      const m = pool.splice(Math.floor(r() * pool.length), 1)[0];
+      list.push({ k: m.k, n: m.n, r: m.r, p: 0, c: false });
+    }
+    const streak = prev && prev.done && prev.day === day - 1 ? prev.streak : 0;
+    return { day, list, streak, done: false };
+  }
+  function track(s, k, amount) {
+    const m = s.missions.list.find((x) => x.k === k);
+    if (m && m.p < m.n) m.p = Math.min(m.n, m.p + amount);
+  }
+
   // Memberships. "partner" is never sold: Jerry Development grants it to its partners.
   // Bonuses give more dates but never count toward the weekly ranking (see earn()).
   const TIERS = [
@@ -159,6 +195,7 @@
     if (s.week.id !== weekId(now)) s.week = { id: weekId(now), score: 0 };
     if (!Array.isArray(s.animals)) { s.animals = []; s.nextAnimal = 1; }
     if (!s.city) s.city = freshCity(now);
+    if (!s.missions || s.missions.day !== Math.floor(now / 86400000)) s.missions = newMissions(s.missions, now);
     return s;
   }
 
@@ -204,6 +241,7 @@
         if (s.dates < seed.cost) fail("notEnough");
         s.dates -= seed.cost;
         s.plots[i] = { seed: seed.id, plantedAt: now };
+        track(s, "plant", 1);
         return { s, msg: { key: "t.planted", vars: { seed: seed.id } } };
       }
       case "harvest": {
@@ -213,6 +251,7 @@
         const seed = seedById(p.seed);
         s.plots[i] = null;
         earn(s, seed.yield);
+        track(s, "harvest", 1);
         return { s, msg: { key: "t.harvested", vars: { n: seed.yield } } };
       }
       case "speedup": {
@@ -231,6 +270,7 @@
         const profit = Math.floor(amt * o.rate * (1 + perks.boost));
         s.dates -= amt;
         s.stakes.push({ amt, profit, base, opt: o.id, end: now + o.secs * 1000 });
+        track(s, "stake", 1);
         return { s, msg: { key: "t.staked", vars: { a: amt, b: amt + profit } } };
       }
       case "claim": {
@@ -273,6 +313,7 @@
         });
         if (!total) fail("notReady");
         earn(s, scored, total - scored);
+        track(s, "collect", 1);
         return { s, msg: { key: "t.collected", vars: { n: total } } };
       }
       case "breed": {
@@ -287,6 +328,22 @@
         if (r < A.MAX_BRED_RARITY && rand() < A.UPGRADE_CHANCE) r++;
         const baby = addAnimal(s, r, now, "bred");
         return { s, msg: { key: "t.babyCamel", vars: { r: RARITY[baby.rarity].id } } };
+      }
+      case "mission": {
+        const i = int(a.index), m = s.missions.list[i];
+        if (!m || m.c) fail("badAction");
+        if (m.p < m.n) fail("missionNotDone");
+        m.c = true;
+        const bonus = Math.floor(m.r * perks.boost);
+        earn(s, m.r, bonus);
+        if (s.missions.list.every((x) => x.c) && !s.missions.done) {
+          s.missions.done = true;
+          s.missions.streak++;
+          const sb = Math.min(s.missions.streak, STREAK.MAX) * STREAK.BONUS, sbb = Math.floor(sb * perks.boost);
+          earn(s, sb, sbb);
+          return { s, msg: { key: "t.streakBonus", vars: { n: m.r + bonus + sb + sbb, s: s.missions.streak } } };
+        }
+        return { s, msg: { key: "t.missionDone", vars: { n: m.r + bonus } } };
       }
       // ---------- Oasis City ----------
       case "cityTick":
@@ -342,6 +399,7 @@
         if (s.dates < price) fail("notEnough");
         s.dates -= price;
         t.job = { g: def.good, qty, end: now + jobMs(def, t.lvl, qty) };
+        track(s, "craft", qty);
         return { s, msg: { key: "t.crafting", vars: { good: def.good, n: qty } } };
       }
       case "cityCollect":
@@ -378,6 +436,7 @@
         const bonus = Math.floor(o.reward * perks.boost);
         earn(s, o.reward, bonus);
         city.orders[i] = { wait: now + CITY.ORDER_COOLDOWN * 1000 };
+        track(s, "deliver", 1);
         const up = addXp(city, o.xp);
         return { s, msg: up ? { key: "t.levelUp", vars: { n: cityLevel(city.xp) } } : { key: "t.orderDone", vars: { n: o.reward + bonus } } };
       }
@@ -386,6 +445,6 @@
     }
   }
 
-  const api = { GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

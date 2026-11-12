@@ -46,11 +46,14 @@
     </svg>
     <div class="hero-top">
       <div class="brand"><img src="logo.svg" alt="" width="34" height="34"><span data-i18n="brand"></span></div>
-      <select id="langSelect" class="lang" aria-label="Language">
-        <option value="en">EN</option>
-        <option value="ar">ع</option>
-        <option value="fr">FR</option>
-      </select>
+      <div class="hero-tools">
+        <button id="helpBtn" class="help-btn" type="button" aria-label="Guide">?</button>
+        <select id="langSelect" class="lang" aria-label="Language">
+          <option value="ar">ع</option>
+          <option value="en">EN</option>
+          <option value="fr">FR</option>
+        </select>
+      </div>
     </div>
     <div class="hero-stats">
       <div class="coin-pill" id="coinPill"><span class="coin">🪙</span><b id="dates">0</b></div>
@@ -79,6 +82,7 @@
 
   <main>
     <section id="tab-farm" class="tab active">
+      <div id="missions" class="missions"></div>
       <h2 data-i18n="farm.title"></h2>
       <div class="seed-picker" id="seedPicker"></div>
       <div class="grid" id="farm"></div>
@@ -193,14 +197,19 @@
   </main>
 
   <nav class="tabs">
-    <button data-tab="farm" class="active"><i>🌾</i><span data-i18n="tab.farm"></span></button>
-    <button data-tab="camels"><i>🐪</i><span data-i18n="tab.camels"></span></button>
-    <button data-tab="city"><i>🏙️</i><span data-i18n="tab.city"></span></button>
-    <button data-tab="stake"><i>🏺</i><span data-i18n="tab.stake"></span></button>
-    <button data-tab="rank"><i>🏆</i><span data-i18n="tab.rank"></span></button>
-    <button data-tab="vip"><i>👑</i><span data-i18n="tab.vip"></span></button>
+    <button data-tab="farm" class="active"><i>🌾</i><span data-i18n="tab.farm"></span><b class="dot hidden"></b></button>
+    <button data-tab="camels"><i>🐪</i><span data-i18n="tab.camels"></span><b class="dot hidden"></b></button>
+    <button data-tab="city"><i>🏙️</i><span data-i18n="tab.city"></span><b class="dot hidden"></b></button>
+    <button data-tab="stake"><i>🏺</i><span data-i18n="tab.stake"></span><b class="dot hidden"></b></button>
+    <button data-tab="rank"><i>🏆</i><span data-i18n="tab.rank"></span><b class="dot hidden"></b></button>
+    <button data-tab="vip"><i>👑</i><span data-i18n="tab.vip"></span><b class="dot hidden"></b></button>
   </nav>
 
+  <div id="tour" class="tour hidden"></div>
+  <div id="help" class="sheet hidden">
+    <div class="sheet-bg" id="helpBg"></div>
+    <div class="sheet-card" id="helpCard"></div>
+  </div>
   <div id="sheet" class="sheet hidden">
     <div class="sheet-bg" id="sheetBg"></div>
     <div class="sheet-card" id="sheetCard"></div>

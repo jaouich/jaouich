@@ -32,6 +32,11 @@ wrangler.toml  Cloudflare config (D1 database "pi-oasis-db")
 ```
 
 ## Deploy (Cloudflare)
+Workers Builds deploy command (deploys Testnet and Mainnet Workers):
+```
+npx wrangler deploy && npx wrangler deploy --env main
+```
+
 1. Cloudflare dashboard → **Workers & Pages → Create → Import a repository** → this repo, root directory `pi-oasis`
 2. Worker **Settings → Variables and Secrets** → add secrets `PI_NETWORK_API_KEY` (Pi Developers → this app → Settings → API key) and `ADMIN_TOKEN` (any long password)
 3. Database tables: run `schema.sql` on `pi-oasis-db` (already done for the current database)

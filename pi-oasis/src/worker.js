@@ -120,6 +120,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS withdrawals ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, username TEXT NOT NULL, amount REAL NOT NULL, status TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS ads ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS errlog ( at INTEGER NOT NULL, place TEXT NOT NULL, status INTEGER, message TEXT )",
+  "CREATE TABLE IF NOT EXISTS week_rewards ( week_id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS week_scores ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, score INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE INDEX IF NOT EXISTS week_scores_rank ON week_scores(week_id, score DESC)",
   "CREATE TABLE IF NOT EXISTS payouts ( id TEXT PRIMARY KEY, kind TEXT NOT NULL, ref TEXT NOT NULL, uid TEXT NOT NULL, amount REAL NOT NULL, memo TEXT, pi_payment_id TEXT, txid TEXT, status TEXT NOT NULL, error TEXT, tries INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE (kind, ref, uid) )",
@@ -181,6 +182,26 @@ async function auth(req, env) {
   return u;
 }
 
+// Server-side luck (breeding, stake bonus): not predictable by players
+const secureRandom = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+
+// Weekly ranking rewards: #1 legendary camel, #2 epic, #3 rare (given once per week)
+async function grantWeeklyCamels(env) {
+  await ensureSchema(env);
+  const now = Date.now();
+  const lastWeek = L.weekId(now - 7 * DAY);
+  const claim = await run(env, "INSERT OR IGNORE INTO week_rewards (week_id, created_at) VALUES (?, ?)", lastWeek, now);
+  if (!claim.meta.changes) return 0; // already given
+  const top = await all(env, "SELECT uid FROM week_scores WHERE week_id = ? AND score > 0 ORDER BY score DESC, updated_at ASC LIMIT 3", lastWeek);
+  const rarity = [3, 2, 1];
+  for (let i = 0; i < top.length; i++) {
+    const st = await loadState(env, top[i].uid, now);
+    L.addAnimal(st, rarity[i], now, `prize-${lastWeek}`);
+    await saveState(env, top[i].uid, st, now);
+  }
+  return top.length;
+}
+
 function randomToken() {
   const b = new Uint8Array(24);
   crypto.getRandomValues(b);
@@ -239,7 +260,7 @@ const routes = {
     const state = await loadState(env, u.uid, now);
     let res;
     try {
-      res = L.apply(state, a, { now, vip: u.vip_until > now, adVerified });
+      res = L.apply(state, a, { now, vip: u.vip_until > now, adVerified, rand: secureRandom });
     } catch (e) {
       if (e instanceof L.GameError) return json({ error: e.code, vars: e.vars, state, now }, 400);
       throw e;
@@ -427,7 +448,12 @@ async function verifyAd(env, uid, adId, now) {
 export default {
   // Hourly: weekly prizes and referral withdrawals (see wrangler.toml [triggers])
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runPayouts(env).catch((e) => logError(env, "payouts run", 0, e.message)));
+    ctx.waitUntil(
+      grantWeeklyCamels(env)
+        .catch((e) => logError(env, "weekly camels", 0, e.message))
+        .then(() => runPayouts(env))
+        .catch((e) => logError(env, "payouts run", 0, e.message))
+    );
   },
 
   async fetch(req, env) {

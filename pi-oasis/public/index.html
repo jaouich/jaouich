@@ -57,10 +57,24 @@
       <div id="stakes" class="list"></div>
     </section>
 
+    <section id="tab-camels" class="tab">
+      <h2 data-i18n="camels.title"></h2>
+      <p class="hint" data-i18n="camels.hint"></p>
+      <button id="collectBtn" class="btn"></button>
+      <div class="row" style="margin-top:8px"><button id="buyCamelBtn" class="btn secondary"></button></div>
+      <h3><span data-i18n="camels.herd"></span> <small id="herdInfo"></small></h3>
+      <div id="herd" class="herd"></div>
+      <div class="vip-card" style="margin-top:12px">
+        <p class="hint" data-i18n="camels.breedHint"></p>
+        <button id="breedBtn" class="btn" disabled></button>
+      </div>
+    </section>
+
     <section id="tab-rank" class="tab">
       <h2 data-i18n="rank.title"></h2>
       <div class="prize"><span data-i18n="rank.prize"></span> <b id="prizePool">—</b> <span data-i18n="rank.prizeEnd"></span></div>
       <p class="hint" data-i18n="rank.hint"></p>
+      <p class="hint" data-i18n="rank.camels"></p>
       <ol id="leaderboard" class="list"></ol>
       <p class="hint"><span data-i18n="rank.left"></span> <b id="weekLeft"></b></p>
     </section>
@@ -114,6 +128,7 @@
 
   <nav class="tabs">
     <button data-tab="farm" class="active">🌾<span data-i18n="tab.farm"></span></button>
+    <button data-tab="camels">🐪<span data-i18n="tab.camels"></span></button>
     <button data-tab="stake">🏺<span data-i18n="tab.stake"></span></button>
     <button data-tab="rank">🏆<span data-i18n="tab.rank"></span></button>
     <button data-tab="vip">👑<span data-i18n="tab.vip"></span></button>

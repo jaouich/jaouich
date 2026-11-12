@@ -65,6 +65,30 @@ await cron(); await cron(); await cron();
 ok((await sql(`SELECT status FROM withdrawals WHERE id='wZ'`))[0].status === "failed", "unknown player: withdrawal failed after 3 tries");
 ok((await sql(`SELECT ref_balance FROM users WHERE uid='uZ'`))[0].ref_balance === 2, "and the 2 Pi balance was given back");
 
+// --- Camels (server-side) ---
+const act = (action) => post("/api/action", { action }, { Authorization: "Bearer " + A });
+const stA = async () => JSON.parse((await sql(`SELECT json FROM state WHERE uid='${uidA}'`))[0].json);
+ok((await stA()).animals.some((x) => x.rarity === 3 && String(x.from).startsWith("prize-")), "weekly #1 got a legendary camel");
+ok((await sql(`SELECT json FROM state WHERE uid='${uidB}'`)).length && JSON.parse((await sql(`SELECT json FROM state WHERE uid='${uidB}'`))[0].json).animals.some((x) => x.rarity === 2), "weekly #2 got an epic camel");
+const camelsBefore = (await stA()).animals.length;
+await cron();
+ok((await stA()).animals.length === camelsBefore, "prize camels are given only once");
+await exec(`UPDATE state SET json = json_set(json, '$.dates', 1000) WHERE uid = '${uidA}'`);
+let r = await act({ type: "buyCamel" });
+ok(r.msg && r.msg.key === "t.camelBought" && r.state.dates === 700, "buy camel costs 300 dates (server)");
+r = await act({ type: "collect" });
+ok(r.error === "notReady", "nothing to collect right after buying");
+const ids = (await stA()).animals.map((x) => x.id);
+r = await act({ type: "breed", a: ids[0], b: ids[1] });
+ok(r.msg && r.msg.key === "t.babyCamel" && r.state.dates === 500, "breeding works and costs 200");
+r = await act({ type: "breed", a: ids[0], b: ids[1] });
+ok(r.error === "camelTired", "parents must rest 24 h");
+r = await act({ type: "breed", a: ids[0], b: ids[0] });
+ok(r.error === "badAction", "can't breed a camel with itself");
+await exec(`UPDATE state SET json = json_set(json, '$.animals[0].lastCollect', ${Date.now() - 2 * 3600000}) WHERE uid = '${uidA}'`);
+r = await act({ type: "collect" });
+ok(r.msg && r.msg.key === "t.collected" && r.msg.vars.n === 160, "collect: legendary 80/h x 2 h = 160");
+
 const st = await get("/api/status");
 ok(st.payoutsConfigured === true && Array.isArray(st.payouts), "status shows payouts");
 ok((await fetch(B + "/api/admin/run-payouts", { method: "POST" })).status === 403, "admin run refused without token");

@@ -48,6 +48,7 @@
     if (!m) return "";
     const vars = Object.assign({}, m.vars);
     if (m.key === "t.planted") { const s = L.seedById(vars.seed); vars.seed = seedName(s) + " " + s.e; }
+    if (vars.r) vars.r = t("rarity." + vars.r);
     return t(m.key, vars);
   }
   const errText = (code, vars) => window.I18N.has("t." + code) ? t("t." + code, vars) : t("e." + code);
@@ -263,10 +264,50 @@
     if (document.querySelector("#tab-rank.active")) renderRank();
   });
 
+  // ---------- Camels ----------
+  let breedSel = [];
+  function renderCamels() {
+    const n = now();
+    const ready = S.animals.reduce((sum, a) => sum + L.animalReady(a, n), 0);
+    $("collectBtn").textContent = ready ? t("camels.collect", { n: ready }) : t("camels.collectNone");
+    $("collectBtn").disabled = !ready;
+    $("buyCamelBtn").textContent = t("camels.buy", { n: L.A.BUY_COST });
+    $("herdInfo").textContent = `(${S.animals.length}/${L.maxAnimals(isVip())})`;
+    breedSel = breedSel.filter((id) => S.animals.some((a) => a.id === id));
+    $("herd").innerHTML = S.animals.length
+      ? S.animals.map((a) => {
+          const restLeft = a.lastBred ? (a.lastBred + L.A.BREED_COOLDOWN * 1000 - n) / 1000 : 0;
+          const r = L.RARITY[a.rarity];
+          return `<button class="camel r${a.rarity} ${breedSel.includes(a.id) ? "sel" : ""} ${restLeft > 0 ? "tired" : ""}" data-camel="${a.id}">
+            <span class="e">${a.rarity === 3 ? "🐫" : "🐪"}</span><b>${t("rarity." + r.id)}</b>
+            <small>${t("camels.perHour", { n: r.rate })}</small>
+            <small>${restLeft > 0 ? t("camels.tired", { t: fmt(restLeft) }) : "🪙 " + L.animalReady(a, n)}</small>
+          </button>`;
+        }).join("")
+      : `<p class="hint" style="grid-column:1/-1">${t("camels.empty")}</p>`;
+    $("breedBtn").textContent = t("camels.breed", { n: L.A.BREED_COST });
+    $("breedBtn").disabled = breedSel.length !== 2;
+  }
+  $("herd").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-camel]");
+    if (!b) return;
+    const id = +b.dataset.camel;
+    breedSel = breedSel.includes(id) ? breedSel.filter((x) => x !== id) : [...breedSel, id].slice(-2);
+    renderCamels();
+  });
+  $("collectBtn").addEventListener("click", () => act({ type: "collect" }));
+  $("buyCamelBtn").addEventListener("click", () => act({ type: "buyCamel" }));
+  $("breedBtn").addEventListener("click", async () => {
+    if (breedSel.length !== 2) return;
+    const [a, b] = breedSel;
+    breedSel = [];
+    await act({ type: "breed", a, b });
+  });
+
   function render() {
     S = L.normalize(S, now());
     $("dates").textContent = S.dates;
-    renderFarm(); renderStakes(); renderVip();
+    renderFarm(); renderStakes(); renderVip(); renderCamels();
     if (!document.activeElement || document.activeElement.id !== "stakeAmt") renderStakeOptions();
   }
 
@@ -282,5 +323,5 @@
   window.I18N.apply();
   renderSeeds();
   render();
-  setInterval(() => { renderFarm(); renderStakes(); }, 1000);
+  setInterval(() => { renderFarm(); renderStakes(); if (document.querySelector("#tab-camels.active")) renderCamels(); }, 1000);
 })();

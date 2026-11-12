@@ -59,11 +59,13 @@ globalThis.fetch = async (url, opt = {}) => {
   const auth = opt.headers.Authorization;
   const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s });
   if (p === "/me") { const t = auth.replace("Bearer ", ""); return users[t] ? J(users[t]) : J({}, 401); }
-  if (auth !== "Key TESTKEY") return J({}, 401);
+  if (auth !== "Key TESTKEY" && auth !== "Key STUDIOKEY") return J({}, 401);
   let m;
-  if ((m = p.match(/^\/payments\/([^/]+)$/))) return payments[m[1]] ? J(payments[m[1]]) : J({}, 404);
-  if ((m = p.match(/^\/payments\/([^/]+)\/approve$/))) { payments[m[1]].status.developer_approved = true; return J(payments[m[1]]); }
-  if ((m = p.match(/^\/payments\/([^/]+)\/complete$/))) { globalThis.__completes = (globalThis.__completes||0)+1; payments[m[1]].status.developer_completed = true; return J(payments[m[1]]); }
+  // Each Pi app only sees its own payments: the App Studio app uses STUDIOKEY, the other uses TESTKEY
+  const mine = (id) => payments[id] && ((payments[id].app === "studio") === (auth === "Key STUDIOKEY")) ? payments[id] : null;
+  if ((m = p.match(/^\/payments\/([^/]+)$/))) return mine(m[1]) ? J(mine(m[1])) : J({ error_message: "No payment found with this identifier" }, 404);
+  if ((m = p.match(/^\/payments\/([^/]+)\/approve$/))) { if (!mine(m[1])) return J({}, 404); payments[m[1]].status.developer_approved = true; return J(payments[m[1]]); }
+  if ((m = p.match(/^\/payments\/([^/]+)\/complete$/))) { if (!mine(m[1])) return J({}, 404); globalThis.__completes = (globalThis.__completes||0)+1; payments[m[1]].status.developer_completed = true; return J(payments[m[1]]); }
   if ((m = p.match(/^\/ads_network\/status\/(.+)$/))) return J({ mediator_ack_status: m[1].startsWith("good") ? "granted" : "failed" });
   return J({}, 404);
 };
@@ -118,10 +120,11 @@ const env = { DB, ASSETS, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_
 http.createServer(async (rq, rs) => {
   const chunks = []; for await (const c of rq) chunks.push(c);
   const req = new Request("http://localhost:3457" + rq.url, { method: rq.method, headers: rq.headers, body: rq.method === "POST" ? Buffer.concat(chunks) : undefined });
-  if (rq.url === "/__test/pay") { const b = JSON.parse(Buffer.concat(chunks)); payments[b.id] = { identifier: b.id, user_uid: b.uid, amount: b.amount, direction: b.direction || "user_to_app", metadata: { type: b.type || "vip_month", ...(b.tier ? { tier: b.tier } : {}) }, status: { cancelled: !!b.cancelled }, transaction: b.txid ? { txid: b.txid } : null }; rs.end("ok"); return; }
+  if (rq.url === "/__test/pay") { const b = JSON.parse(Buffer.concat(chunks)); payments[b.id] = { app: b.studio ? "studio" : "dev", identifier: b.id, user_uid: b.uid, amount: b.amount, direction: b.direction || "user_to_app", metadata: { type: b.type || "vip_month", ...(b.tier ? { tier: b.tier } : {}) }, status: { cancelled: !!b.cancelled }, transaction: b.txid ? { txid: b.txid } : null }; rs.end("ok"); return; }
   if (rq.url === "/__test/chain") { rs.end(JSON.stringify({ txs: chain.txs.map((t) => ({ ...t, seq: String(t.seq), amount: String(t.amount) })), wallets, a2u })); return; }
   if (rq.url === "/__test/drop-next") { chain.dropNextResponse = true; rs.end("ok"); return; }
   if (rq.url === "/__test/cron") { const w = []; await worker.scheduled({}, env, { waitUntil: (p) => w.push(p) }); await Promise.all(w); rs.end("ok"); return; }
+  if (rq.url.startsWith("/__test/studio")) { if (rq.url.endsWith("on")) env.PI_STUDIO_API_KEY = "STUDIOKEY"; else delete env.PI_STUDIO_API_KEY; rs.end("ok"); return; }
   if (rq.url === "/__test/completes") { rs.end(String(globalThis.__completes || 0)); return; }
   if (rq.url === "/__test/calls") { rs.end(String(globalThis.__studioCalls || 0)); return; }
   if (rq.url === "/__test/exec") { db.exec(Buffer.concat(chunks).toString()); rs.end("ok"); return; }

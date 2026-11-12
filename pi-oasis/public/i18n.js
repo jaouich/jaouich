@@ -239,6 +239,7 @@
             "s": "s"
       },
       "locale": "en-US",
+      "club.buyOfficial": "Subscribe in the official app ➜",
       "mission.title": "🎯 Today's missions",
       "mission.streak": "🔥 Streak: {n} days",
       "mission.bonus": "Finish all 3: +{n} 🪙 streak bonus",
@@ -442,6 +443,7 @@
       "club.extend": "أضف 30 يومًا ({p} Pi)",
       "club.upgrade": "ارتقِ مقابل {p} Pi",
       "club.included": "مشمولة في عضويتك",
+      "club.buyOfficial": "اشترك من التطبيق الرسمي ⬅",
       "club.best": "الأفضل",
       "club.fair": "⚖️ اللعب النزيه: تمنحك مكافآت العضوية تمرًا أكثر، لكنها لا تُحتسب أبدًا في الترتيب الأسبوعي.",
       "tier.free": "مجاني",
@@ -840,6 +842,7 @@
             "s": "s"
       },
       "locale": "fr-FR",
+      "club.buyOfficial": "S'abonner dans l'app officielle ➜",
       "mission.title": "🎯 Missions du jour",
       "mission.streak": "🔥 Série : {n} jours",
       "mission.bonus": "Termine les 3 : +{n} 🪙 de bonus de série",

@@ -59,6 +59,15 @@ Weekly prizes and referral withdrawals are paid automatically every hour by a Cr
 
 Read the **Pi Developer Terms** about prizes and referrals before Mainnet.
 
+## Using the game from both Pi apps
+The same Worker serves the Developer Portal app ("Oasis pi JDT") and the App Studio app ("Pi Oasis").
+Pi ties a payment to the app it was made in, so each app has its own API key:
+- `PI_NETWORK_API_KEY` – the Developer Portal app (required)
+- `PI_STUDIO_API_KEY` – the App Studio app (optional). Once it is set, purchases work inside the App Studio
+  app and the "new home" screen disappears. Without it, players who open the App Studio app can play
+  everything, and the membership buttons send them to the official app.
+`GET /api/status` shows `studioKeyConfigured`.
+
 ## Pi apps
 - **Oasis pi JDT** (Pi Developer Portal, Testnet) – app URL `https://pi-oasis.jaouich.workers.dev`, app wallet
   [GCFCP…PSNU4](https://blockexplorer.minepi.com/testnet/accounts/GCFCPBGLHIBERD22GROFLC42XR6KO7DZKTMV4PRNQTV4GKTAHN4PSNU4).
@@ -73,6 +82,7 @@ node --no-warnings tests/harness.mjs &   # Worker + SQLite + fake Pi API/App Stu
 bash tests/payments.sh                   # U2A payment checks
 # restart the harness for a clean database, then:
 node tests/membership.mjs                # tiers, Partner grants, fair scoring (fresh harness)
+node tests/studio.mjs                    # both Pi apps / two API keys (fresh harness)
 node tests/missions.mjs                  # daily missions and streak (fresh harness)
 node tests/city.mjs                      # Oasis City rules (fresh harness)
 node tests/payouts.mjs                   # A2U payouts on a fake Pi chain that verifies signatures

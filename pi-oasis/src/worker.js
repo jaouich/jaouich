@@ -32,12 +32,12 @@ class HttpError extends Error {
 const bad = (code) => { throw new HttpError(400, code); };
 
 // ---------- Pi API ----------
-async function pi(env, path, { method = "GET", body } = {}) {
+async function pi(env, path, { method = "GET", body, key } = {}) {
   const r = await fetch(PI_API + path, {
     method,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Key ${env.PI_NETWORK_API_KEY}`,
+      Authorization: `Key ${key || env.PI_NETWORK_API_KEY}`,
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -49,6 +49,25 @@ async function pi(env, path, { method = "GET", body } = {}) {
     throw new HttpError(502, "server");
   }
   return data;
+}
+
+// Pi ties every payment to the app it was made in, and each Pi app has its own API key.
+// The game can be opened from two Pi apps (the Developer Portal app and the App Studio app),
+// so the payment is looked up with each configured key until Pi knows it. The key that found
+// it is the one used to approve and complete it.
+async function findPayment(env, id) {
+  const path = `/payments/${encodeURIComponent(id)}`;
+  const keys = [env.PI_NETWORK_API_KEY, env.PI_STUDIO_API_KEY].filter(Boolean);
+  let last = null;
+  for (const key of keys) {
+    const r = await fetch(PI_API + path, { headers: { "Content-Type": "application/json", Authorization: `Key ${key}` } });
+    if (r.ok) return { p: await r.json(), key };
+    last = { status: r.status, data: await r.json().catch(() => ({})) };
+    if (r.status !== 404) break;
+  }
+  console.error("Pi API", path, last && last.status, JSON.stringify(last && last.data));
+  await logError(env, `Pi API GET ${path}`, last ? last.status : 0, (last && (last.data.error_message || last.data.error || last.data.message)) || "no API key configured");
+  throw new HttpError(502, "server");
 }
 
 // Recent server errors, kept so problems can be diagnosed without dashboard access.
@@ -287,7 +306,9 @@ const routes = {
     const session = randomToken();
     await run(env, "INSERT INTO sessions (token, uid, created_at) VALUES (?, ?, ?)", session, me.uid, now);
     const acc = await account(env, u);
-    return { session, user: { username: u.username }, account: acc, state: await stateFor(env, u, now, acc.tier), now, publicUrl: env.PUBLIC_URL || "", via: me.via };
+    return { session, user: { username: u.username }, account: acc, state: await stateFor(env, u, now, acc.tier), now, publicUrl: env.PUBLIC_URL || "", via: me.via,
+      // Opened from the App Studio app: payments only work there once its API key is configured
+      canBuy: me.via !== "appstudio" || !!env.PI_STUDIO_API_KEY };
   },
 
   "GET /api/me": async (req, env) => {
@@ -324,7 +345,7 @@ const routes = {
     const u = await auth(req, env);
     const id = String(body.paymentId || "");
     if (!id) bad("badPayment");
-    const p = await pi(env, `/payments/${encodeURIComponent(id)}`);
+    const { p, key } = await findPayment(env, id);
     const tier = checkPayment(p, u.uid);
     // A lower tier than the active one would be a downgrade: stop before any Pi moves
     const nowT = Date.now();
@@ -333,7 +354,7 @@ const routes = {
     await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'pending', ?)", id, u.uid, tier.price, nowT);
     const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
     if (row.uid !== u.uid) bad("notYours");
-    if (!p.status?.developer_approved) await pi(env, `/payments/${encodeURIComponent(id)}/approve`, { method: "POST" });
+    if (!p.status?.developer_approved) await pi(env, `/payments/${encodeURIComponent(id)}/approve`, { method: "POST", key });
     await run(env, "UPDATE payments SET status = 'approved' WHERE id = ? AND status = 'pending'", id);
     return { ok: true };
   },
@@ -351,7 +372,7 @@ const routes = {
   "POST /api/payments/incomplete": async (req, env, body) => {
     const id = body.payment?.identifier;
     if (!id) return { ok: false };
-    const p = await pi(env, `/payments/${encodeURIComponent(String(id))}`);
+    const { p } = await findPayment(env, String(id));
     const txid = p.transaction?.txid;
     if (!txid) return { ok: false }; // user never sent the transaction: nothing to complete
     await completePayment(env, String(id), String(txid), null);
@@ -364,6 +385,7 @@ const routes = {
     const errors = await all(env, "SELECT at, place, status, message FROM errlog ORDER BY at DESC LIMIT 10");
     return {
       piApiKeyConfigured: !!env.PI_NETWORK_API_KEY,
+      studioKeyConfigured: !!env.PI_STUDIO_API_KEY,
       payoutsConfigured: !!env.PI_WALLET_SEED,
       // Public address (G...) of the wallet the secret belongs to: safe to show, lets the
       // owner check it is the app wallet. Never the secret itself.
@@ -482,7 +504,7 @@ function checkPayment(p, uid) {
 }
 
 async function completePayment(env, id, txid, uid) {
-  const p = await pi(env, `/payments/${encodeURIComponent(id)}`);
+  const { p, key } = await findPayment(env, id);
   const tier = checkPayment(p, uid);
   // Must be a payment this server approved for this same user
   const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
@@ -491,7 +513,7 @@ async function completePayment(env, id, txid, uid) {
   // The txid must be the one Pi recorded for this payment
   if (!p.transaction || p.transaction.txid !== txid) bad("badPayment");
   if (!p.status?.developer_completed) {
-    await pi(env, `/payments/${encodeURIComponent(id)}/complete`, { method: "POST", body: { txid } });
+    await pi(env, `/payments/${encodeURIComponent(id)}/complete`, { method: "POST", body: { txid }, key });
   }
   const now = Date.now();
   // Mark completed once; only the first call grants VIP and credits anything

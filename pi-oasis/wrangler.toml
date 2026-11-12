@@ -27,6 +27,8 @@ crons = ["23 * * * *"]
 
 # Secrets (set in the Cloudflare dashboard, never in this file):
 #   PI_NETWORK_API_KEY – Pi Developers → this app → Settings → API key
+#   PI_STUDIO_API_KEY – optional: the API key of the App Studio app "Pi Oasis", so memberships
+#                       can also be bought from that app
 #   PI_WALLET_SEED – the app wallet's secret key (S...), needed only for payouts
 #   ADMIN_TOKEN  – a long password of your choice
 

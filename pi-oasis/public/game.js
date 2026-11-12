@@ -311,10 +311,13 @@
         </div>`;
       }
       let foot;
-      if (oldApp) foot = "";
-      else if (tier === 4 || tier > i) foot = `<button class="btn secondary" disabled>${t("club.included")}</button>`;
-      else if (tier === i) foot = `<button class="btn gold" data-buy="${p.id}">${t("club.extend", { p: p.price })}</button>`;
-      else foot = `<button class="btn ${i === 3 ? "gold" : ""}" data-buy="${p.id}">${t(tier ? "club.upgrade" : "club.buy", { p: p.price })}</button>`;
+      // In the old App Studio app the purchase happens in the official app (one tap away)
+      const buyBtn = (cls, label) => oldApp
+        ? `<a class="btn ${cls}" href="${esc(officialHref)}" target="_top" style="text-decoration:none;text-align:center">${t("club.buyOfficial")}</a>`
+        : `<button class="btn ${cls}" data-buy="${p.id}">${label}</button>`;
+      if (tier === 4 || tier > i) foot = `<button class="btn secondary" disabled>${t("club.included")}</button>`;
+      else if (tier === i) foot = buyBtn("gold", t("club.extend", { p: p.price }));
+      else foot = buyBtn(i === 3 ? "gold" : "", t(tier ? "club.upgrade" : "club.buy", { p: p.price }));
       return `<div class="tier t${i} ${tier === i ? "current" : ""}">
         <div class="head"><span class="ic">${TIER_ICON[i]}</span><h3>${esc(tierName(i))}${i === 3 ? `<span class="tag">${t("club.best")}</span>` : ""}</h3>
           <div class="price">${p.price} Pi<small>${t("vip.month")}</small></div></div>
@@ -409,7 +412,7 @@
       clockOffset = res.now - Date.now();
       account = res.account;
       publicUrl = res.publicUrl || "";
-      if (res.via === "appstudio") enterOldApp();
+      if (res.via === "appstudio" && !res.canBuy) enterOldApp(); // purchases only work in the official app until its key is set
       S = res.state; // the server's game replaces the guest demo
       $("userLabel").removeAttribute("data-i18n");
       $("userLabel").textContent = t("welcome", { name: account.username });
@@ -732,24 +735,29 @@
   // players to the official app and hide the purchase buttons there.
   // Two signals: the page that embeds us, and (after sign-in) which Pi app the token belongs to.
   // The official app's address always wins, so purchases are never hidden there by mistake.
-  const OLD_APPS = ["apppioasisaf7788"];
   const OFFICIAL = "oasisgame6033";
   const parents = [location.hostname, document.referrer, ...(location.ancestorOrigins ? [...location.ancestorOrigins] : [])].join(" ");
+  let officialHref = "https://oasisgame6033.pinet.com";
+  let stayedOld = false;
+  try { stayedOld = localStorage.getItem("oasis_stay_old") === "1"; } catch {}
   function enterOldApp() {
     if (oldApp || parents.includes(OFFICIAL)) return;
     oldApp = true;
     const url = new URL($("gateLink").href);
     const r = new URLSearchParams(location.search).get("ref");
     if (r) url.searchParams.set("ref", r);
-    $("gateLink").href = $("movedLink").href = url.href;
+    officialHref = $("gateLink").href = $("movedLink").href = url.href;
     $("movedBar").classList.remove("hidden");
-    $("gate").classList.remove("hidden");
+    if (!stayedOld) $("gate").classList.remove("hidden"); // players who chose to stay aren't asked again
     render();
+    if (stayedOld) return;
     // Browsers only let an embedded page change the address after a tap, but try anyway
     try { window.top.location.href = url.href; } catch {}
   }
-  $("gateStay").addEventListener("click", () => $("gate").classList.add("hidden"));
-  if (OLD_APPS.some((h) => parents.includes(h))) enterOldApp();
+  $("gateStay").addEventListener("click", () => {
+    $("gate").classList.add("hidden");
+    try { localStorage.setItem("oasis_stay_old", "1"); } catch {}
+  });
 
   window.I18N.apply();
   // First visit: start the guided tour once the screen has settled

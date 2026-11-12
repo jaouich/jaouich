@@ -14,6 +14,11 @@ binding = "ASSETS"
 binding = "DB"
 database_name = "pi-oasis-db"
 
+# Per-app settings (not secret). Each Pi app has its own domain validation key and link.
+[vars]
+VALIDATION_KEY = "7c51468ad7937a22873ad4adf0fd7d80b1be68a1f78733624eb98d53c35fe3985aacf7642e50d4d5ee31e85304b4542b08ff9c6322821708bf153f78d54cad8d"
+PUBLIC_URL = "https://oasisgame6033.pinet.com"
+
 # Hourly run: weekly prizes and referral withdrawals (App-to-User payments)
 [triggers]
 crons = ["23 * * * *"]
@@ -23,3 +28,24 @@ crons = ["23 * * * *"]
 #   PI_WALLET_SEED – the app wallet's secret key (S...), needed only for payouts
 #   ADMIN_TOKEN  – a long password of your choice
 
+
+# ---------------------------------------------------------------------------
+# Mainnet copy of the game (real Pi). Pi links each domain to one app, so the
+# Mainnet app gets its own address, database and secrets:
+#   https://pi-oasis-main.jaouich.workers.dev
+# Deploy: npx wrangler deploy --env main
+# Secrets to set on the "pi-oasis-main" Worker: PI_NETWORK_API_KEY, PI_WALLET_SEED
+[env.main]
+name = "pi-oasis-main"
+workers_dev = true
+
+[env.main.vars]
+VALIDATION_KEY = ""
+PUBLIC_URL = ""
+
+[[env.main.d1_databases]]
+binding = "DB"
+database_name = "pi-oasis-main-db"
+
+[env.main.triggers]
+crons = ["23 * * * *"]

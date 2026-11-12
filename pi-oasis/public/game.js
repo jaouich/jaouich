@@ -16,6 +16,7 @@
   try { guest = L.normalize(JSON.parse(localStorage.getItem(SAVE_KEY) || "null"), now()); } catch { guest = L.fresh(now()); }
   let S = guest; // current state shown on screen
   let account = null; // from the server once signed in
+  let publicUrl = ""; // official link for referrals (PiNet), sent by the server
   let busy = false;
   let selectedSeed = SEEDS[0].id;
 
@@ -183,7 +184,7 @@
     $("dailyBtn").disabled = done;
     $("dailyBtn").textContent = done ? t("daily.done") : t("daily.claim", { n: vip ? C.DAILY * 2 : C.DAILY });
     if (account) {
-      const base = window.OASIS_CONFIG.PUBLIC_URL || location.origin + location.pathname;
+      const base = publicUrl || location.origin + location.pathname;
       $("refLink").value = `${base}?ref=${encodeURIComponent(account.username)}`;
       $("refCode").textContent = account.username;
       $("inviterBox").classList.toggle("hidden", !account.canSetInviter);
@@ -231,6 +232,7 @@
       const res = await Pi.login();
       clockOffset = res.now - Date.now();
       account = res.account;
+      publicUrl = res.publicUrl || "";
       S = res.state; // the server's game replaces the guest demo
       $("userLabel").removeAttribute("data-i18n");
       $("userLabel").textContent = t("welcome", { name: account.username });

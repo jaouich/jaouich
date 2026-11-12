@@ -114,7 +114,7 @@ async function horizon(u, opt) {
   return J({}, 404);
 }
 const worker = (await import(ROOT + "/src/worker.js")).default;
-const env = { DB, ASSETS, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_WALLET_SEED: APP.S };
+const env = { DB, ASSETS, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_WALLET_SEED: APP.S, VALIDATION_KEY: "testkey123", PUBLIC_URL: "https://oasisgame6033.pinet.com" };
 http.createServer(async (rq, rs) => {
   const chunks = []; for await (const c of rq) chunks.push(c);
   const req = new Request("http://localhost:3457" + rq.url, { method: rq.method, headers: rq.headers, body: rq.method === "POST" ? Buffer.concat(chunks) : undefined });

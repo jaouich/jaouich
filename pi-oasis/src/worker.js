@@ -220,7 +220,7 @@ const routes = {
     u = await one(env, "SELECT * FROM users WHERE uid = ?", me.uid);
     const session = randomToken();
     await run(env, "INSERT INTO sessions (token, uid, created_at) VALUES (?, ?, ?)", session, me.uid, now);
-    return { session, user: { username: u.username }, account: await account(env, u), state: await loadState(env, u.uid, now), now };
+    return { session, user: { username: u.username }, account: await account(env, u), state: await loadState(env, u.uid, now), now, publicUrl: env.PUBLIC_URL || "" };
   },
 
   "GET /api/me": async (req, env) => {
@@ -432,6 +432,12 @@ export default {
 
   async fetch(req, env) {
     const url = new URL(req.url);
+    // Pi Developer Portal domain check: each Worker (Testnet / Mainnet) has its own key
+    if (url.pathname === "/validation-key.txt") {
+      return env.VALIDATION_KEY
+        ? new Response(env.VALIDATION_KEY, { headers: { "Content-Type": "text/plain; charset=utf-8" } })
+        : new Response("not found", { status: 404 });
+    }
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     const handler = routes[`${req.method} ${url.pathname}`];
     if (!handler) return json({ error: "notFound" }, 404);

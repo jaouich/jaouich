@@ -87,3 +87,7 @@ node tests/missions.mjs                  # daily missions and streak (fresh harn
 node tests/city.mjs                      # Oasis City rules (fresh harness)
 node tests/payouts.mjs                   # A2U payouts on a fake Pi chain that verifies signatures
 ```
+
+## Mainnet
+
+Mainnet runs on the Cloudflare Worker `jaouich` (https://jaouich.jaouich.workers.dev), built with `npx wrangler deploy --env main` from the `pi-oasis` folder. Its secrets (`PI_NETWORK_API_KEY`, `PI_WALLET_SEED`) live only in Cloudflare.

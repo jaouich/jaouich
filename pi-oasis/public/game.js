@@ -404,6 +404,7 @@
       clockOffset = res.now - Date.now();
       account = res.account;
       publicUrl = res.publicUrl || "";
+      if (res.via === "appstudio") enterOldApp();
       S = res.state; // the server's game replaces the guest demo
       $("userLabel").removeAttribute("data-i18n");
       $("userLabel").textContent = t("welcome", { name: account.username });
@@ -452,12 +453,26 @@
 
   // Opened through the old App Studio app? Its payments can't be approved, so point
   // players to the official app and hide the purchase buttons there.
+  // Two signals: the page that embeds us, and (after sign-in) which Pi app the token belongs to.
+  // The official app's address always wins, so purchases are never hidden there by mistake.
   const OLD_APPS = ["apppioasisaf7788"];
-  const parents = [document.referrer, ...(location.ancestorOrigins ? [...location.ancestorOrigins] : [])].join(" ");
-  if (OLD_APPS.some((h) => parents.includes(h))) {
+  const OFFICIAL = "oasisgame6033";
+  const parents = [location.hostname, document.referrer, ...(location.ancestorOrigins ? [...location.ancestorOrigins] : [])].join(" ");
+  function enterOldApp() {
+    if (oldApp || parents.includes(OFFICIAL)) return;
     oldApp = true;
+    const url = new URL($("gateLink").href);
+    const r = new URLSearchParams(location.search).get("ref");
+    if (r) url.searchParams.set("ref", r);
+    $("gateLink").href = $("movedLink").href = url.href;
     $("movedBar").classList.remove("hidden");
+    $("gate").classList.remove("hidden");
+    render();
+    // Browsers only let an embedded page change the address after a tap, but try anyway
+    try { window.top.location.href = url.href; } catch {}
   }
+  $("gateStay").addEventListener("click", () => $("gate").classList.add("hidden"));
+  if (OLD_APPS.some((h) => parents.includes(h))) enterOldApp();
 
   window.I18N.apply();
   setSky();

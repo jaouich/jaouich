@@ -76,7 +76,7 @@ async function verifyPiUser(accessToken) {
     });
     const data = await r.json().catch(() => ({}));
     if (r.ok && data.user && data.user.uid && data.user.username) {
-      return { uid: String(data.user.uid), username: String(data.user.username) };
+      return { uid: String(data.user.uid), username: String(data.user.username), via: "appstudio" };
     }
     console.log("App Studio login not accepted", r.status);
   } catch (e) {
@@ -88,7 +88,7 @@ async function verifyPiUser(accessToken) {
     console.error("Pi /me", r.status);
     throw new HttpError(r.status >= 500 ? 502 : 401, r.status >= 500 ? "server" : "session");
   }
-  return { uid: String(me.uid), username: String(me.username) };
+  return { uid: String(me.uid), username: String(me.username), via: "portal" };
 }
 
 async function moveAccount(env, from, to) {
@@ -285,7 +285,7 @@ const routes = {
     const session = randomToken();
     await run(env, "INSERT INTO sessions (token, uid, created_at) VALUES (?, ?, ?)", session, me.uid, now);
     const acc = await account(env, u);
-    return { session, user: { username: u.username }, account: acc, state: await stateFor(env, u, now, acc.tier), now, publicUrl: env.PUBLIC_URL || "" };
+    return { session, user: { username: u.username }, account: acc, state: await stateFor(env, u, now, acc.tier), now, publicUrl: env.PUBLIC_URL || "", via: me.via };
   },
 
   "GET /api/me": async (req, env) => {

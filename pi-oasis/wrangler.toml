@@ -14,7 +14,12 @@ binding = "ASSETS"
 binding = "DB"
 database_name = "pi-oasis-db"
 
+# Hourly run: weekly prizes and referral withdrawals (App-to-User payments)
+[triggers]
+crons = ["23 * * * *"]
+
 # Secrets (set in the Cloudflare dashboard, never in this file):
 #   PI_NETWORK_API_KEY – Pi Developers → this app → Settings → API key
+#   PI_WALLET_SEED – the app wallet's secret key (S...), needed only for payouts
 #   ADMIN_TOKEN  – a long password of your choice
 

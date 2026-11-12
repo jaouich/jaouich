@@ -36,9 +36,15 @@ wrangler.toml  Cloudflare config (D1 database "pi-oasis-db")
 2. Worker **Settings → Variables and Secrets** → add secrets `PI_NETWORK_API_KEY` (Pi Developers → this app → Settings → API key) and `ADMIN_TOKEN` (any long password)
 3. Database tables: run `schema.sql` on `pi-oasis-db` (already done for the current database)
 
-## Still to do before real prizes
-- **Sending Pi to winners / referral withdrawals (App → User)** isn't automated yet. `GET /api/admin/payouts` (header `x-admin-token`) lists who to pay.
-- Read the **Pi Developer Terms** about prizes and referrals.
+## Payouts (App → User)
+Weekly prizes and referral withdrawals are paid automatically every hour by a Cron Trigger
+(`src/payouts.js`). Transactions are built and signed in `src/stellar.js` (no npm packages).
+- Needs the Worker secret `PI_WALLET_SEED` (the app wallet's secret `S...` key) and enough Pi in the app wallet for amounts + 0.01 Pi fee each.
+- Each payout is saved before sending; a lost response is detected by searching the wallet's transactions for the Pi payment id, so nothing is paid twice.
+- Prize pools too small to cover fees roll over to the next week. Failed withdrawals give the balance back after 3 tries.
+- Admin: `GET /api/admin/payouts`, `POST /api/admin/run-payouts` (header `x-admin-token`).
+
+Read the **Pi Developer Terms** about prizes and referrals before Mainnet.
 
 ## Pi apps
 - **Oasis pi JDT** (Pi Developer Portal, Testnet) – app URL `https://pi-oasis.jaouich.workers.dev`, app wallet
@@ -51,5 +57,7 @@ wrangler.toml  Cloudflare config (D1 database "pi-oasis-db")
 ## Tests
 ```bash
 node --no-warnings tests/harness.mjs &   # Worker + SQLite + fake Pi API/App Studio on :3457
-bash tests/payments.sh                   # U2A payment checks (16 cases)
+bash tests/payments.sh                   # U2A payment checks
+# restart the harness for a clean database, then:
+node tests/payouts.mjs                   # A2U payouts on a fake Pi chain that verifies signatures
 ```

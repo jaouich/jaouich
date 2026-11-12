@@ -2,6 +2,7 @@
 // Pi sign-in (via App Studio), server-side game (anti-cheat), VIP payments, 10% referrals, weekly leaderboard.
 // Static files in /public are served by Workers Static Assets (see wrangler.toml).
 import "../public/logic.js";
+import { processPayouts } from "./payouts.js";
 
 const L = globalThis.OasisLogic;
 const PI_API = "https://api.minepi.com/v2";
@@ -100,6 +101,8 @@ async function moveAccount(env, from, to) {
     q("UPDATE payments SET referrer_uid = ? WHERE referrer_uid = ?"),
     q("UPDATE withdrawals SET uid = ? WHERE uid = ?"),
     q("UPDATE ads SET uid = ? WHERE uid = ?"),
+    q("UPDATE week_scores SET uid = ? WHERE uid = ?"),
+    q("UPDATE payouts SET uid = ? WHERE uid = ?"),
   ]);
 }
 
@@ -116,6 +119,9 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS withdrawals ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, username TEXT NOT NULL, amount REAL NOT NULL, status TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS ads ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS errlog ( at INTEGER NOT NULL, place TEXT NOT NULL, status INTEGER, message TEXT )",
+  "CREATE TABLE IF NOT EXISTS week_scores ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, score INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
+  "CREATE INDEX IF NOT EXISTS week_scores_rank ON week_scores(week_id, score DESC)",
+  "CREATE TABLE IF NOT EXISTS payouts ( id TEXT PRIMARY KEY, kind TEXT NOT NULL, ref TEXT NOT NULL, uid TEXT NOT NULL, amount REAL NOT NULL, memo TEXT, pi_payment_id TEXT, txid TEXT, status TEXT NOT NULL, error TEXT, tries INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE (kind, ref, uid) )",
 ];
 let schemaReady = null;
 const ensureSchema = (env) =>
@@ -141,6 +147,15 @@ async function saveState(env, uid, s, now) {
      ON CONFLICT(uid) DO UPDATE SET json = excluded.json, week_id = excluded.week_id, week_score = excluded.week_score, updated_at = excluded.updated_at`,
     uid, JSON.stringify(s), s.week.id, s.week.score, now
   );
+  // Scores are also kept per week, so last week's ranking survives once players move on
+  if (s.week.score > 0) {
+    await run(
+      env,
+      `INSERT INTO week_scores (week_id, uid, score, updated_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(week_id, uid) DO UPDATE SET score = excluded.score, updated_at = excluded.updated_at`,
+      s.week.id, uid, s.week.score, now
+    );
+  }
 }
 
 async function auth(req, env) {
@@ -265,6 +280,8 @@ const routes = {
     const errors = await all(env, "SELECT at, place, status, message FROM errlog ORDER BY at DESC LIMIT 10");
     return {
       piApiKeyConfigured: !!env.PI_NETWORK_API_KEY,
+      payoutsConfigured: !!env.PI_WALLET_SEED,
+      payouts: await all(env, "SELECT kind, amount, status, error, updated_at FROM payouts ORDER BY created_at DESC LIMIT 10"),
       adminTokenConfigured: !!env.ADMIN_TOKEN,
       recentErrors: errors.map((e) => ({ ...e, at: new Date(e.at).toISOString() })),
     };
@@ -275,7 +292,7 @@ const routes = {
     const w = await one(env, "SELECT prize_pool FROM weeks WHERE id = ?", wid);
     const top = await all(
       env,
-      "SELECT u.username, s.week_score AS score FROM state s JOIN users u ON u.uid = s.uid WHERE s.week_id = ? AND s.week_score > 0 ORDER BY s.week_score DESC, s.updated_at ASC LIMIT 20",
+      "SELECT u.username, s.score FROM week_scores s JOIN users u ON u.uid = s.uid WHERE s.week_id = ? AND s.score > 0 ORDER BY s.score DESC, s.updated_at ASC LIMIT 20",
       wid
     );
     return { prizePool: w ? w.prize_pool : 0, top };
@@ -307,22 +324,27 @@ const routes = {
 
   // ---------- Admin: who needs to be paid ----------
   "GET /api/admin/payouts": async (req, env) => {
-    if (!env.ADMIN_TOKEN || req.headers.get("x-admin-token") !== env.ADMIN_TOKEN) throw new HttpError(403, "forbidden");
-    const lastWeek = L.weekId(Date.now() - 7 * DAY);
-    const w = await one(env, "SELECT * FROM weeks WHERE id = ?", lastWeek);
-    const top = await all(
-      env,
-      "SELECT u.uid, u.username, s.week_score AS score FROM state s JOIN users u ON u.uid = s.uid WHERE s.week_id = ? AND s.week_score > 0 ORDER BY s.week_score DESC, s.updated_at ASC LIMIT 3",
-      lastWeek
-    );
-    // Note: a player's row moves to the new week once they play again, so check this early in the week.
-    const pool = w ? w.prize_pool : 0;
+    admin(req, env);
     return {
-      withdrawals: await all(env, "SELECT * FROM withdrawals WHERE status = 'pending' ORDER BY created_at"),
-      lastWeek: { id: lastWeek, prizePool: pool, paid: !!(w && w.paid), winners: top.map((r, i) => ({ ...r, prize: round(pool * PRIZE_SPLIT[i]) })) },
+      payouts: await all(env, "SELECT p.*, u.username FROM payouts p LEFT JOIN users u ON u.uid = p.uid ORDER BY p.created_at DESC LIMIT 50"),
+      withdrawals: await all(env, "SELECT * FROM withdrawals ORDER BY created_at DESC LIMIT 50"),
+      weeks: await all(env, "SELECT * FROM weeks ORDER BY id DESC LIMIT 8"),
     };
   },
+
+  // Run the payouts now instead of waiting for the hourly run
+  "POST /api/admin/run-payouts": async (req, env) => {
+    admin(req, env);
+    return await runPayouts(env);
+  },
 };
+
+function admin(req, env) {
+  if (!env.ADMIN_TOKEN || req.headers.get("x-admin-token") !== env.ADMIN_TOKEN) throw new HttpError(403, "forbidden");
+}
+
+const runPayouts = (env) =>
+  ensureSchema(env).then(() => processPayouts(env, { pi, logError, one, all, run, weekId: L.weekId }));
 
 // Checks a Pi payment against what this app sells. Browser input is never trusted.
 function checkPayment(p, uid) {
@@ -377,6 +399,11 @@ async function verifyAd(env, uid, adId, now) {
 }
 
 export default {
+  // Hourly: weekly prizes and referral withdrawals (see wrangler.toml [triggers])
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runPayouts(env).catch((e) => logError(env, "payouts run", 0, e.message)));
+  },
+
   async fetch(req, env) {
     const url = new URL(req.url);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);

@@ -12,7 +12,8 @@ binding = "ASSETS"
 # automatically on first deploy. The Worker creates its own tables (src/worker.js).
 [[d1_databases]]
 binding = "DB"
-database_name = "pi-oasis-db"
+# The Testnet players' progress lives in this database (it was used by the Testnet Worker).
+database_name = "pi-oasis-main-db"
 
 # Per-app settings (not secret). Each Pi app has its own domain validation key and link.
 [vars]

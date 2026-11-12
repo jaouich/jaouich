@@ -51,7 +51,7 @@ ADMIN_USERNAMES = "jaouich"
 
 [[env.main.d1_databases]]
 binding = "DB"
-database_name = "pi-oasis-main-db"
+database_name = "pi-oasis-mainnet-db"
 
 [env.main.triggers]
 crons = ["23 * * * *"]

@@ -42,7 +42,8 @@ wrangler.toml  Cloudflare config (D1 database "pi-oasis-db")
 ## Deploy (Cloudflare)
 Workers Builds deploy command (deploys Testnet and Mainnet Workers):
 ```
-npx wrangler deploy && npx wrangler deploy --env main
+npx wrangler deploy             # Testnet Worker "pi-oasis"
+npx wrangler deploy --env main  # Mainnet Worker "jaouich" (its own build, same root directory)
 ```
 
 1. Cloudflare dashboard → **Workers & Pages → Create → Import a repository** → this repo, root directory `pi-oasis`

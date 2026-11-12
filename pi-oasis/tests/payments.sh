@@ -38,5 +38,11 @@ check "prize pool = 15% of 0.175 x 2 payments" "$(curl -s $B/api/leaderboard)" '
 check "Developer Portal app sign-in (Pi /v2/me)" "$(P /api/auth '{"accessToken":"tokC"}')" '"username":"carol"'
 check "unknown token refused" "$(P /api/auth '{"accessToken":"nope"}')" session
 check "same user from 2nd app keeps account (VIP, referrals)" "$(P /api/auth '{"accessToken":"tokA2"}')" '"referralBalance":0.0175,"referralCount":1'
+SC=$(P /api/auth '{"accessToken":"tokC"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['session'])")
+check "carol can add who invited her" "$(curl -s $B/api/me -H "Authorization: Bearer $SC")" '"canSetInviter":true'
+check "unknown inviter refused" "$(P /api/referral/set-inviter '{"username":"nobody"}' $SC)" inviterNotFound
+check "self invite refused" "$(P /api/referral/set-inviter '{"username":"carol"}' $SC)" inviterNotAllowed
+check "inviter saved (case-insensitive)" "$(P /api/referral/set-inviter '{"username":"@Alice"}' $SC)" '"invitedBy":"alice"'
+check "inviter can't be changed" "$(P /api/referral/set-inviter '{"username":"bob"}' $SC)" inviterNotAllowed
 check "no session -> refused" "$(P /api/payments/approve '{"paymentId":"p1"}')" session
 echo "== $pass passed, $fail failed"

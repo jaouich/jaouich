@@ -86,6 +86,15 @@
           <input id="refLink" readonly data-i18n-ph="ref.placeholder">
           <button id="copyRef" class="btn small" data-i18n="ref.copy"></button>
         </div>
+        <p><span data-i18n="ref.code"></span> <b id="refCode">—</b></p>
+        <div id="inviterBox" class="hidden">
+          <p class="hint" data-i18n="ref.inviterAsk"></p>
+          <div class="ref-row">
+            <input id="inviterInput" autocomplete="off" data-i18n-ph="ref.inviterPh">
+            <button id="saveInviter" class="btn small" data-i18n="ref.save"></button>
+          </div>
+        </div>
+        <p id="invitedBy" class="hint hidden"></p>
         <p><span data-i18n="ref.balance"></span> <b id="refBalance">0</b> Pi · <span data-i18n="ref.count"></span> <b id="refCount">0</b></p>
         <div class="row">
           <button id="redeemVip" class="btn secondary small" data-i18n="ref.redeem"></button>

@@ -131,9 +131,19 @@ const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
 const all = async (env, sql, ...p) => (await env.DB.prepare(sql).bind(...p).all()).results;
 const run = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).run();
 
+const INVITER_DAYS = 7; // a new player can add who invited them during their first week
+
 async function account(env, u) {
   const c = await one(env, "SELECT COUNT(*) AS n FROM users WHERE referrer = ?", u.uid);
-  return { username: u.username, vipUntil: u.vip_until, referralBalance: u.ref_balance, referralCount: c.n };
+  const inviter = u.referrer ? await one(env, "SELECT username FROM users WHERE uid = ?", u.referrer) : null;
+  return {
+    username: u.username,
+    vipUntil: u.vip_until,
+    referralBalance: u.ref_balance,
+    referralCount: c.n,
+    invitedBy: inviter ? inviter.username : null,
+    canSetInviter: !u.referrer && Date.now() - u.created_at < INVITER_DAYS * DAY,
+  };
 }
 
 async function loadState(env, uid, now) {
@@ -299,6 +309,18 @@ const routes = {
   },
 
   // ---------- Referrals ----------
+  // A new player types the username of who invited them (in case the link lost ?ref=)
+  "POST /api/referral/set-inviter": async (req, env, body) => {
+    const u = await auth(req, env);
+    const name = String(body.username || "").trim().replace(/^@/, "");
+    if (u.referrer || Date.now() - u.created_at >= INVITER_DAYS * DAY) bad("inviterNotAllowed");
+    const r = await one(env, "SELECT uid, referrer FROM users WHERE username = ? COLLATE NOCASE", name);
+    if (!r) bad("inviterNotFound");
+    if (r.uid === u.uid || r.referrer === u.uid) bad("inviterNotAllowed"); // no self or two-way referrals
+    await run(env, "UPDATE users SET referrer = ? WHERE uid = ? AND referrer IS NULL", r.uid, u.uid);
+    return { account: await account(env, await one(env, "SELECT * FROM users WHERE uid = ?", u.uid)) };
+  },
+
   "POST /api/referral/redeem-vip": async (req, env) => {
     const u = await auth(req, env);
     const now = Date.now();

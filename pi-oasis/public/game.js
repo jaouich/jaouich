@@ -183,7 +183,12 @@
     $("dailyBtn").disabled = done;
     $("dailyBtn").textContent = done ? t("daily.done") : t("daily.claim", { n: vip ? C.DAILY * 2 : C.DAILY });
     if (account) {
-      $("refLink").value = `${location.origin}${location.pathname}?ref=${encodeURIComponent(account.username)}`;
+      const base = window.OASIS_CONFIG.PUBLIC_URL || location.origin + location.pathname;
+      $("refLink").value = `${base}?ref=${encodeURIComponent(account.username)}`;
+      $("refCode").textContent = account.username;
+      $("inviterBox").classList.toggle("hidden", !account.canSetInviter);
+      $("invitedBy").classList.toggle("hidden", !account.invitedBy);
+      if (account.invitedBy) $("invitedBy").textContent = t("ref.invitedBy", { name: account.invitedBy });
       $("refBalance").textContent = (+account.referralBalance).toFixed(3);
       $("refCount").textContent = account.referralCount;
     }
@@ -200,6 +205,13 @@
   $("copyRef").addEventListener("click", () => {
     if (!account) return toast(t("t.loginFirst"));
     navigator.clipboard?.writeText($("refLink").value).then(() => toast(t("t.copied")), () => $("refLink").select());
+  });
+  $("saveInviter").addEventListener("click", async () => {
+    if (!account) return toast(t("t.loginFirst"));
+    const name = $("inviterInput").value.trim().replace(/^@/, "");
+    if (!name) return;
+    try { account = (await Pi.setInviter(name)).account; toast(t("t.inviterSaved", { name })); render(); }
+    catch (e) { toast(e.message); }
   });
   $("redeemVip").addEventListener("click", async () => {
     if (!account) return toast(t("t.loginFirst"));

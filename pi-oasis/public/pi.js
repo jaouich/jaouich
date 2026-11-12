@@ -124,6 +124,7 @@
     action: (action) => api("/api/action", { action }),
     leaderboard: () => api("/api/leaderboard"),
     redeemVip: () => api("/api/referral/redeem-vip", {}),
+    setInviter: (username) => api("/api/referral/set-inviter", { username }),
     withdraw: () => api("/api/referral/withdraw", {}),
   };
 })();

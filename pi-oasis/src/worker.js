@@ -165,11 +165,13 @@ async function applyMembership(env, u, tier, now) {
 // Loads the game and gives a new partner their welcome gift (a legendary camel, once)
 async function stateFor(env, u, now, tier) {
   const st = await loadState(env, u.uid, now);
+  let changed = L.tickCity(st, now, secureRandom); // new city orders appear on their own
   if (tier === PARTNER && !st.partnerGift) {
     L.addAnimal(st, 3, now, "partner");
     st.partnerGift = 1;
-    await saveState(env, u.uid, st, now);
+    changed = true;
   }
+  if (changed) await saveState(env, u.uid, st, now);
   return st;
 }
 

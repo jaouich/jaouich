@@ -6,6 +6,7 @@ Runs on **Cloudflare Workers** with a **D1** database.
 ## Features
 - 🌾 **Farm:** plant and harvest to earn dates 🪙 (in-game currency, no monetary value)
 - 🐪 **Camels:** buy (300 🪙), collect dates every hour (common 10/h, rare 20, epic 40, legendary 80; up to 8 h), breed two camels (200 🪙, 24 h rest) – the baby can be rarer (up to epic). Weekly Top 3 win a legendary / epic / rare camel. Herd 6 (VIP 12).
+- 🏙️ **Oasis City:** an isometric 3D city (pure CSS) on a 5×5 map. Homes pay taxes, workshops craft goods (bread, mint tea, spices, carpets, vases), citizens' orders turn goods into dates and XP, XP raises the city level and unlocks buildings; decorations add happiness (more taxes). Memberships add +10–50% city income (bonus dates never count toward the ranking).
 - 🏺 **Granary (staking with dates):** 1 h +5%, 24 h +30%, 7 days +150% + rare tree
 - 👑 **Memberships (30 days):** Bronze 0.25 Pi, Silver 0.5 Pi, Gold 1 Pi – more slots, camels, staking and daily rewards, no ads, ranking badge. Upgrades convert remaining time by price.
 - 💎 **Partner:** top membership granted by the owner (Pi usernames in `ADMIN_USERNAMES`) to Jerry Development partners from the Club tab; never sold. Includes a legendary camel gift.
@@ -68,5 +69,6 @@ node --no-warnings tests/harness.mjs &   # Worker + SQLite + fake Pi API/App Stu
 bash tests/payments.sh                   # U2A payment checks
 # restart the harness for a clean database, then:
 node tests/membership.mjs                # tiers, Partner grants, fair scoring (fresh harness)
+node tests/city.mjs                      # Oasis City rules (fresh harness)
 node tests/payouts.mjs                   # A2U payouts on a fake Pi chain that verifies signatures
 ```

@@ -98,6 +98,29 @@
       </div>
     </section>
 
+    <section id="tab-city" class="tab">
+      <h2 data-i18n="city.title"></h2>
+      <div class="city-head">
+        <div class="medal" id="cityLevel">1</div>
+        <div class="xpbar"><i id="cityXpFill"></i><span id="cityXpText"></span></div>
+      </div>
+      <div class="cstats">
+        <div><small data-i18n="city.pop"></small><b id="cityPop">0</b></div>
+        <div><small data-i18n="city.happy"></small><b id="cityHappy">+0%</b></div>
+        <div><small data-i18n="city.taxRate"></small><b id="cityTaxRate">0</b></div>
+      </div>
+      <div class="city-scene"><div class="iso" id="iso"></div></div>
+      <div class="row city-actions">
+        <button id="cityTaxBtn" class="btn gold"></button>
+        <button id="cityCollectBtn" class="btn"></button>
+      </div>
+      <h3 data-i18n="city.orders"></h3>
+      <div id="orders" class="orders"></div>
+      <h3 data-i18n="city.warehouse"></h3>
+      <div id="goods" class="goods"></div>
+      <p class="hint" data-i18n="city.hint"></p>
+    </section>
+
     <section id="tab-stake" class="tab">
       <h2 data-i18n="stake.title"></h2>
       <p class="hint" data-i18n="stake.hint"></p>
@@ -172,10 +195,16 @@
   <nav class="tabs">
     <button data-tab="farm" class="active"><i>🌾</i><span data-i18n="tab.farm"></span></button>
     <button data-tab="camels"><i>🐪</i><span data-i18n="tab.camels"></span></button>
+    <button data-tab="city"><i>🏙️</i><span data-i18n="tab.city"></span></button>
     <button data-tab="stake"><i>🏺</i><span data-i18n="tab.stake"></span></button>
     <button data-tab="rank"><i>🏆</i><span data-i18n="tab.rank"></span></button>
     <button data-tab="vip"><i>👑</i><span data-i18n="tab.vip"></span></button>
   </nav>
+
+  <div id="sheet" class="sheet hidden">
+    <div class="sheet-bg" id="sheetBg"></div>
+    <div class="sheet-card" id="sheetCard"></div>
+  </div>
 
   <div id="toast" class="toast"></div>
 

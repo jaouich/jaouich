@@ -60,6 +60,8 @@
     const vars = Object.assign({}, m.vars);
     if (m.key === "t.planted") { const s = L.seedById(vars.seed); vars.seed = seedName(s) + " " + s.e; }
     if (vars.r) vars.r = t("rarity." + vars.r);
+    if (vars.bld) vars.bld = t("b." + vars.bld);
+    if (vars.good) vars.good = t("good." + vars.good);
     return t(m.key, vars);
   }
   const errText = (code, vars) => window.I18N.has("t." + code) ? t("t." + code, vars) : t("e." + code);
@@ -278,6 +280,7 @@
       t("perk.slots", { n: p.slots }),
       t("perk.boost", { n: Math.round(p.boost * 100) }),
       t("perk.camels", { n: p.camels }),
+      t("perk.city", { n: Math.round(p.boost * 100) }),
       t("perk.daily", { n: p.daily }),
       t("perk.noads"),
       t("perk.badge"),
@@ -427,6 +430,7 @@
     document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x.id === "tab-" + b.dataset.tab));
     scrollTo({ top: 0 });
     if (b.dataset.tab === "rank") renderRank();
+    if (b.dataset.tab === "city") { renderCity(); maybeCityTick(); }
   });
   const langSel = $("langSelect");
   langSel.value = window.I18N.lang;
@@ -438,10 +442,180 @@
     if (account && account.isAdmin) partners("list");
   });
 
+  // ---------- Oasis City ----------
+  const CITYC = L.CITY;
+  const B_ICON = { house: ["🏠", "🏡", "🏘️"], bakery: ["🥖"], teahouse: ["🍵"], spice: ["🌶️"], weaver: ["🧶"], potter: ["🏺"], palm: ["🌴"], garden: ["🌺"], fountain: ["⛲"] };
+  const bIcon = (id, lvl) => { const a = B_ICON[id]; return a[Math.min(lvl, a.length) - 1]; };
+  let selTile = -1, isoKey = "", ordersKey = "", lastCityTick = 0;
+
+  function bDesc(d, lvl) {
+    lvl = lvl || 1;
+    if (d.kind === "home") return t("cdesc.home", { n: d.pop[lvl - 1], r: d.pop[lvl - 1] * CITYC.TAX_PER_POP });
+    if (d.kind === "work") return t("cdesc.work", { g: t("good." + d.good), c: d.craftCost, t: fmt(Math.round(L.jobMs(d, lvl, 1) / 1000)) });
+    return t("cdesc.deco", { n: d.happy[lvl - 1] });
+  }
+
+  function isoHTML(c, n) {
+    let h = '<i class="slab base"></i><i class="slab s"></i><i class="slab w"></i>';
+    c.tiles.forEach((tile, i) => {
+      const x = i % CITYC.SIZE, y = Math.floor(i / CITYC.SIZE);
+      h += `<div class="tile ${(x + y) % 2 ? "alt" : ""} ${i === selTile ? "sel" : ""}" data-i="${i}">`;
+      if (!tile) {
+        h += `<div class="icon plus"><div class="ib"><span class="em">+</span></div></div>`;
+      } else {
+        const d = L.buildingById(tile.b);
+        let st = "";
+        if (tile.job) st = tile.job.end <= n ? `<em class="st rdy">${L.goodById(tile.job.g).e}✓</em>` : `<em class="st"><span class="tm" data-end="${tile.job.end}"></span></em>`;
+        h += `<div class="bld b-${d.id} l${tile.lvl}"><i class="ft"></i><i class="fs"></i><i class="fw"></i>
+          <div class="icon"><div class="ib"><span class="em">${bIcon(d.id, tile.lvl)}</span>${d.cost.length > 1 ? `<b class="lv">${tile.lvl}</b>` : ""}${st}</div></div></div>`;
+      }
+      h += "</div>";
+    });
+    return h;
+  }
+
+  function renderCity() {
+    const c = S.city, n = now(), lvl = L.cityLevel(c.xp), st = L.cityStats(c);
+    $("cityLevel").textContent = lvl;
+    const lo = L.xpFor(lvl), hi = lvl >= CITYC.MAX_LEVEL ? lo : L.xpFor(lvl + 1);
+    $("cityXpFill").style.width = (lvl >= CITYC.MAX_LEVEL ? 100 : ((c.xp - lo) / (hi - lo)) * 100) + "%";
+    $("cityXpText").textContent = lvl >= CITYC.MAX_LEVEL ? "MAX" : `${c.xp - lo} / ${hi - lo} XP`;
+    $("cityPop").textContent = st.pop;
+    $("cityHappy").textContent = "+" + Math.round(st.happyBonus * 100) + "%";
+    $("cityTaxRate").textContent = (Math.round(st.taxPerHour * 10) / 10).toString();
+
+    const key = c.tiles.map((x) => (x ? `${x.b}${x.lvl}${x.job ? (x.job.end <= n ? "R" : "W") : ""}` : "-")).join("|") + "|" + selTile + "|" + window.I18N.lang;
+    if (key !== isoKey) { isoKey = key; $("iso").innerHTML = isoHTML(c, n); }
+
+    const tax = Math.floor(L.taxPending(c, n));
+    $("cityTaxBtn").textContent = tax >= 1 ? t("city.taxBtn", { n: tax }) : t("city.taxNone");
+    $("cityTaxBtn").disabled = tax < 1;
+    const ready = c.tiles.reduce((k, x) => k + (x && x.job && x.job.end <= n ? x.job.qty : 0), 0);
+    $("cityCollectBtn").textContent = ready ? t("city.collectAll", { n: ready }) : t("city.collectNone");
+    $("cityCollectBtn").disabled = !ready;
+
+    renderOrders(c);
+    $("goods").innerHTML = L.GOODS.map((g) => `<div class="good"><span>${g.e}</span><b>${c.goods[g.id] || 0}</b><small>${esc(t("good." + g.id))}</small></div>`).join("");
+    updateTimers();
+  }
+
+  const hasWorkshop = (c) => c.tiles.some((x) => x && L.buildingById(x.b).kind === "work");
+  function renderOrders(c) {
+    const key = JSON.stringify([c.orders, c.goods, myTier(), window.I18N.lang, hasWorkshop(c)]);
+    if (key === ordersKey) return;
+    ordersKey = key;
+    const work = hasWorkshop(c);
+    $("orders").innerHTML = c.orders.map((o, i) => {
+      if (o.need) {
+        const gs = Object.keys(o.need);
+        const ok = gs.every((g) => (c.goods[g] || 0) >= o.need[g]);
+        const chips = gs.map((g) => { const have = c.goods[g] || 0; return `<span class="chip-g ${have >= o.need[g] ? "ok" : "no"}">${L.goodById(g).e}<b>${have}/${o.need[g]}</b></span>`; }).join("");
+        const bonus = Math.floor(o.reward * perks().boost);
+        return `<div class="order"><div class="need">${chips}</div><div class="rw">🪙 ${o.reward}${bonus ? ` <small>+${bonus}</small>` : ""}<br><small>⭐ ${o.xp}</small></div>
+          <button class="btn small ${ok ? "gold" : ""}" data-deliver="${i}" ${ok ? "" : "disabled"}>${t("city.deliver")}</button></div>`;
+      }
+      return `<div class="order wait">${work ? `<span data-wait="${o.wait || 0}"></span>` : t("city.noWorkshop")}</div>`;
+    }).join("");
+  }
+
+  // Countdowns that run every second without rebuilding the page
+  function updateTimers() {
+    const n = now();
+    document.querySelectorAll("#iso .tm").forEach((el) => { el.textContent = fmt((+el.dataset.end - n) / 1000); });
+    document.querySelectorAll("#sheetCard .tm").forEach((el) => {
+      el.textContent = fmt((+el.dataset.end - n) / 1000);
+      const bar = el.closest(".job") && el.closest(".job").querySelector(".bar i");
+      if (bar) bar.style.width = Math.min(100, Math.max(0, 100 - ((+el.dataset.end - n) / (+el.dataset.total)) * 100)) + "%";
+    });
+    document.querySelectorAll("#orders [data-wait]").forEach((el) => { el.textContent = t("city.nextOrder", { t: fmt((+el.dataset.wait - n) / 1000) }); });
+  }
+  // New citizens' orders appear on the server; ask for them once their waiting time is over
+  function maybeCityTick() {
+    if (!document.querySelector("#tab-city.active")) return;
+    const c = S.city, n = now();
+    if (hasWorkshop(c) && c.orders.some((o) => !o.need && (o.wait || 0) <= n) && Date.now() - lastCityTick > 4000) {
+      lastCityTick = Date.now();
+      act({ type: "cityTick" });
+    }
+  }
+
+  $("iso").addEventListener("click", (e) => {
+    const el = e.target.closest(".tile");
+    if (!el) return;
+    const i = +el.dataset.i, tile = S.city.tiles[i];
+    if (tile && tile.job && tile.job.end <= now()) return act({ type: "cityCollect", tile: i }); // one tap collects finished goods
+    openSheet(i);
+  });
+  $("cityTaxBtn").addEventListener("click", () => act({ type: "cityTax" }));
+  $("cityCollectBtn").addEventListener("click", () => act({ type: "cityCollectAll" }));
+  $("orders").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-deliver]");
+    if (b) act({ type: "cityDeliver", slot: +b.dataset.deliver });
+  });
+
+  // ----- bottom sheet: build menu / building details -----
+  function openSheet(i) { selTile = i; renderSheet(); $("sheet").classList.remove("hidden"); isoKey = ""; renderCity(); }
+  function closeSheet() { selTile = -1; $("sheet").classList.add("hidden"); isoKey = ""; renderCity(); }
+  function renderSheet() {
+    const c = S.city, tile = c.tiles[selTile], lvl = L.cityLevel(c.xp), n = now();
+    let h = '<div class="grab"></div>';
+    if (!tile) {
+      h += `<h3>${t("sheet.buildTitle")}</h3>` + L.BUILDINGS.map((d) => {
+        const locked = d.unlock > lvl;
+        return `<div class="brow ${locked ? "lock" : ""}"><span class="bi">${bIcon(d.id, 1)}</span>
+          <div><b>${esc(t("b." + d.id))}</b><small>${bDesc(d, 1)}</small></div>
+          ${locked ? `<span class="lk">🔒 ${t("sheet.locked", { n: d.unlock })}</span>`
+            : `<button class="btn small" data-build="${d.id}" ${S.dates < d.cost[0] ? "disabled" : ""}>${t("sheet.buildFor", { p: d.cost[0] })}</button>`}</div>`;
+      }).join("");
+    } else {
+      const d = L.buildingById(tile.b);
+      h += `<div class="shead"><span class="bi">${bIcon(d.id, tile.lvl)}</span><div><b>${esc(t("b." + d.id))}</b><small>${t("sheet.level", { n: tile.lvl })} · ${bDesc(d, tile.lvl)}</small></div></div>`;
+      if (d.kind === "work") {
+        const have = c.goods[d.good] || 0, cap = L.goodCap(lvl);
+        h += `<p class="hint">${L.goodById(d.good).e} ${esc(t("good." + d.good))}: <b>${have}/${cap}</b></p>`;
+        if (tile.job && tile.job.end > n) {
+          const total = L.jobMs(d, tile.lvl, tile.job.qty);
+          h += `<div class="job"><span>${L.goodById(tile.job.g).e}×${tile.job.qty}</span><div class="bar"><i></i></div><b class="tm" data-end="${tile.job.end}" data-total="${total}"></b></div>`;
+        } else if (tile.job) {
+          h += `<button class="btn gold" data-collect>${t("sheet.collect")} ${L.goodById(tile.job.g).e}×${tile.job.qty}</button>`;
+        } else {
+          h += `<div class="craft">` + [1, 2, 3].map((q) => `<button class="btn" data-craft="${q}" ${S.dates < d.craftCost * q ? "disabled" : ""}>${t("sheet.make", { n: q })}<small>${t("sheet.makeCost", { c: d.craftCost * q, t: fmt(Math.round(L.jobMs(d, tile.lvl, q) / 1000)) })}</small></button>`).join("") + `</div>`;
+        }
+      }
+      if (tile.lvl < d.cost.length) {
+        const nx = d.cost[tile.lvl];
+        const locked = d.unlock > lvl;
+        h += `<button class="btn secondary" data-upgrade ${S.dates < nx || locked ? "disabled" : ""}>${t("sheet.upgrade", { n: tile.lvl + 1, p: nx })}</button>
+          <p class="hint" style="margin:4px 0 0">${bDesc(d, tile.lvl + 1)}</p>`;
+      } else if (d.cost.length > 1) {
+        h += `<p class="hint">${t("sheet.maxLevel")}</p>`;
+      }
+      const refund = Math.floor(d.cost.slice(0, tile.lvl).reduce((a, b) => a + b, 0) * CITYC.SELL_REFUND);
+      h += `<button class="btn danger" data-demolish ${tile.job ? "disabled" : ""}>${t("sheet.demolish", { n: refund })}</button>`;
+    }
+    h += `<button class="btn secondary" data-close style="margin-top:12px">${t("sheet.close")}</button>`;
+    $("sheetCard").innerHTML = h;
+    updateTimers();
+  }
+  $("sheetBg").addEventListener("click", closeSheet);
+  $("sheetCard").addEventListener("click", async (e) => {
+    const b = e.target.closest("button");
+    if (!b || b.disabled) return;
+    const i = selTile, d = b.dataset;
+    if (d.close !== undefined) return closeSheet();
+    if (d.build) await act({ type: "cityBuild", tile: i, b: d.build });
+    else if (d.craft) await act({ type: "cityCraft", tile: i, qty: +d.craft });
+    else if (d.collect !== undefined) await act({ type: "cityCollect", tile: i });
+    else if (d.upgrade !== undefined) await act({ type: "cityUpgrade", tile: i });
+    else if (d.demolish !== undefined) { if (!confirm(t("sheet.confirmDemolish"))) return; await act({ type: "cityDemolish", tile: i }); }
+    if (selTile >= 0) renderSheet();
+  });
+
   function render() {
     S = L.normalize(S, now());
     $("dates").textContent = S.dates.toLocaleString("en-US");
-    renderFarm(); renderStakes(); renderClub(); renderCamels();
+    renderFarm(); renderStakes(); renderClub(); renderCamels(); renderCity();
+    if (selTile >= 0 && !$("sheet").classList.contains("hidden")) renderSheet();
     if (!document.activeElement || document.activeElement.id !== "stakeAmt") renderStakeOptions();
   }
 
@@ -479,5 +653,9 @@
   setInterval(setSky, 60000);
   renderSeeds();
   render();
-  setInterval(() => { renderFarm(); renderStakes(); if (document.querySelector("#tab-camels.active")) renderCamels(); }, 1000);
+  setInterval(() => {
+    renderFarm(); renderStakes();
+    if (document.querySelector("#tab-camels.active")) renderCamels();
+    if (document.querySelector("#tab-city.active")) { renderCity(); maybeCityTick(); }
+  }, 1000);
 })();

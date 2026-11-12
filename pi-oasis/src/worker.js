@@ -204,6 +204,7 @@ async function account(env, u) {
     tier,
     tierId: L.TIERS[tier].id,
     isAdmin: isAdmin(env, u),
+    testGifts: isAdmin(env, u) && env.TESTNET_GIFTS === "1",
     vipUntil: u.vip_until,
     referralBalance: u.ref_balance,
     referralCount: c.n,
@@ -467,6 +468,26 @@ const routes = {
       "SELECT p.username, p.granted_at, EXISTS (SELECT 1 FROM users u WHERE u.username = p.username COLLATE NOCASE) AS joined FROM partners p ORDER BY p.granted_at DESC"
     );
     return { partners: partners.map((x) => ({ username: x.username, joined: !!x.joined })) };
+  },
+
+  // Testnet only: small App-to-User gifts so the Pi portal sees A2U payments to 5+ different
+  // wallets (needed before it gives a Mainnet app wallet). Never enabled on Mainnet.
+  "POST /api/admin/test-gifts": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u) || env.TESTNET_GIFTS !== "1") throw new HttpError(403, "forbidden");
+    if (body.action === "send") {
+      const now = Date.now();
+      const users = await all(env, "SELECT uid FROM users WHERE uid NOT IN (SELECT uid FROM payouts WHERE kind = 'gift') ORDER BY created_at DESC LIMIT 20");
+      if (users.length) {
+        await env.DB.batch(users.map((x) =>
+          env.DB.prepare("INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'gift', 'testnet', ?, 0.01, 'Pi Oasis Testnet gift', 'new', ?, ?)")
+            .bind(crypto.randomUUID(), x.uid, now, now)));
+      }
+      await runPayouts(env);
+    }
+    const gifts = await all(env, "SELECT u.username, p.status, p.error FROM payouts p LEFT JOIN users u ON u.uid = p.uid WHERE p.kind = 'gift' ORDER BY p.created_at DESC LIMIT 50");
+    const players = await one(env, "SELECT COUNT(*) AS n FROM users");
+    return { gifts, paid: gifts.filter((g) => g.status === "completed").length, players: players.n };
   },
 
   "GET /api/admin/payouts": async (req, env) => {

@@ -20,6 +20,8 @@ VALIDATION_KEY = "7c51468ad7937a22873ad4adf0fd7d80b1be68a1f78733624eb98d53c35fe3
 PUBLIC_URL = "https://oasisgame6033.pinet.com"
 # Pi usernames allowed to grant the Partner membership (comma separated)
 ADMIN_USERNAMES = "jaouich"
+# Testnet only: owner can send 0.01 test-Pi gifts (Pi portal needs A2U to 5 wallets before Mainnet)
+TESTNET_GIFTS = "1"
 
 # Hourly run: weekly prizes and referral withdrawals (App-to-User payments)
 [triggers]

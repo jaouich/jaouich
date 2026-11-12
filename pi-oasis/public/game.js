@@ -339,6 +339,7 @@
       $("refBalance").textContent = (+account.referralBalance).toFixed(3);
       $("refCount").textContent = account.referralCount;
       $("adminBox").classList.toggle("hidden", !account.isAdmin);
+      $("giftBox").classList.toggle("hidden", !account.testGifts);
     }
   }
   $("tierBadge").addEventListener("click", () => document.querySelector('.tabs [data-tab="vip"]').click());
@@ -416,6 +417,18 @@
     if (b && confirm(t("admin.confirm", { name: b.dataset.revoke }))) partners("revoke", b.dataset.revoke);
   });
 
+  // ---------- Owner, Testnet only: A2U gifts so the Pi portal unlocks the Mainnet wallet ----------
+  async function testGifts(action) {
+    try {
+      const r = await Pi.testGifts(action);
+      const icon = { completed: "✅", failed: "❌" };
+      $("giftList").innerHTML = `<div class="hint">${t("gift.count", { n: r.paid, p: r.players })}</div>` +
+        r.gifts.map((g) => `<div><span>${icon[g.status] || "⏳"} <b>${esc(g.username || "?")}</b>${g.error ? ` <small class="hint">${esc(g.error)}</small>` : ""}</span></div>`).join("");
+      if (action === "send") toast(t("gift.sent"));
+    } catch (e) { toast(e.message); }
+  }
+  $("sendGifts").addEventListener("click", () => testGifts("send"));
+
   // ---------- Sign in ----------
   async function signIn(silent) {
     if (!silent) $("loginBtn").disabled = true;
@@ -431,6 +444,7 @@
       $("loginBtn").classList.add("hidden");
       render();
       if (account.isAdmin) partners("list");
+      if (account.testGifts) testGifts("list");
     } catch (e) {
       if (!silent) toast(e.message === "timeout" ? t("t.openInPi") : e.message);
     } finally { $("loginBtn").disabled = false; }
@@ -459,6 +473,7 @@
     if (helpOpen()) renderHelp();
     if (document.querySelector("#tab-rank.active")) renderRank();
     if (account && account.isAdmin) partners("list");
+    if (account && account.testGifts) testGifts("list");
   });
 
   // ---------- Daily missions ----------

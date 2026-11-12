@@ -116,7 +116,7 @@ async function horizon(u, opt) {
   return J({}, 404);
 }
 const worker = (await import(ROOT + "/src/worker.js")).default;
-const env = { DB, ASSETS, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_WALLET_SEED: APP.S, VALIDATION_KEY: "testkey123", ADMIN_USERNAMES: "Alice", PUBLIC_URL: "https://oasisgame6033.pinet.com" };
+const env = { DB, ASSETS, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_WALLET_SEED: APP.S, VALIDATION_KEY: "testkey123", ADMIN_USERNAMES: "Alice", PUBLIC_URL: "https://oasisgame6033.pinet.com", TESTNET_GIFTS: "1" };
 http.createServer(async (rq, rs) => {
   const chunks = []; for await (const c of rq) chunks.push(c);
   const req = new Request("http://localhost:3457" + rq.url, { method: rq.method, headers: rq.headers, body: rq.method === "POST" ? Buffer.concat(chunks) : undefined });
@@ -124,6 +124,7 @@ http.createServer(async (rq, rs) => {
   if (rq.url === "/__test/chain") { rs.end(JSON.stringify({ txs: chain.txs.map((t) => ({ ...t, seq: String(t.seq), amount: String(t.amount) })), wallets, a2u })); return; }
   if (rq.url === "/__test/drop-next") { chain.dropNextResponse = true; rs.end("ok"); return; }
   if (rq.url === "/__test/cron") { const w = []; await worker.scheduled({}, env, { waitUntil: (p) => w.push(p) }); await Promise.all(w); rs.end("ok"); return; }
+  if (rq.url.startsWith("/__test/gifts")) { if (rq.url.endsWith("on")) env.TESTNET_GIFTS = "1"; else delete env.TESTNET_GIFTS; rs.end("ok"); return; }
   if (rq.url.startsWith("/__test/studio")) { if (rq.url.endsWith("on")) env.PI_STUDIO_API_KEY = "STUDIOKEY"; else delete env.PI_STUDIO_API_KEY; rs.end("ok"); return; }
   if (rq.url === "/__test/completes") { rs.end(String(globalThis.__completes || 0)); return; }
   if (rq.url === "/__test/calls") { rs.end(String(globalThis.__studioCalls || 0)); return; }

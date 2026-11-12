@@ -270,6 +270,15 @@
     if (!document.activeElement || document.activeElement.id !== "stakeAmt") renderStakeOptions();
   }
 
+  // Opened through the old App Studio app? Its payments can't be approved, so point
+  // players to the official app and hide the purchase button there.
+  const OLD_APPS = ["apppioasisaf7788"];
+  const parents = [document.referrer, ...(location.ancestorOrigins ? [...location.ancestorOrigins] : [])].join(" ");
+  if (OLD_APPS.some((h) => parents.includes(h))) {
+    $("movedBar").classList.remove("hidden");
+    $("buyVip").classList.add("hidden");
+  }
+
   window.I18N.apply();
   renderSeeds();
   render();

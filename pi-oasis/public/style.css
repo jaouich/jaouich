@@ -109,6 +109,11 @@ h3 { font-size: 1rem; margin: 16px 0 6px; }
   transition: .25s; pointer-events: none; max-width: 90vw; text-align: center; font-size: .9rem;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.moved-bar {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 10px 16px; background: #fde68a; font-size: .9rem; font-weight: 600;
+}
+.moved-bar a { text-decoration: none; text-align: center; }
 .lang {
   background: rgba(255,255,255,.18); color: #fff; border: 0; border-radius: 999px;
   padding: 4px 6px; font: inherit; font-size: .9rem; cursor: pointer;

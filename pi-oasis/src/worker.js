@@ -3,6 +3,7 @@
 // Static files in /public are served by Workers Static Assets (see wrangler.toml).
 import "../public/logic.js";
 import { processPayouts } from "./payouts.js";
+import { publicKeyOf } from "./stellar.js";
 
 const L = globalThis.OasisLogic;
 const PI_API = "https://api.minepi.com/v2";
@@ -291,6 +292,9 @@ const routes = {
     return {
       piApiKeyConfigured: !!env.PI_NETWORK_API_KEY,
       payoutsConfigured: !!env.PI_WALLET_SEED,
+      // Public address (G...) of the wallet the secret belongs to: safe to show, lets the
+      // owner check it is the app wallet. Never the secret itself.
+      payoutWalletAddress: env.PI_WALLET_SEED ? await publicKeyOf(env.PI_WALLET_SEED).catch(() => "invalid PI_WALLET_SEED") : null,
       payouts: await all(env, "SELECT kind, amount, status, error, updated_at FROM payouts ORDER BY created_at DESC LIMIT 10"),
       adminTokenConfigured: !!env.ADMIN_TOKEN,
       recentErrors: errors.map((e) => ({ ...e, at: new Date(e.at).toISOString() })),

@@ -18,6 +18,8 @@ database_name = "pi-oasis-db"
 [vars]
 VALIDATION_KEY = "7c51468ad7937a22873ad4adf0fd7d80b1be68a1f78733624eb98d53c35fe3985aacf7642e50d4d5ee31e85304b4542b08ff9c6322821708bf153f78d54cad8d"
 PUBLIC_URL = "https://oasisgame6033.pinet.com"
+# Pi usernames allowed to grant the Partner membership (comma separated)
+ADMIN_USERNAMES = "jaouich"
 
 # Hourly run: weekly prizes and referral withdrawals (App-to-User payments)
 [triggers]
@@ -42,6 +44,7 @@ workers_dev = true
 [env.main.vars]
 VALIDATION_KEY = ""
 PUBLIC_URL = ""
+ADMIN_USERNAMES = "jaouich"
 
 [[env.main.d1_databases]]
 binding = "DB"

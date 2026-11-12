@@ -7,7 +7,9 @@ Runs on **Cloudflare Workers** with a **D1** database.
 - 🌾 **Farm:** plant and harvest to earn dates 🪙 (in-game currency, no monetary value)
 - 🐪 **Camels:** buy (300 🪙), collect dates every hour (common 10/h, rare 20, epic 40, legendary 80; up to 8 h), breed two camels (200 🪙, 24 h rest) – the baby can be rarer (up to epic). Weekly Top 3 win a legendary / epic / rare camel. Herd 6 (VIP 12).
 - 🏺 **Granary (staking with dates):** 1 h +5%, 24 h +30%, 7 days +150% + rare tree
-- 👑 **VIP – 0.25 Pi / month:** 10 staking slots, +20% staking rewards, no ads, double daily reward
+- 👑 **Memberships (30 days):** Bronze 0.25 Pi, Silver 0.5 Pi, Gold 1 Pi – more slots, camels, staking and daily rewards, no ads, ranking badge. Upgrades convert remaining time by price.
+- 💎 **Partner:** top membership granted by the owner (Pi usernames in `ADMIN_USERNAMES`) to Jerry Development partners from the Club tab; never sold. Includes a legendary camel gift.
+- ⚖️ **Fair ranking:** membership bonuses add dates but never count toward the weekly score.
 - 🤝 **Referrals – 10% of what the app receives on every monthly renewal:** one level only; balance can be swapped for VIP or withdrawn from 1 Pi
 - 🏆 **Weekly leaderboard (free to enter):** Top 3 share 15% of what the app receives from subscriptions (50% / 30% / 20%)
 - 📺 **Pi Ad Network:** watch a rewarded ad to finish a crop (non-VIP)
@@ -65,5 +67,6 @@ Read the **Pi Developer Terms** about prizes and referrals before Mainnet.
 node --no-warnings tests/harness.mjs &   # Worker + SQLite + fake Pi API/App Studio on :3457
 bash tests/payments.sh                   # U2A payment checks
 # restart the harness for a clean database, then:
+node tests/membership.mjs                # tiers, Partner grants, fair scoring (fresh harness)
 node tests/payouts.mjs                   # A2U payouts on a fake Pi chain that verifies signatures
 ```

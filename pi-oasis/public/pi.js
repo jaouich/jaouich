@@ -71,14 +71,17 @@
     return res;
   }
 
-  function buyVip() {
+  // Buys 30 days of a membership ("bronze" | "silver" | "gold"). The server checks the price.
+  function buyVip(tierId) {
     return new Promise((resolve, reject) => {
       if (!piReady || !session) return reject(new Error(I18N.t("t.loginFirst")));
+      const tier = window.OasisLogic.TIERS.find((x) => x.id === tierId && x.price);
+      if (!tier) return reject(new Error(I18N.t("e.payment")));
       window.Pi.createPayment(
         {
-          amount: cfg.VIP_PRICE,
-          memo: "Pi Oasis – 1 month VIP",
-          metadata: { type: "vip_month" },
+          amount: tier.price,
+          memo: `Pi Oasis – ${tier.id[0].toUpperCase() + tier.id.slice(1)} membership (30 days)`,
+          metadata: { type: "vip_month", tier: tier.id },
         },
         {
           onReadyForServerApproval: (paymentId) =>
@@ -124,6 +127,7 @@
     action: (action) => api("/api/action", { action }),
     leaderboard: () => api("/api/leaderboard"),
     redeemVip: () => api("/api/referral/redeem-vip", {}),
+    partners: (action, username) => api("/api/admin/partners", { action, username }),
     setInviter: (username) => api("/api/referral/set-inviter", { username }),
     withdraw: () => api("/api/referral/withdraw", {}),
   };

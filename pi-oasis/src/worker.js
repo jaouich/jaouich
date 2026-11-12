@@ -15,7 +15,7 @@ const VIP_DAYS = 30;
 // On Mainnet Pi keeps 30% of App Studio item sales, so the app receives 70%.
 // Referral and prize shares are taken from what the app actually receives.
 const APP_SHARE = 0.7;
-const NET = VIP_PRICE * APP_SHARE; // 0.175 Pi
+const net = (amount) => amount * APP_SHARE; // e.g. 0.175 Pi of a 0.25 Pi payment
 const REFERRAL_RATE = 0.1; // 10% of NET on every monthly renewal
 const PRIZE_RATE = 0.15; // 15% of NET goes to the weekly prize pool
 const PRIZE_SPLIT = [0.5, 0.3, 0.2];
@@ -120,6 +120,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS withdrawals ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, username TEXT NOT NULL, amount REAL NOT NULL, status TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS ads ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS errlog ( at INTEGER NOT NULL, place TEXT NOT NULL, status INTEGER, message TEXT )",
+  "CREATE TABLE IF NOT EXISTS partners ( username TEXT PRIMARY KEY COLLATE NOCASE, granted_by TEXT, granted_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS week_rewards ( week_id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS week_scores ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, score INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE INDEX IF NOT EXISTS week_scores_rank ON week_scores(week_id, score DESC)",
@@ -127,7 +128,10 @@ const SCHEMA = [
 ];
 let schemaReady = null;
 const ensureSchema = (env) =>
-  (schemaReady ||= env.DB.batch(SCHEMA.map((q) => env.DB.prepare(q))).catch((e) => { schemaReady = null; throw e; }));
+  (schemaReady ||= env.DB.batch(SCHEMA.map((q) => env.DB.prepare(q)))
+    // Column added after launch; fails harmlessly once it exists
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN vip_tier TEXT").run().catch(() => {}))
+    .catch((e) => { schemaReady = null; throw e; }));
 
 const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
 const all = async (env, sql, ...p) => (await env.DB.prepare(sql).bind(...p).all()).results;
@@ -135,11 +139,50 @@ const run = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).run();
 
 const INVITER_DAYS = 7; // a new player can add who invited them during their first week
 
+// ---------- Memberships ----------
+// Paid tiers (bronze/silver/gold) last 30 days per payment. "partner" is granted by an
+// admin to Jerry Development partners (by Pi username) and is never sold.
+const PARTNER = L.tierIndex("partner");
+const isPartner = async (env, username) => !!(await one(env, "SELECT 1 AS x FROM partners WHERE username = ?", username));
+const paidTier = (u, now) => (u.vip_until > now ? L.tierIndex(u.vip_tier || "silver") : 0); // early VIPs = silver perks
+const tierOf = (u, now, partner) => (partner ? PARTNER : paidTier(u, now));
+const isAdmin = (env, u) =>
+  String(env.ADMIN_USERNAMES || "").toLowerCase().split(",").map((x) => x.trim()).filter(Boolean).includes(u.username.toLowerCase());
+
+// Adds 30 days of a paid tier. Remaining time on another tier is converted by price,
+// so nobody loses what they paid for.
+async function applyMembership(env, u, tier, now) {
+  const cur = u.vip_until > now ? L.TIERS[paidTier(u, now)] : null;
+  const month = VIP_DAYS * DAY;
+  let until, id = tier.id;
+  if (!cur) until = now + month;
+  else if (cur.id === tier.id) until = u.vip_until + month;
+  else if (tier.price > cur.price) until = now + month + Math.floor((u.vip_until - now) * (cur.price / tier.price));
+  else { until = u.vip_until + Math.floor(month * (tier.price / cur.price)); id = cur.id; }
+  return env.DB.prepare("UPDATE users SET vip_until = ?, vip_tier = ? WHERE uid = ?").bind(until, id, u.uid);
+}
+
+// Loads the game and gives a new partner their welcome gift (a legendary camel, once)
+async function stateFor(env, u, now, tier) {
+  const st = await loadState(env, u.uid, now);
+  if (tier === PARTNER && !st.partnerGift) {
+    L.addAnimal(st, 3, now, "partner");
+    st.partnerGift = 1;
+    await saveState(env, u.uid, st, now);
+  }
+  return st;
+}
+
 async function account(env, u) {
+  const now = Date.now();
+  const tier = tierOf(u, now, await isPartner(env, u.username));
   const c = await one(env, "SELECT COUNT(*) AS n FROM users WHERE referrer = ?", u.uid);
   const inviter = u.referrer ? await one(env, "SELECT username FROM users WHERE uid = ?", u.referrer) : null;
   return {
     username: u.username,
+    tier,
+    tierId: L.TIERS[tier].id,
+    isAdmin: isAdmin(env, u),
     vipUntil: u.vip_until,
     referralBalance: u.ref_balance,
     referralCount: c.n,
@@ -241,13 +284,15 @@ const routes = {
     u = await one(env, "SELECT * FROM users WHERE uid = ?", me.uid);
     const session = randomToken();
     await run(env, "INSERT INTO sessions (token, uid, created_at) VALUES (?, ?, ?)", session, me.uid, now);
-    return { session, user: { username: u.username }, account: await account(env, u), state: await loadState(env, u.uid, now), now, publicUrl: env.PUBLIC_URL || "" };
+    const acc = await account(env, u);
+    return { session, user: { username: u.username }, account: acc, state: await stateFor(env, u, now, acc.tier), now, publicUrl: env.PUBLIC_URL || "" };
   },
 
   "GET /api/me": async (req, env) => {
     const u = await auth(req, env);
     const now = Date.now();
-    return { account: await account(env, u), state: await loadState(env, u.uid, now), now };
+    const acc = await account(env, u);
+    return { account: acc, state: await stateFor(env, u, now, acc.tier), now };
   },
 
   // Every game action runs here with the server's clock
@@ -257,10 +302,11 @@ const routes = {
     const a = body.action || {};
     let adVerified = false;
     if (a.type === "speedup") adVerified = await verifyAd(env, u.uid, a.adId, now);
-    const state = await loadState(env, u.uid, now);
+    const tier = tierOf(u, now, await isPartner(env, u.username));
+    const state = await stateFor(env, u, now, tier);
     let res;
     try {
-      res = L.apply(state, a, { now, vip: u.vip_until > now, adVerified, rand: secureRandom });
+      res = L.apply(state, a, { now, tier, adVerified, rand: secureRandom });
     } catch (e) {
       if (e instanceof L.GameError) return json({ error: e.code, vars: e.vars, state, now }, 400);
       throw e;
@@ -270,15 +316,19 @@ const routes = {
   },
 
   // ---------- Payments (User → App) ----------
-  // Product: VIP membership, 0.25 Pi, metadata { type: "vip_month" } (server-owned price).
+  // Products: 30 days of bronze / silver / gold, metadata { type: "vip_month", tier }.
+  // Prices are owned by the server (L.TIERS).
   "POST /api/payments/approve": async (req, env, body) => {
     const u = await auth(req, env);
     const id = String(body.paymentId || "");
     if (!id) bad("badPayment");
     const p = await pi(env, `/payments/${encodeURIComponent(id)}`);
-    checkPayment(p, u.uid);
+    const tier = checkPayment(p, u.uid);
+    // A lower tier than the active one would be a downgrade: stop before any Pi moves
+    const nowT = Date.now();
+    if (u.vip_until > nowT && tier.price < L.TIERS[paidTier(u, nowT)].price) bad("lowerTier");
     // Persist the payment id before approving (irreversible on Pi's side)
-    await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'pending', ?)", id, u.uid, VIP_PRICE, Date.now());
+    await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'pending', ?)", id, u.uid, tier.price, nowT);
     const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
     if (row.uid !== u.uid) bad("notYours");
     if (!p.status?.developer_approved) await pi(env, `/payments/${encodeURIComponent(id)}/approve`, { method: "POST" });
@@ -327,10 +377,17 @@ const routes = {
     const w = await one(env, "SELECT prize_pool FROM weeks WHERE id = ?", wid);
     const top = await all(
       env,
-      "SELECT u.username, s.score FROM week_scores s JOIN users u ON u.uid = s.uid WHERE s.week_id = ? AND s.score > 0 ORDER BY s.score DESC, s.updated_at ASC LIMIT 20",
+      `SELECT u.username, s.score, u.vip_until, u.vip_tier,
+              EXISTS (SELECT 1 FROM partners p WHERE p.username = u.username) AS partner
+       FROM week_scores s JOIN users u ON u.uid = s.uid
+       WHERE s.week_id = ? AND s.score > 0 ORDER BY s.score DESC, s.updated_at ASC LIMIT 20`,
       wid
     );
-    return { prizePool: w ? w.prize_pool : 0, top };
+    const now = Date.now();
+    return {
+      prizePool: w ? w.prize_pool : 0,
+      top: top.map((r) => ({ username: r.username, score: r.score, tier: L.TIERS[tierOf(r, now, !!r.partner)].id })),
+    };
   },
 
   // ---------- Referrals ----------
@@ -349,12 +406,10 @@ const routes = {
   "POST /api/referral/redeem-vip": async (req, env) => {
     const u = await auth(req, env);
     const now = Date.now();
-    const r = await run(
-      env,
-      "UPDATE users SET ref_balance = ROUND(ref_balance - ?, 7), vip_until = MAX(vip_until, ?) + ? WHERE uid = ? AND ref_balance >= ?",
-      VIP_PRICE, now, VIP_DAYS * DAY, u.uid, VIP_PRICE
-    );
+    // 0.25 Pi of referral balance = 30 days of Bronze (converted if a higher tier is active)
+    const r = await run(env, "UPDATE users SET ref_balance = ROUND(ref_balance - ?, 7) WHERE uid = ? AND ref_balance >= ?", VIP_PRICE, u.uid, VIP_PRICE);
     if (!r.meta.changes) bad("needVipBalance");
+    await (await applyMembership(env, u, L.TIERS[L.tierIndex("bronze")], now)).run();
     return { account: await account(env, await one(env, "SELECT * FROM users WHERE uid = ?", u.uid)) };
   },
 
@@ -370,6 +425,26 @@ const routes = {
   },
 
   // ---------- Admin: who needs to be paid ----------
+  // Partner memberships: only the owner (ADMIN_USERNAMES, verified Pi sign-in) can manage them
+  "POST /api/admin/partners": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const name = String(body.username || "").trim().replace(/^@/, "");
+    if (body.action === "grant" || body.action === "revoke") {
+      if (!/^[A-Za-z0-9_.-]{1,40}$/.test(name)) bad("badUsername");
+      if (body.action === "grant") {
+        await run(env, "INSERT OR IGNORE INTO partners (username, granted_by, granted_at) VALUES (?, ?, ?)", name, u.username, Date.now());
+      } else {
+        await run(env, "DELETE FROM partners WHERE username = ?", name);
+      }
+    }
+    const partners = await all(
+      env,
+      "SELECT p.username, p.granted_at, EXISTS (SELECT 1 FROM users u WHERE u.username = p.username COLLATE NOCASE) AS joined FROM partners p ORDER BY p.granted_at DESC"
+    );
+    return { partners: partners.map((x) => ({ username: x.username, joined: !!x.joined })) };
+  },
+
   "GET /api/admin/payouts": async (req, env) => {
     admin(req, env);
     return {
@@ -397,13 +472,16 @@ const runPayouts = (env) =>
 function checkPayment(p, uid) {
   if (p.direction && p.direction !== "user_to_app") bad("badPayment");
   if (uid && p.user_uid !== uid) bad("notYours");
-  if (Number(p.amount) !== VIP_PRICE || p.metadata?.type !== "vip_month") bad("badPayment");
+  // Which membership is being bought, at the server's price (no tier = bronze, the first product)
+  const tier = L.TIERS.find((x) => x.price && x.id === (p.metadata?.tier || "bronze"));
+  if (!tier || p.metadata?.type !== "vip_month" || Number(p.amount) !== tier.price) bad("badPayment");
   if (p.status?.cancelled || p.status?.user_cancelled) bad("badPayment");
+  return tier;
 }
 
 async function completePayment(env, id, txid, uid) {
   const p = await pi(env, `/payments/${encodeURIComponent(id)}`);
-  checkPayment(p, uid);
+  const tier = checkPayment(p, uid);
   // Must be a payment this server approved for this same user
   const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
   if (!row || row.uid !== p.user_uid) bad("badPayment");
@@ -420,12 +498,12 @@ async function completePayment(env, id, txid, uid) {
   const u = await one(env, "SELECT * FROM users WHERE uid = ?", p.user_uid);
   const wid = L.weekId(now);
   const stmts = [
-    env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(wid, round(NET * PRIZE_RATE)),
+    env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(wid, round(net(tier.price) * PRIZE_RATE)),
   ];
   if (u) {
-    stmts.push(env.DB.prepare("UPDATE users SET vip_until = MAX(vip_until, ?) + ? WHERE uid = ?").bind(now, VIP_DAYS * DAY, u.uid));
+    stmts.push(await applyMembership(env, u, tier, now));
     if (u.referrer) {
-      stmts.push(env.DB.prepare("UPDATE users SET ref_balance = ROUND(ref_balance + ?, 7) WHERE uid = ?").bind(round(NET * REFERRAL_RATE), u.referrer));
+      stmts.push(env.DB.prepare("UPDATE users SET ref_balance = ROUND(ref_balance + ?, 7) WHERE uid = ?").bind(round(net(tier.price) * REFERRAL_RATE), u.referrer));
       stmts.push(env.DB.prepare("UPDATE payments SET referrer_uid = ? WHERE id = ?").bind(u.referrer, id));
     }
   }

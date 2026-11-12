@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Pi Oasis</title>
-  <meta name="theme-color" content="#2f7d4f">
+  <meta name="theme-color" content="#0f6b4a">
   <meta name="description" content="A farming & trading game in a Moroccan oasis. Plant, harvest, stake dates and climb the weekly leaderboard.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Pi Oasis">
@@ -15,20 +15,46 @@
   <link rel="icon" type="image/svg+xml" href="logo.svg">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 </head>
 <body>
-  <header class="top">
-    <div class="brand" data-i18n="brand"></div>
-    <div class="wallet">
-      <span class="pill">🪙 <b id="dates">0</b></span>
-      <span class="pill vip-badge hidden" id="vipBadge">👑 VIP</span>
+  <!-- Oasis scene: the sky follows the player's time of day -->
+  <header class="hero day" id="hero">
+    <div class="sky" aria-hidden="true"><i class="stars"></i><i class="sun"></i></div>
+    <svg class="dunes" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
+      <path class="d-back" d="M0 70 C70 40 130 48 200 70 C270 92 330 60 400 44 L400 120 L0 120 Z"/>
+      <g class="palm" transform="translate(214 26) scale(.52)">
+        <path d="M-6 96 C-2 60 6 30 18 4 L26 8 C14 34 8 62 6 96 Z"/>
+        <path d="M22 4 C0 -18 -30 -18 -54 -4 C-28 -8 -6 0 14 14 Z"/>
+        <path d="M22 4 C12 -24 -10 -40 -38 -40 C-12 -30 6 -14 16 10 Z"/>
+        <path d="M22 4 C30 -24 52 -40 80 -42 C56 -30 40 -14 30 10 Z"/>
+        <path d="M22 4 C46 -16 76 -16 98 0 C72 -6 50 0 30 14 Z"/>
+        <path d="M22 4 C22 -24 12 -44 -4 -58 C16 -48 30 -28 30 4 Z"/>
+      </g>
+      <g class="palm" transform="translate(160 46) scale(.36)">
+        <path d="M-6 96 C-2 60 6 30 18 4 L26 8 C14 34 8 62 6 96 Z"/>
+        <path d="M22 4 C0 -18 -30 -18 -54 -4 C-28 -8 -6 0 14 14 Z"/>
+        <path d="M22 4 C12 -24 -10 -40 -38 -40 C-12 -30 6 -14 16 10 Z"/>
+        <path d="M22 4 C30 -24 52 -40 80 -42 C56 -30 40 -14 30 10 Z"/>
+        <path d="M22 4 C46 -16 76 -16 98 0 C72 -6 50 0 30 14 Z"/>
+      </g>
+      <path class="d-front" d="M0 96 C90 70 170 84 250 100 C310 112 360 98 400 88 L400 120 L0 120 Z"/>
+    </svg>
+    <div class="hero-top">
+      <div class="brand"><img src="logo.svg" alt="" width="34" height="34"><span data-i18n="brand"></span></div>
       <select id="langSelect" class="lang" aria-label="Language">
         <option value="en">EN</option>
         <option value="ar">ع</option>
         <option value="fr">FR</option>
       </select>
+    </div>
+    <div class="hero-stats">
+      <div class="coin-pill" id="coinPill"><span class="coin">🪙</span><b id="dates">0</b></div>
+      <button class="tier-pill tp0" id="tierBadge" type="button"></button>
     </div>
   </header>
 
@@ -38,7 +64,7 @@
   </div>
   <div id="loginBar" class="login-bar">
     <span id="userLabel" data-i18n="login.prompt"></span>
-    <button id="loginBtn" class="btn small" data-i18n="login.btn"></button>
+    <button id="loginBtn" class="btn small gold" data-i18n="login.btn"></button>
   </div>
 
   <main>
@@ -49,6 +75,19 @@
       <p class="hint" data-i18n="farm.hint"></p>
     </section>
 
+    <section id="tab-camels" class="tab">
+      <h2 data-i18n="camels.title"></h2>
+      <p class="hint" data-i18n="camels.hint"></p>
+      <button id="collectBtn" class="btn gold"></button>
+      <button id="buyCamelBtn" class="btn secondary mt"></button>
+      <h3><span data-i18n="camels.herd"></span> <small id="herdInfo"></small></h3>
+      <div id="herd" class="herd"></div>
+      <div class="panel mt">
+        <p class="hint" data-i18n="camels.breedHint"></p>
+        <button id="breedBtn" class="btn" disabled></button>
+      </div>
+    </section>
+
     <section id="tab-stake" class="tab">
       <h2 data-i18n="stake.title"></h2>
       <p class="hint" data-i18n="stake.hint"></p>
@@ -57,48 +96,31 @@
       <div id="stakes" class="list"></div>
     </section>
 
-    <section id="tab-camels" class="tab">
-      <h2 data-i18n="camels.title"></h2>
-      <p class="hint" data-i18n="camels.hint"></p>
-      <button id="collectBtn" class="btn"></button>
-      <div class="row" style="margin-top:8px"><button id="buyCamelBtn" class="btn secondary"></button></div>
-      <h3><span data-i18n="camels.herd"></span> <small id="herdInfo"></small></h3>
-      <div id="herd" class="herd"></div>
-      <div class="vip-card" style="margin-top:12px">
-        <p class="hint" data-i18n="camels.breedHint"></p>
-        <button id="breedBtn" class="btn" disabled></button>
-      </div>
-    </section>
-
     <section id="tab-rank" class="tab">
       <h2 data-i18n="rank.title"></h2>
-      <div class="prize"><span data-i18n="rank.prize"></span> <b id="prizePool">—</b> <span data-i18n="rank.prizeEnd"></span></div>
+      <div class="prize">
+        <span class="trophy">🏆</span>
+        <div><small data-i18n="rank.prize"></small><b><span id="prizePool">—</span> Pi</b><small data-i18n="rank.prizeEnd"></small></div>
+        <div class="timer"><small data-i18n="rank.left"></small><b id="weekLeft"></b></div>
+      </div>
+      <div id="podium" class="podium"></div>
+      <ol id="leaderboard" class="list rank-list"></ol>
       <p class="hint" data-i18n="rank.hint"></p>
       <p class="hint" data-i18n="rank.camels"></p>
-      <ol id="leaderboard" class="list"></ol>
-      <p class="hint"><span data-i18n="rank.left"></span> <b id="weekLeft"></b></p>
     </section>
 
     <section id="tab-vip" class="tab">
-      <h2 data-i18n="vip.title"></h2>
-      <div class="vip-card">
-        <div class="price">0.25 Pi <small data-i18n="vip.month"></small></div>
-        <ul>
-          <li data-i18n="vip.p1"></li>
-          <li data-i18n="vip.p2"></li>
-          <li data-i18n="vip.p3"></li>
-          <li data-i18n="vip.p4"></li>
-          <li data-i18n="vip.p5"></li>
-        </ul>
-        <p class="hint" id="vipStatus"></p>
-        <button id="buyVip" class="btn"></button>
-      </div>
+      <h2 data-i18n="club.title"></h2>
+      <div class="panel status" id="clubStatus"></div>
+      <p class="hint" data-i18n="club.sub"></p>
+      <div id="tiers" class="tiers"></div>
+      <p class="hint fair" data-i18n="club.fair"></p>
 
       <h2 data-i18n="daily.title"></h2>
       <button id="dailyBtn" class="btn secondary"></button>
 
       <h2 data-i18n="ref.title"></h2>
-      <div class="vip-card">
+      <div class="panel">
         <p data-i18n="ref.desc"></p>
         <div class="ref-row">
           <input id="refLink" readonly data-i18n-ph="ref.placeholder">
@@ -121,17 +143,28 @@
         <p class="hint" data-i18n="ref.hint"></p>
       </div>
 
+      <!-- Only shown to the owner: grant the Partner membership -->
+      <div id="adminBox" class="panel admin hidden">
+        <h3 data-i18n="admin.title"></h3>
+        <p class="hint" data-i18n="admin.hint"></p>
+        <div class="ref-row">
+          <input id="partnerInput" autocomplete="off" autocapitalize="off" data-i18n-ph="admin.ph">
+          <button id="grantPartner" class="btn small gold" data-i18n="admin.grant"></button>
+        </div>
+        <div id="partnerList" class="list"></div>
+      </div>
+
       <p class="hint terms" data-i18n="terms"></p>
       <p class="hint"><a href="privacy.html">Privacy Policy</a> · <a href="terms.html">Terms of Service</a></p>
     </section>
   </main>
 
   <nav class="tabs">
-    <button data-tab="farm" class="active">🌾<span data-i18n="tab.farm"></span></button>
-    <button data-tab="camels">🐪<span data-i18n="tab.camels"></span></button>
-    <button data-tab="stake">🏺<span data-i18n="tab.stake"></span></button>
-    <button data-tab="rank">🏆<span data-i18n="tab.rank"></span></button>
-    <button data-tab="vip">👑<span data-i18n="tab.vip"></span></button>
+    <button data-tab="farm" class="active"><i>🌾</i><span data-i18n="tab.farm"></span></button>
+    <button data-tab="camels"><i>🐪</i><span data-i18n="tab.camels"></span></button>
+    <button data-tab="stake"><i>🏺</i><span data-i18n="tab.stake"></span></button>
+    <button data-tab="rank"><i>🏆</i><span data-i18n="tab.rank"></span></button>
+    <button data-tab="vip"><i>👑</i><span data-i18n="tab.vip"></span></button>
   </nav>
 
   <div id="toast" class="toast"></div>

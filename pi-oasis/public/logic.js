@@ -27,6 +27,16 @@
     UPGRADE_CHANCE: 0.12, MAX_BRED_RARITY: 2, // breeding can reach epic, never legendary
     STAKE_CAMEL_CHANCE: 0.3, // 7-day stake: chance of a rare camel
   };
+  // Memberships. "partner" is never sold: Jerry Development grants it to its partners.
+  // Bonuses give more dates but never count toward the weekly ranking (see earn()).
+  const TIERS = [
+    { id: "free", slots: 3, boost: 0, camels: 6, daily: 1 },
+    { id: "bronze", price: 0.25, slots: 5, boost: 0.1, camels: 8, daily: 2 },
+    { id: "silver", price: 0.5, slots: 10, boost: 0.2, camels: 12, daily: 3 },
+    { id: "gold", price: 1, slots: 15, boost: 0.35, camels: 20, daily: 5 },
+    { id: "partner", slots: 20, boost: 0.5, camels: 30, daily: 10 },
+  ];
+  const tierIndex = (id) => Math.max(0, TIERS.findIndex((x) => x.id === id));
   const C = {
     PLOTS: 9, FREE_SLOTS: 3, VIP_SLOTS: 10, VIP_BOOST: 0.2, MIN_STAKE: 10,
     MAX_STAKE: 1e9, DAILY: 25, START_DATES: 50, AD_MIN_LEFT: 20,
@@ -57,7 +67,8 @@
   const fail = (code, vars) => { throw new GameError(code, vars); };
   const int = (x) => (Number.isInteger(x) ? x : NaN);
 
-  function earn(s, n) { s.dates += n; s.week.score += n; }
+  // n counts toward the weekly score; bonus (from a membership) only adds dates
+  function earn(s, n, bonus) { s.dates += n + (bonus || 0); s.week.score += n; }
 
   function addAnimal(s, rarity, now, from) {
     const a = { id: s.nextAnimal++, rarity, born: now, lastCollect: now, lastBred: 0, from: from || "market" };
@@ -69,17 +80,18 @@
     const hours = Math.min(now - a.lastCollect, A.STORE_HOURS * 3600000) / 3600000;
     return Math.floor(RARITY[a.rarity].rate * hours);
   }
-  const maxAnimals = (vip) => (vip ? A.MAX_VIP : A.MAX_FREE);
+  const maxAnimals = (tier) => TIERS[tier || 0].camels;
 
   const seedById = (id) => SEEDS.find((x) => x.id === id);
   const stakeById = (id) => STAKES.find((x) => x.id === id);
   const readyAt = (p) => p.plantedAt + seedById(p.seed).time * 1000;
 
   // Applies one action. Returns { s, msg } where msg = { key, vars } for the UI.
-  // ctx: { now, vip, adVerified, rand }
+  // ctx: { now, tier (index in TIERS), adVerified, rand }
   function apply(state, a, ctx) {
     const now = ctx.now;
     const rand = ctx.rand || Math.random;
+    const tier = ctx.tier || 0, perks = TIERS[tier];
     const s = normalize(JSON.parse(JSON.stringify(state)), now);
     a = a || {};
     switch (a.type) {
@@ -103,7 +115,7 @@
       }
       case "speedup": {
         const i = int(a.plot), p = s.plots[i];
-        if (!p || ctx.vip || !ctx.adVerified) fail("badAction");
+        if (!p || tier > 0 || !ctx.adVerified) fail("badAction");
         if ((readyAt(p) - now) / 1000 <= C.AD_MIN_LEFT) fail("badAction");
         p.plantedAt = now - seedById(p.seed).time * 1000;
         return { s, msg: { key: "t.adDone" } };
@@ -112,10 +124,11 @@
         const o = stakeById(a.opt), amt = int(a.amount);
         if (!o || !(amt >= C.MIN_STAKE) || amt > C.MAX_STAKE) fail("minStake", { n: C.MIN_STAKE });
         if (amt > s.dates) fail("notEnough");
-        if (s.stakes.length >= (ctx.vip ? C.VIP_SLOTS : C.FREE_SLOTS)) fail(ctx.vip ? "slotsFull" : "slotsFullFree");
-        const profit = Math.floor(amt * o.rate * (ctx.vip ? 1 + C.VIP_BOOST : 1));
+        if (s.stakes.length >= perks.slots) fail(tier ? "slotsFull" : "slotsFullFree");
+        const base = Math.floor(amt * o.rate);
+        const profit = Math.floor(amt * o.rate * (1 + perks.boost));
         s.dates -= amt;
-        s.stakes.push({ amt, profit, opt: o.id, end: now + o.secs * 1000 });
+        s.stakes.push({ amt, profit, base, opt: o.id, end: now + o.secs * 1000 });
         return { s, msg: { key: "t.staked", vars: { a: amt, b: amt + profit } } };
       }
       case "claim": {
@@ -124,9 +137,10 @@
         if (st.end > now) fail("notReady");
         s.stakes.splice(i, 1);
         s.dates += st.amt; // the locked amount itself doesn't count toward the score
-        earn(s, st.profit);
+        const base = st.base == null ? st.profit : Math.min(st.base, st.profit);
+        earn(s, base, st.profit - base);
         if (st.opt === "w1") {
-          if (s.animals.length < maxAnimals(ctx.vip) && rand() < A.STAKE_CAMEL_CHANCE) {
+          if (s.animals.length < maxAnimals(tier) && rand() < A.STAKE_CAMEL_CHANCE) {
             addAnimal(s, 1, now, "stake");
             return { s, msg: { key: "t.returnedCamel", vars: { n: st.amt + st.profit } } };
           }
@@ -137,32 +151,33 @@
       case "daily": {
         if (s.lastDaily === dayId(now)) fail("dailyDone");
         s.lastDaily = dayId(now);
-        const n = ctx.vip ? C.DAILY * 2 : C.DAILY;
-        earn(s, n);
+        const n = C.DAILY * perks.daily;
+        earn(s, C.DAILY, n - C.DAILY);
         return { s, msg: { key: "t.daily", vars: { n } } };
       }
       case "buyCamel": {
-        if (s.animals.length >= maxAnimals(ctx.vip)) fail(ctx.vip ? "herdFull" : "herdFullFree");
+        if (s.animals.length >= maxAnimals(tier)) fail(tier ? "herdFull" : "herdFullFree");
         if (s.dates < A.BUY_COST) fail("notEnough");
         s.dates -= A.BUY_COST;
         addAnimal(s, 0, now, "market");
         return { s, msg: { key: "t.camelBought" } };
       }
       case "collect": {
-        let total = 0;
-        for (const an of s.animals) {
+        // Only the first camels (the free herd size) count toward the ranking
+        let total = 0, scored = 0;
+        s.animals.forEach((an, i) => {
           const n = animalReady(an, now);
-          if (n > 0) { total += n; an.lastCollect = now; }
-        }
+          if (n > 0) { total += n; if (i < TIERS[0].camels) scored += n; an.lastCollect = now; }
+        });
         if (!total) fail("notReady");
-        earn(s, total);
+        earn(s, scored, total - scored);
         return { s, msg: { key: "t.collected", vars: { n: total } } };
       }
       case "breed": {
         const pa = s.animals.find((x) => x.id === int(a.a)), pb = s.animals.find((x) => x.id === int(a.b));
         if (!pa || !pb || pa === pb) fail("badAction");
         for (const x of [pa, pb]) if (x.lastBred && now - x.lastBred < A.BREED_COOLDOWN * 1000) fail("camelTired");
-        if (s.animals.length >= maxAnimals(ctx.vip)) fail(ctx.vip ? "herdFull" : "herdFullFree");
+        if (s.animals.length >= maxAnimals(tier)) fail(tier ? "herdFull" : "herdFullFree");
         if (s.dates < A.BREED_COST) fail("notEnough");
         s.dates -= A.BREED_COST;
         pa.lastBred = pb.lastBred = now;
@@ -176,6 +191,6 @@
     }
   }
 
-  const api = { SEEDS, STAKES, C, A, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

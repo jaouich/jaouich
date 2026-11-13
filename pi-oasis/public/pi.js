@@ -73,16 +73,25 @@
 
   // Buys 30 days of a membership ("bronze" | "silver" | "gold"). The server checks the price.
   function buyVip(tierId) {
+    const tier = window.OasisLogic.TIERS.find((x) => x.id === tierId && x.price);
+    if (!tier) return Promise.reject(new Error(I18N.t("e.payment")));
+    return pay({
+      amount: tier.price,
+      memo: `Pi Oasis – ${tier.id[0].toUpperCase() + tier.id.slice(1)} membership (30 days)`,
+      metadata: { type: "vip_month", tier: tier.id },
+    });
+  }
+  // Date shop: 5000 dates per 1 Pi
+  function buyDates(packId) {
+    const pack = window.OasisLogic.PACKS.find((x) => x.id === packId);
+    if (!pack) return Promise.reject(new Error(I18N.t("e.payment")));
+    return pay({ amount: pack.price, memo: `Pi Oasis – ${pack.dates} dates`, metadata: { type: "dates", pack: pack.id } });
+  }
+  function pay(paymentData) {
     return new Promise((resolve, reject) => {
       if (!piReady || !session) return reject(new Error(I18N.t("t.loginFirst")));
-      const tier = window.OasisLogic.TIERS.find((x) => x.id === tierId && x.price);
-      if (!tier) return reject(new Error(I18N.t("e.payment")));
       window.Pi.createPayment(
-        {
-          amount: tier.price,
-          memo: `Pi Oasis – ${tier.id[0].toUpperCase() + tier.id.slice(1)} membership (30 days)`,
-          metadata: { type: "vip_month", tier: tier.id },
-        },
+        paymentData,
         {
           onReadyForServerApproval: (paymentId) =>
             api("/api/payments/approve", { paymentId }).catch((e) => {
@@ -122,6 +131,7 @@
     get piAvailable() { return piReady; },
     login,
     buyVip,
+    buyDates,
     showRewardedAd,
     me: () => api("/api/me"),
     action: (action) => api("/api/action", { action }),

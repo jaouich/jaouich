@@ -348,12 +348,12 @@ const routes = {
     const id = String(body.paymentId || "");
     if (!id) bad("badPayment");
     const { p, key } = await findPayment(env, id);
-    const tier = checkPayment(p, u.uid);
+    const item = checkPayment(p, u.uid);
     // A lower tier than the active one would be a downgrade: stop before any Pi moves
     const nowT = Date.now();
-    if (u.vip_until > nowT && tier.price < L.TIERS[paidTier(u, nowT)].price) bad("lowerTier");
+    if (item.tier && u.vip_until > nowT && item.price < L.TIERS[paidTier(u, nowT)].price) bad("lowerTier");
     // Persist the payment id before approving (irreversible on Pi's side)
-    await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'pending', ?)", id, u.uid, tier.price, nowT);
+    await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'pending', ?)", id, u.uid, item.price, nowT);
     const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
     if (row.uid !== u.uid) bad("notYours");
     if (!p.status?.developer_approved) await pi(env, `/payments/${encodeURIComponent(id)}/approve`, { method: "POST", key });
@@ -366,7 +366,8 @@ const routes = {
     if (!body.paymentId || !body.txid) bad("badPayment");
     await completePayment(env, String(body.paymentId), String(body.txid), u.uid);
     const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
-    return { ok: true, account: await account(env, fresh) };
+    const nowT = Date.now();
+    return { ok: true, account: await account(env, fresh), state: await stateFor(env, fresh, nowT, tierOf(fresh, nowT, await isPartner(env, fresh.username))) };
   },
 
   // A payment that didn't finish earlier (e.g. connection lost). Called during sign-in,
@@ -563,20 +564,26 @@ function admin(req, env) {
 const runPayouts = (env) =>
   ensureSchema(env).then(() => processPayouts(env, { pi, logError, one, all, run, weekId: L.weekId }));
 
-// Checks a Pi payment against what this app sells. Browser input is never trusted.
+// Checks a Pi payment against what this app sells, at the server's prices. Browser input is never trusted.
+// Products: { type: "vip_month", tier } (30 days of a membership) or { type: "dates", pack } (date shop).
 function checkPayment(p, uid) {
   if (p.direction && p.direction !== "user_to_app") bad("badPayment");
   if (uid && p.user_uid !== uid) bad("notYours");
-  // Which membership is being bought, at the server's price (no tier = bronze, the first product)
+  if (p.status?.cancelled || p.status?.user_cancelled) bad("badPayment");
+  if (p.metadata?.type === "dates") {
+    const pack = L.PACKS.find((x) => x.id === p.metadata.pack);
+    if (!pack || Number(p.amount) !== pack.price) bad("badPayment");
+    return { price: pack.price, pack };
+  }
+  // no tier = bronze, the first product
   const tier = L.TIERS.find((x) => x.price && x.id === (p.metadata?.tier || "bronze"));
   if (!tier || p.metadata?.type !== "vip_month" || Number(p.amount) !== tier.price) bad("badPayment");
-  if (p.status?.cancelled || p.status?.user_cancelled) bad("badPayment");
-  return tier;
+  return { price: tier.price, tier };
 }
 
 async function completePayment(env, id, txid, uid) {
   const { p, key } = await findPayment(env, id);
-  const tier = checkPayment(p, uid);
+  const item = checkPayment(p, uid);
   // Must be a payment this server approved for this same user
   const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
   if (!row || row.uid !== p.user_uid) bad("badPayment");
@@ -593,12 +600,17 @@ async function completePayment(env, id, txid, uid) {
   const u = await one(env, "SELECT * FROM users WHERE uid = ?", p.user_uid);
   const wid = L.weekId(now);
   const stmts = [
-    env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(wid, round(net(tier.price) * PRIZE_RATE)),
+    env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(wid, round(net(item.price) * PRIZE_RATE)),
   ];
   if (u) {
-    stmts.push(await applyMembership(env, u, tier, now));
+    if (item.tier) stmts.push(await applyMembership(env, u, item.tier, now));
+    if (item.pack) {
+      // Bought dates go to the balance only: they never count toward the weekly ranking
+      if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
+      stmts.push(env.DB.prepare("UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?").bind(item.pack.dates, item.pack.dates, u.uid));
+    }
     if (u.referrer) {
-      stmts.push(env.DB.prepare("UPDATE users SET ref_balance = ROUND(ref_balance + ?, 7) WHERE uid = ?").bind(round(net(tier.price) * REFERRAL_RATE), u.referrer));
+      stmts.push(env.DB.prepare("UPDATE users SET ref_balance = ROUND(ref_balance + ?, 7) WHERE uid = ?").bind(round(net(item.price) * REFERRAL_RATE), u.referrer));
       stmts.push(env.DB.prepare("UPDATE payments SET referrer_uid = ? WHERE id = ?").bind(u.referrer, id));
     }
   }

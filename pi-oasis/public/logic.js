@@ -447,6 +447,13 @@
     }
   }
 
-  const api = { MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  // Date shop: 5000 dates per 1 Pi (prices owned by the server)
+  const PACKS = [
+    { id: "d1k", price: 0.2, dates: 1000 },
+    { id: "d5k", price: 1, dates: 5000 },
+    { id: "d10k", price: 2, dates: 10000 },
+    { id: "d25k", price: 5, dates: 25000 },
+  ];
+  const api = { PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

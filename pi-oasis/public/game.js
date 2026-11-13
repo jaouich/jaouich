@@ -326,6 +326,14 @@
       </div>`;
     }).join("");
 
+    $("shop").innerHTML = L.PACKS.map((p, i) => `<div class="pack ${i === 1 ? "pop" : ""}">
+        ${i === 1 ? `<span class="tag">${t("shop.popular")}</span>` : ""}
+        <span class="pk-ic">${["🧺", "🪙", "💰", "🏺"][i]}</span>
+        <b class="pk-n">${p.dates.toLocaleString("en-US")}</b><small>${t("shop.dates")}</small>
+        ${oldApp ? `<a class="btn small" href="${esc(officialHref)}" target="_top" style="text-decoration:none">${p.price} Pi</a>`
+          : `<button class="btn small ${i === 1 ? "gold" : ""}" data-pack="${p.id}">${p.price} Pi</button>`}
+      </div>`).join("");
+
     const done = S.lastDaily === L.dayId(now());
     $("dailyBtn").disabled = done;
     $("dailyBtn").textContent = done ? t("daily.done") : t("daily.claim", { n: C.DAILY * perks().daily });
@@ -355,6 +363,25 @@
     } catch (err) { toast(err.message); }
     render();
   });
+  $("shop").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-pack]");
+    if (!b) return;
+    if (!account) return toast(t("t.loginFirst"));
+    const pack = L.PACKS.find((x) => x.id === b.dataset.pack);
+    b.disabled = true;
+    const before = S.dates;
+    try {
+      const res = await Pi.buyDates(pack.id);
+      account = res.account;
+      if (res.state) S = res.state;
+      toast(t("shop.ok", { n: pack.dates.toLocaleString("en-US") }));
+      burst();
+      if (S.dates > before) fly(S.dates - before);
+    } catch (err) { toast(err.message); }
+    render();
+  });
+  // Tapping the dates counter opens the shop
+  $("coinPill").addEventListener("click", () => { document.querySelector('.tabs [data-tab="vip"]').click(); setTimeout(() => $("shopTitle").scrollIntoView({ behavior: "smooth", block: "start" }), 50); });
   $("dailyBtn").addEventListener("click", () => act({ type: "daily" }));
   $("copyRef").addEventListener("click", () => {
     if (!account) return toast(t("t.loginFirst"));

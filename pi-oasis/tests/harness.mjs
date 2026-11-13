@@ -99,14 +99,88 @@ function readEnvelope(b64) {
   if (!edVerify(null, hash, pubKey, sig)) throw new Error("bad signature");
   return { from: encodeStrKey(src, "G"), to: encodeStrKey(dest, "G"), seq, memo, amount, hash: hash.toString("hex") };
 }
+// ---- Tiny ledger for custom tokens (test JRY): trustlines, balances, home domain ----
+const ISS = kp();
+const ledger = new Map(); // G -> { seq, trust: Set, bal: {}, home }
+const acc = (g) => { if (!ledger.has(g)) ledger.set(g, { seq: 5000n, trust: new Set(), bal: {}, home: "" }); return ledger.get(g); };
+acc(ISS.G);
+globalThis.__ledger = ledger;
+function readTokenTx(b64) {
+  const b = Buffer.from(b64, "base64"); let o = 0;
+  const i32 = () => { const v = b.readInt32BE(o); o += 4; return v; };
+  const u32 = () => { const v = b.readUInt32BE(o); o += 4; return v; };
+  const i64 = () => { const v = b.readBigInt64BE(o); o += 8; return v; };
+  const raw = (n) => { const v = b.subarray(o, o + n); o += n; return v; };
+  const asset = () => { const t = i32(); if (t === 0) return "native"; const code = raw(t === 1 ? 4 : 12).toString().replace(/\0+$/, ""); i32(); const iss = encodeStrKey(raw(32), "G"); return code + ":" + iss; };
+  if (i32() !== 2) throw new Error("envelope type");
+  const txStart = o;
+  i32(); const src = raw(32); u32(); const seq = i64(); i32(); raw(16);
+  if (i32() !== 0) throw new Error("memo");
+  if (u32() !== 1) throw new Error("ops");
+  u32(); const type = i32(); let op;
+  if (type === 1) { i32(); const to = encodeStrKey(raw(32), "G"); op = { type: "payment", to, asset: asset(), amount: i64() }; }
+  else if (type === 6) { op = { type: "trust", asset: asset(), limit: i64() }; }
+  else if (type === 5) { for (let k = 0; k < 7; k++) if (u32()) throw new Error("unexpected option"); if (u32() !== 1) throw new Error("no home"); const l = u32(); op = { type: "home", home: raw(l).toString() }; raw((4 - l % 4) % 4); if (u32()) throw new Error("signer"); }
+  else throw new Error("op " + type);
+  i32();
+  const tx = b.subarray(txStart, o);
+  u32(); raw(4); u32(); const sig = raw(64);
+  const netId = createHash("sha256").update("Pi Testnet").digest();
+  const hash = createHash("sha256").update(Buffer.concat([netId, Buffer.from([0, 0, 0, 2]), tx])).digest();
+  const pubKey = createPublicKey({ key: Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), src]), format: "der", type: "spki" });
+  if (!edVerify(null, hash, pubKey, sig)) throw new Error("bad signature");
+  return { from: encodeStrKey(src, "G"), seq, op, hash: hash.toString("hex") };
+}
+function applyTokenTx(t) {
+  const a = acc(t.from);
+  if (t.seq !== a.seq + 1n) return { codes: { transaction: "tx_bad_seq" } };
+  const op = t.op;
+  if (op.type === "trust") a.trust.add(op.asset);
+  else if (op.type === "home") a.home = op.home;
+  else if (op.type === "payment") {
+    const [, issuer] = op.asset.split(":");
+    const to = acc(op.to);
+    if (op.to !== issuer && !to.trust.has(op.asset)) return { codes: { operations: ["op_no_trust"] } };
+    if (t.from !== issuer) { if ((a.bal[op.asset] || 0n) < op.amount) return { codes: { operations: ["op_underfunded"] } }; a.bal[op.asset] -= op.amount; }
+    to.bal[op.asset] = (to.bal[op.asset] || 0n) + op.amount;
+  }
+  a.seq += 1n;
+  return null;
+}
+const amt = (s) => (Number(s) / 1e7).toFixed(7);
 async function horizon(u, opt) {
   const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s });
   const p = u.replace("https://api.testnet.minepi.com", "");
-  if (p === `/accounts/${APP.G}`) return J({ sequence: String(chain.seq) });
+  if (p === `/accounts/${APP.G}`) {
+    const a = acc(APP.G);
+    return J({ sequence: String(chain.seq), balances: [{ asset_type: "native", balance: "100.0000000" }, ...Object.entries(a.bal).map(([k, v]) => ({ asset_type: "credit_alphanum12", asset_code: k.split(":")[0], asset_issuer: k.split(":")[1], balance: amt(v) })), ...[...a.trust].filter((k) => !(k in a.bal)).map((k) => ({ asset_type: "credit_alphanum12", asset_code: k.split(":")[0], asset_issuer: k.split(":")[1], balance: "0.0000000" }))] });
+  }
+  const accM = p.match(/^\/accounts\/(G[A-Z0-9]{55})$/);
+  if (accM && ledger.has(accM[1])) {
+    const a = ledger.get(accM[1]);
+    const lines = [...new Set([...a.trust, ...Object.keys(a.bal)])].map((k) => ({ asset_type: "credit_alphanum12", asset_code: k.split(":")[0], asset_issuer: k.split(":")[1], balance: amt(a.bal[k] || 0n) }));
+    return J({ sequence: String(a.seq), home_domain: a.home || undefined, balances: [{ asset_type: "native", balance: "50.0000000" }, ...lines] });
+  }
+  if (p.startsWith("/assets?")) {
+    const q = new URLSearchParams(p.slice(8)), key = q.get("asset_code") + ":" + q.get("asset_issuer");
+    let total = 0n, holders = 0;
+    for (const a of ledger.values()) { if (a.trust.has(key)) holders++; total += a.bal[key] || 0n; }
+    return J({ _embedded: { records: holders ? [{ asset_code: q.get("asset_code"), asset_issuer: q.get("asset_issuer"), amount: amt(total), num_accounts: holders }] : [] } });
+  }
   if (p === "/fee_stats") return J({ last_ledger_base_fee: "100000" });
   if (p.startsWith(`/accounts/${APP.G}/transactions`)) return J({ _embedded: { records: chain.txs.map((t) => ({ hash: t.hash, memo: t.memo, successful: true })).reverse() } });
   if (p === "/transactions" && opt.method === "POST") {
-    let t; try { t = readEnvelope(decodeURIComponent(String(opt.body).slice(3))); } catch (e) { return J({ title: e.message }, 400); }
+    const env64 = decodeURIComponent(String(opt.body).slice(3));
+    // token transactions (no memo) go to the tiny ledger
+    try {
+      const tt = readTokenTx(env64);
+      if (tt.from === APP.G && tt.seq === chain.seq + 1n) acc(APP.G).seq = chain.seq;
+      const err = applyTokenTx(tt);
+      if (err) return J({ extras: { result_codes: err } }, 400);
+      if (tt.from === APP.G) chain.seq += 1n;
+      return J({ hash: tt.hash });
+    } catch (e) { if (!/^memo$/.test(e.message)) return J({ title: e.message }, 400); }
+    let t; try { t = readEnvelope(env64); } catch (e) { return J({ title: e.message }, 400); }
     if (t.seq !== chain.seq + 1n) return J({ extras: { result_codes: { transaction: "tx_bad_seq" } } }, 400);
     if (t.from !== APP.G) return J({ title: "wrong source" }, 400);
     chain.seq += 1n; chain.txs.push(t);
@@ -116,7 +190,7 @@ async function horizon(u, opt) {
   return J({}, 404);
 }
 const worker = (await import(ROOT + "/src/worker.js")).default;
-const env = { DB, ASSETS, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_WALLET_SEED: APP.S, VALIDATION_KEY: "testkey123", ADMIN_USERNAMES: "Alice", PUBLIC_URL: "https://oasisgame6033.pinet.com", TESTNET_GIFTS: "1" };
+const env = { DB, ASSETS, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_WALLET_SEED: APP.S, VALIDATION_KEY: "testkey123", ADMIN_USERNAMES: "Alice", PUBLIC_URL: "https://oasisgame6033.pinet.com", TESTNET_GIFTS: "1", JRY_ISSUER_SEED: ISS.S, JRY_CODE: "testJRY", JRY_HOME: "pi-oasis.jaouich.workers.dev" };
 http.createServer(async (rq, rs) => {
   const chunks = []; for await (const c of rq) chunks.push(c);
   const req = new Request("http://localhost:3457" + rq.url, { method: rq.method, headers: rq.headers, body: rq.method === "POST" ? Buffer.concat(chunks) : undefined });
@@ -124,6 +198,8 @@ http.createServer(async (rq, rs) => {
   if (rq.url === "/__test/chain") { rs.end(JSON.stringify({ txs: chain.txs.map((t) => ({ ...t, seq: String(t.seq), amount: String(t.amount) })), wallets, a2u })); return; }
   if (rq.url === "/__test/drop-next") { chain.dropNextResponse = true; rs.end("ok"); return; }
   if (rq.url === "/__test/cron") { const w = []; await worker.scheduled({}, env, { waitUntil: (p) => w.push(p) }); await Promise.all(w); rs.end("ok"); return; }
+  if (rq.url.startsWith("/__test/trust?")) { const q = new URLSearchParams(rq.url.split("?")[1]); acc(q.get("g")).trust.add("testJRY:" + ISS.G); rs.end("ok"); return; }
+  if (rq.url === "/__test/token") { rs.end(JSON.stringify({ issuer: ISS.G, app: APP.G })); return; }
   if (rq.url.startsWith("/__test/gifts")) { if (rq.url.endsWith("on")) env.TESTNET_GIFTS = "1"; else delete env.TESTNET_GIFTS; rs.end("ok"); return; }
   if (rq.url.startsWith("/__test/studio")) { if (rq.url.endsWith("on")) env.PI_STUDIO_API_KEY = "STUDIOKEY"; else delete env.PI_STUDIO_API_KEY; rs.end("ok"); return; }
   if (rq.url === "/__test/completes") { rs.end(String(globalThis.__completes || 0)); return; }

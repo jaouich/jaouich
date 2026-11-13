@@ -744,3 +744,9 @@ body.k-open { overflow: hidden; }
 .k-gold { margin: 8px 0 0; padding: 6px 12px; border-radius: 99px; text-align: center; font-size: 12px; font-weight: 700; background: rgba(255, 215, 106, .1); border: 1px dashed rgba(255, 215, 106, .5); color: #ffe7a3; }
 .k-gold.on { font-size: 14px; font-weight: 900; color: #2a1162; background: linear-gradient(90deg, #ffe08a, #ffb800, #ffe08a); border: 0; animation: kPulse 1s infinite; }
 .kombat.golden .k-ring { box-shadow: 0 0 60px rgba(255, 215, 106, .95), 0 0 120px rgba(255, 184, 0, .7); }
+
+/* test JRY */
+.k-jry-steps { margin: 4px 0; padding-inline-start: 18px; font-size: 12px; opacity: .9; }
+.k-jry-row { display: flex; gap: 8px; }
+.k-jry-row input { flex: 1; min-width: 0; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.25); color: #fff; padding: 8px 10px; font: 12px ui-monospace, monospace; direction: ltr; }
+#tkAmount { width: 110px; border-radius: 12px; border: 1px solid #e3cf9e; padding: 0 10px; font: inherit; }

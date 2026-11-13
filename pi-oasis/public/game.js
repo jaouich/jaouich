@@ -358,6 +358,7 @@
       $("refCount").textContent = account.referralCount;
       $("adminBox").classList.toggle("hidden", !account.isAdmin);
       $("giftBox").classList.toggle("hidden", !account.testGifts);
+      $("tokenBox").classList.toggle("hidden", !(account.isAdmin && account.jryOn));
     }
   }
   $("tierBadge").addEventListener("click", () => document.querySelector('.tabs [data-tab="vip"]').click());
@@ -528,6 +529,26 @@
     toast(t("ad.csvOk"));
   });
 
+  // ---------- Owner: test JRY token (Pi Testnet) ----------
+  function showToken(s) {
+    const row = (ok, k, extra) => `<div><span>${ok ? "✅" : "⬜"} ${t(k)}</span><small class="hint" style="direction:ltr">${extra || ""}</small></div>`;
+    const short = (g) => (g ? g.slice(0, 5) + "…" + g.slice(-4) : "");
+    $("tkStatus").innerHTML = row(s.issuerActive, "tk.issuer", short(s.issuer)) + row(s.distTrust, "tk.trust", short(s.distributor)) +
+      row(s.minted, "tk.minted", s.minted ? nf(Math.round(s.supply)) + " " + s.code : "") + row(s.home === s.wantHome, "tk.home", s.home || s.wantHome) +
+      `<div><span>👥 ${t("tk.holders", { n: s.holders })}</span><small class="hint">🪂 ${t("tk.sent", { n: s.sent })}</small></div>`;
+  }
+  async function token(action, extra) {
+    try {
+      const r = await Pi.token(action, extra);
+      showToken(r);
+      if (r.done) toast(r.done.length ? "✅ " + r.done.join(" · ") : t("tk.nothing"));
+      if (r.report) $("tkReport").textContent = r.report.length ? r.report.map((x) => `${x.ok ? "✅" : "❌"} ${x.username}${x.error ? " (" + x.error + ")" : ""}`).join(" · ") : t("tk.noneReady");
+    } catch (e) { toast(e.code ? errText(e.code, e.data && e.data.vars) : e.message); }
+  }
+  $("tkSetup").addEventListener("click", () => token("setup"));
+  $("tkRefresh").addEventListener("click", () => token("status"));
+  $("tkDrop").addEventListener("click", () => { if (confirm(t("tk.confirm", { n: $("tkAmount").value }))) token("airdrop", { amount: $("tkAmount").value.trim() }); });
+
   // ---------- Owner, Testnet only: A2U gifts so the Pi portal unlocks the Mainnet wallet ----------
   async function testGifts(action) {
     try {
@@ -554,7 +575,7 @@
       $("userLabel").textContent = t("welcome", { name: account.username });
       $("loginBtn").classList.add("hidden");
       render();
-      if (account.isAdmin) { partners("list"); loadPlayers(); loadAirdrop(); }
+      if (account.isAdmin) { partners("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
       if (account.testGifts) testGifts("list");
     } catch (e) {
       if (!silent) toast(e.message === "timeout" ? t("t.openInPi") : e.message);
@@ -583,7 +604,7 @@
     if (tourI >= 0) showTour(tourI);
     if (helpOpen()) renderHelp();
     if (document.querySelector("#tab-rank.active")) renderRank();
-    if (account && account.isAdmin) { partners("list"); loadPlayers(); loadAirdrop(); }
+    if (account && account.isAdmin) { partners("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
     if (account && account.testGifts) testGifts("list");
   });
 
@@ -904,6 +925,7 @@
     get account() { return account; },
     setClock(serverNow) { clockOffset = serverNow - Date.now(); },
     now, toast, msgText, saveGuest, boost: () => perks().boost,
+    setAccount(a) { account = a; render(); },
     refLink: () => (account ? `${publicUrl || location.origin + location.pathname}?ref=${encodeURIComponent(account.username)}` : ""),
   };
 

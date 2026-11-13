@@ -145,6 +145,8 @@
     kombatBossClaim: () => api("/api/kombat/boss/claim", {}),
     players: () => api("/api/admin/players", {}),
     airdrop: () => api("/api/admin/airdrop", {}),
+    token: (action, extra) => api("/api/admin/token", Object.assign({ action }, extra || {})),
+    saveWallet: (address) => api("/api/kombat/wallet", { address }),
     airdropBlock: (username, on) => api("/api/admin/airdrop/block", { username, on }),
     testGifts: (action) => api("/api/admin/test-gifts", { action }),
     setInviter: (username) => api("/api/referral/set-inviter", { username }),

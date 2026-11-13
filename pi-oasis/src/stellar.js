@@ -196,3 +196,66 @@ export async function sendPi({ seed, from, to, amount, memo, network }) {
   }
   return res.hash || hash;
 }
+
+// ---------- Custom tokens (Pi Testnet "test JRY") ----------
+// Same transaction layout as above, with other operations:
+// changeTrust (6), payment of a custom asset (1) and setOptions.homeDomain (5).
+const OP_SET_OPTIONS = 5;
+const OP_CHANGE_TRUST = 6;
+const ASSET_ALPHANUM4 = 1;
+const ASSET_ALPHANUM12 = 2;
+const MEMO_NONE = 0;
+const INT64_MAX = 0x7fffffffffffffffn;
+
+// Asset code: letters and digits only, 1..12, case-sensitive
+export function assetXdr(code, issuerG) {
+  if (!/^[A-Za-z0-9]{1,12}$/.test(code)) throw new Error("bad token code");
+  const short = code.length <= 4;
+  const padded = new Uint8Array(short ? 4 : 12);
+  padded.set(new TextEncoder().encode(code));
+  return new Xdr().int32(short ? ASSET_ALPHANUM4 : ASSET_ALPHANUM12).fixed(padded).int32(KEY_TYPE_ED25519).fixed(decodeStrKey(issuerG, "G")).bytes();
+}
+export const opChangeTrust = (asset) => new Xdr().uint32(0).int32(OP_CHANGE_TRUST).fixed(asset).int64(INT64_MAX).bytes();
+export const opPayment = (toG, asset, stroops) =>
+  new Xdr().uint32(0).int32(OP_PAYMENT).int32(KEY_TYPE_ED25519).fixed(decodeStrKey(toG, "G")).fixed(asset).int64(stroops).bytes();
+export function opSetHomeDomain(domain) {
+  const d = new TextEncoder().encode(domain);
+  if (!d.length || d.length > 32) throw new Error("home domain must be 1..32 characters");
+  return new Xdr().uint32(0).int32(OP_SET_OPTIONS)
+    .uint32(0).uint32(0).uint32(0).uint32(0).uint32(0).uint32(0).uint32(0) // inflationDest, flags, weights, thresholds: unchanged
+    .uint32(1).varOpaque(d) // homeDomain
+    .uint32(0) // signer: unchanged
+    .bytes();
+}
+// One-operation transaction with no memo
+export function buildOpTx({ source, fee, sequence, op, maxTime }) {
+  return new Xdr()
+    .int32(KEY_TYPE_ED25519).fixed(source)
+    .uint32(fee)
+    .int64(sequence)
+    .int32(PRECOND_TIME).uint64(0).uint64(maxTime)
+    .int32(MEMO_NONE)
+    .uint32(1)
+    .fixed(op)
+    .int32(0)
+    .bytes();
+}
+// Signs and submits one operation from the wallet of `seed`. Returns the txid.
+export async function submitOp({ seed, op, network }) {
+  const horizon = HORIZON[network];
+  if (!horizon) throw new Error(`unknown network ${network}`);
+  const from = await publicKeyOf(seed);
+  const acct = await (await fetch(`${horizon}/accounts/${from}`)).json();
+  if (!acct.sequence) throw new Error(`wallet ${from} not found on ${network} (activate it first)`);
+  let fee = 100000;
+  try {
+    const fs = await (await fetch(`${horizon}/fee_stats`)).json();
+    if (Number(fs.last_ledger_base_fee) > 0) fee = Number(fs.last_ledger_base_fee);
+  } catch {}
+  const tx = buildOpTx({ source: decodeStrKey(from, "G"), fee, sequence: BigInt(acct.sequence) + 1n, op, maxTime: Math.floor(Date.now() / 1000) + 180 });
+  const { envelope, hash } = await signTx(tx, seed, network);
+  const r = await fetch(`${horizon}/transactions`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "tx=" + encodeURIComponent(envelope) });
+  const res = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`submit failed: ${res.extras?.result_codes ? JSON.stringify(res.extras.result_codes) : res.title || r.status}`);
+  return res.hash || hash;
+}

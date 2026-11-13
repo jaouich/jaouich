@@ -192,6 +192,12 @@
           <div class="k-goal-bar"><i></i></div>
           <div class="k-goal-foot"><small data-i18n="k.goal.d"></small><button class="k-goal-share" type="button">📣 <span data-i18n="k.goal.share"></span></button></div></div>
         <div id="kDrop" class="k-drop"></div>
+        <div id="kJry" class="k-drop k-jry hidden">
+          <b>🪙 test JRY <small class="k-note" data-i18n="k.jry.test"></small></b>
+          <ol class="k-jry-steps"><li data-i18n="k.jry.s1"></li><li data-i18n="k.jry.s2"></li><li data-i18n="k.jry.s3"></li></ol>
+          <div class="k-jry-row"><input id="kJryAddr" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="G…"><button id="kJrySave" class="k-goal-share" type="button" data-i18n="k.jry.save"></button></div>
+          <small id="kJryState"></small>
+        </div>
         <p class="k-note" data-i18n="k.note"></p>
       </section>
     </div>
@@ -345,6 +351,14 @@
           </div>
           <div id="plList" class="list pl-list"></div>
           <button id="plMore" class="btn small secondary hidden" data-i18n="pl.more"></button>
+        </div>
+        <div id="tokenBox" class="hidden">
+          <h3>🪙 test JRY</h3>
+          <p class="hint" data-i18n="tk.hint"></p>
+          <div id="tkStatus" class="list"></div>
+          <div class="ref-row"><button id="tkSetup" class="btn small gold" type="button" data-i18n="tk.setup"></button><button id="tkRefresh" class="btn small secondary" type="button" data-i18n="tk.refresh"></button></div>
+          <div class="ref-row"><input id="tkAmount" inputmode="decimal" value="100"><button id="tkDrop" class="btn small" type="button" data-i18n="tk.drop"></button></div>
+          <div id="tkReport" class="hint"></div>
         </div>
         <div id="dropBox">
           <h3 data-i18n="ad.title"></h3>

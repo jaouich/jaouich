@@ -23,6 +23,9 @@ PUBLIC_URL = "https://oasisgame6033.pinet.com"
 ADMIN_USERNAMES = "jaouich"
 # Testnet only: owner can send 0.01 test-Pi gifts (Pi portal needs A2U to 5 wallets before Mainnet)
 TESTNET_GIFTS = "1"
+# test JRY token (Pi Testnet). The issuer secret goes in the Cloudflare secret JRY_ISSUER_SEED.
+JRY_CODE = "testJRY"
+JRY_HOME = "pi-oasis.jaouich.workers.dev"
 
 # Hourly run: weekly prizes and referral withdrawals (App-to-User payments)
 [triggers]

@@ -427,6 +427,13 @@
     const kk = k(), need = KL.AIRDROP_DAYS, days = kk.act.days;
     $("kDrop").innerHTML = `<b>🪂 ${t("k.drop.t")}</b><span class="k-tbar"><i style="width:${Math.min(100, (100 * days) / need)}%"></i></span>
       <small>${days >= need ? t("k.drop.ok") : t("k.drop.days", { n: days, need })}</small>`;
+    // test JRY: the player's Pi Testnet wallet address
+    const acc = G.account;
+    $("kJry").classList.toggle("hidden", !(acc && acc.jryOn));
+    if (acc && acc.jryOn) {
+      if (document.activeElement !== $("kJryAddr")) $("kJryAddr").value = acc.jryWallet || "";
+      $("kJryState").textContent = acc.jryWallet ? t("k.jry.saved", { a: acc.jryWallet.slice(0, 5) + "…" + acc.jryWallet.slice(-4) }) : "";
+    }
     $("kTop").innerHTML = `<div class="k-note">…</div>`;
     const me = G.account && G.account.username;
     const row = (p, i, icon) => `<div class="${p.username === me ? "me" : ""}"><span>${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
@@ -453,6 +460,14 @@
     } catch { $("kTop").innerHTML = `<div class="k-note">${t("k.league.offline")}</div>`; }
   }
   $("kLeague").addEventListener("click", (e) => { const b = e.target.closest("[data-lgtab]"); if (b) { lgTab = b.dataset.lgtab; renderLeague(); } });
+  $("kJrySave").addEventListener("click", async () => {
+    try {
+      const r = await Pi.saveWallet($("kJryAddr").value.trim());
+      G.setAccount(r.account);
+      $("kJryState").textContent = r.trust ? t("k.jry.ready", { n: r.balance }) : t("k.jry.noTrust");
+      G.toast(t("k.jry.ok"));
+    } catch (e) { G.toast(errMsg(e)); }
+  });
   async function claimWeek() {
     try {
       await flush();

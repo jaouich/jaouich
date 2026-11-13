@@ -1,0 +1,20 @@
+// Owner players list. Start tests/harness.mjs first.
+const B = "http://localhost:3457";
+const post = (p, b, h = {}) => fetch(B + p, { method: "POST", headers: { "Content-Type": "application/json", ...h }, body: typeof b === "string" ? b : JSON.stringify(b) }).then((r) => r.text().then((t) => { try { return { s: r.status, ...JSON.parse(t) }; } catch { return { s: r.status, t }; } }));
+let pass = 0, fail = 0;
+const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); c ? pass++ : fail++; };
+const H = (s) => ({ Authorization: "Bearer " + s });
+const A = (await post("/api/auth", { accessToken: "tokA" })).session;
+const Bo = (await post("/api/auth", { accessToken: "tokB", ref: "alice" })).session;
+await post("/api/auth", { accessToken: "tokC" });
+await post("/api/action", { action: "daily" }, H(Bo));
+ok((await post("/api/admin/players", {}, H(Bo))).s === 403, "players list is owner-only");
+const r = await post("/api/admin/players", {}, H(A));
+ok(r.s === 200 && r.total === 3 && r.players.length === 3, "owner sees all 3 players");
+const al = r.players.find((p) => p.username === "alice"), bo = r.players.find((p) => p.username === "bob");
+ok(al.refs === 1, "alice: 1 invite (bob)");
+ok(bo.dates > 0 && bo.level >= 1, "bob: dates and city level shown");
+ok(r.today === 3, "3 active today");
+ok(r.players.every((p) => p.joined && p.seen && "paid" in p && "tier" in p), "every row has joined / last seen / paid / tier");
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

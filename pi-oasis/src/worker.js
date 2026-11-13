@@ -470,6 +470,44 @@ const routes = {
     return { partners: partners.map((x) => ({ username: x.username, joined: !!x.joined })) };
   },
 
+  // Owner: everyone who plays, to know them and reward them
+  "POST /api/admin/players": async (req, env) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const now = Date.now(), wk = L.weekId(now);
+    const rows = await all(
+      env,
+      `SELECT u.username, u.created_at, u.vip_until, u.vip_tier,
+         s.updated_at AS seen, json_extract(s.json, '$.dates') AS dates, json_extract(s.json, '$.city.xp') AS xp,
+         (SELECT score FROM week_scores w WHERE w.week_id = ? AND w.uid = u.uid) AS week,
+         (SELECT COUNT(*) FROM users r WHERE r.referrer = u.uid) AS refs,
+         (SELECT ROUND(COALESCE(SUM(amount), 0), 7) FROM payments p WHERE p.uid = u.uid AND p.status = 'completed') AS paid,
+         EXISTS (SELECT 1 FROM partners pa WHERE pa.username = u.username) AS partner
+       FROM users u LEFT JOIN state s ON s.uid = u.uid
+       ORDER BY COALESCE(s.updated_at, u.created_at) DESC LIMIT 1000`,
+      wk
+    );
+    const players = rows.map((r) => ({
+      username: r.username,
+      joined: r.created_at,
+      seen: r.seen || r.created_at,
+      dates: Math.floor(r.dates || 0),
+      level: L.cityLevel(r.xp || 0),
+      week: r.week || 0,
+      refs: r.refs,
+      paid: r.paid || 0,
+      tier: r.partner ? "partner" : r.vip_until > now ? r.vip_tier || "silver" : "free",
+    }));
+    const day = 86400000;
+    return {
+      players,
+      total: (await one(env, "SELECT COUNT(*) AS n FROM users")).n,
+      today: players.filter((p) => now - p.seen < day).length,
+      week: players.filter((p) => now - p.seen < 7 * day).length,
+      members: players.filter((p) => p.tier !== "free").length,
+    };
+  },
+
   // Testnet only: small App-to-User gifts so the Pi portal sees A2U payments to 5+ different
   // wallets (needed before it gives a Mainnet app wallet). Never enabled on Mainnet.
   "POST /api/admin/test-gifts": async (req, env, body) => {

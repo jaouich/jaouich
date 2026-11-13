@@ -466,3 +466,14 @@ input:focus { outline: 2px solid var(--emerald-l); border-color: transparent; }
 
 /* Numbers and signs keep their left-to-right order even inside Arabic text */
 .xpbar span, #cityHappy, #cityTaxRate, .cstats b, .mr, .good b, .prize b { direction: ltr; unicode-bidi: isolate; }
+
+/* Owner: players list */
+#playersBox { margin-top: 18px; }
+.pl-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 10px; }
+.pl-stats div { background: #fff8e6; border-radius: 12px; padding: 8px 4px; text-align: center; }
+.pl-stats b { display: block; font-size: 18px; }
+.pl-stats small { font-size: 11px; opacity: .75; }
+#plSort { border-radius: 12px; border: 1px solid #e3cf9e; padding: 0 8px; background: #fff; font: inherit; }
+.pl-list .pl { align-items: flex-start; }
+.pl-num { text-align: end; white-space: nowrap; direction: ltr; unicode-bidi: isolate; }
+#plMore { margin-top: 8px; width: 100%; }

@@ -194,6 +194,23 @@
           <button id="grantPartner" class="btn small gold" data-i18n="admin.grant"></button>
         </div>
         <div id="partnerList" class="list"></div>
+        <div id="playersBox">
+          <h3 data-i18n="pl.title"></h3>
+          <div id="plStats" class="pl-stats"></div>
+          <div class="ref-row">
+            <input id="plSearch" autocomplete="off" autocapitalize="off" data-i18n-ph="pl.search">
+            <select id="plSort">
+              <option value="seen" data-i18n="pl.bySeen"></option>
+              <option value="week" data-i18n="pl.byWeek"></option>
+              <option value="dates" data-i18n="pl.byDates"></option>
+              <option value="refs" data-i18n="pl.byRefs"></option>
+              <option value="paid" data-i18n="pl.byPaid"></option>
+              <option value="joined" data-i18n="pl.byJoined"></option>
+            </select>
+          </div>
+          <div id="plList" class="list pl-list"></div>
+          <button id="plMore" class="btn small secondary hidden" data-i18n="pl.more"></button>
+        </div>
         <div id="giftBox" class="hidden">
           <h3 data-i18n="gift.title"></h3>
           <p class="hint" data-i18n="gift.hint"></p>

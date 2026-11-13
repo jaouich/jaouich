@@ -417,6 +417,36 @@
     if (b && confirm(t("admin.confirm", { name: b.dataset.revoke }))) partners("revoke", b.dataset.revoke);
   });
 
+  // ---------- Owner: players list (to know them and reward them) ----------
+  let plData = null, plShow = 30;
+  const PL_ICON = { free: "", bronze: "🥉", silver: "🥈", gold: "🥇", partner: "💎" };
+  const nf = (n) => Number(n || 0).toLocaleString("en-US");
+  function ago(ms) {
+    const m = Math.floor((Date.now() - ms) / 60000);
+    if (m < 60) return t("pl.min", { n: Math.max(1, m) });
+    if (m < 1440) return t("pl.hour", { n: Math.floor(m / 60) });
+    return t("pl.day", { n: Math.floor(m / 1440) });
+  }
+  function showPlayers() {
+    if (!plData) return;
+    const q = $("plSearch").value.trim().toLowerCase(), by = $("plSort").value;
+    const list = plData.players.filter((p) => !q || p.username.toLowerCase().includes(q))
+      .sort((a, b) => (b[by] || 0) - (a[by] || 0));
+    $("plStats").innerHTML = [["pl.total", plData.total], ["pl.today", plData.today], ["pl.week7", plData.week], ["pl.members", plData.members]]
+      .map(([k, n]) => `<div><b>${nf(n)}</b><small>${t(k)}</small></div>`).join("");
+    $("plList").innerHTML = list.length ? list.slice(0, plShow).map((p) => `<div class="pl">
+        <span><b>${esc(p.username)}</b> ${PL_ICON[p.tier] || ""}<br><small class="hint">${t("pl.seen", { t: ago(p.seen) })} · ${t("pl.joined", { d: new Date(p.joined).toLocaleDateString() })}</small></span>
+        <span class="pl-num"><small>🏆 ${nf(p.week)} · 🌴 ${nf(p.dates)}<br>🏙️ ${p.level} · 👥 ${p.refs}${p.paid ? ` · π ${p.paid}` : ""}</small></span>
+      </div>`).join("") : `<div class="hint">${t("pl.none")}</div>`;
+    $("plMore").classList.toggle("hidden", list.length <= plShow);
+  }
+  async function loadPlayers() {
+    try { plData = await Pi.players(); showPlayers(); } catch (e) { toast(e.message); }
+  }
+  $("plSearch").addEventListener("input", () => { plShow = 30; showPlayers(); });
+  $("plSort").addEventListener("change", () => { plShow = 30; showPlayers(); });
+  $("plMore").addEventListener("click", () => { plShow += 50; showPlayers(); });
+
   // ---------- Owner, Testnet only: A2U gifts so the Pi portal unlocks the Mainnet wallet ----------
   async function testGifts(action) {
     try {
@@ -443,7 +473,7 @@
       $("userLabel").textContent = t("welcome", { name: account.username });
       $("loginBtn").classList.add("hidden");
       render();
-      if (account.isAdmin) partners("list");
+      if (account.isAdmin) { partners("list"); loadPlayers(); }
       if (account.testGifts) testGifts("list");
     } catch (e) {
       if (!silent) toast(e.message === "timeout" ? t("t.openInPi") : e.message);
@@ -472,7 +502,7 @@
     if (tourI >= 0) showTour(tourI);
     if (helpOpen()) renderHelp();
     if (document.querySelector("#tab-rank.active")) renderRank();
-    if (account && account.isAdmin) partners("list");
+    if (account && account.isAdmin) { partners("list"); loadPlayers(); }
     if (account && account.testGifts) testGifts("list");
   });
 

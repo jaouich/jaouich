@@ -145,6 +145,9 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS week_rewards ( week_id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS week_scores ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, score INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE INDEX IF NOT EXISTS week_scores_rank ON week_scores(week_id, score DESC)",
+  "CREATE TABLE IF NOT EXISTS kombat_weeks ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, earned INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
+  "CREATE INDEX IF NOT EXISTS kombat_weeks_rank ON kombat_weeks(week_id, earned DESC)",
+  "CREATE TABLE IF NOT EXISTS kombat_week_claims ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, place INTEGER NOT NULL, prize INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE TABLE IF NOT EXISTS airdrop_block ( username TEXT PRIMARY KEY COLLATE NOCASE, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS boss ( id INTEGER PRIMARY KEY AUTOINCREMENT, lvl INTEGER NOT NULL, hp INTEGER NOT NULL, max_hp INTEGER NOT NULL, started_at INTEGER NOT NULL, killed_at INTEGER, killer TEXT )",
   "CREATE TABLE IF NOT EXISTS boss_hits ( boss_id INTEGER NOT NULL, uid TEXT NOT NULL, dmg INTEGER NOT NULL, claimed INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (boss_id, uid) )",
@@ -232,6 +235,16 @@ async function saveState(env, uid, s, now) {
      ON CONFLICT(uid) DO UPDATE SET json = excluded.json, week_id = excluded.week_id, week_score = excluded.week_score, updated_at = excluded.updated_at`,
     uid, JSON.stringify(s), s.week.id, s.week.score, now
   );
+  // Kombat weekly tournament: coins earned this week, kept per week for the prizes
+  const wk = s.kombat && s.kombat.wk;
+  if (wk && wk.n > 0) {
+    await run(
+      env,
+      `INSERT INTO kombat_weeks (week_id, uid, earned, updated_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(week_id, uid) DO UPDATE SET earned = excluded.earned, updated_at = excluded.updated_at`,
+      wk.id, uid, Math.floor(wk.n), now
+    );
+  }
   // Scores are also kept per week, so last week's ranking survives once players move on
   if (s.week.score > 0) {
     await run(
@@ -484,15 +497,44 @@ const routes = {
     return { partners: partners.map((x) => ({ username: x.username, joined: !!x.joined })) };
   },
 
-  // Jerry Kombat: top players by lifetime coins
+  // Jerry Kombat ranking. All time: coins held now (the league follows them).
+  // ?week=1: this week's tournament (coins earned since Monday) + my prize from last week.
   "GET /api/kombat/top": async (req, env) => {
+    const now = Date.now();
+    if (new URL(req.url).searchParams.get("week")) {
+      const wid = KL.weekId(now), last = KL.weekId(now - 7 * DAY);
+      const top = await all(env, "SELECT u.username, w.earned AS total FROM kombat_weeks w JOIN users u ON u.uid = w.uid WHERE w.week_id = ? ORDER BY w.earned DESC, w.updated_at ASC LIMIT 50", wid);
+      let prize = null;
+      try {
+        const me = await auth(req, env);
+        prize = await weekPrize(env, me.uid, last);
+      } catch {}
+      return { top, ends: wid + 7 * DAY, prize, prizes: KL.WEEK_PRIZES };
+    }
     const rows = await all(
       env,
-      `SELECT u.username, CAST(json_extract(s.json, '$.kombat.total') AS INTEGER) AS total
+      `SELECT u.username, CAST(json_extract(s.json, '$.kombat.coins') AS INTEGER) AS total
        FROM state s JOIN users u ON u.uid = s.uid
-       WHERE json_extract(s.json, '$.kombat.total') > 0 ORDER BY total DESC LIMIT 50`
+       WHERE json_extract(s.json, '$.kombat.coins') > 0 ORDER BY total DESC LIMIT 50`
     );
     return { top: rows };
+  },
+
+  // Weekly tournament: the top 10 of last week collect their prize once
+  "POST /api/kombat/week/claim": async (req, env) => {
+    const u = await auth(req, env);
+    const now = Date.now(), last = KL.weekId(now - 7 * DAY);
+    const p = await weekPrize(env, u.uid, last);
+    if (!p || p.claimed) bad("k.noWeekPrize");
+    const r = await run(env, "INSERT OR IGNORE INTO kombat_week_claims (week_id, uid, place, prize, at) VALUES (?, ?, ?, ?, ?)", last, u.uid, p.place, p.prize, now);
+    if (!r.meta.changes) bad("k.noWeekPrize");
+    const tier = tierOf(u, now, await isPartner(env, u.username));
+    const st = await stateFor(env, u, now, tier);
+    st.kombat = KL.norm(st.kombat, now);
+    st.kombat.coins += p.prize; st.kombat.total += p.prize;
+    st.kombat.earn.tourney = (st.kombat.earn.tourney || 0) + p.prize; // not counted in the new week
+    await saveState(env, u.uid, st, now);
+    return { state: st, n: p.prize, place: p.place, now };
   },
 
   // Community goal: total players vs the airdrop goal (cached for a minute)
@@ -543,6 +585,7 @@ const routes = {
     st.kombat = KL.norm(st.kombat, now);
     st.kombat.coins += n; st.kombat.total += n;
     st.kombat.earn.boss = (st.kombat.earn.boss || 0) + n;
+    st.kombat.wk.n += n;
     await saveState(env, u.uid, st, now);
     return { state: st, n, now };
   },
@@ -559,7 +602,7 @@ const routes = {
          EXISTS (SELECT 1 FROM airdrop_block b WHERE b.username = u.username) AS blocked
        FROM users u JOIN state s ON s.uid = u.uid
        WHERE json_extract(s.json, '$.kombat.total') > 0
-       ORDER BY CAST(json_extract(s.json, '$.kombat.total') AS INTEGER) DESC LIMIT 5000`
+       ORDER BY CAST(json_extract(s.json, '$.kombat.coins') AS INTEGER) DESC LIMIT 5000`
     );
     const players = rows.map((r) => {
       const k = KL.norm(JSON.parse(r.k), now);
@@ -567,7 +610,7 @@ const routes = {
       if (r.net && r.same_net >= 3) flags.push("network"); // 4+ accounts from one network: check by hand
       const days = k.act.days;
       return {
-        username: r.username, joined: r.created_at, total: Math.floor(k.total), days, earn: k.earn,
+        username: r.username, joined: r.created_at, coins: Math.floor(k.coins), total: Math.floor(k.total), days, earn: k.earn,
         taps: k.stats.taps, sameNet: r.net ? r.same_net : 0, flags, blocked: !!r.blocked,
         eligible: !r.blocked && days >= KL.AIRDROP_DAYS && !flags.length,
       };
@@ -735,6 +778,17 @@ async function netHash(req, env) {
   const salt = env.PI_NETWORK_API_KEY || env.VALIDATION_KEY || "pi-oasis";
   const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(salt + "|" + ip));
   return [...new Uint8Array(h)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// My place and prize in a finished week (null when outside the top 10)
+async function weekPrize(env, uid, wid) {
+  const me = await one(env, "SELECT earned, updated_at FROM kombat_weeks WHERE week_id = ? AND uid = ?", wid, uid);
+  if (!me) return null;
+  const ahead = await one(env, "SELECT COUNT(*) AS n FROM kombat_weeks WHERE week_id = ? AND (earned > ? OR (earned = ? AND updated_at < ?))", wid, me.earned, me.earned, me.updated_at);
+  const place = ahead.n + 1;
+  if (place > KL.WEEK_PRIZES.length) return null;
+  const c = await one(env, "SELECT 1 AS x FROM kombat_week_claims WHERE week_id = ? AND uid = ?", wid, uid);
+  return { place, prize: KL.WEEK_PRIZES[place - 1], claimed: !!c };
 }
 
 // Invited friends who really played Kombat (empty accounts don't count)

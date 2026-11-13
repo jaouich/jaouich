@@ -489,7 +489,7 @@
           <br><small class="hint">${t("ad.days", { n: p.days, need: adData.minDays })}${p.sameNet ? " · " + t("ad.net", { n: p.sameNet }) : ""}</small>
           <br><small class="hint">${src(p.earn)}</small>
           ${p.flags.length ? `<br><small class="hint">⚠️ ${p.flags.map((x) => t("ad.flag." + x)).join(" · ")}</small>` : ""}</span>
-        <span class="pl-num"><small>🪙 ${nf(p.total)}</small><br>
+        <span class="pl-num"><small>🪙 ${nf(p.coins)}</small><br><small class="hint">Σ ${nf(p.total)}</small><br>
           <button class="btn small ${p.blocked ? "" : "secondary"}" data-adblock="${esc(p.username)}" data-on="${p.blocked ? 0 : 1}">${t(p.blocked ? "ad.unblock" : "ad.block")}</button></span>
       </div>`).join("") : `<div class="hint">${t("pl.none")}</div>`;
   }
@@ -508,8 +508,8 @@
   $("adCsv").addEventListener("click", () => {
     if (!adData) return;
     const q = (x) => `"${String(x).replace(/"/g, '""')}"`;
-    const lines = [["username", "kombat_coins", "active_days", "eligible", "blocked", "warnings", "same_network_accounts", "taps"].join(",")]
-      .concat(adData.players.map((p) => [q(p.username), p.total, p.days, p.eligible ? 1 : 0, p.blocked ? 1 : 0, q(p.flags.join(" ")), p.sameNet, p.taps].join(",")));
+    const lines = [["username", "coins_now", "coins_earned_total", "active_days", "eligible", "blocked", "warnings", "same_network_accounts", "taps"].join(",")]
+      .concat(adData.players.map((p) => [q(p.username), p.coins, p.total, p.days, p.eligible ? 1 : 0, p.blocked ? 1 : 0, q(p.flags.join(" ")), p.sameNet, p.taps].join(",")));
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

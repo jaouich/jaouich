@@ -177,6 +177,30 @@ ok(me1.account.referralCount === 2 && me1.account.activeRefs === 1, "2 friends i
 r = await act({ type: "kTask", id: "invite1" });
 ok(r.msg && r.msg.vars.n === 10000, "task 'invite a friend who plays' pays 10,000");
 ok((await act({ type: "kTask", id: "invite3" })).error === "k.taskNotYet", "'invite 3' needs 3 friends who play (dave never played)");
+// league follows coins held now; weekly tournament
+await setK("coins", 150000); await setK("total", 5000000);
+r = await act({ type: "kSync" });
+ok(r.state.kombat.coins >= 150000 && (await act({ type: "kSkin", id: "crown" })).error === "k.skinLocked", "5M earned but 150K held: still Silver, crown (Gold) locked");
+await setK("coins", 1200000);
+r = await act({ type: "kSkin", id: "crown" });
+ok(r.state.kombat.skin === "crown", "holding 1.2M coins = Gold league: crown unlocked");
+const wk0 = r.state.kombat.wk.n;
+await setK("energy", 1500); await setK("eAt", Date.now()); await setK("tapAt", Date.now() - 5000); await setK("furyUntil", 0); await setK("fury", 0);
+r = await act({ type: "kTap", n: 20 });
+ok(r.state.kombat.wk.n > wk0, "tapping adds to this week's tournament");
+let wt = await fetch(B + "/api/kombat/top?week=1", { headers: H }).then((x) => x.json());
+ok(wt.top.some((p) => p.username === "bob") && wt.ends > Date.now() && wt.prizes[0] === 1000000, "weekly ranking lists bob, with an end time and prizes");
+// last week: bob 2nd, carol 1st
+const lw = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - ((new Date().getUTCDay() + 6) % 7)) - 7 * 86400000;
+const cu = (await sql("SELECT uid FROM users WHERE username='carol'"))[0].uid;
+await exec(`INSERT OR REPLACE INTO kombat_weeks VALUES (${lw}, '${cu}', 90000, 1), (${lw}, '${uid}', 50000, 1), (${lw}, 'uD', 10, 1)`);
+wt = await fetch(B + "/api/kombat/top?week=1", { headers: H }).then((x) => x.json());
+ok(wt.prize && wt.prize.place === 2 && wt.prize.prize === 500000 && !wt.prize.claimed, "bob was #2 last week: 500,000 waiting");
+const cw0 = (await act({ type: "kSync" })).state.kombat.coins;
+const wc = await post("/api/kombat/week/claim", {}, H);
+ok(wc.n === 500000 && wc.state.kombat.coins === cw0 + 500000, "bob collects 500,000");
+ok((await post("/api/kombat/week/claim", {}, H)).error === "k.noWeekPrize", "tournament prize only once");
+ok(wc.state.kombat.wk.n === r.state.kombat.wk.n, "the prize doesn't count in this week's tournament");
 // ranking
 const top = await fetch(B + "/api/kombat/top").then((x) => x.json());
 ok(top.top.length >= 1 && top.top[0].username === "bob" && top.top[0].total > 0, "ranking lists bob");

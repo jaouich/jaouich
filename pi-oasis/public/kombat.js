@@ -130,7 +130,7 @@
     const lg = x.league, next = KL.LEAGUES[lg + 1];
     $("kLeagueBtn").textContent = lgName(lg);
     $("kLgName").textContent = next ? `${lgName(lg)} → ${KL.LEAGUE_ICON[lg + 1]} ${big(next)}` : lgName(lg);
-    $("kLgBar").style.width = next ? Math.min(100, (100 * (x.total - KL.LEAGUES[lg])) / (next - KL.LEAGUES[lg])) + "%" : "100%";
+    $("kLgBar").style.width = next ? Math.max(0, Math.min(100, (100 * (x.coins - KL.LEAGUES[lg])) / (next - KL.LEAGUES[lg]))) + "%" : "100%";
     $("kMedal").dataset.lg = lg;
     const kk = k();
     $("kMedal").dataset.skin = kk.skin || "classic";
@@ -146,8 +146,11 @@
     if (on) $("kFuryLeft").textContent = Math.max(0, Math.ceil((furyEnd() - nowT) / 1000)) + "s";
     // treasure jar
     $("kChest").classList.toggle("hidden", nowT < x.chestAt || page !== "arena");
-    // league up
-    if (lastLeague >= 0 && lg > lastLeague) celebrate(lg);
+    // league up: celebrate only a league never reached before (spending coins can lower the league)
+    let best = 0;
+    try { best = +localStorage.getItem("k_best_lg") || 0; } catch {}
+    if (lastLeague >= 0 && lg > lastLeague && lg > best) celebrate(lg);
+    if (lg > best) try { localStorage.setItem("k_best_lg", String(lg)); } catch {}
     lastLeague = lg;
   }
 
@@ -293,7 +296,7 @@
 
   // ---------- Skins ----------
   function renderSkins() {
-    const kk = k(), lg = KL.league(v().total), coins = v().coins;
+    const kk = k(), lg = KL.league(v().coins), coins = v().coins;
     $("kSkins").innerHTML = KL.SKINS.map((s) => {
       const own = !!kk.skins[s.id], on = kk.skin === s.id;
       const lock = !own && s.league != null && lg < s.league;
@@ -391,22 +394,53 @@
   $("kTasks").addEventListener("click", (e) => { const b = e.target.closest("[data-task]"); if (b) act({ type: "kTask", id: b.dataset.task }, sfx.chest).then(() => coinRain(16)); });
 
   // ---------- League ----------
+  let lgTab = "week";
+  const ago = (ms) => { const h = Math.max(0, Math.floor(ms / 3600e3)); return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${Math.floor((ms % 3600e3) / 60000)}m`; };
   async function renderLeague() {
     const x = v(), next = KL.LEAGUES[x.league + 1];
     $("kLeague").innerHTML = `<div class="k-lg-icon">${KL.LEAGUE_ICON[x.league]}</div><h2>${t("k.lg." + x.league)}</h2>
-      <p>${next ? t("k.league.next", { n: big(next - x.total), lg: lgName(x.league + 1) }) : t("k.league.max")}</p>
-      <div class="k-lg-row">${KL.LEAGUE_ICON.map((ic, i) => `<span class="${i <= x.league ? "on" : ""}" title="${t("k.lg." + i)}">${ic}</span>`).join("")}</div>`;
+      <p>${next ? t("k.league.next", { n: big(next - x.coins), lg: lgName(x.league + 1) }) : t("k.league.max")}</p>
+      <div class="k-lg-row">${KL.LEAGUE_ICON.map((ic, i) => `<span class="${i <= x.league ? "on" : ""}" title="${t("k.lg." + i)}">${ic}</span>`).join("")}</div>
+      <p class="k-note">${t("k.league.rule")}</p>
+      <div class="k-tabs"><button data-lgtab="week" class="${lgTab === "week" ? "on" : ""}">🔥 ${t("k.tour.tab")}</button><button data-lgtab="all" class="${lgTab === "all" ? "on" : ""}">🏆 ${t("k.tour.all")}</button></div>
+      <div id="kTour"></div>`;
     const kk = k(), need = KL.AIRDROP_DAYS, days = kk.act.days;
     $("kDrop").innerHTML = `<b>🪂 ${t("k.drop.t")}</b><span class="k-tbar"><i style="width:${Math.min(100, (100 * days) / need)}%"></i></span>
       <small>${days >= need ? t("k.drop.ok") : t("k.drop.days", { n: days, need })}</small>`;
     $("kTop").innerHTML = `<div class="k-note">…</div>`;
+    const me = G.account && G.account.username;
+    const row = (p, i, icon) => `<div class="${p.username === me ? "me" : ""}"><span>${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
+        <b>${String(p.username).replace(/[<>&"]/g, "")}</b><small>${icon}</small><span><i class="kcoin s"></i>${big(p.total)}</span></div>`;
     try {
-      const r = await Pi.kombatTop();
-      const me = G.account && G.account.username;
-      $("kTop").innerHTML = r.top.length ? r.top.map((p, i) => `<div class="${p.username === me ? "me" : ""}"><span>${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
-        <b>${String(p.username).replace(/[<>&"]/g, "")}</b><small>${KL.LEAGUE_ICON[KL.league(p.total)]}</small><span><i class="kcoin s"></i>${big(p.total)}</span></div>`).join("")
-        : `<div class="k-note">${t("k.league.empty")}</div>`;
+      if (lgTab === "week") {
+        const r = await Pi.kombatTop(true);
+        const p = r.prizes;
+        $("kTour").innerHTML = `<div class="k-tour">
+          <div class="k-tour-top"><b>🔥 ${t("k.tour.t")}</b><span>⏳ ${ago(r.ends - G.now())}</span></div>
+          <small>${t("k.tour.d")}</small>
+          <div class="k-tour-mine">${t("k.tour.mine", { n: big(x.week) })}</div>
+          <div class="k-prizes"><span>🥇 ${big(p[0])}</span><span>🥈 ${big(p[1])}</span><span>🥉 ${big(p[2])}</span><span>4-10 · ${big(p[3])}</span></div>
+          ${r.prize && !r.prize.claimed ? `<button id="kTourClaim" class="btn gold k-wide">${t("k.tour.claim", { place: r.prize.place, n: big(r.prize.prize) })}</button>` : ""}
+        </div>`;
+        const cb = $("kTourClaim");
+        if (cb) cb.addEventListener("click", claimWeek);
+        $("kTop").innerHTML = r.top.length ? r.top.map((q, i) => row(q, i, "🔥")).join("") : `<div class="k-note">${t("k.league.empty")}</div>`;
+      } else {
+        const r = await Pi.kombatTop();
+        $("kTour").innerHTML = "";
+        $("kTop").innerHTML = r.top.length ? r.top.map((q, i) => row(q, i, KL.LEAGUE_ICON[KL.league(q.total)])).join("") : `<div class="k-note">${t("k.league.empty")}</div>`;
+      }
     } catch { $("kTop").innerHTML = `<div class="k-note">${t("k.league.offline")}</div>`; }
+  }
+  $("kLeague").addEventListener("click", (e) => { const b = e.target.closest("[data-lgtab]"); if (b) { lgTab = b.dataset.lgtab; renderLeague(); } });
+  async function claimWeek() {
+    try {
+      await flush();
+      const r = await Pi.kombatWeekClaim();
+      G.setClock(r.now); G.S = r.state;
+      G.toast(t("k.tour.got", { place: r.place, n: big(r.n) })); sfx.level(); coinRain(50); pop();
+    } catch (e) { G.toast(errMsg(e)); }
+    renderLeague();
   }
   function celebrate(lg) {
     $("kLuIcon").textContent = KL.LEAGUE_ICON[lg];

@@ -31,11 +31,11 @@
     { id: "chest3", e: "🏺", need: 3, r: 5000, have: (s, k) => k.stats.chests },
     { id: "camel", e: "🐪", need: 1, r: 3000, have: (s) => (s.animals || []).length },
     { id: "city2", e: "🏙️", need: 2, r: 5000, have: (s, k, x) => (x.cityLevel ? x.cityLevel(s.city ? s.city.xp : 0) : 1) },
-    { id: "bronze", e: "🥉", need: 2, r: 10000, have: (s, k) => league(k.total) },
+    { id: "bronze", e: "🥉", need: 2, r: 10000, have: (s, k) => league(k.coins) },
     { id: "taps10k", e: "💪", need: 10000, r: 15000, have: (s, k) => k.stats.taps },
     { id: "cards25", e: "🏗️", need: 25, r: 25000, have: (s, k) => cardLevels(k) },
     { id: "member", e: "👑", need: 1, r: 50000, have: (s, k, x) => (x.boost > 0 ? 1 : 0) },
-    { id: "gold", e: "🥇", need: 4, r: 100000, have: (s, k) => league(k.total) },
+    { id: "gold", e: "🥇", need: 4, r: 100000, have: (s, k) => league(k.coins) },
     // Invite friends: only friends who really played count (x.refs from the server)
     { id: "invite1", e: "🤝", need: 1, r: 10000, have: (s, k, x) => x.refs || 0 },
     { id: "invite3", e: "👥", need: 3, r: 30000, have: (s, k, x) => x.refs || 0 },
@@ -87,7 +87,7 @@
     { id: "gold", e: "🟨", league: 3 },
     { id: "turban", e: "👳", cost: 50000 },
     { id: "shades", e: "😎", cost: 150000 },
-    { id: "crown", e: "👑", league: 5 },
+    { id: "crown", e: "👑", league: 4 }, // Gold league
   ];
   const cardById = (id) => CARDS.find((x) => x.id === id);
   const cardCost = (card, lvl) => Math.round(card.c * Math.pow(1.55, lvl));
@@ -97,6 +97,10 @@
   const tapValue = (k) => 1 + (k.tap || 0);
   const maxEnergy = (k) => K.E_BASE + K.E_STEP * (k.cap || 0);
   const day = (t) => Math.floor(t / 86400000);
+  // Weeks start Monday 00:00 UTC (same as the Oasis ranking)
+  const weekId = (t) => { const d = new Date(t); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); };
+  // Weekly tournament prizes (coins) for places 1..10
+  const WEEK_PRIZES = [1e6, 5e5, 25e4, 1e5, 1e5, 1e5, 1e5, 1e5, 1e5, 1e5];
 
   function fresh(now) {
     return { v: 1, coins: 0, total: 0, energy: K.E_BASE, eAt: now, tap: 0, cap: 0, cards: {}, last: now, tapAt: 0, refill: { day: day(now), used: 0, at: 0 }, daily: { day: -1, streak: 0 } };
@@ -110,6 +114,7 @@
     if (!k.skins) { k.skins = { classic: 1 }; k.skin = "classic"; }
     // Airdrop record: where coins came from, days played, and signs of automated tapping
     if (!k.earn) k.earn = {};
+    if (!k.wk || k.wk.id !== weekId(now)) k.wk = { id: weekId(now), n: 0 }; // weekly tournament
     if (!k.act) k.act = { day: -1, days: 0 };
     if (!k.sus) k.sus = { rej: 0, mins: 0, minDay: -1, lastMin: -1, maxMins: 0 };
     if (!k.refill || k.refill.day !== day(now)) k.refill = { day: day(now), used: 0, at: (k.refill && k.refill.at) || 0 };
@@ -126,7 +131,7 @@
   }
   function gain(k, n, src) {
     k.coins += n; k.total += n;
-    if (src && n > 0) k.earn[src] = (k.earn[src] || 0) + n;
+    if (src && n > 0) { k.earn[src] = (k.earn[src] || 0) + n; if (k.wk) k.wk.n += n; }
   }
   // Signs a player may be a bot (for the owner's airdrop review, never automatic bans)
   const SUS = { REJ: 2000, MINS: 240 };
@@ -147,14 +152,14 @@
   function unlocked(k, card) {
     const r = card.req;
     if (!r) return true;
-    if (r.league != null) return league(k.total) >= r.league;
+    if (r.league != null) return league(k.coins) >= r.league;
     return (k.cards[r.card] || 0) >= r.lvl;
   }
   // What the screen shows right now (no change to the saved state)
   function view(k, now, boost) {
     k = norm(JSON.parse(JSON.stringify(k || null)), now);
     const away = accrue(k, now, boost);
-    return { coins: k.coins, total: k.total, energy: energyNow(k, now), max: maxEnergy(k), tap: tapValue(k), pph: pph(k, boost), league: league(k.total), away,
+    return { coins: k.coins, total: k.total, energy: energyNow(k, now), max: maxEnergy(k), tap: tapValue(k), pph: pph(k, boost), league: league(k.coins), away, week: k.wk.n,
       fury: k.fury, furyUntil: k.furyUntil, chestAt: k.chestAt, chestReward: chestReward(k, boost) };
   }
   // Treasure jar: half an hour of profit, never less than 100 taps
@@ -264,7 +269,7 @@
         const sk = SKINS.find((x) => x.id === a.id);
         if (!sk) fail("badAction");
         if (!k.skins[sk.id]) {
-          if (sk.league != null && league(k.total) < sk.league) fail("k.skinLocked");
+          if (sk.league != null && league(k.coins) < sk.league) fail("k.skinLocked");
           if (sk.cost) {
             if (k.coins < sk.cost) fail("k.noCoins", { n: sk.cost - k.coins });
             k.coins -= sk.cost;
@@ -287,5 +292,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

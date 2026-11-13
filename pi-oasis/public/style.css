@@ -715,3 +715,15 @@ body.k-open { overflow: hidden; }
 .k-goal-foot { display: flex; align-items: center; gap: 10px; }
 .k-goal-foot small { flex: 1; font-size: 12px; opacity: .85; }
 .k-goal-share { flex: none; border: 0; border-radius: 99px; padding: 8px 14px; font: inherit; font-weight: 800; color: #2a1162; background: #4be3ff; cursor: pointer; box-shadow: 0 3px 0 #1a8fae; }
+
+/* Weekly tournament */
+.k-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 14px 0 8px; padding: 4px; border-radius: 99px; background: rgba(255,255,255,.07); }
+.k-tabs button { border: 0; border-radius: 99px; padding: 8px; font: inherit; font-weight: 800; color: rgba(255,255,255,.7); background: none; cursor: pointer; }
+.k-tabs button.on { background: #ffd76a; color: #2a1162; }
+.k-tour { text-align: start; padding: 12px; border-radius: 18px; margin-bottom: 10px; background: linear-gradient(120deg, rgba(255, 138, 61, .2), rgba(255, 45, 85, .18)); border: 1px solid rgba(255, 138, 61, .5); }
+.k-tour-top { display: flex; justify-content: space-between; align-items: center; }
+.k-tour-top span { direction: ltr; font-weight: 800; color: #ffd76a; }
+.k-tour small { display: block; font-size: 12px; opacity: .85; margin: 4px 0; }
+.k-tour-mine { font-weight: 800; margin: 6px 0; }
+.k-prizes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; font-size: 12px; font-weight: 700; }
+.k-prizes span { text-align: center; padding: 6px 2px; border-radius: 10px; background: rgba(0,0,0,.25); direction: ltr; }

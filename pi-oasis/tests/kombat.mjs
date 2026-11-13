@@ -168,6 +168,15 @@ pb = ad.players.find((p) => p.username === "bob");
 ok(pb.sameNet === 3 && pb.flags.includes("network"), "4 accounts from one network get a 'network' warning");
 const ips = await sql("SELECT net FROM users WHERE net IS NOT NULL LIMIT 1");
 ok(ips.length && !String(ips[0].net).includes("203.0.113.7") && ips[0].net.length === 16, "only a scrambled code is stored, never the address");
+// airdrop goal + invite tasks
+const st = await fetch(B + "/api/stats").then((x) => x.json());
+ok(st.goal === 300000 && st.players >= 3, "community counter: " + st.players + " / 300,000 players");
+await exec(`UPDATE users SET referrer = '${uid}' WHERE username IN ('carol', 'dave')`);
+const me1 = await fetch(B + "/api/me", { headers: H }).then((x) => x.json());
+ok(me1.account.referralCount === 2 && me1.account.activeRefs === 1, "2 friends invited, only 1 really played (carol): activeRefs = 1");
+r = await act({ type: "kTask", id: "invite1" });
+ok(r.msg && r.msg.vars.n === 10000, "task 'invite a friend who plays' pays 10,000");
+ok((await act({ type: "kTask", id: "invite3" })).error === "k.taskNotYet", "'invite 3' needs 3 friends who play (dave never played)");
 // ranking
 const top = await fetch(B + "/api/kombat/top").then((x) => x.json());
 ok(top.top.length >= 1 && top.top[0].username === "bob" && top.top[0].total > 0, "ranking lists bob");

@@ -271,6 +271,26 @@
     bossAt = 0; loadBoss();
   });
 
+  // ---------- Community goal: 300,000 players for the airdrop ----------
+  let goal = null;
+  async function loadGoal() { try { goal = await Pi.stats(); paintGoal(); } catch {} }
+  function paintGoal() {
+    if (!goal) return;
+    const pct = Math.min(100, (100 * goal.players) / goal.goal);
+    document.querySelectorAll(".k-goal").forEach((el) => {
+      el.querySelector(".k-goal-n").textContent = `${big(goal.players)} / ${big(goal.goal)}`;
+      el.querySelector(".k-goal-bar i").style.width = Math.max(1, pct) + "%";
+    });
+  }
+  async function share() {
+    const link = G.refLink();
+    if (!link) return G.toast(t("t.loginFirst"));
+    const text = t("k.share.text", { link, code: G.account.username, goal: big(goal ? goal.goal : KL.AIRDROP_GOAL) });
+    try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+    navigator.clipboard?.writeText(text).then(() => G.toast(t("t.copied")), () => {});
+  }
+  document.querySelectorAll(".k-goal-share").forEach((b) => b.addEventListener("click", share));
+
   // ---------- Skins ----------
   function renderSkins() {
     const kk = k(), lg = KL.league(v().total), coins = v().coins;
@@ -342,7 +362,7 @@
   $("kBoosts").addEventListener("click", (e) => { const b = e.target.closest("[data-kboost]"); if (b) act({ type: "kBoost", id: b.dataset.kboost }); });
 
   // ---------- Earn: daily reward + tasks ----------
-  const taskCtx = () => ({ boost: G.boost(), cityLevel: L.cityLevel });
+  const taskCtx = () => ({ boost: G.boost(), cityLevel: L.cityLevel, refs: (G.account && G.account.activeRefs) || 0 });
   const tasksReady = (kk) => KL.TASKS.some((x) => !kk.done[x.id] && x.have(G.S, kk, taskCtx()) >= x.need);
   function renderDaily() {
     const kk = k(), d = KL.day(G.now());
@@ -427,7 +447,7 @@
     if (location.hash !== "#kombat") history.replaceState(null, "", "#kombat");
     go("arena");
     act({ type: "kSync" }); // collects passive income and says how much came in
-    loadBoss();
+    loadBoss(); loadGoal();
     timer = setInterval(() => { paint(); if (page === "boost") renderBoosts(); }, 250);
     bossTimer = setInterval(() => { if (page === "arena" && !document.hidden) loadBoss(); }, 5000);
   }

@@ -36,6 +36,10 @@
     { id: "cards25", e: "🏗️", need: 25, r: 25000, have: (s, k) => cardLevels(k) },
     { id: "member", e: "👑", need: 1, r: 50000, have: (s, k, x) => (x.boost > 0 ? 1 : 0) },
     { id: "gold", e: "🥇", need: 4, r: 100000, have: (s, k) => league(k.total) },
+    // Invite friends: only friends who really played count (x.refs from the server)
+    { id: "invite1", e: "🤝", need: 1, r: 10000, have: (s, k, x) => x.refs || 0 },
+    { id: "invite3", e: "👥", need: 3, r: 30000, have: (s, k, x) => x.refs || 0 },
+    { id: "invite10", e: "📣", need: 10, r: 150000, have: (s, k, x) => x.refs || 0 },
   ];
   // Leagues by lifetime coins
   const LEAGUES = [0, 5e3, 25e3, 1e5, 1e6, 2e6, 1e7, 5e7, 1e8, 1e9];
@@ -283,5 +287,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -215,6 +215,7 @@ async function account(env, u) {
     vipUntil: u.vip_until,
     referralBalance: u.ref_balance,
     referralCount: c.n,
+    activeRefs: await activeRefs(env, u.uid),
     invitedBy: inviter ? inviter.username : null,
     canSetInviter: !u.referrer && Date.now() - u.created_at < INVITER_DAYS * DAY,
   };
@@ -281,6 +282,7 @@ function randomToken() {
 }
 
 // ---------- Routes ----------
+let statsCache = null;
 const routes = {
   // Sign in: exchange the Pi access token with App Studio (one exchange per sign-in).
   // Any uid/username sent by the browser is ignored.
@@ -339,7 +341,8 @@ const routes = {
     const state = await stateFor(env, u, now, tier);
     let res;
     try {
-      res = L.apply(state, a, { now, tier, adVerified, rand: secureRandom });
+      const refs = a.type === "kTask" ? await activeRefs(env, u.uid) : 0;
+      res = L.apply(state, a, { now, tier, adVerified, rand: secureRandom, refs });
     } catch (e) {
       if (e instanceof L.GameError) return json({ error: e.code, vars: e.vars, state, now }, 400);
       throw e;
@@ -490,6 +493,16 @@ const routes = {
        WHERE json_extract(s.json, '$.kombat.total') > 0 ORDER BY total DESC LIMIT 50`
     );
     return { top: rows };
+  },
+
+  // Community goal: total players vs the airdrop goal (cached for a minute)
+  "GET /api/stats": async (req, env) => {
+    const now = Date.now();
+    if (!statsCache || now - statsCache.at > 60000) {
+      const r = await one(env, "SELECT COUNT(*) AS n FROM users");
+      statsCache = { at: now, players: r.n };
+    }
+    return { players: statsCache.players, goal: KL.AIRDROP_GOAL };
   },
 
   // Community boss: current boss, best hitters, my damage and rewards waiting
@@ -722,6 +735,12 @@ async function netHash(req, env) {
   const salt = env.PI_NETWORK_API_KEY || env.VALIDATION_KEY || "pi-oasis";
   const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(salt + "|" + ip));
   return [...new Uint8Array(h)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Invited friends who really played Kombat (empty accounts don't count)
+async function activeRefs(env, uid) {
+  const r = await one(env, "SELECT COUNT(*) AS n FROM users f JOIN state s ON s.uid = f.uid WHERE f.referrer = ? AND json_extract(s.json, '$.kombat.act.days') >= 1", uid);
+  return r ? r.n : 0;
 }
 
 // ---------- Community boss ----------

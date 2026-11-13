@@ -140,6 +140,7 @@
     partners: (action, username) => api("/api/admin/partners", { action, username }),
     kombatTop: () => api("/api/kombat/top"),
     kombatBoss: () => api("/api/kombat/boss"),
+    stats: () => api("/api/stats"),
     kombatBossClaim: () => api("/api/kombat/boss/claim", {}),
     players: () => api("/api/admin/players", {}),
     airdrop: () => api("/api/admin/airdrop", {}),

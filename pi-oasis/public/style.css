@@ -705,3 +705,13 @@ body.k-open { overflow: hidden; }
 .k-drop small { opacity: .85; font-size: 12px; }
 #dropBox { margin-top: 18px; }
 #adFilter { border-radius: 12px; border: 1px solid #e3cf9e; padding: 0 8px; background: #fff; font: inherit; flex: 1; }
+
+/* Airdrop community goal */
+.k-goal { margin: 12px 0; padding: 12px; border-radius: 18px; background: linear-gradient(120deg, rgba(75, 227, 255, .14), rgba(124, 92, 255, .2)); border: 1px solid rgba(75, 227, 255, .45); }
+.k-goal-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.k-goal-n { font-weight: 800; color: #4be3ff; direction: ltr; unicode-bidi: isolate; }
+.k-goal-bar { height: 12px; margin: 8px 0; border-radius: 99px; background: rgba(0,0,0,.3); overflow: hidden; }
+.k-goal-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #4be3ff, #7c5cff, #ff4fa3); }
+.k-goal-foot { display: flex; align-items: center; gap: 10px; }
+.k-goal-foot small { flex: 1; font-size: 12px; opacity: .85; }
+.k-goal-share { flex: none; border: 0; border-radius: 99px; padding: 8px 14px; font: inherit; font-weight: 800; color: #2a1162; background: #4be3ff; cursor: pointer; box-shadow: 0 3px 0 #1a8fae; }

@@ -894,6 +894,7 @@
     get account() { return account; },
     setClock(serverNow) { clockOffset = serverNow - Date.now(); },
     now, toast, msgText, saveGuest, boost: () => perks().boost,
+    refLink: () => (account ? `${publicUrl || location.origin + location.pathname}?ref=${encodeURIComponent(account.username)}` : ""),
   };
 
   window.I18N.apply();

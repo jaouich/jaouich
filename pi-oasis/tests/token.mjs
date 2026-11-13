@@ -5,20 +5,22 @@ let pass = 0, fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); c ? pass++ : fail++; };
 const sql = (q) => post("/__test/sql", q).then((r) => { const { s, ...rest } = r; return Object.values(rest); });
 const exec = (q) => post("/__test/exec", q);
-const keys = await fetch(B + "/__test/token").then((r) => r.json());
 
 const A = (await post("/api/auth", { accessToken: "tokA" })).session; // alice = owner
 const Bo = (await post("/api/auth", { accessToken: "tokB" })).session;
 const HA = { Authorization: "Bearer " + A }, HB = { Authorization: "Bearer " + Bo };
 
-const toml = await fetch(B + "/.well-known/pi.toml");
-const tt = await toml.text();
-ok(toml.headers.get("content-type").startsWith("text/plain") && tt.includes('code="testJRY"') && tt.includes(`issuer="${keys.issuer}"`) && tt.includes("image=\"https://pi-oasis.jaouich.workers.dev/jry.png\""), "pi.toml served as text with code, issuer, name, desc and image");
+ok((await fetch(B + "/.well-known/pi.toml")).status === 404, "no pi.toml before the token exists");
 ok((await post("/api/admin/token", { action: "status" }, HB)).s === 403, "token tools are owner-only");
 let st = await post("/api/admin/token", { action: "status" }, HA);
-ok(st.code === "testJRY" && !st.distTrust && !st.minted && st.home === "", "before setup: no trustline, nothing minted, no home domain");
+ok(st.code === "testJRY" && /^G[A-Z0-9]{55}$/.test(st.issuer) && !st.issuerActive && !st.distTrust && !st.minted && st.home === "", "status creates an issuer key; nothing on chain yet");
+const toml = await fetch(B + "/.well-known/pi.toml");
+const tt = await toml.text();
+ok(toml.headers.get("content-type").startsWith("text/plain") && tt.includes('code="testJRY"') && tt.includes(`issuer="${st.issuer}"`) && tt.includes("image=\"https://pi-oasis.jaouich.workers.dev/jry.png\""), "pi.toml served as text with code, issuer, name, desc and image");
+const issuer = st.issuer;
 st = await post("/api/admin/token", { action: "setup" }, HA);
-ok(st.done && st.done.length === 3, "setup does: trustline, mint, home domain (" + (st.done || []).join(", ") + ")");
+ok(st.done && st.done.length === 4 && st.issuerActive, "one button: issuer wallet, trustline, mint, home domain (" + (st.done || []).join(", ") + ")");
+ok(st.issuer === issuer, "the same issuer is kept");
 ok(st.distTrust && st.minted && Number(st.supply) === 100000000 && st.distBalance === "100000000.0000000", "app wallet holds 100,000,000 test JRY");
 ok(st.home === "pi-oasis.jaouich.workers.dev", "issuer home domain points to our pi.toml");
 st = await post("/api/admin/token", { action: "setup" }, HA);
@@ -30,7 +32,7 @@ const W = "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H";
 let w = await post("/api/kombat/wallet", { address: W.toLowerCase() }, HB);
 ok(w.account && w.account.jryWallet === W && w.trust === false, "address saved (upper-cased); no trustline yet");
 ok((await post("/api/admin/token", { action: "send", to: W, amount: "5" }, HA)).error === "k.noTrust", "can't send before the wallet adds test JRY");
-await fetch(B + "/__test/trust?g=" + W);
+await fetch(B + "/__test/trust?g=" + W + "&issuer=" + issuer);
 w = await post("/api/kombat/wallet", { address: W }, HB);
 ok(w.trust === true, "after adding the token in Pi Wallet: ready");
 // trial airdrop only to eligible players

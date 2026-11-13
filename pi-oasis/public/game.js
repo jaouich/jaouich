@@ -535,6 +535,7 @@
     const short = (g) => (g ? g.slice(0, 5) + "…" + g.slice(-4) : "");
     $("tkStatus").innerHTML = row(s.issuerActive, "tk.issuer", short(s.issuer)) + row(s.distTrust, "tk.trust", short(s.distributor)) +
       row(s.minted, "tk.minted", s.minted ? nf(Math.round(s.supply)) + " " + s.code : "") + row(s.home === s.wantHome, "tk.home", s.home || s.wantHome) +
+      `<div><span>💰 ${t("tk.appPi")}</span><small class="hint" style="direction:ltr">${s.appPi} Test-Pi</small></div>` +
       `<div><span>👥 ${t("tk.holders", { n: s.holders })}</span><small class="hint">🪂 ${t("tk.sent", { n: s.sent })}</small></div>`;
   }
   async function token(action, extra) {

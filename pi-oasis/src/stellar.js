@@ -215,6 +215,14 @@ export function assetXdr(code, issuerG) {
   padded.set(new TextEncoder().encode(code));
   return new Xdr().int32(short ? ASSET_ALPHANUM4 : ASSET_ALPHANUM12).fixed(padded).int32(KEY_TYPE_ED25519).fixed(decodeStrKey(issuerG, "G")).bytes();
 }
+// createAccount (0): activates a new wallet with a starting balance of native Pi
+export const opCreateAccount = (toG, stroops) => new Xdr().uint32(0).int32(0).int32(KEY_TYPE_ED25519).fixed(decodeStrKey(toG, "G")).int64(stroops).bytes();
+// New random wallet: returns its secret seed "S..."
+export async function newSeed() {
+  const kp = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
+  const pk = new Uint8Array(await crypto.subtle.exportKey("pkcs8", kp.privateKey));
+  return encodeStrKey(pk.slice(-32), "S");
+}
 export const opChangeTrust = (asset) => new Xdr().uint32(0).int32(OP_CHANGE_TRUST).fixed(asset).int64(INT64_MAX).bytes();
 export const opPayment = (toG, asset, stroops) =>
   new Xdr().uint32(0).int32(OP_PAYMENT).int32(KEY_TYPE_ED25519).fixed(decodeStrKey(toG, "G")).fixed(asset).int64(stroops).bytes();

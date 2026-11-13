@@ -4,7 +4,7 @@
 import "../public/kombat-logic.js";
 import "../public/logic.js";
 import { processPayouts } from "./payouts.js";
-import { publicKeyOf, decodeStrKey, assetXdr, opChangeTrust, opPayment, opSetHomeDomain, submitOp, toStroops, HORIZON } from "./stellar.js";
+import { publicKeyOf, decodeStrKey, assetXdr, opChangeTrust, opPayment, opSetHomeDomain, opCreateAccount, newSeed, submitOp, toStroops, HORIZON } from "./stellar.js";
 
 const KL = globalThis.KombatLogic;
 const L = globalThis.OasisLogic;
@@ -148,6 +148,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS kombat_weeks ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, earned INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE INDEX IF NOT EXISTS kombat_weeks_rank ON kombat_weeks(week_id, earned DESC)",
   "CREATE TABLE IF NOT EXISTS kombat_week_claims ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, place INTEGER NOT NULL, prize INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS jry_keys ( id INTEGER PRIMARY KEY, seed TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_sends ( uid TEXT PRIMARY KEY, address TEXT NOT NULL, amount TEXT NOT NULL, txid TEXT, status TEXT NOT NULL, error TEXT, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS airdrop_block ( username TEXT PRIMARY KEY COLLATE NOCASE, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS boss ( id INTEGER PRIMARY KEY AUTOINCREMENT, lvl INTEGER NOT NULL, hp INTEGER NOT NULL, max_hp INTEGER NOT NULL, started_at INTEGER NOT NULL, killed_at INTEGER, killer TEXT )",
@@ -223,7 +224,7 @@ async function account(env, u) {
     referralCount: c.n,
     activeRefs: await activeRefs(env, u.uid),
     jryWallet: u.jry_wallet || null,
-    jryOn: !!env.JRY_ISSUER_SEED,
+    jryOn: !!env.JRY_ISSUER_SEED || env.TESTNET_GIFTS === "1",
     invitedBy: inviter ? inviter.username : null,
     canSetInviter: !u.referrer && Date.now() - u.created_at < INVITER_DAYS * DAY,
   };
@@ -663,9 +664,11 @@ const routes = {
     if (body.action === "setup") {
       const s = await jryState(env, t);
       const done = [];
+      // 0) activate the issuer wallet from the app wallet (2 Test-Pi)
+      if (!s.issuerActive) { await submitOp({ seed: env.PI_WALLET_SEED, op: opCreateAccount(t.issuer, toStroops("2")), network: t.network }); done.push("issuer wallet"); }
       if (!s.distTrust) { await submitOp({ seed: env.PI_WALLET_SEED, op: opChangeTrust(t.asset), network: t.network }); done.push("trustline"); }
-      if (!s.minted) { await submitOp({ seed: env.JRY_ISSUER_SEED, op: opPayment(t.dist, t.asset, toStroops(t.supply)), network: t.network }); done.push("mint " + t.supply); }
-      if (s.home !== t.home) { await submitOp({ seed: env.JRY_ISSUER_SEED, op: opSetHomeDomain(t.home), network: t.network }); done.push("home domain"); }
+      if (!s.minted) { await submitOp({ seed: t.seed, op: opPayment(t.dist, t.asset, toStroops(t.supply)), network: t.network }); done.push("mint " + t.supply); }
+      if (s.home !== t.home) { await submitOp({ seed: t.seed, op: opSetHomeDomain(t.home), network: t.network }); done.push("home domain"); }
       return { done, ...(await jryState(env, t)) };
     }
     if (body.action === "send") {
@@ -835,11 +838,24 @@ async function completePayment(env, id, txid, uid) {
 }
 
 // ---------- test JRY helpers ----------
+// Issuer wallet: the JRY_ISSUER_SEED secret if set; otherwise, on Testnet only, a wallet the
+// server creates once and keeps in the database (test tokens have no value; never on Mainnet).
+async function jryIssuerSeed(env, create) {
+  if (env.JRY_ISSUER_SEED) return env.JRY_ISSUER_SEED;
+  if (env.TESTNET_GIFTS !== "1") return null;
+  let row = await one(env, "SELECT seed FROM jry_keys WHERE id = 1");
+  if (!row && create) {
+    await run(env, "INSERT OR IGNORE INTO jry_keys (id, seed, created_at) VALUES (1, ?, ?)", await newSeed(), Date.now());
+    row = await one(env, "SELECT seed FROM jry_keys WHERE id = 1");
+  }
+  return row ? row.seed : null;
+}
 async function jryConfig(env) {
-  if (!env.JRY_ISSUER_SEED || !env.PI_WALLET_SEED) bad("k.tokenOff");
+  const seed = await jryIssuerSeed(env, true);
+  if (!seed || !env.PI_WALLET_SEED) bad("k.tokenOff");
   const code = env.JRY_CODE || "testJRY";
-  const issuer = await publicKeyOf(env.JRY_ISSUER_SEED);
-  return { code, issuer, dist: await publicKeyOf(env.PI_WALLET_SEED), asset: assetXdr(code, issuer), network: "Pi Testnet",
+  const issuer = await publicKeyOf(seed);
+  return { seed, code, issuer, dist: await publicKeyOf(env.PI_WALLET_SEED), asset: assetXdr(code, issuer), network: "Pi Testnet",
     home: env.JRY_HOME || "pi-oasis.jaouich.workers.dev", supply: env.JRY_SUPPLY || "100000000" };
 }
 const horizonGet = async (path) => { const r = await fetch(HORIZON["Pi Testnet"] + path); return r.ok ? r.json() : null; };
@@ -848,15 +864,18 @@ async function jryState(env, t) {
   const [dist, iss, asset] = await Promise.all([horizonGet(`/accounts/${t.dist}`), horizonGet(`/accounts/${t.issuer}`), horizonGet(`/assets?asset_code=${t.code}&asset_issuer=${t.issuer}`)]);
   const line = jryLine(dist, t), rec = asset && asset._embedded && asset._embedded.records[0];
   const sent = await one(env, "SELECT COUNT(*) AS n FROM jry_sends WHERE status = 'sent'");
+  const native = ((dist && dist.balances) || []).find((b) => b.asset_type === "native");
   return {
+    appPi: native ? native.balance : "0",
     code: t.code, issuer: t.issuer, distributor: t.dist, home: (iss && iss.home_domain) || "", wantHome: t.home,
     issuerActive: !!(iss && iss.sequence), distTrust: !!line, distBalance: line ? line.balance : "0", minted: !!(rec && Number(rec.amount) > 0),
     supply: rec ? rec.amount : "0", holders: rec ? rec.num_accounts : 0, sent: sent.n, toml: `https://${t.home}/.well-known/pi.toml`,
   };
 }
 async function jryStatusOf(env, address) {
-  if (!env.JRY_ISSUER_SEED) return { trust: false, balance: "0" };
-  const t = { code: env.JRY_CODE || "testJRY", issuer: await publicKeyOf(env.JRY_ISSUER_SEED) };
+  const seed = await jryIssuerSeed(env, false);
+  if (!seed) return { trust: false, balance: "0" };
+  const t = { code: env.JRY_CODE || "testJRY", issuer: await publicKeyOf(seed) };
   const line = jryLine(await horizonGet(`/accounts/${address}`), t);
   return { trust: !!line, balance: line ? line.balance : "0" };
 }
@@ -954,8 +973,10 @@ export default {
     }
     // Token metadata Pi Wallet reads to list test JRY (see docs: Tokens → pi.toml)
     if (url.pathname === "/.well-known/pi.toml") {
-      if (!env.JRY_ISSUER_SEED) return new Response("not found", { status: 404 });
-      const issuer = await publicKeyOf(env.JRY_ISSUER_SEED);
+      await ensureSchema(env);
+      const seed = await jryIssuerSeed(env, false);
+      if (!seed) return new Response("not found", { status: 404 });
+      const issuer = await publicKeyOf(seed);
       const host = env.JRY_HOME || url.host;
       const toml = `[[CURRENCIES]]\ncode="${env.JRY_CODE || "testJRY"}"\nissuer="${issuer}"\nname="Jerry Development"\ndesc="test JRY: the Testnet token of Jerry Kombat in Pi Oasis. For testing only, it has no value."\nimage="https://${host}/jry.png"\n`;
       return new Response(toml, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600", "Access-Control-Allow-Origin": "*" } });

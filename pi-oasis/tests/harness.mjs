@@ -103,7 +103,6 @@ function readEnvelope(b64) {
 const ISS = kp();
 const ledger = new Map(); // G -> { seq, trust: Set, bal: {}, home }
 const acc = (g) => { if (!ledger.has(g)) ledger.set(g, { seq: 5000n, trust: new Set(), bal: {}, home: "" }); return ledger.get(g); };
-acc(ISS.G);
 globalThis.__ledger = ledger;
 function readTokenTx(b64) {
   const b = Buffer.from(b64, "base64"); let o = 0;
@@ -118,7 +117,8 @@ function readTokenTx(b64) {
   if (i32() !== 0) throw new Error("memo");
   if (u32() !== 1) throw new Error("ops");
   u32(); const type = i32(); let op;
-  if (type === 1) { i32(); const to = encodeStrKey(raw(32), "G"); op = { type: "payment", to, asset: asset(), amount: i64() }; }
+  if (type === 0) { i32(); op = { type: "create", to: encodeStrKey(raw(32), "G"), amount: i64() }; }
+  else if (type === 1) { i32(); const to = encodeStrKey(raw(32), "G"); op = { type: "payment", to, asset: asset(), amount: i64() }; }
   else if (type === 6) { op = { type: "trust", asset: asset(), limit: i64() }; }
   else if (type === 5) { for (let k = 0; k < 7; k++) if (u32()) throw new Error("unexpected option"); if (u32() !== 1) throw new Error("no home"); const l = u32(); op = { type: "home", home: raw(l).toString() }; raw((4 - l % 4) % 4); if (u32()) throw new Error("signer"); }
   else throw new Error("op " + type);
@@ -135,7 +135,8 @@ function applyTokenTx(t) {
   const a = acc(t.from);
   if (t.seq !== a.seq + 1n) return { codes: { transaction: "tx_bad_seq" } };
   const op = t.op;
-  if (op.type === "trust") a.trust.add(op.asset);
+  if (op.type === "create") { if (ledger.has(op.to)) return { codes: { operations: ["op_already_exists"] } }; acc(op.to); }
+  else if (op.type === "trust") a.trust.add(op.asset);
   else if (op.type === "home") a.home = op.home;
   else if (op.type === "payment") {
     const [, issuer] = op.asset.split(":");
@@ -190,7 +191,7 @@ async function horizon(u, opt) {
   return J({}, 404);
 }
 const worker = (await import(ROOT + "/src/worker.js")).default;
-const env = { DB, ASSETS, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_WALLET_SEED: APP.S, VALIDATION_KEY: "testkey123", ADMIN_USERNAMES: "Alice", PUBLIC_URL: "https://oasisgame6033.pinet.com", TESTNET_GIFTS: "1", JRY_ISSUER_SEED: ISS.S, JRY_CODE: "testJRY", JRY_HOME: "pi-oasis.jaouich.workers.dev" };
+const env = { DB, ASSETS, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_WALLET_SEED: APP.S, VALIDATION_KEY: "testkey123", ADMIN_USERNAMES: "Alice", PUBLIC_URL: "https://oasisgame6033.pinet.com", TESTNET_GIFTS: "1", JRY_CODE: "testJRY", JRY_HOME: "pi-oasis.jaouich.workers.dev" };
 http.createServer(async (rq, rs) => {
   const chunks = []; for await (const c of rq) chunks.push(c);
   const req = new Request("http://localhost:3457" + rq.url, { method: rq.method, headers: rq.headers, body: rq.method === "POST" ? Buffer.concat(chunks) : undefined });
@@ -198,8 +199,7 @@ http.createServer(async (rq, rs) => {
   if (rq.url === "/__test/chain") { rs.end(JSON.stringify({ txs: chain.txs.map((t) => ({ ...t, seq: String(t.seq), amount: String(t.amount) })), wallets, a2u })); return; }
   if (rq.url === "/__test/drop-next") { chain.dropNextResponse = true; rs.end("ok"); return; }
   if (rq.url === "/__test/cron") { const w = []; await worker.scheduled({}, env, { waitUntil: (p) => w.push(p) }); await Promise.all(w); rs.end("ok"); return; }
-  if (rq.url.startsWith("/__test/trust?")) { const q = new URLSearchParams(rq.url.split("?")[1]); acc(q.get("g")).trust.add("testJRY:" + ISS.G); rs.end("ok"); return; }
-  if (rq.url === "/__test/token") { rs.end(JSON.stringify({ issuer: ISS.G, app: APP.G })); return; }
+  if (rq.url.startsWith("/__test/trust?")) { const q = new URLSearchParams(rq.url.split("?")[1]); acc(q.get("g")).trust.add("testJRY:" + q.get("issuer")); rs.end("ok"); return; }
   if (rq.url.startsWith("/__test/gifts")) { if (rq.url.endsWith("on")) env.TESTNET_GIFTS = "1"; else delete env.TESTNET_GIFTS; rs.end("ok"); return; }
   if (rq.url.startsWith("/__test/studio")) { if (rq.url.endsWith("on")) env.PI_STUDIO_API_KEY = "STUDIOKEY"; else delete env.PI_STUDIO_API_KEY; rs.end("ok"); return; }
   if (rq.url === "/__test/completes") { rs.end(String(globalThis.__completes || 0)); return; }

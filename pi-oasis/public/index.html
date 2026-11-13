@@ -80,8 +80,71 @@
     <button id="loginBtn" class="btn small gold" data-i18n="login.btn"></button>
   </div>
 
+  <!-- Jerry Kombat: a full-screen page of its own -->
+  <div id="kombat" class="kombat hidden" aria-hidden="true">
+    <div class="k-top">
+      <button id="kBack" class="k-back" type="button">‹ <span data-i18n="k.back"></span></button>
+      <div class="k-title">⚔️ Jerry Kombat</div>
+      <button id="kLeagueBtn" class="k-league-pill" type="button"></button>
+    </div>
+    <div class="k-stats">
+      <div><small data-i18n="k.perTap"></small><b id="kTapV">+1</b></div>
+      <div><small data-i18n="k.pph"></small><b id="kPph">0</b></div>
+      <div><small data-i18n="k.energy"></small><b id="kEnergyTxt">0</b></div>
+    </div>
+    <div class="k-coins"><i class="kcoin"></i><b id="kCoins">0</b></div>
+    <div class="k-pages">
+      <section class="k-page active" data-kp="arena">
+        <div class="k-progress"><span id="kLgName"></span><div class="k-bar"><i id="kLgBar"></i></div></div>
+        <div id="kArena" class="k-arena">
+          <div id="kMedal" class="k-medal"><div class="k-ring"></div><div class="k-inner"><span class="k-fox">🦊</span><span class="k-band"></span></div></div>
+        </div>
+        <div class="k-energy-row">
+          <span>⚡ <b id="kEnergy">0</b> / <span id="kEnergyMax">0</span></span>
+          <button class="k-mini" data-kgo="boost" type="button">🚀 <span data-i18n="k.nav.boost"></span></button>
+        </div>
+        <div class="k-ebar"><i id="kEBar"></i></div>
+      </section>
+      <section class="k-page" data-kp="cards">
+        <div id="kCats" class="k-cats"></div>
+        <div id="kCards" class="k-cards"></div>
+        <p class="k-note" id="kMemberNote"></p>
+      </section>
+      <section class="k-page" data-kp="boost">
+        <h3 data-i18n="k.boost.free"></h3>
+        <div id="kRefill" class="k-boost"></div>
+        <h3 data-i18n="k.boost.title"></h3>
+        <div id="kBoosts"></div>
+      </section>
+      <section class="k-page" data-kp="daily">
+        <h3 data-i18n="k.daily.t"></h3>
+        <p class="k-note" data-i18n="k.daily.d"></p>
+        <div id="kDaily" class="k-daily"></div>
+        <button id="kDailyBtn" class="btn gold k-wide" type="button"></button>
+      </section>
+      <section class="k-page" data-kp="league">
+        <div id="kLeague" class="k-league"></div>
+        <h3 data-i18n="k.league.top"></h3>
+        <div id="kTop" class="k-top-list"></div>
+        <p class="k-note" data-i18n="k.note"></p>
+      </section>
+    </div>
+    <nav class="k-nav">
+      <button data-kgo="arena" class="active"><i>⚔️</i><span data-i18n="k.nav.arena"></span></button>
+      <button data-kgo="cards"><i>🃏</i><span data-i18n="k.nav.cards"></span></button>
+      <button data-kgo="boost"><i>🚀</i><span data-i18n="k.nav.boost"></span></button>
+      <button data-kgo="daily"><i>🎁</i><span data-i18n="k.nav.daily"></span><b id="kDailyDot" class="dot hidden"></b></button>
+      <button data-kgo="league"><i>🏆</i><span data-i18n="k.nav.league"></span></button>
+    </nav>
+  </div>
+
   <main>
     <section id="tab-farm" class="tab active">
+      <button id="kombatOpen" class="kombat-banner" type="button">
+        <span class="kb-fox">🦊</span>
+        <span class="kb-text"><b data-i18n="k.banner.t"></b><small data-i18n="k.banner.d"></small></span>
+        <span class="kb-go" data-i18n="k.open"></span>
+      </button>
       <div id="missions" class="missions"></div>
       <h2 data-i18n="farm.title"></h2>
       <div class="seed-picker" id="seedPicker"></div>
@@ -247,8 +310,10 @@
 
   <script src="config.js"></script>
   <script src="i18n.js"></script>
+  <script src="kombat-logic.js"></script>
   <script src="logic.js"></script>
   <script src="pi.js"></script>
   <script src="game.js"></script>
+  <script src="kombat.js"></script>
 </body>
 </html>

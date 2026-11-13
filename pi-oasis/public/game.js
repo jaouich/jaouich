@@ -816,6 +816,15 @@
     try { localStorage.setItem("oasis_stay_old", "1"); } catch {}
   });
 
+  // Bridge for the Jerry Kombat page (kombat.js)
+  window.OasisGame = {
+    get S() { return S; },
+    set S(x) { S = x; },
+    get account() { return account; },
+    setClock(serverNow) { clockOffset = serverNow - Date.now(); },
+    now, toast, msgText, saveGuest, boost: () => perks().boost,
+  };
+
   window.I18N.apply();
   // First visit: start the guided tour once the screen has settled
   try {

@@ -1,6 +1,7 @@
 // Pi Oasis – Cloudflare Worker (server)
 // Pi sign-in (via App Studio), server-side game (anti-cheat), VIP payments, 10% referrals, weekly leaderboard.
 // Static files in /public are served by Workers Static Assets (see wrangler.toml).
+import "../public/kombat-logic.js";
 import "../public/logic.js";
 import { processPayouts } from "./payouts.js";
 import { publicKeyOf } from "./stellar.js";
@@ -468,6 +469,17 @@ const routes = {
       "SELECT p.username, p.granted_at, EXISTS (SELECT 1 FROM users u WHERE u.username = p.username COLLATE NOCASE) AS joined FROM partners p ORDER BY p.granted_at DESC"
     );
     return { partners: partners.map((x) => ({ username: x.username, joined: !!x.joined })) };
+  },
+
+  // Jerry Kombat: top players by lifetime coins
+  "GET /api/kombat/top": async (req, env) => {
+    const rows = await all(
+      env,
+      `SELECT u.username, CAST(json_extract(s.json, '$.kombat.total') AS INTEGER) AS total
+       FROM state s JOIN users u ON u.uid = s.uid
+       WHERE json_extract(s.json, '$.kombat.total') > 0 ORDER BY total DESC LIMIT 50`
+    );
+    return { top: rows };
   },
 
   // Owner: everyone who plays, to know them and reward them

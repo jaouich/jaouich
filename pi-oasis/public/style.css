@@ -644,3 +644,5 @@ body.k-open { overflow: hidden; }
 .k-lu-card .k-lg-icon { font-size: 96px; animation: kBob 1.2s infinite; }
 .k-lu-card p { font-size: 22px; font-weight: 800; color: #ffd76a; margin: 4px 0 16px; }
 @keyframes kZoom { from { transform: scale(.3); opacity: 0; } }
+
+.k-back, .k-league-pill { white-space: nowrap; font-size: 14px; padding: 6px 10px; }

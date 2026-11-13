@@ -99,6 +99,10 @@
   const day = (t) => Math.floor(t / 86400000);
   // Weeks start Monday 00:00 UTC (same as the Oasis ranking)
   const weekId = (t) => { const d = new Date(t); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); };
+  // Golden hour: one hour a day (UTC, the same for everyone) when taps count x2
+  const goldenHourOf = (t) => { let x = (day(t) * 2246822519) >>> 0; x ^= x >>> 13; x = Math.imul(x, 3266489917) >>> 0; x ^= x >>> 16; return (x >>> 0) % 24; };
+  const goldenStart = (t) => day(t) * 86400000 + goldenHourOf(t) * 3600e3;
+  const golden = (t) => t >= goldenStart(t) && t < goldenStart(t) + 3600e3;
   // Weekly tournament prizes (coins) for places 1..10
   const WEEK_PRIZES = [1e6, 5e5, 25e4, 1e5, 1e5, 1e5, 1e5, 1e5, 1e5, 1e5];
 
@@ -179,6 +183,7 @@
       case "kTap": {
         const n = Number.isInteger(a.n) ? a.n : NaN;
         if (!(n >= 1 && n <= K.MAX_BATCH)) fail("badAction");
+        const gm = golden(now) ? 2 : 1;
         const tv = tapValue(k);
         const e = energyNow(k, now);
         const byTime = k.tapAt ? Math.floor(((now - k.tapAt) / 1000) * K.MAX_TPS) + K.BURST : K.BURST + K.MAX_TPS * 2;
@@ -186,14 +191,14 @@
         if (furyOn(k, now)) {
           // Fury: x3 coins and no energy used
           ok = Math.max(0, Math.min(n, byTime));
-          gain(k, ok * tv * K.FURY_X, "fury");
+          gain(k, ok * tv * K.FURY_X * gm, "fury");
           k.energy = e;
-          dmg = ok * tv * K.FURY_X;
+          dmg = ok * tv * K.FURY_X * gm;
         } else {
           if (k.furyUntil) k.furyUntil = 0;
           ok = Math.max(0, Math.min(n, Math.floor(e / tv), byTime));
-          gain(k, ok * tv, "tap");
-          dmg = ok * tv;
+          gain(k, ok * tv * gm, "tap");
+          dmg = ok * tv * gm;
           k.energy = e - ok * tv;
           k.fury += ok;
           if (k.fury >= K.FURY_NEED) { k.fury = 0; k.furyUntil = now + K.FURY_MS; k.stats.furies++; }
@@ -292,5 +297,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

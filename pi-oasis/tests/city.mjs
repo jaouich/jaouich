@@ -1,4 +1,7 @@
 // Oasis City tests. Start tests/harness.mjs first (fresh database).
+import "../public/logic.js";
+// Today's oasis event can raise order rewards (market day +50%)
+const OR = Math.floor(84 * (globalThis.OasisLogic.eventOf(Date.now()).orders || 1));
 const B = "http://localhost:3457";
 const post = (p, b, tok) => fetch(B + p, { method: "POST", headers: { "Content-Type": "application/json", ...(tok ? { Authorization: "Bearer " + tok } : {}) }, body: typeof b === "string" ? b : JSON.stringify(b) }).then((r) => r.text()).then((x) => { try { return JSON.parse(x); } catch { return x; } });
 const get = (p, tok) => fetch(B + p, { headers: tok ? { Authorization: "Bearer " + tok } : {} }).then((r) => r.json());
@@ -52,7 +55,7 @@ await setJson("$.city.orders[1]", { id: 91, need: { bread: 9 }, reward: 400, xp:
 ok((await act({ type: "cityDeliver", slot: 1 })).error === "cityMissing", "can't deliver without enough goods");
 const before = await st();
 r = await act({ type: "cityDeliver", slot: 0 });
-ok(r.msg?.key === "t.orderDone" && r.state.dates - before.dates === 84 && r.state.week.score - before.week.score === 84, "order: +84 dates and +84 score (free player)", [r.state?.dates - before.dates, r.state?.week.score - before.week.score]);
+ok(r.msg?.key === "t.orderDone" && r.state.dates - before.dates === OR && r.state.week.score - before.week.score === OR, `order: +${OR} dates and +${OR} score (free player, today's event included)`, [r.state?.dates - before.dates, r.state?.week.score - before.week.score]);
 ok(r.state.city.goods.bread === 0 && r.state.city.orders[0].wait > Date.now(), "goods used and the slot waits for a new order");
 ok((await act({ type: "cityDeliver", slot: 0 })).error === "badAction", "can't deliver the same order twice");
 await exec(`UPDATE state SET json = json_set(json, '$.city.orders[0].wait', 1) WHERE uid='${uidC}'`);
@@ -96,7 +99,7 @@ await setJson("$.city.goods.bread", { bread: 3 }.bread, uidB);
 await setJson("$.city.orders[0]", { id: 70, need: { bread: 2 }, reward: 84, xp: 14 }, uidB);
 const b0 = await st(uidB);
 r = await act({ type: "cityDeliver", slot: 0 }, G);
-ok(r.state.dates - b0.dates === 84 + 29 && r.state.week.score - b0.week.score === 84, "Gold: order gives 84 + 29 (35%) dates but only 84 score", [r.state?.dates - b0.dates, r.state?.week.score - b0.week.score]);
+ok(r.state.dates - b0.dates === OR + Math.floor(OR * 0.35) && r.state.week.score - b0.week.score === OR, `Gold: order gives ${OR} + 35% dates but only ${OR} score`, [r.state?.dates - b0.dates, r.state?.week.score - b0.week.score]);
 
 // --- Old saves get a city ---
 await exec(`UPDATE state SET json = json_remove(json, '$.city') WHERE uid='${uidC}'`);

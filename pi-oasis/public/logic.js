@@ -222,7 +222,20 @@
 
   const seedById = (id) => SEEDS.find((x) => x.id === id);
   const stakeById = (id) => STAKES.find((x) => x.id === id);
-  const readyAt = (p) => p.plantedAt + seedById(p.seed).time * 1000;
+  // Daily oasis events: the same for everyone, a new one each day (UTC)
+  const EVENTS = [
+    { id: "calm", e: "☀️" },
+    { id: "rain", e: "🌧️", grow: 0.5 },      // crops planted today grow twice as fast
+    { id: "market", e: "🛍️", orders: 1.5 },  // city orders pay +50%
+    { id: "festival", e: "🐪", camels: 1.5 }, // camels give +50%
+    { id: "harvest", e: "🌴", yield: 1.25 },  // harvests give +25%
+  ];
+  const eventOf = (t) => {
+    const d = dayId(t);
+    let x = (d * 2654435761) >>> 0; x ^= x >>> 15; x = Math.imul(x, 2246822507) >>> 0; x ^= x >>> 13;
+    return EVENTS[(x >>> 0) % EVENTS.length];
+  };
+  const readyAt = (p) => p.plantedAt + seedById(p.seed).time * 1000 * (p.g || 1);
 
   // Applies one action. Returns { s, msg } where msg = { key, vars } for the UI.
   // ctx: { now, tier (index in TIERS), adVerified, rand }
@@ -242,7 +255,8 @@
         if (s.plots[i]) fail("badAction");
         if (s.dates < seed.cost) fail("notEnough");
         s.dates -= seed.cost;
-        s.plots[i] = { seed: seed.id, plantedAt: now };
+        const ev = eventOf(now);
+        s.plots[i] = ev.grow ? { seed: seed.id, plantedAt: now, g: ev.grow } : { seed: seed.id, plantedAt: now };
         track(s, "plant", 1);
         return { s, msg: { key: "t.planted", vars: { seed: seed.id } } };
       }
@@ -252,15 +266,16 @@
         if (readyAt(p) > now) fail("notReady");
         const seed = seedById(p.seed);
         s.plots[i] = null;
-        earn(s, seed.yield);
+        const got = Math.floor(seed.yield * (eventOf(now).yield || 1));
+        earn(s, got);
         track(s, "harvest", 1);
-        return { s, msg: { key: "t.harvested", vars: { n: seed.yield } } };
+        return { s, msg: { key: "t.harvested", vars: { n: got } } };
       }
       case "speedup": {
         const i = int(a.plot), p = s.plots[i];
         if (!p || tier > 0 || !ctx.adVerified) fail("badAction");
         if ((readyAt(p) - now) / 1000 <= C.AD_MIN_LEFT) fail("badAction");
-        p.plantedAt = now - seedById(p.seed).time * 1000;
+        p.plantedAt = now - seedById(p.seed).time * 1000 * (p.g || 1);
         return { s, msg: { key: "t.adDone" } };
       }
       case "stake": {
@@ -310,7 +325,7 @@
         // Only the first camels (the free herd size) count toward the ranking
         let total = 0, scored = 0;
         s.animals.forEach((an, i) => {
-          const n = animalReady(an, now);
+          const n = Math.floor(animalReady(an, now) * (eventOf(now).camels || 1));
           if (n > 0) { total += n; if (i < TIERS[0].camels) scored += n; an.lastCollect = now; }
         });
         if (!total) fail("notReady");
@@ -435,12 +450,13 @@
         if (!o || !o.need) fail("badAction");
         for (const g in o.need) if ((city.goods[g] || 0) < o.need[g]) fail("cityMissing");
         for (const g in o.need) city.goods[g] -= o.need[g];
-        const bonus = Math.floor(o.reward * perks.boost);
-        earn(s, o.reward, bonus);
+        const reward = Math.floor(o.reward * (eventOf(now).orders || 1));
+        const bonus = Math.floor(reward * perks.boost);
+        earn(s, reward, bonus);
         city.orders[i] = { wait: now + CITY.ORDER_COOLDOWN * 1000 };
         track(s, "deliver", 1);
         const up = addXp(city, o.xp);
-        return { s, msg: up ? { key: "t.levelUp", vars: { n: cityLevel(city.xp) } } : { key: "t.orderDone", vars: { n: o.reward + bonus } } };
+        return { s, msg: up ? { key: "t.levelUp", vars: { n: cityLevel(city.xp) } } : { key: "t.orderDone", vars: { n: reward + bonus } } };
       }
       default:
         fail("badAction");
@@ -454,6 +470,6 @@
     { id: "d10k", price: 2, dates: 10000 },
     { id: "d25k", price: 5, dates: 25000 },
   ];
-  const api = { PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

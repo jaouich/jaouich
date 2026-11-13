@@ -229,6 +229,10 @@ async function loadState(env, uid, now) {
   return L.normalize(row ? JSON.parse(row.json) : null, now);
 }
 async function saveState(env, uid, s, now) {
+  // Kombat weekly tournament row: at most once a minute (fewer database writes)
+  const wk = s.kombat && s.kombat.wk;
+  const saveWeek = wk && wk.n > 0 && now - (wk.at || 0) >= 60000;
+  if (saveWeek) wk.at = now;
   await run(
     env,
     `INSERT INTO state (uid, json, week_id, week_score, updated_at) VALUES (?, ?, ?, ?, ?)
@@ -236,8 +240,7 @@ async function saveState(env, uid, s, now) {
     uid, JSON.stringify(s), s.week.id, s.week.score, now
   );
   // Kombat weekly tournament: coins earned this week, kept per week for the prizes
-  const wk = s.kombat && s.kombat.wk;
-  if (wk && wk.n > 0) {
+  if (saveWeek) {
     await run(
       env,
       `INSERT INTO kombat_weeks (week_id, uid, earned, updated_at) VALUES (?, ?, ?, ?)
@@ -813,7 +816,9 @@ async function bossHit(env, uid, dmg, now) {
     env.DB.prepare("UPDATE boss SET hp = hp - ? WHERE id = ? AND killed_at IS NULL").bind(dmg, b.id),
     env.DB.prepare("INSERT INTO boss_hits (boss_id, uid, dmg) VALUES (?, ?, ?) ON CONFLICT(boss_id, uid) DO UPDATE SET dmg = dmg + excluded.dmg").bind(b.id, uid, dmg),
   ]);
-  // The tap that takes it to 0 is the final blow; the next, stronger boss appears
+  // The tap that takes it to 0 is the final blow; the next, stronger boss appears.
+  // Most hits leave it alive: skip the check then (one database call less).
+  if (b.hp - dmg > 0) return;
   const k = await run(env, "UPDATE boss SET killed_at = ?, killer = ? WHERE id = ? AND killed_at IS NULL AND hp <= 0", now, uid, b.id);
   if (k.meta.changes) await currentBoss(env, now);
 }

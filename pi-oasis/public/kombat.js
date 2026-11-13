@@ -110,8 +110,9 @@
   function v() {
     const x = KL.view(G.S.kombat, G.now(), G.boost());
     const n = pn + fn, f = pf + ff;
-    x.coins += n * x.tap + f * x.tap * K.FURY_X;
-    x.total += n * x.tap + f * x.tap * K.FURY_X;
+    x.gm = KL.golden(G.now()) ? 2 : 1; // golden hour
+    x.coins += (n * x.tap + f * x.tap * K.FURY_X) * x.gm;
+    x.total += (n * x.tap + f * x.tap * K.FURY_X) * x.gm;
     x.energy = Math.max(0, x.energy - n * x.tap);
     x.furyFill = furyNow() ? 1 : Math.min(1, (x.fury + n) / K.FURY_NEED);
     return x;
@@ -120,7 +121,8 @@
     if (!open) return;
     const x = v(), nowT = G.now();
     $("kCoins").textContent = Math.floor(x.coins).toLocaleString("en-US");
-    $("kTapV").textContent = "+" + x.tap * (furyNow() ? K.FURY_X : 1);
+    $("kTapV").textContent = "+" + x.tap * (furyNow() ? K.FURY_X : 1) * x.gm;
+    paintGold(nowT);
     $("kPph").textContent = "+" + big(x.pph);
     $("kEnergyTxt").textContent = big(x.energy);
     $("kEnergy").textContent = x.energy;
@@ -169,7 +171,7 @@
     medal.style.transform = `perspective(600px) rotateX(${-dy * 14}deg) rotateY(${dx * 14}deg) scale(.95)`;
     clearTimeout(medal._t);
     medal._t = setTimeout(() => (medal.style.transform = ""), 120);
-    floatText("+" + x.tap * (fury ? K.FURY_X : 1), e.clientX, e.clientY, fury);
+    floatText("+" + x.tap * (fury ? K.FURY_X : 1) * x.gm, e.clientX, e.clientY, fury || x.gm > 1);
     // combo: quick taps in a row
     const tn = Date.now();
     combo = tn - comboAt < 450 ? combo + 1 : 1;
@@ -186,7 +188,7 @@
     sfx.tap(fury);
     if (navigator.vibrate) try { navigator.vibrate(fury ? 12 : 6); } catch {}
     paint();
-    if (pn + pf >= 60) flush();
+    if (pn + pf >= 80) flush(); // ~4 s of fast tapping
   });
   medal.addEventListener("contextmenu", (e) => e.preventDefault());
   function floatText(txt, x, y, hot) {
@@ -218,11 +220,29 @@
     coinRain(24);
   });
 
+  // ---------- Golden hour: x2 for everyone, one hour a day ----------
+  const hm = (ms) => { const m = Math.max(0, Math.ceil(ms / 60000)); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`; };
+  const clock = (t) => new Date(t).toLocaleTimeString(window.I18N.locale || undefined, { hour: "2-digit", minute: "2-digit" });
+  function paintGold(nowT) {
+    const el = $("kGold");
+    if (KL.golden(nowT)) {
+      const end = KL.goldenStart(nowT) + 3600e3;
+      el.className = "k-gold on";
+      el.textContent = t("k.gold.on", { t: hm(end - nowT) });
+    } else {
+      let start = KL.goldenStart(nowT);
+      if (start <= nowT) start = KL.goldenStart(nowT + 86400000);
+      el.className = "k-gold";
+      el.textContent = t("k.gold.next", { time: clock(start), t: hm(start - nowT) });
+    }
+    $("kombat").classList.toggle("golden", KL.golden(nowT));
+  }
+
   // ---------- Community boss ----------
   const bossName = (lvl) => t("k.boss." + KL.bossOf(lvl).id);
   let bossAt = 0;
   async function loadBoss() {
-    if (Date.now() - bossAt < 2000) return; // at most every 2 s
+    if (Date.now() - bossAt < 5000) return; // at most every 5 s
     bossAt = Date.now();
     try {
       const r = await Pi.kombatBoss();
@@ -240,7 +260,7 @@
     if (!boss) { $("kBoss").classList.add("hidden"); return; }
     $("kBoss").classList.remove("hidden");
     const b = boss.boss;
-    const pend = G.account ? (pn + fn) * x.tap + (pf + ff) * x.tap * K.FURY_X : 0;
+    const pend = G.account ? ((pn + fn) * x.tap + (pf + ff) * x.tap * K.FURY_X) * x.gm : 0;
     const hp = Math.max(0, b.hp - pend);
     $("kBossIc").textContent = KL.bossOf(b.lvl).e;
     $("kBossName").textContent = `${bossName(b.lvl)} · ${t("k.lvl", { n: b.lvl })}`;
@@ -483,7 +503,7 @@
     act({ type: "kSync" }); // collects passive income and says how much came in
     loadBoss(); loadGoal();
     timer = setInterval(() => { paint(); if (page === "boost") renderBoosts(); }, 250);
-    bossTimer = setInterval(() => { if (page === "arena" && !document.hidden) loadBoss(); }, 5000);
+    bossTimer = setInterval(() => { if (page === "arena" && !document.hidden) loadBoss(); }, 15000);
   }
   async function hide() {
     if (!open) return;
@@ -497,7 +517,9 @@
   }
   $("kombatOpen").addEventListener("click", show);
   $("kBack").addEventListener("click", hide);
-  setInterval(flush, 1000);
+  // Taps go to the server in batches every 4 s: the screen counts live, the server checks
+  // the same limits, and the database writes ~4x less than one request per second
+  setInterval(flush, 4000);
   addEventListener("pagehide", () => { flush(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) flush(); });
   if (location.hash === "#kombat") setTimeout(show, 300);

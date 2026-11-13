@@ -130,7 +130,17 @@
   // The grid is rebuilt only when a plot changes state, so animations keep running;
   // timers and progress bars are updated in place every second.
   let farmKey = "";
+  // Today's oasis event (same for everyone) and tomorrow's
+  function renderEvent() {
+    const n = now(), ev = L.eventOf(n), nx = L.eventOf(n + 86400000);
+    const left = (L.dayId(n) + 1) * 86400000 - n;
+    const h = Math.floor(left / 3600e3), m = Math.floor((left % 3600e3) / 60000);
+    $("eventBar").className = "event-bar ev-" + ev.id;
+    $("eventBar").innerHTML = `<span class="ev-ic">${ev.e}</span><span class="ev-txt"><b>${t("ev." + ev.id)}</b><small>${t("ev." + ev.id + ".d")}</small></span>
+      <span class="ev-side"><small>⏳ ${h}h ${m}m</small><small>${t("ev.tomorrow")} ${nx.e}</small></span>`;
+  }
   function renderFarm() {
+    renderEvent();
     const n = now();
     const info = S.plots.map((p) => {
       if (!p) return { k: "empty" };

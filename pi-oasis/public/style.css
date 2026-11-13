@@ -727,3 +727,20 @@ body.k-open { overflow: hidden; }
 .k-tour-mine { font-weight: 800; margin: 6px 0; }
 .k-prizes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; font-size: 12px; font-weight: 700; }
 .k-prizes span { text-align: center; padding: 6px 2px; border-radius: 10px; background: rgba(0,0,0,.25); direction: ltr; }
+
+/* Oasis daily event */
+.event-bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 0 0 12px; border-radius: 18px; border: 1px solid var(--line);
+  background: linear-gradient(110deg, #fff8e6, #fff1cf); box-shadow: 0 4px 12px rgba(58, 38, 20, .06); }
+.ev-ic { font-size: 32px; }
+.ev-txt { flex: 1; display: flex; flex-direction: column; }
+.ev-txt small { opacity: .75; font-size: 12px; }
+.ev-side { display: flex; flex-direction: column; align-items: flex-end; font-size: 11px; opacity: .8; white-space: nowrap; }
+.event-bar.ev-rain { background: linear-gradient(110deg, #e6f4ff, #d3ecff); border-color: #9cc9ef; }
+.event-bar.ev-market { background: linear-gradient(110deg, #fff0f6, #ffe1ee); border-color: #f2a7c5; }
+.event-bar.ev-festival { background: linear-gradient(110deg, #fff4e0, #ffe6b8); border-color: #e9b86a; }
+.event-bar.ev-harvest { background: linear-gradient(110deg, #ecfbef, #d6f5dd); border-color: #8fd6a3; }
+.event-bar:not(.ev-calm) .ev-ic { animation: kBob 2s ease-in-out infinite; }
+/* Kombat golden hour */
+.k-gold { margin: 8px 0 0; padding: 6px 12px; border-radius: 99px; text-align: center; font-size: 12px; font-weight: 700; background: rgba(255, 215, 106, .1); border: 1px dashed rgba(255, 215, 106, .5); color: #ffe7a3; }
+.k-gold.on { font-size: 14px; font-weight: 900; color: #2a1162; background: linear-gradient(90deg, #ffe08a, #ffb800, #ffe08a); border: 0; animation: kPulse 1s infinite; }
+.kombat.golden .k-ring { box-shadow: 0 0 60px rgba(255, 215, 106, .95), 0 0 120px rgba(255, 184, 0, .7); }

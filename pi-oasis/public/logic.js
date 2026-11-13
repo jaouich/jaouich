@@ -234,7 +234,7 @@
     a = a || {};
     tickCity(s, now, rand);
     // Jerry Kombat actions (kombat-logic.js)
-    if (typeof a.type === "string" && /^k[A-Z]/.test(a.type) && root.KombatLogic) return root.KombatLogic.applyTo(s, a, { now, boost: perks.boost }, fail);
+    if (typeof a.type === "string" && /^k[A-Z]/.test(a.type) && root.KombatLogic) return root.KombatLogic.applyTo(s, a, { now, rand, boost: perks.boost, cityLevel }, fail);
     switch (a.type) {
       case "plant": {
         const i = int(a.plot), seed = seedById(a.seed);

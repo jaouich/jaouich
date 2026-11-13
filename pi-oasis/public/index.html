@@ -85,8 +85,10 @@
     <div class="k-top">
       <button id="kBack" class="k-back" type="button">‹ <span data-i18n="k.back"></span></button>
       <div class="k-title">⚔️ Jerry Kombat</div>
-      <button id="kLeagueBtn" class="k-league-pill" type="button"></button>
+      <div class="k-top-r"><button id="kSound" class="k-back" type="button" aria-label="Sound">🔊</button><button id="kLeagueBtn" class="k-league-pill" type="button"></button></div>
     </div>
+    <div id="kLevelUp" class="k-levelup hidden"><div class="k-lu-card"><div id="kLuIcon" class="k-lg-icon"></div><h2 data-i18n="k.lu.t"></h2><p id="kLuName"></p><button class="btn gold" data-i18n="k.lu.btn" type="button"></button></div></div>
+    <div id="kFuryBanner" class="k-fury-banner hidden">🔥 <span data-i18n="k.furyOn"></span> ×3 <b id="kFuryLeft"></b></div>
     <div class="k-stats">
       <div><small data-i18n="k.perTap"></small><b id="kTapV">+1</b></div>
       <div><small data-i18n="k.pph"></small><b id="kPph">0</b></div>
@@ -97,13 +99,35 @@
       <section class="k-page active" data-kp="arena">
         <div class="k-progress"><span id="kLgName"></span><div class="k-bar"><i id="kLgBar"></i></div></div>
         <div id="kArena" class="k-arena">
-          <div id="kMedal" class="k-medal"><div class="k-ring"></div><div class="k-inner"><span class="k-fox">🦊</span><span class="k-band"></span></div></div>
+          <button id="kChest" class="k-chest hidden" type="button" aria-label="Treasure">🏺</button>
+          <div id="kMedal" class="k-medal"><div class="k-ring"></div><div class="k-inner">
+            <!-- Jerry the fennec fighter (original drawing) -->
+            <svg class="k-jerry" viewBox="0 0 200 200" aria-hidden="true">
+              <path d="M58 96 L22 14 Q60 30 92 70 Z" fill="#f0a446"/><path d="M60 88 L36 32 Q62 44 84 72 Z" fill="#ffc7c0"/>
+              <path d="M142 96 L178 14 Q140 30 108 70 Z" fill="#f0a446"/><path d="M140 88 L164 32 Q138 44 116 72 Z" fill="#ffc7c0"/>
+              <ellipse cx="100" cy="118" rx="64" ry="56" fill="#f3a84c"/>
+              <path d="M40 124 Q64 178 100 178 Q136 178 160 124 Q140 150 100 150 Q60 150 40 124 Z" fill="#fff4e6"/>
+              <ellipse cx="100" cy="146" rx="32" ry="22" fill="#fff4e6"/>
+              <path d="M38 82 Q100 58 162 82 L160 98 Q100 76 40 98 Z" fill="#e2263b"/>
+              <path d="M158 86 Q182 84 192 98 Q176 96 166 100 Q182 108 186 122 Q168 112 156 98 Z" fill="#c81d31"/>
+              <circle cx="100" cy="84" r="7" fill="#ffd76a"/>
+              <g class="k-eyes">
+                <ellipse cx="76" cy="114" rx="9" ry="11" fill="#2b1a12"/><circle cx="79" cy="110" r="3.2" fill="#fff"/>
+                <ellipse cx="124" cy="114" rx="9" ry="11" fill="#2b1a12"/><circle cx="127" cy="110" r="3.2" fill="#fff"/>
+              </g>
+              <path class="k-brows" d="M64 100 L88 106 M136 100 L112 106" stroke="#7a3e10" stroke-width="5" stroke-linecap="round"/>
+              <ellipse cx="100" cy="134" rx="9" ry="6.5" fill="#2b1a12"/>
+              <path d="M88 146 Q100 156 112 146" stroke="#2b1a12" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+              <ellipse cx="60" cy="136" rx="9" ry="5" fill="#ff9f8a" opacity=".55"/><ellipse cx="140" cy="136" rx="9" ry="5" fill="#ff9f8a" opacity=".55"/>
+            </svg>
+          </div></div>
         </div>
         <div class="k-energy-row">
           <span>⚡ <b id="kEnergy">0</b> / <span id="kEnergyMax">0</span></span>
           <button class="k-mini" data-kgo="boost" type="button">🚀 <span data-i18n="k.nav.boost"></span></button>
         </div>
         <div class="k-ebar"><i id="kEBar"></i></div>
+        <div class="k-fury-row"><span>🔥 <span data-i18n="k.fury"></span></span><div class="k-fbar"><i id="kFBar"></i></div></div>
       </section>
       <section class="k-page" data-kp="cards">
         <div id="kCats" class="k-cats"></div>
@@ -121,6 +145,8 @@
         <p class="k-note" data-i18n="k.daily.d"></p>
         <div id="kDaily" class="k-daily"></div>
         <button id="kDailyBtn" class="btn gold k-wide" type="button"></button>
+        <h3 data-i18n="k.tasks"></h3>
+        <div id="kTasks" class="k-tasks"></div>
       </section>
       <section class="k-page" data-kp="league">
         <div id="kLeague" class="k-league"></div>
@@ -133,7 +159,7 @@
       <button data-kgo="arena" class="active"><i>⚔️</i><span data-i18n="k.nav.arena"></span></button>
       <button data-kgo="cards"><i>🃏</i><span data-i18n="k.nav.cards"></span></button>
       <button data-kgo="boost"><i>🚀</i><span data-i18n="k.nav.boost"></span></button>
-      <button data-kgo="daily"><i>🎁</i><span data-i18n="k.nav.daily"></span><b id="kDailyDot" class="dot hidden"></b></button>
+      <button data-kgo="daily"><i>🎯</i><span data-i18n="k.nav.earn"></span><b id="kDailyDot" class="dot hidden"></b></button>
       <button data-kgo="league"><i>🏆</i><span data-i18n="k.nav.league"></span></button>
     </nav>
   </div>

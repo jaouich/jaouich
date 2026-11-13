@@ -8,9 +8,13 @@
   const G = window.OasisGame;
   const Pi = window.PiBridge;
   if (!KL || !G) return;
+  const { K } = KL;
 
   let open = false, page = "arena", cat = KL.CATS[0];
-  let pending = 0, inflight = 0, sending = false, busy = false;
+  // taps not yet confirmed by the server: normal ones and fury ones (x3, free)
+  let pn = 0, pf = 0, fn = 0, ff = 0, sending = false, busy = false;
+  let localFury = 0; // fury predicted on the phone until the server confirms it
+  let lastLeague = -1;
 
   // 1234 -> "1,234", 1.2e6 -> "1.2M"
   const big = (n) => {
@@ -21,7 +25,40 @@
   };
   const errMsg = (e) => (e && e.code ? t("e." + e.code, e.vars || (e.data && e.data.vars)) : (e && e.message) || "");
   const lgName = (i) => `${KL.LEAGUE_ICON[i]} ${t("k.lg." + i)}`;
-  const k = () => KL.norm(G.S.kombat, G.now());
+  const k = () => KL.norm(JSON.parse(JSON.stringify(G.S.kombat || null)), G.now());
+
+  // ---------- Sound (tiny synth, no files) ----------
+  let ac = null, muted = false;
+  try { muted = localStorage.getItem("k_mute") === "1"; } catch {}
+  function tone(f, d, type, vol, slide) {
+    if (muted) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator(), g = ac.createGain(), t0 = ac.currentTime;
+      o.type = type || "sine";
+      o.frequency.setValueAtTime(f, t0);
+      if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + d);
+      g.gain.setValueAtTime(vol || 0.08, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+      o.connect(g).connect(ac.destination);
+      o.start(t0); o.stop(t0 + d + 0.02);
+    } catch {}
+  }
+  const sfx = {
+    tap: (fury) => tone(fury ? 520 + Math.random() * 120 : 380 + Math.random() * 60, 0.07, "triangle", 0.05, fury ? 900 : 620),
+    coin: () => { tone(988, 0.08, "square", 0.04); setTimeout(() => tone(1319, 0.16, "square", 0.04), 70); },
+    fury: () => [392, 523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.14, "sawtooth", 0.05), i * 60)),
+    chest: () => [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, 0.2, "triangle", 0.06), i * 80)),
+    level: () => [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => tone(f, 0.28, "triangle", 0.07), i * 110)),
+    no: () => tone(160, 0.15, "square", 0.04, 110),
+  };
+  function setMute(m) {
+    muted = m;
+    $("kSound").textContent = m ? "🔇" : "🔊";
+    try { localStorage.setItem("k_mute", m ? "1" : "0"); } catch {}
+  }
+  $("kSound").addEventListener("click", () => setMute(!muted));
+  setMute(muted);
 
   // Runs an action on the server (signed in) or on the phone (guest)
   async function run(action) {
@@ -36,130 +73,212 @@
     return r;
   }
   async function flush() {
-    if (sending || !pending) return;
+    if (sending || !(pn + pf)) return;
     sending = true;
-    inflight = pending; pending = 0;
-    try { await run({ type: "kTap", n: inflight }); }
+    fn = pn; ff = pf; pn = pf = 0;
+    try { await run({ type: "kTap", n: fn + ff }); }
     catch (e) { if (e.data && e.data.state) G.S = e.data.state; }
-    finally { inflight = 0; sending = false; paint(); }
+    finally {
+      fn = ff = 0; sending = false;
+      if (k().furyUntil) localFury = 0; // the server's fury timer wins
+      paint();
+    }
   }
-  async function act(action) {
+  async function act(action, sound) {
     if (busy) return;
     busy = true;
     try {
       await flush();
       const r = await run(action);
       G.toast(r.msg ? G.msgText(r.msg) : "");
-      if (action.type !== "kSync") pop();
+      if (action.type !== "kSync") { pop(); (sound || sfx.coin)(); }
     } catch (e) {
       if (e.data && e.data.state) G.S = e.data.state;
-      G.toast(errMsg(e.code ? e : { code: e.code, message: e.message }));
+      G.toast(errMsg(e)); sfx.no();
     } finally { busy = false; renderAll(); }
   }
 
   // ---------- Live numbers ----------
+  function furyEnd() {
+    const kk = G.S.kombat || {};
+    return Math.max(kk.furyUntil || 0, localFury);
+  }
+  const furyNow = () => G.now() <= furyEnd();
   function v() {
     const x = KL.view(G.S.kombat, G.now(), G.boost());
-    const used = (pending + inflight) * x.tap;
-    x.coins += used; x.total += used; x.energy = Math.max(0, x.energy - used);
+    const n = pn + fn, f = pf + ff;
+    x.coins += n * x.tap + f * x.tap * K.FURY_X;
+    x.total += n * x.tap + f * x.tap * K.FURY_X;
+    x.energy = Math.max(0, x.energy - n * x.tap);
+    x.furyFill = furyNow() ? 1 : Math.min(1, (x.fury + n) / K.FURY_NEED);
     return x;
   }
   function paint() {
     if (!open) return;
-    const x = v();
+    const x = v(), nowT = G.now();
     $("kCoins").textContent = Math.floor(x.coins).toLocaleString("en-US");
-    $("kTapV").textContent = "+" + x.tap;
+    $("kTapV").textContent = "+" + x.tap * (furyNow() ? K.FURY_X : 1);
     $("kPph").textContent = "+" + big(x.pph);
     $("kEnergyTxt").textContent = big(x.energy);
     $("kEnergy").textContent = x.energy;
     $("kEnergyMax").textContent = x.max;
     $("kEBar").style.width = (100 * x.energy) / x.max + "%";
+    $("kFBar").style.width = x.furyFill * 100 + "%";
     const lg = x.league, next = KL.LEAGUES[lg + 1];
     $("kLeagueBtn").textContent = lgName(lg);
     $("kLgName").textContent = next ? `${lgName(lg)} → ${KL.LEAGUE_ICON[lg + 1]} ${big(next)}` : lgName(lg);
     $("kLgBar").style.width = next ? Math.min(100, (100 * (x.total - KL.LEAGUES[lg])) / (next - KL.LEAGUES[lg])) + "%" : "100%";
-    $("kDailyDot").classList.toggle("hidden", k().daily.day === KL.day(G.now()));
+    $("kMedal").dataset.lg = lg;
+    const kk = k();
+    $("kDailyDot").classList.toggle("hidden", kk.daily.day === KL.day(nowT) && !tasksReady(kk));
+    // fury
+    const on = furyNow();
+    $("kombat").classList.toggle("fury", on);
+    $("kFuryBanner").classList.toggle("hidden", !on);
+    if (on) $("kFuryLeft").textContent = Math.max(0, Math.ceil((furyEnd() - nowT) / 1000)) + "s";
+    // treasure jar
+    $("kChest").classList.toggle("hidden", nowT < x.chestAt || page !== "arena");
+    // league up
+    if (lastLeague >= 0 && lg > lastLeague) celebrate(lg);
+    lastLeague = lg;
   }
 
   // ---------- Tapping ----------
   const medal = $("kMedal");
   medal.addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    const x = v();
-    if (x.energy < x.tap) { medal.classList.remove("shake"); void medal.offsetWidth; medal.classList.add("shake"); return; }
-    pending++;
+    const x = v(), fury = furyNow();
+    if (!fury && x.energy < x.tap) { medal.classList.remove("shake"); void medal.offsetWidth; medal.classList.add("shake"); sfx.no(); return; }
+    if (fury) pf++; else pn++;
+    // fury bar full: start fury on the phone right away (the server confirms on the next batch)
+    if (!fury && x.fury + pn + fn >= K.FURY_NEED) { localFury = G.now() + K.FURY_MS; sfx.fury(); flash(); }
     // tilt toward the finger
     const r = medal.getBoundingClientRect();
     const dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2), dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
-    medal.style.transform = `perspective(600px) rotateX(${-dy * 14}deg) rotateY(${dx * 14}deg) scale(.96)`;
+    medal.style.transform = `perspective(600px) rotateX(${-dy * 14}deg) rotateY(${dx * 14}deg) scale(.95)`;
     clearTimeout(medal._t);
     medal._t = setTimeout(() => (medal.style.transform = ""), 120);
-    const f = document.createElement("div");
-    f.className = "k-float";
-    f.textContent = "+" + x.tap;
-    f.style.left = e.clientX + "px"; f.style.top = e.clientY + "px";
-    document.body.appendChild(f);
-    setTimeout(() => f.remove(), 900);
-    if (navigator.vibrate) try { navigator.vibrate(6); } catch {}
+    floatText("+" + x.tap * (fury ? K.FURY_X : 1), e.clientX, e.clientY, fury);
+    sfx.tap(fury);
+    if (navigator.vibrate) try { navigator.vibrate(fury ? 12 : 6); } catch {}
     paint();
-    if (pending >= 60) flush();
+    if (pn + pf >= 60) flush();
   });
   medal.addEventListener("contextmenu", (e) => e.preventDefault());
+  function floatText(txt, x, y, hot) {
+    const f = document.createElement("div");
+    f.className = "k-float" + (hot ? " hot" : "");
+    f.textContent = txt;
+    f.style.left = x + "px"; f.style.top = y + "px";
+    document.body.appendChild(f);
+    setTimeout(() => f.remove(), 900);
+  }
+  function flash() { const el = $("kombat"); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+  function coinRain(n) {
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement("i");
+      c.className = "kcoin k-rain";
+      c.style.left = Math.random() * 100 + "vw";
+      c.style.animationDelay = Math.random() * 0.6 + "s";
+      c.style.setProperty("--dx", (Math.random() * 80 - 40) + "px");
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 2200);
+    }
+  }
+
+  // ---------- Treasure jar ----------
+  $("kChest").addEventListener("click", async (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    floatText("🏺 +" + big(v().chestReward), r.left + r.width / 2, r.top, true);
+    await act({ type: "kChest" }, sfx.chest);
+    coinRain(24);
+  });
 
   // ---------- Cards ----------
   function renderCards() {
     const kk = k(), boost = G.boost();
     $("kCats").innerHTML = KL.CATS.map((c) => `<button class="${c === cat ? "on" : ""}" data-cat="${c}">${t("k.cat." + c)}</button>`).join("");
     const coins = v().coins;
+    // best deal: the unlocked card that pays back its price fastest
+    let best = null, bestH = Infinity;
+    for (const c of KL.CARDS) {
+      const lvl = kk.cards[c.id] || 0;
+      if (lvl >= K.MAX_CARD || !KL.unlocked(kk, c)) continue;
+      const h = KL.cardCost(c, lvl) / (KL.cardProfit(c, lvl + 1) - KL.cardProfit(c, lvl));
+      if (h < bestH) { bestH = h; best = c.id; }
+    }
     $("kCards").innerHTML = KL.CARDS.filter((c) => c.cat === cat).map((c) => {
-      const lvl = kk.cards[c.id] || 0, max = lvl >= KL.K.MAX_CARD;
-      const open = KL.unlocked(kk, c);
+      const lvl = kk.cards[c.id] || 0, max = lvl >= K.MAX_CARD;
+      const isOpen = KL.unlocked(kk, c);
       const cost = KL.cardCost(c, lvl), gain = KL.cardProfit(c, lvl + 1) - KL.cardProfit(c, lvl);
+      const hours = cost / (gain * (1 + boost));
       const req = c.req ? (c.req.league != null ? t("k.req.league", { lg: lgName(c.req.league) }) : t("k.req.card", { card: t("k.card." + c.req.card), n: c.req.lvl })) : "";
-      return `<button class="k-card ${open ? "" : "locked"} ${!max && open && coins >= cost ? "can" : ""}" data-card="${c.id}" ${open && !max ? "" : "disabled"}>
+      return `<button class="k-card ${isOpen ? "" : "locked"} ${!max && isOpen && coins >= cost ? "can" : ""}" data-card="${c.id}" ${isOpen && !max ? "" : "disabled"}>
+        ${best === c.id ? `<span class="k-best">💡 ${t("k.best")}</span>` : ""}
         <span class="k-ce">${c.e}</span>
         <b>${t("k.card." + c.id)}</b>
         <small>${t("k.pphShort")} <b>+${big(KL.cardProfit(c, lvl) * (1 + boost))}</b></small>
         <span class="k-cl">${t("k.lvl", { n: lvl })}</span>
         ${max ? `<span class="k-cost">${t("k.max")}</span>`
-          : open ? `<span class="k-gain">+${big(gain)}/h</span><span class="k-cost"><i class="kcoin s"></i>${big(cost)}</span>`
+          : isOpen ? `<span class="k-gain">+${big(gain * (1 + boost))}/h · ⏱ ${hours < 1 ? "<1" : Math.round(hours)}h</span><span class="k-cost"><i class="kcoin s"></i>${big(cost)}</span>`
           : `<span class="k-cost lock">🔒 ${req}</span>`}
       </button>`;
     }).join("");
     $("kMemberNote").textContent = boost ? t("k.member", { n: Math.round(boost * 100) }) : t("k.memberAd");
   }
   $("kCats").addEventListener("click", (e) => { const b = e.target.closest("[data-cat]"); if (b) { cat = b.dataset.cat; renderCards(); } });
-  $("kCards").addEventListener("click", (e) => { const b = e.target.closest("[data-card]"); if (b) act({ type: "kCard", id: b.dataset.card }); });
+  $("kCards").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-card]");
+    if (!b) return;
+    const r = b.getBoundingClientRect();
+    act({ type: "kCard", id: b.dataset.card }).then(() => coinRain(8));
+    floatText("⬆️", r.left + r.width / 2, r.top + 20, false);
+  });
 
   // ---------- Boosts ----------
   function renderBoosts() {
     const kk = k(), nowT = G.now();
-    const left = KL.K.REFILLS - kk.refill.used, wait = KL.K.REFILL_GAP - (nowT - kk.refill.at);
-    $("kRefill").innerHTML = `<span class="k-be">⚡</span><span><b>${t("k.refill.t")}</b><small>${t("k.refill.d", { n: left, max: KL.K.REFILLS })}</small></span>
+    const left = K.REFILLS - kk.refill.used, wait = K.REFILL_GAP - (nowT - kk.refill.at);
+    $("kRefill").innerHTML = `<span class="k-be">⚡</span><span><b>${t("k.refill.t")}</b><small>${t("k.refill.d", { n: left, max: K.REFILLS })}</small></span>
       <button class="btn small gold" data-kact="refill" ${left > 0 && wait <= 0 ? "" : "disabled"}>${left <= 0 ? "—" : wait > 0 ? t("k.refill.in", { m: Math.ceil(wait / 60000) }) : t("k.go")}</button>`;
     const coins = v().coins;
     $("kBoosts").innerHTML = KL.BOOSTS.map((b) => {
-      const lvl = kk[b.id] || 0, max = lvl >= KL.K.MAX_BOOST, cost = KL.boostCost(b, lvl);
+      const lvl = kk[b.id] || 0, max = lvl >= K.MAX_BOOST, cost = KL.boostCost(b, lvl);
       return `<div class="k-boost"><span class="k-be">${b.e}</span><span><b>${t("k.boost." + b.id + ".t")}</b><small>${t("k.boost." + b.id + ".d")} · ${t("k.lvl", { n: lvl })}</small></span>
         <button class="btn small ${coins >= cost ? "" : "secondary"}" data-kboost="${b.id}" ${max ? "disabled" : ""}>${max ? t("k.max") : `<i class="kcoin s"></i>${big(cost)}`}</button></div>`;
-    }).join("");
+    }).join("") + `<div class="k-boost k-tip"><span class="k-be">🔥</span><span><b>${t("k.fury")}</b><small>${t("k.furyTip", { n: K.FURY_NEED })}</small></span></div>`;
   }
-  $("kRefill").addEventListener("click", (e) => { if (e.target.closest("[data-kact=refill]")) act({ type: "kRefill" }); });
+  $("kRefill").addEventListener("click", (e) => { if (e.target.closest("[data-kact=refill]")) act({ type: "kRefill" }, sfx.fury); });
   $("kBoosts").addEventListener("click", (e) => { const b = e.target.closest("[data-kboost]"); if (b) act({ type: "kBoost", id: b.dataset.kboost }); });
 
-  // ---------- Daily reward ----------
+  // ---------- Earn: daily reward + tasks ----------
+  const taskCtx = () => ({ boost: G.boost(), cityLevel: L.cityLevel });
+  const tasksReady = (kk) => KL.TASKS.some((x) => !kk.done[x.id] && x.have(G.S, kk, taskCtx()) >= x.need);
   function renderDaily() {
     const kk = k(), d = KL.day(G.now());
     const doneToday = kk.daily.day === d;
-    const streak = doneToday ? kk.daily.streak : kk.daily.day === d - 1 ? kk.daily.streak : 0; // days already in a row
-    const pos = streak % KL.DAILY.length; // next day to claim (0-based) in the current 10-day round
+    const streak = doneToday ? kk.daily.streak : kk.daily.day === d - 1 ? kk.daily.streak : 0;
+    const pos = streak % KL.DAILY.length;
     const shownDone = doneToday ? (pos === 0 ? KL.DAILY.length : pos) : pos;
     $("kDaily").innerHTML = KL.DAILY.map((n, i) => `<div class="${i < shownDone ? "done" : !doneToday && i === pos ? "today" : ""}">
       <small>${t("k.daily.day", { n: i + 1 })}</small><i class="kcoin s"></i><b>${big(n)}</b></div>`).join("");
     $("kDailyBtn").textContent = doneToday ? t("k.daily.done") : t("k.daily.claim");
     $("kDailyBtn").disabled = doneToday;
+    // tasks: ready first, then in progress, done last
+    const rows = KL.TASKS.map((x) => {
+      const have = Math.min(x.need, x.have(G.S, kk, taskCtx())), done = !!kk.done[x.id];
+      return { x, have, done, ready: !done && have >= x.need };
+    }).sort((a, b) => (b.ready - a.ready) || (a.done - b.done));
+    $("kTasks").innerHTML = rows.map(({ x, have, done, ready }) => `<div class="k-task ${done ? "done" : ""}">
+      <span class="k-be">${x.e}</span>
+      <span><b>${t("k.task." + x.id, { n: big(x.need) })}</b>
+        <small><i class="kcoin s"></i>+${big(x.r)}</small>
+        ${done ? "" : `<span class="k-tbar"><i style="width:${(100 * have) / x.need}%"></i></span>`}</span>
+      ${done ? `<span class="k-check">✓</span>` : `<button class="btn small ${ready ? "gold" : "secondary"}" data-task="${x.id}" ${ready ? "" : "disabled"}>${ready ? t("k.daily.claim") : `${big(have)}/${big(x.need)}`}</button>`}
+    </div>`).join("");
   }
-  $("kDailyBtn").addEventListener("click", () => act({ type: "kDaily" }));
+  $("kDailyBtn").addEventListener("click", () => act({ type: "kDaily" }, sfx.chest).then(() => coinRain(16)));
+  $("kTasks").addEventListener("click", (e) => { const b = e.target.closest("[data-task]"); if (b) act({ type: "kTask", id: b.dataset.task }, sfx.chest).then(() => coinRain(16)); });
 
   // ---------- League ----------
   async function renderLeague() {
@@ -176,6 +295,13 @@
         : `<div class="k-note">${t("k.league.empty")}</div>`;
     } catch { $("kTop").innerHTML = `<div class="k-note">${t("k.league.offline")}</div>`; }
   }
+  function celebrate(lg) {
+    $("kLuIcon").textContent = KL.LEAGUE_ICON[lg];
+    $("kLuName").textContent = t("k.lg." + lg);
+    $("kLevelUp").classList.remove("hidden");
+    sfx.level(); coinRain(40);
+  }
+  $("kLevelUp").addEventListener("click", (e) => { if (e.target.closest("button") || e.target === $("kLevelUp")) $("kLevelUp").classList.add("hidden"); });
 
   // ---------- Pages ----------
   function renderAll() {
@@ -201,6 +327,7 @@
   function show() {
     if (open) return;
     open = true;
+    lastLeague = -1;
     $("kombat").classList.remove("hidden");
     $("kombat").setAttribute("aria-hidden", "false");
     document.body.classList.add("k-open");

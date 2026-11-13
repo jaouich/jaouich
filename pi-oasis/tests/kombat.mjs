@@ -67,6 +67,32 @@ ok(r.state.kombat.daily.streak === 4 && r.msg.vars.n === 5000, "streak continues
 await setK("daily", { day: d - 3, streak: 6 });
 r = await act({ type: "kDaily" });
 ok(r.state.kombat.daily.streak === 1, "missed days: streak restarts");
+// fury mode
+await setK("fury", 240); await setK("furyUntil", 0); await setK("energy", 1500); await setK("eAt", Date.now()); await setK("tapAt", Date.now() - 5000);
+r = await act({ type: "kTap", n: 20 });
+ok(r.state.kombat.furyUntil > Date.now() && r.state.kombat.stats.furies === 1, "250 taps fill the bar: Fury starts");
+const e0 = r.state.kombat.energy, cf = r.state.kombat.coins;
+await setK("tapAt", Date.now() - 2000);
+r = await act({ type: "kTap", n: 10 });
+ok(r.state.kombat.coins - cf === 10 * 2 * 3 && r.state.kombat.energy >= e0, "during Fury: each tap x3 and no energy used");
+await setK("furyUntil", Date.now() - 5000); await setK("tapAt", Date.now() - 2000);
+const cg = (await act({ type: "kSync" })).state.kombat.coins;
+r = await act({ type: "kTap", n: 10 });
+ok(r.state.kombat.coins - cg === 20 && !r.state.kombat.furyUntil, "after Fury ends taps are normal again");
+// treasure jar
+await setK("chestAt", Date.now() + 60000);
+ok((await act({ type: "kChest" })).error === "k.noChest", "treasure not ready yet");
+await setK("chestAt", Date.now() - 1000);
+const ch0 = (await act({ type: "kSync" })).state.kombat.coins;
+r = await act({ type: "kChest" });
+ok(r.state.kombat.coins - ch0 >= 1000 && r.state.kombat.chestAt > Date.now() + 19 * 60e3, "treasure gives >= 1000 and the next one comes in 20+ min");
+ok((await act({ type: "kChest" })).error === "k.noChest", "can't open the same treasure twice");
+// tasks
+ok((await act({ type: "kTask", id: "gold" })).error === "k.taskNotYet", "task not finished can't be claimed");
+r = await act({ type: "kTask", id: "fury" });
+ok(r.msg && r.msg.vars.n === 3000, "task 'Start Fury' pays 3000");
+ok((await act({ type: "kTask", id: "fury" })).error === "k.taskDone", "task paid only once");
+ok((await act({ type: "kTask", id: "member" })).error === "k.taskNotYet", "member task needs a membership");
 // ranking
 const top = await fetch(B + "/api/kombat/top").then((x) => x.json());
 ok(top.top.length >= 1 && top.top[0].username === "bob" && top.top[0].total > 0, "ranking lists bob");

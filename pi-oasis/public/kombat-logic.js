@@ -14,7 +14,29 @@
     REFILL_GAP: 3600e3, // between two refills
     MAX_CARD: 25,
     MAX_BOOST: 15,
+    FURY_NEED: 250,     // taps that fill the fury bar
+    FURY_MS: 10000,     // fury lasts 10 s: taps x3 and free
+    FURY_X: 3,
+    FURY_GRACE: 1500,   // taps sent just after fury ended (network delay) still count
+    CHEST_FIRST: 3 * 60e3,
+    CHEST_MIN: 20 * 60e3, CHEST_SPAN: 25 * 60e3, // next treasure jar in 20-45 min
   };
+  // Tasks: one-time rewards. have(s, k, ctx) returns progress.
+  const cardLevels = (k) => Object.values(k.cards).reduce((a, b) => a + b, 0);
+  const TASKS = [
+    { id: "taps1k", e: "👆", need: 1000, r: 2000, have: (s, k) => k.stats.taps },
+    { id: "fury", e: "🔥", need: 1, r: 3000, have: (s, k) => k.stats.furies },
+    { id: "cards5", e: "🃏", need: 5, r: 3000, have: (s, k) => cardLevels(k) },
+    { id: "streak3", e: "📅", need: 3, r: 5000, have: (s, k) => k.daily.streak },
+    { id: "chest3", e: "🏺", need: 3, r: 5000, have: (s, k) => k.stats.chests },
+    { id: "camel", e: "🐪", need: 1, r: 3000, have: (s) => (s.animals || []).length },
+    { id: "city2", e: "🏙️", need: 2, r: 5000, have: (s, k, x) => (x.cityLevel ? x.cityLevel(s.city ? s.city.xp : 0) : 1) },
+    { id: "bronze", e: "🥉", need: 2, r: 10000, have: (s, k) => league(k.total) },
+    { id: "taps10k", e: "💪", need: 10000, r: 15000, have: (s, k) => k.stats.taps },
+    { id: "cards25", e: "🏗️", need: 25, r: 25000, have: (s, k) => cardLevels(k) },
+    { id: "member", e: "👑", need: 1, r: 50000, have: (s, k, x) => (x.boost > 0 ? 1 : 0) },
+    { id: "gold", e: "🥇", need: 4, r: 100000, have: (s, k) => league(k.total) },
+  ];
   // Leagues by lifetime coins
   const LEAGUES = [0, 5e3, 25e3, 1e5, 1e6, 2e6, 1e7, 5e7, 1e8, 1e9];
   const LEAGUE_ICON = ["🏜️", "🟤", "🥉", "🥈", "🥇", "💚", "💙", "❤️", "💎", "👑"];
@@ -57,6 +79,10 @@
   }
   function norm(k, now) {
     if (!k || k.v !== 1) k = fresh(now);
+    if (!k.stats) k.stats = { taps: 0, furies: 0, chests: 0 };
+    if (!k.done) k.done = {};
+    if (k.fury == null) { k.fury = 0; k.furyUntil = 0; }
+    if (k.chestAt == null) k.chestAt = now + K.CHEST_FIRST;
     if (!k.refill || k.refill.day !== day(now)) k.refill = { day: day(now), used: 0, at: (k.refill && k.refill.at) || 0 };
     return k;
   }
@@ -88,26 +114,44 @@
   function view(k, now, boost) {
     k = norm(JSON.parse(JSON.stringify(k || null)), now);
     const away = accrue(k, now, boost);
-    return { coins: k.coins, total: k.total, energy: energyNow(k, now), max: maxEnergy(k), tap: tapValue(k), pph: pph(k, boost), league: league(k.total), away };
+    return { coins: k.coins, total: k.total, energy: energyNow(k, now), max: maxEnergy(k), tap: tapValue(k), pph: pph(k, boost), league: league(k.total), away,
+      fury: k.fury, furyUntil: k.furyUntil, chestAt: k.chestAt, chestReward: chestReward(k, boost) };
   }
+  // Treasure jar: half an hour of profit, never less than 100 taps
+  const chestReward = (k, boost) => Math.max(1000, Math.floor(pph(k, boost) / 2), tapValue(k) * 100);
+  const furyOn = (k, now) => k.furyUntil > 0 && now <= k.furyUntil + K.FURY_GRACE;
 
   // Runs one Kombat action on the whole game state s (already a copy). Returns { s, msg }.
   function applyTo(s, a, ctx, fail) {
     const now = ctx.now, boost = ctx.boost || 0;
     const k = (s.kombat = norm(s.kombat, now));
+    const awayMs = now - k.last;
     const away = accrue(k, now, boost);
     switch (a.type) {
       case "kSync":
-        return { s, msg: away > 0 ? { key: "k.away", vars: { n: away } } : null };
+        // only worth saying after a real break (5+ minutes)
+        return { s, msg: away > 0 && awayMs >= 5 * 60e3 ? { key: "k.away", vars: { n: away } } : null };
       case "kTap": {
         const n = Number.isInteger(a.n) ? a.n : NaN;
         if (!(n >= 1 && n <= K.MAX_BATCH)) fail("badAction");
         const tv = tapValue(k);
         const e = energyNow(k, now);
         const byTime = k.tapAt ? Math.floor(((now - k.tapAt) / 1000) * K.MAX_TPS) + K.BURST : K.BURST + K.MAX_TPS * 2;
-        const ok = Math.max(0, Math.min(n, Math.floor(e / tv), byTime));
-        gain(k, ok * tv);
-        k.energy = e - ok * tv;
+        let ok;
+        if (furyOn(k, now)) {
+          // Fury: x3 coins and no energy used
+          ok = Math.max(0, Math.min(n, byTime));
+          gain(k, ok * tv * K.FURY_X);
+          k.energy = e;
+        } else {
+          if (k.furyUntil) k.furyUntil = 0;
+          ok = Math.max(0, Math.min(n, Math.floor(e / tv), byTime));
+          gain(k, ok * tv);
+          k.energy = e - ok * tv;
+          k.fury += ok;
+          if (k.fury >= K.FURY_NEED) { k.fury = 0; k.furyUntil = now + K.FURY_MS; k.stats.furies++; }
+        }
+        k.stats.taps += ok;
         k.eAt = now;
         k.tapAt = now;
         return { s, msg: null, accepted: ok };
@@ -145,6 +189,23 @@
         k.energy = maxEnergy(k); k.eAt = now;
         return { s, msg: { key: "k.refilled" } };
       }
+      case "kChest": {
+        if (now < k.chestAt) fail("k.noChest");
+        const n = chestReward(k, boost);
+        gain(k, n);
+        k.stats.chests++;
+        k.chestAt = now + K.CHEST_MIN + Math.floor((ctx.rand ? ctx.rand() : Math.random()) * K.CHEST_SPAN);
+        return { s, msg: { key: "k.chestGot", vars: { n } } };
+      }
+      case "kTask": {
+        const task = TASKS.find((x) => x.id === a.id);
+        if (!task) fail("badAction");
+        if (k.done[task.id]) fail("k.taskDone");
+        if (task.have(s, k, ctx) < task.need) fail("k.taskNotYet");
+        k.done[task.id] = 1;
+        gain(k, task.r);
+        return { s, msg: { key: "k.taskGot", vars: { n: task.r } } };
+      }
       case "kDaily": {
         const d = day(now);
         if (k.daily.day === d) fail("k.dailyDone");
@@ -158,5 +219,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

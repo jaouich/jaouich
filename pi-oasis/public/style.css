@@ -501,7 +501,7 @@ body.k-open { overflow: hidden; }
 }
 .k-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .k-back, .k-league-pill { border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.08); color: #fff; font: inherit; font-weight: 700; padding: 6px 12px; border-radius: 99px; cursor: pointer; }
-.k-title { font-weight: 800; font-size: 17px; letter-spacing: .3px; }
+.k-title { font-weight: 800; font-size: 16px; letter-spacing: .3px; white-space: nowrap; direction: ltr; }
 .k-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
 .k-stats div { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 6px 4px; text-align: center; }
 .k-stats small { display: block; font-size: 11px; opacity: .7; }
@@ -583,3 +583,64 @@ body.k-open { overflow: hidden; }
 .k-nav button i { font-style: normal; font-size: 22px; }
 .k-nav button.active { color: #fff; background: rgba(255,255,255,.1); }
 .k-nav .dot { position: absolute; top: 4px; inset-inline-end: 18%; }
+
+/* Jerry Kombat: v2 (fury, treasure, tasks, celebration) */
+.k-top-r { display: flex; gap: 6px; }
+.k-jerry { width: 82%; height: 82%; position: relative; z-index: 1; pointer-events: none; filter: drop-shadow(0 10px 16px rgba(0,0,0,.45)); transition: transform .15s; }
+.k-medal:active .k-jerry { transform: scale(.97) translateY(2px); }
+.k-brows { opacity: 0; transition: opacity .2s; }
+.kombat.fury .k-brows { opacity: 1; }
+.kombat.fury .k-eyes { transform: translateY(2px) scaleY(.82); transform-origin: 100px 114px; }
+/* ring colour follows the league */
+.k-medal[data-lg="0"] .k-ring { background: conic-gradient(#f3d9a4, #c9a46a, #fff1cf, #b78d4f, #f3d9a4); }
+.k-medal[data-lg="1"] .k-ring { background: conic-gradient(#e6a173, #a8582b, #ffd2b0, #8a4a22, #e6a173); }
+.k-medal[data-lg="2"] .k-ring { background: conic-gradient(#e7b07c, #9c6533, #ffe0bd, #7d4e22, #e7b07c); }
+.k-medal[data-lg="3"] .k-ring { background: conic-gradient(#f2f4f8, #9aa3b5, #ffffff, #7c8597, #f2f4f8); }
+.k-medal[data-lg="5"] .k-ring { background: conic-gradient(#7dffb5, #0f9d63, #c9ffe2, #087a4b, #7dffb5); }
+.k-medal[data-lg="6"] .k-ring { background: conic-gradient(#7fc3ff, #1f5fd1, #d2e9ff, #143f99, #7fc3ff); }
+.k-medal[data-lg="7"] .k-ring { background: conic-gradient(#ff7f95, #c4122f, #ffd0d8, #8f0b22, #ff7f95); }
+.k-medal[data-lg="8"] .k-ring { background: conic-gradient(#d9fbff, #7ee0ff, #ffffff, #a58bff, #d9fbff); }
+.k-medal[data-lg="9"] .k-ring { background: conic-gradient(#ffe08a, #ff4fa3, #7c5cff, #4be3ff, #ffe08a); }
+/* fury */
+.k-fury-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; }
+.k-fury-row span { white-space: nowrap; }
+.k-fbar { flex: 1; height: 8px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; }
+.k-fbar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #ffb347, #ff3b3b); transition: width .15s; }
+.kombat.fury { background: radial-gradient(130% 70% at 50% 0%, #b8321f 0%, #5a1240 45%, #1a0520 100%); }
+.kombat.fury .k-ring { animation-duration: 1.4s; box-shadow: 0 0 50px rgba(255, 90, 40, .8), 0 0 110px rgba(255, 40, 80, .6); }
+.kombat.fury .k-fbar i { animation: kFlick .3s infinite alternate; }
+@keyframes kFlick { to { filter: brightness(1.5); } }
+.k-fury-banner { position: absolute; top: calc(env(safe-area-inset-top) + 56px); left: 50%; transform: translateX(-50%); z-index: 5; white-space: nowrap;
+  background: linear-gradient(90deg, #ff8a3d, #ff2d55); padding: 6px 16px; border-radius: 99px; font-weight: 800; box-shadow: 0 6px 20px rgba(255, 45, 85, .5); animation: kPulse .6s infinite; }
+.k-fury-banner b { direction: ltr; display: inline-block; }
+.kombat.flash::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, rgba(255,200,80,.6), transparent 70%); animation: kFlash .6s forwards; pointer-events: none; }
+@keyframes kFlash { to { opacity: 0; } }
+.k-float.hot { color: #ff9a3d; font-size: 34px; }
+/* treasure jar */
+.k-arena { position: relative; }
+.k-chest { position: absolute; z-index: 3; top: 6px; inset-inline-start: 6px; font-size: 44px; line-height: 1; border: 0; background: radial-gradient(circle, rgba(255, 215, 106, .6), transparent 65%);
+  padding: 10px; border-radius: 50%; cursor: pointer; animation: kBob 1.2s ease-in-out infinite; filter: drop-shadow(0 6px 10px rgba(0,0,0,.5)); }
+@keyframes kBob { 50% { transform: translateY(-8px) rotate(-8deg); } }
+/* coins raining */
+.k-rain { position: fixed; top: -40px; z-index: 80; pointer-events: none; animation: kRain 1.6s ease-in forwards; }
+@keyframes kRain { to { transform: translate(var(--dx), 110vh) rotate(540deg); } }
+/* cards */
+.k-best { position: absolute; top: -9px; inset-inline-start: 10px; font-size: 11px; font-weight: 800; color: #2a1162; background: #7dffb5; padding: 2px 8px; border-radius: 99px; }
+.k-card { margin-top: 4px; }
+/* tasks */
+.k-tasks { display: grid; gap: 8px; }
+.k-task { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); }
+.k-task > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.k-task small { display: flex; align-items: center; color: #ffd76a; font-weight: 700; direction: ltr; justify-content: flex-end; width: fit-content; }
+.k-task.done { opacity: .5; }
+.k-task .btn { white-space: nowrap; direction: ltr; }
+.k-tbar { height: 6px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; }
+.k-tbar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd76a, #ff8a3d); }
+.k-check { font-size: 22px; color: #7dffb5; font-weight: 900; }
+.k-tip { opacity: .85; }
+/* league up */
+.k-levelup { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(8, 3, 25, .75); backdrop-filter: blur(4px); }
+.k-lu-card { text-align: center; padding: 26px 30px; border-radius: 28px; background: radial-gradient(circle at 50% 0%, #6c3bd8, #241056); border: 1px solid #ffd76a; box-shadow: 0 0 60px rgba(255, 215, 106, .45); animation: kZoom .5s cubic-bezier(.2, 1.6, .4, 1); }
+.k-lu-card .k-lg-icon { font-size: 96px; animation: kBob 1.2s infinite; }
+.k-lu-card p { font-size: 22px; font-weight: 800; color: #ffd76a; margin: 4px 0 16px; }
+@keyframes kZoom { from { transform: scale(.3); opacity: 0; } }

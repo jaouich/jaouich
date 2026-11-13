@@ -376,6 +376,9 @@
     $("kLeague").innerHTML = `<div class="k-lg-icon">${KL.LEAGUE_ICON[x.league]}</div><h2>${t("k.lg." + x.league)}</h2>
       <p>${next ? t("k.league.next", { n: big(next - x.total), lg: lgName(x.league + 1) }) : t("k.league.max")}</p>
       <div class="k-lg-row">${KL.LEAGUE_ICON.map((ic, i) => `<span class="${i <= x.league ? "on" : ""}" title="${t("k.lg." + i)}">${ic}</span>`).join("")}</div>`;
+    const kk = k(), need = KL.AIRDROP_DAYS, days = kk.act.days;
+    $("kDrop").innerHTML = `<b>🪂 ${t("k.drop.t")}</b><span class="k-tbar"><i style="width:${Math.min(100, (100 * days) / need)}%"></i></span>
+      <small>${days >= need ? t("k.drop.ok") : t("k.drop.days", { n: days, need })}</small>`;
     $("kTop").innerHTML = `<div class="k-note">…</div>`;
     try {
       const r = await Pi.kombatTop();

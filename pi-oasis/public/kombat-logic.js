@@ -104,6 +104,10 @@
     if (k.fury == null) { k.fury = 0; k.furyUntil = 0; }
     if (k.chestAt == null) k.chestAt = now + K.CHEST_FIRST;
     if (!k.skins) { k.skins = { classic: 1 }; k.skin = "classic"; }
+    // Airdrop record: where coins came from, days played, and signs of automated tapping
+    if (!k.earn) k.earn = {};
+    if (!k.act) k.act = { day: -1, days: 0 };
+    if (!k.sus) k.sus = { rej: 0, mins: 0, minDay: -1, lastMin: -1, maxMins: 0 };
     if (!k.refill || k.refill.day !== day(now)) k.refill = { day: day(now), used: 0, at: (k.refill && k.refill.at) || 0 };
     return k;
   }
@@ -116,12 +120,23 @@
   function energyNow(k, now) {
     return Math.min(maxEnergy(k), Math.floor(k.energy + (Math.max(0, now - k.eAt) / 1000) * K.REGEN));
   }
-  function gain(k, n) { k.coins += n; k.total += n; }
+  function gain(k, n, src) {
+    k.coins += n; k.total += n;
+    if (src && n > 0) k.earn[src] = (k.earn[src] || 0) + n;
+  }
+  // Signs a player may be a bot (for the owner's airdrop review, never automatic bans)
+  const SUS = { REJ: 2000, MINS: 240 };
+  function flags(k) {
+    const f = [];
+    if (k.sus && k.sus.rej > SUS.REJ) f.push("speed");       // keeps sending taps faster than a hand can
+    if (k.sus && k.sus.maxMins > SUS.MINS) f.push("marathon"); // tapped in more than 4 hours of one day
+    return f;
+  }
   // Passive income since the last visit (at most OFFLINE_H hours)
   function accrue(k, now, boost) {
     const ms = Math.min(Math.max(0, now - k.last), K.OFFLINE_H * 3600e3);
     const n = Math.floor((pph(k, boost) * ms) / 3600e3);
-    gain(k, n);
+    gain(k, n, "passive");
     k.last = now;
     return n;
   }
@@ -162,19 +177,31 @@
         if (furyOn(k, now)) {
           // Fury: x3 coins and no energy used
           ok = Math.max(0, Math.min(n, byTime));
-          gain(k, ok * tv * K.FURY_X);
+          gain(k, ok * tv * K.FURY_X, "fury");
           k.energy = e;
           dmg = ok * tv * K.FURY_X;
         } else {
           if (k.furyUntil) k.furyUntil = 0;
           ok = Math.max(0, Math.min(n, Math.floor(e / tv), byTime));
-          gain(k, ok * tv);
+          gain(k, ok * tv, "tap");
           dmg = ok * tv;
           k.energy = e - ok * tv;
           k.fury += ok;
           if (k.fury >= K.FURY_NEED) { k.fury = 0; k.furyUntil = now + K.FURY_MS; k.stats.furies++; }
         }
         k.stats.taps += ok;
+        // taps sent faster than possible (beyond what energy would allow anyway)
+        const could = furyOn(k, now) ? n : Math.min(n, Math.floor(e / tv));
+        if (could > byTime) k.sus.rej += could - byTime;
+        if (ok > 0) {
+          const d = day(now), m = Math.floor(now / 60000);
+          if (k.act.day !== d) { k.act.day = d; k.act.days++; }
+          if (k.sus.lastMin !== m) {
+            if (k.sus.minDay !== d) { k.sus.minDay = d; k.sus.mins = 0; }
+            k.sus.mins++; k.sus.lastMin = m;
+            if (k.sus.mins > k.sus.maxMins) k.sus.maxMins = k.sus.mins;
+          }
+        }
         k.eAt = now;
         k.tapAt = now;
         return { s, msg: null, accepted: ok, dmg };
@@ -215,7 +242,7 @@
       case "kChest": {
         if (now < k.chestAt) fail("k.noChest");
         const n = chestReward(k, boost);
-        gain(k, n);
+        gain(k, n, "chest");
         k.stats.chests++;
         k.chestAt = now + K.CHEST_MIN + Math.floor((ctx.rand ? ctx.rand() : Math.random()) * K.CHEST_SPAN);
         return { s, msg: { key: "k.chestGot", vars: { n } } };
@@ -226,7 +253,7 @@
         if (k.done[task.id]) fail("k.taskDone");
         if (task.have(s, k, ctx) < task.need) fail("k.taskNotYet");
         k.done[task.id] = 1;
-        gain(k, task.r);
+        gain(k, task.r, "task");
         return { s, msg: { key: "k.taskGot", vars: { n: task.r } } };
       }
       case "kSkin": {
@@ -248,7 +275,7 @@
         if (k.daily.day === d) fail("k.dailyDone");
         const streak = k.daily.day === d - 1 ? k.daily.streak + 1 : 1;
         const n = DAILY[(streak - 1) % DAILY.length];
-        gain(k, n);
+        gain(k, n, "daily");
         k.daily = { day: d, streak };
         return { s, msg: { key: "k.dailyGot", vars: { n } } };
       }
@@ -256,5 +283,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

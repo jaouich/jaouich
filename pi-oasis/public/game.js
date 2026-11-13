@@ -474,6 +474,50 @@
   $("plSort").addEventListener("change", () => { plShow = 30; showPlayers(); });
   $("plMore").addEventListener("click", () => { plShow += 50; showPlayers(); });
 
+  // ---------- Owner: Airdrop list (fair distribution later) ----------
+  let adData = null;
+  const AD_FLAG = { speed: "⚡", marathon: "⏱️", network: "🔗" };
+  function showAirdrop() {
+    if (!adData) return;
+    const f = $("adFilter").value;
+    const list = adData.players.filter((p) => f === "all" || (f === "eligible" && p.eligible) || (f === "flagged" && p.flags.length) || (f === "blocked" && p.blocked));
+    $("adStats").innerHTML = [["ad.sCount", adData.count], ["ad.sOk", adData.eligible], ["ad.sFlag", adData.flagged], ["ad.sBlocked", adData.blocked]]
+      .map(([k, n]) => `<div><b>${nf(n)}</b><small>${t(k)}</small></div>`).join("");
+    const src = (e) => Object.entries(e || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, n]) => `${t("ad.src." + k)} ${nf(n)}`).join(" · ");
+    $("adList").innerHTML = list.length ? list.slice(0, 100).map((p) => `<div class="pl">
+        <span><b>${esc(p.username)}</b> ${p.eligible ? "✅" : p.blocked ? "⛔" : ""} ${p.flags.map((x) => `<span title="${esc(t("ad.flag." + x))}">${AD_FLAG[x] || "⚠️"}</span>`).join("")}
+          <br><small class="hint">${t("ad.days", { n: p.days, need: adData.minDays })}${p.sameNet ? " · " + t("ad.net", { n: p.sameNet }) : ""}</small>
+          <br><small class="hint">${src(p.earn)}</small>
+          ${p.flags.length ? `<br><small class="hint">⚠️ ${p.flags.map((x) => t("ad.flag." + x)).join(" · ")}</small>` : ""}</span>
+        <span class="pl-num"><small>🪙 ${nf(p.total)}</small><br>
+          <button class="btn small ${p.blocked ? "" : "secondary"}" data-adblock="${esc(p.username)}" data-on="${p.blocked ? 0 : 1}">${t(p.blocked ? "ad.unblock" : "ad.block")}</button></span>
+      </div>`).join("") : `<div class="hint">${t("pl.none")}</div>`;
+  }
+  async function loadAirdrop() {
+    try { adData = await Pi.airdrop(); showAirdrop(); } catch (e) { toast(e.message); }
+  }
+  $("adFilter").addEventListener("change", showAirdrop);
+  $("adList").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-adblock]");
+    if (!b) return;
+    const on = b.dataset.on === "1";
+    if (on && !confirm(t("ad.confirm", { name: b.dataset.adblock }))) return;
+    try { await Pi.airdropBlock(b.dataset.adblock, on); await loadAirdrop(); } catch (err) { toast(err.message); }
+  });
+  // CSV for the distribution: username, coins, days, eligible, warnings
+  $("adCsv").addEventListener("click", () => {
+    if (!adData) return;
+    const q = (x) => `"${String(x).replace(/"/g, '""')}"`;
+    const lines = [["username", "kombat_coins", "active_days", "eligible", "blocked", "warnings", "same_network_accounts", "taps"].join(",")]
+      .concat(adData.players.map((p) => [q(p.username), p.total, p.days, p.eligible ? 1 : 0, p.blocked ? 1 : 0, q(p.flags.join(" ")), p.sameNet, p.taps].join(",")));
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `jerry-airdrop-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    toast(t("ad.csvOk"));
+  });
+
   // ---------- Owner, Testnet only: A2U gifts so the Pi portal unlocks the Mainnet wallet ----------
   async function testGifts(action) {
     try {
@@ -500,7 +544,7 @@
       $("userLabel").textContent = t("welcome", { name: account.username });
       $("loginBtn").classList.add("hidden");
       render();
-      if (account.isAdmin) { partners("list"); loadPlayers(); }
+      if (account.isAdmin) { partners("list"); loadPlayers(); loadAirdrop(); }
       if (account.testGifts) testGifts("list");
     } catch (e) {
       if (!silent) toast(e.message === "timeout" ? t("t.openInPi") : e.message);
@@ -529,7 +573,7 @@
     if (tourI >= 0) showTour(tourI);
     if (helpOpen()) renderHelp();
     if (document.querySelector("#tab-rank.active")) renderRank();
-    if (account && account.isAdmin) { partners("list"); loadPlayers(); }
+    if (account && account.isAdmin) { partners("list"); loadPlayers(); loadAirdrop(); }
     if (account && account.testGifts) testGifts("list");
   });
 

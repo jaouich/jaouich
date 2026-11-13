@@ -127,6 +127,47 @@ ok(r.state.kombat.skin === "shades" && r.state.kombat.coins === 50000, "shades b
 r = await act({ type: "kSkin", id: "classic" });
 r = await act({ type: "kSkin", id: "shades" });
 ok(r.state.kombat.coins === 50000, "wearing an owned look again is free");
+// airdrop record
+r = await act({ type: "kSync" });
+const ek = r.state.kombat;
+ok(ek.earn.tap > 0 && ek.earn.fury > 0 && ek.earn.chest > 0 && ek.earn.task > 0 && ek.earn.daily > 0 && ek.earn.passive > 0, "every coin source is recorded (tap, fury, chest, task, daily, passive)");
+ok(ek.act.days === 1, "1 active day counted");
+const rej0 = ek.sus.rej;
+await setK("energy", 1500); await setK("eAt", Date.now()); await setK("furyUntil", 0); await setK("fury", 0);
+await act({ type: "kTap", n: 5 });
+r = await act({ type: "kTap", n: 500 });
+ok(r.state.kombat.sus.rej - rej0 > 400, "taps sent faster than a hand are noted (" + (r.state.kombat.sus.rej - rej0) + ")");
+await setK("sus", { rej: 5000, mins: 0, minDay: -1, lastMin: -1, maxMins: 0 });
+await setK("act", { day: -1, days: 9 });
+const Sa = (await post("/api/auth", { accessToken: "tokA" })).session; // alice = owner
+const Ha = { Authorization: "Bearer " + Sa };
+ok((await post("/api/admin/airdrop", {}, H)).s === 403, "airdrop list is owner-only");
+let ad = await post("/api/admin/airdrop", {}, Ha);
+let pb = ad.players.find((p) => p.username === "bob");
+ok(pb && pb.flags.includes("speed") && !pb.eligible && pb.days === 9, "bob: 9 days but 'speed' warning, so not eligible yet");
+await setK("sus", { rej: 0, mins: 0, minDay: -1, lastMin: -1, maxMins: 0 });
+ad = await post("/api/admin/airdrop", {}, Ha);
+pb = ad.players.find((p) => p.username === "bob");
+ok(pb.eligible && pb.earn.boss > 0, "without warnings and 7+ days bob is eligible (boss coins recorded too)");
+await post("/api/admin/airdrop/block", { username: "bob", on: true }, Ha);
+ad = await post("/api/admin/airdrop", {}, Ha);
+pb = ad.players.find((p) => p.username === "bob");
+ok(pb.blocked && !pb.eligible && ad.blocked === 1, "owner can leave bob out");
+await post("/api/admin/airdrop/block", { username: "bob", on: false }, Ha);
+ad = await post("/api/admin/airdrop", {}, Ha);
+ok(ad.players.find((p) => p.username === "bob").eligible, "and put him back");
+// many accounts from one network
+for (const tok of ["tokA", "tokB", "tokC", "tokA2"]) await post("/api/auth", { accessToken: tok }, { "CF-Connecting-IP": "203.0.113.7" });
+ad = await post("/api/admin/airdrop", {}, Ha);
+pb = ad.players.find((p) => p.username === "bob");
+ok(pb.sameNet === 2 && !pb.flags.includes("network"), "3 accounts on one network (a family) is fine: no warning");
+const bnet = (await sql("SELECT net FROM users WHERE username='bob'"))[0].net;
+await exec(`INSERT INTO users (uid, username, vip_until, ref_balance, created_at, net) VALUES ('uD', 'dave', 0, 0, 1, '${bnet}')`);
+ad = await post("/api/admin/airdrop", {}, Ha);
+pb = ad.players.find((p) => p.username === "bob");
+ok(pb.sameNet === 3 && pb.flags.includes("network"), "4 accounts from one network get a 'network' warning");
+const ips = await sql("SELECT net FROM users WHERE net IS NOT NULL LIMIT 1");
+ok(ips.length && !String(ips[0].net).includes("203.0.113.7") && ips[0].net.length === 16, "only a scrambled code is stored, never the address");
 // ranking
 const top = await fetch(B + "/api/kombat/top").then((x) => x.json());
 ok(top.top.length >= 1 && top.top[0].username === "bob" && top.top[0].total > 0, "ranking lists bob");

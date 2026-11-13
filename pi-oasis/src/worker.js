@@ -145,6 +145,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS week_rewards ( week_id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS week_scores ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, score INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE INDEX IF NOT EXISTS week_scores_rank ON week_scores(week_id, score DESC)",
+  "CREATE TABLE IF NOT EXISTS airdrop_block ( username TEXT PRIMARY KEY COLLATE NOCASE, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS boss ( id INTEGER PRIMARY KEY AUTOINCREMENT, lvl INTEGER NOT NULL, hp INTEGER NOT NULL, max_hp INTEGER NOT NULL, started_at INTEGER NOT NULL, killed_at INTEGER, killer TEXT )",
   "CREATE TABLE IF NOT EXISTS boss_hits ( boss_id INTEGER NOT NULL, uid TEXT NOT NULL, dmg INTEGER NOT NULL, claimed INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (boss_id, uid) )",
   "CREATE TABLE IF NOT EXISTS payouts ( id TEXT PRIMARY KEY, kind TEXT NOT NULL, ref TEXT NOT NULL, uid TEXT NOT NULL, amount REAL NOT NULL, memo TEXT, pi_payment_id TEXT, txid TEXT, status TEXT NOT NULL, error TEXT, tries INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE (kind, ref, uid) )",
@@ -154,6 +155,8 @@ const ensureSchema = (env) =>
   (schemaReady ||= env.DB.batch(SCHEMA.map((q) => env.DB.prepare(q)))
     // Column added after launch; fails harmlessly once it exists
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN vip_tier TEXT").run().catch(() => {}))
+    // Hashed network fingerprint (never the IP itself), to spot many accounts from one place
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN net TEXT").run().catch(() => {}))
     .catch((e) => { schemaReady = null; throw e; }));
 
 const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
@@ -307,6 +310,8 @@ const routes = {
       await run(env, "UPDATE users SET username = username || '#' || uid WHERE username = ? AND uid != ?", me.username, me.uid);
       await run(env, "UPDATE users SET username = ? WHERE uid = ?", me.username, me.uid);
     }
+    const net = await netHash(req, env);
+    if (net) await run(env, "UPDATE users SET net = ? WHERE uid = ?", net, me.uid);
     u = await one(env, "SELECT * FROM users WHERE uid = ?", me.uid);
     const session = randomToken();
     await run(env, "INSERT INTO sessions (token, uid, created_at) VALUES (?, ?, ?)", session, me.uid, now);
@@ -524,8 +529,55 @@ const routes = {
     const st = await stateFor(env, u, now, tier);
     st.kombat = KL.norm(st.kombat, now);
     st.kombat.coins += n; st.kombat.total += n;
+    st.kombat.earn.boss = (st.kombat.earn.boss || 0) + n;
     await saveState(env, u.uid, st, now);
     return { state: st, n, now };
+  },
+
+  // Owner: the Airdrop list — who earned what, from where, days played, and warning signs
+  "POST /api/admin/airdrop": async (req, env) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const now = Date.now();
+    const rows = await all(
+      env,
+      `SELECT u.username, u.created_at, u.net, json_extract(s.json, '$.kombat') AS k,
+         (SELECT COUNT(*) FROM users o WHERE o.net = u.net AND o.uid != u.uid) AS same_net,
+         EXISTS (SELECT 1 FROM airdrop_block b WHERE b.username = u.username) AS blocked
+       FROM users u JOIN state s ON s.uid = u.uid
+       WHERE json_extract(s.json, '$.kombat.total') > 0
+       ORDER BY CAST(json_extract(s.json, '$.kombat.total') AS INTEGER) DESC LIMIT 5000`
+    );
+    const players = rows.map((r) => {
+      const k = KL.norm(JSON.parse(r.k), now);
+      const flags = KL.flags(k);
+      if (r.net && r.same_net >= 3) flags.push("network"); // 4+ accounts from one network: check by hand
+      const days = k.act.days;
+      return {
+        username: r.username, joined: r.created_at, total: Math.floor(k.total), days, earn: k.earn,
+        taps: k.stats.taps, sameNet: r.net ? r.same_net : 0, flags, blocked: !!r.blocked,
+        eligible: !r.blocked && days >= KL.AIRDROP_DAYS && !flags.length,
+      };
+    });
+    return {
+      players,
+      minDays: KL.AIRDROP_DAYS,
+      count: players.length,
+      eligible: players.filter((p) => p.eligible).length,
+      flagged: players.filter((p) => p.flags.length).length,
+      blocked: players.filter((p) => p.blocked).length,
+    };
+  },
+
+  // Owner: leave a player out of the Airdrop (or put them back)
+  "POST /api/admin/airdrop/block": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const name = String(body.username || "").trim();
+    if (!/^[A-Za-z0-9_.#-]{1,80}$/.test(name)) bad("badUsername");
+    if (body.on) await run(env, "INSERT OR IGNORE INTO airdrop_block (username, at) VALUES (?, ?)", name, Date.now());
+    else await run(env, "DELETE FROM airdrop_block WHERE username = ?", name);
+    return { ok: true };
   },
 
   // Owner: everyone who plays, to know them and reward them
@@ -660,6 +712,16 @@ async function completePayment(env, id, txid, uid) {
     }
   }
   await env.DB.batch(stmts);
+}
+
+// Salted hash of the visitor's network address. Only used to notice many accounts from
+// one place; the address itself is never stored.
+async function netHash(req, env) {
+  const ip = req.headers.get("CF-Connecting-IP");
+  if (!ip) return null;
+  const salt = env.PI_NETWORK_API_KEY || env.VALIDATION_KEY || "pi-oasis";
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(salt + "|" + ip));
+  return [...new Uint8Array(h)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // ---------- Community boss ----------

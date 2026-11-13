@@ -184,6 +184,7 @@
         <div id="kLeague" class="k-league"></div>
         <h3 data-i18n="k.league.top"></h3>
         <div id="kTop" class="k-top-list"></div>
+        <div id="kDrop" class="k-drop"></div>
         <p class="k-note" data-i18n="k.note"></p>
       </section>
     </div>
@@ -336,6 +337,21 @@
           </div>
           <div id="plList" class="list pl-list"></div>
           <button id="plMore" class="btn small secondary hidden" data-i18n="pl.more"></button>
+        </div>
+        <div id="dropBox">
+          <h3 data-i18n="ad.title"></h3>
+          <p class="hint" data-i18n="ad.hint"></p>
+          <div id="adStats" class="pl-stats"></div>
+          <div class="ref-row">
+            <select id="adFilter">
+              <option value="all" data-i18n="ad.fAll"></option>
+              <option value="eligible" data-i18n="ad.fOk"></option>
+              <option value="flagged" data-i18n="ad.fFlag"></option>
+              <option value="blocked" data-i18n="ad.fBlocked"></option>
+            </select>
+            <button id="adCsv" class="btn small gold" type="button" data-i18n="ad.csv"></button>
+          </div>
+          <div id="adList" class="list pl-list"></div>
         </div>
         <div id="giftBox" class="hidden">
           <h3 data-i18n="gift.title"></h3>

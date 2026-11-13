@@ -699,3 +699,9 @@ body.k-open { overflow: hidden; }
 .k-boss-card p.k-note { font-size: 13px; font-weight: 500; color: rgba(255,255,255,.8); margin: 6px 0; }
 .k-boss-card #kBsHp { font-size: 15px; font-weight: 800; color: #ffd76a; }
 .k-boss-card .k-lg-icon { font-size: 72px; }
+
+/* Airdrop */
+.k-drop { margin: 14px 0 4px; padding: 10px 12px; border-radius: 16px; background: rgba(125, 255, 181, .08); border: 1px solid rgba(125, 255, 181, .35); display: flex; flex-direction: column; gap: 6px; }
+.k-drop small { opacity: .85; font-size: 12px; }
+#dropBox { margin-top: 18px; }
+#adFilter { border-radius: 12px; border: 1px solid #e3cf9e; padding: 0 8px; background: #fff; font: inherit; flex: 1; }

@@ -667,7 +667,13 @@ const routes = {
       // 0) activate the issuer wallet from the app wallet (2 Test-Pi)
       if (!s.issuerActive) { await submitOp({ seed: env.PI_WALLET_SEED, op: opCreateAccount(t.issuer, toStroops("2")), network: t.network }); done.push("issuer wallet"); }
       if (!s.distTrust) { await submitOp({ seed: env.PI_WALLET_SEED, op: opChangeTrust(t.asset), network: t.network }); done.push("trustline"); }
-      if (!s.minted) { await submitOp({ seed: t.seed, op: opPayment(t.dist, t.asset, toStroops(t.supply)), network: t.network }); done.push("mint " + t.supply); }
+      // mint up to the total supply (also tops up if an earlier, smaller amount was minted)
+      const missing = toStroops(t.supply) - toStroops(String(s.supply || "0"));
+      if (missing > 0n) {
+        const amt = (missing / 10000000n).toString() + "." + (missing % 10000000n).toString().padStart(7, "0");
+        await submitOp({ seed: t.seed, op: opPayment(t.dist, t.asset, missing), network: t.network });
+        done.push("mint " + amt.replace(/\.0+$/, ""));
+      }
       if (s.home !== t.home) { await submitOp({ seed: t.seed, op: opSetHomeDomain(t.home), network: t.network }); done.push("home domain"); }
       return { done, ...(await jryState(env, t)) };
     }
@@ -856,7 +862,7 @@ async function jryConfig(env) {
   const code = env.JRY_CODE || "testJRY";
   const issuer = await publicKeyOf(seed);
   return { seed, code, issuer, dist: await publicKeyOf(env.PI_WALLET_SEED), asset: assetXdr(code, issuer), network: "Pi Testnet",
-    home: env.JRY_HOME || "pi-oasis.jaouich.workers.dev", supply: env.JRY_SUPPLY || "100000000" };
+    home: env.JRY_HOME || "pi-oasis.jaouich.workers.dev", supply: env.JRY_SUPPLY || "10000000000" }; // 10 billion test JRY
 }
 const horizonGet = async (path) => { const r = await fetch(HORIZON["Pi Testnet"] + path); return r.ok ? r.json() : null; };
 const jryLine = (acct, t) => (acct && acct.balances || []).find((b) => b.asset_code === t.code && b.asset_issuer === t.issuer);
@@ -869,7 +875,7 @@ async function jryState(env, t) {
     appPi: native ? native.balance : "0",
     code: t.code, issuer: t.issuer, distributor: t.dist, home: (iss && iss.home_domain) || "", wantHome: t.home,
     issuerActive: !!(iss && iss.sequence), distTrust: !!line, distBalance: line ? line.balance : "0", minted: !!(rec && Number(rec.amount) > 0),
-    supply: rec ? rec.amount : "0", holders: rec ? rec.num_accounts : 0, sent: sent.n, toml: `https://${t.home}/.well-known/pi.toml`,
+    supply: rec ? rec.amount : "0", target: t.supply, holders: rec ? rec.num_accounts : 0, sent: sent.n, toml: `https://${t.home}/.well-known/pi.toml`,
   };
 }
 async function jryStatusOf(env, address) {

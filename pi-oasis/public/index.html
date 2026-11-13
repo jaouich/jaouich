@@ -87,6 +87,14 @@
       <div class="k-title">⚔️ Jerry Kombat</div>
       <div class="k-top-r"><button id="kSound" class="k-back" type="button" aria-label="Sound">🔊</button><button id="kLeagueBtn" class="k-league-pill" type="button"></button></div>
     </div>
+    <div id="kBossSheet" class="k-levelup hidden"><div class="k-lu-card k-boss-card">
+      <div id="kBsIcon" class="k-lg-icon"></div><h2 id="kBsName"></h2><p id="kBsHp" class="k-note"></p>
+      <p class="k-note" data-i18n="k.boss.how"></p>
+      <div id="kBsTop" class="k-top-list"></div>
+      <p id="kBsLast" class="k-note"></p>
+      <button id="kBsClaim" class="btn gold k-wide hidden" type="button"></button>
+      <button id="kBsClose" class="btn secondary k-wide" type="button" data-i18n="k.close"></button>
+    </div></div>
     <div id="kLevelUp" class="k-levelup hidden"><div class="k-lu-card"><div id="kLuIcon" class="k-lg-icon"></div><h2 data-i18n="k.lu.t"></h2><p id="kLuName"></p><button class="btn gold" data-i18n="k.lu.btn" type="button"></button></div></div>
     <div id="kFuryBanner" class="k-fury-banner hidden">🔥 <span data-i18n="k.furyOn"></span> ×3 <b id="kFuryLeft"></b></div>
     <div class="k-stats">
@@ -97,9 +105,15 @@
     <div class="k-coins"><i class="kcoin"></i><b id="kCoins">0</b></div>
     <div class="k-pages">
       <section class="k-page active" data-kp="arena">
+        <button id="kBoss" class="k-boss" type="button">
+          <span id="kBossIc" class="k-boss-ic">🦂</span>
+          <span class="k-boss-body"><b id="kBossName"></b><span class="k-hp"><i id="kBossBar"></i><em id="kBossHp"></em></span><small id="kBossMine"></small></span>
+          <span id="kBossGo" class="k-boss-go">⚔️</span>
+        </button>
         <div class="k-progress"><span id="kLgName"></span><div class="k-bar"><i id="kLgBar"></i></div></div>
         <div id="kArena" class="k-arena">
           <button id="kChest" class="k-chest hidden" type="button" aria-label="Treasure">🏺</button>
+          <div id="kCombo" class="k-combo hidden"></div>
           <div id="kMedal" class="k-medal"><div class="k-ring"></div><div class="k-inner">
             <!-- Jerry the fennec fighter (original drawing) -->
             <svg class="k-jerry" viewBox="0 0 200 200" aria-hidden="true">
@@ -108,12 +122,28 @@
               <ellipse cx="100" cy="118" rx="64" ry="56" fill="#f3a84c"/>
               <path d="M40 124 Q64 178 100 178 Q136 178 160 124 Q140 150 100 150 Q60 150 40 124 Z" fill="#fff4e6"/>
               <ellipse cx="100" cy="146" rx="32" ry="22" fill="#fff4e6"/>
-              <path d="M38 82 Q100 58 162 82 L160 98 Q100 76 40 98 Z" fill="#e2263b"/>
-              <path d="M158 86 Q182 84 192 98 Q176 96 166 100 Q182 108 186 122 Q168 112 156 98 Z" fill="#c81d31"/>
-              <circle cx="100" cy="84" r="7" fill="#ffd76a"/>
+              <g class="k-bandg">
+                <path class="k-band1" d="M38 82 Q100 58 162 82 L160 98 Q100 76 40 98 Z"/>
+                <path class="k-band2" d="M158 86 Q182 84 192 98 Q176 96 166 100 Q182 108 186 122 Q168 112 156 98 Z"/>
+                <circle cx="100" cy="84" r="7" fill="#ffd76a"/>
+              </g>
+              <g class="sk sk-turban">
+                <path d="M34 92 Q36 40 100 36 Q164 40 166 92 Q100 70 34 92 Z" fill="#f7f1e3"/>
+                <path d="M40 80 Q100 52 160 80 M44 66 Q100 44 156 66" stroke="#d9cdb2" stroke-width="5" fill="none"/>
+                <circle cx="100" cy="66" r="10" fill="#1f9d6b"/><path d="M100 56 L104 40 L96 40 Z" fill="#e2263b"/>
+              </g>
+              <g class="sk sk-crown">
+                <path d="M58 70 L64 30 L82 52 L100 22 L118 52 L136 30 L142 70 Z" fill="#ffd34d" stroke="#b77b0c" stroke-width="3"/>
+                <circle cx="100" cy="46" r="6" fill="#e2263b"/><circle cx="72" cy="58" r="4.5" fill="#4be3ff"/><circle cx="128" cy="58" r="4.5" fill="#4be3ff"/>
+              </g>
               <g class="k-eyes">
                 <ellipse cx="76" cy="114" rx="9" ry="11" fill="#2b1a12"/><circle cx="79" cy="110" r="3.2" fill="#fff"/>
                 <ellipse cx="124" cy="114" rx="9" ry="11" fill="#2b1a12"/><circle cx="127" cy="110" r="3.2" fill="#fff"/>
+              </g>
+              <g class="sk sk-shades">
+                <path d="M56 104 Q76 96 94 104 L92 120 Q76 130 60 120 Z M106 104 Q124 96 144 104 L140 120 Q124 130 108 120 Z" fill="#14121c"/>
+                <path d="M94 106 L106 106" stroke="#14121c" stroke-width="5"/>
+                <path d="M64 108 L74 106" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/>
               </g>
               <path class="k-brows" d="M64 100 L88 106 M136 100 L112 106" stroke="#7a3e10" stroke-width="5" stroke-linecap="round"/>
               <ellipse cx="100" cy="134" rx="9" ry="6.5" fill="#2b1a12"/>
@@ -123,7 +153,7 @@
           </div></div>
         </div>
         <div class="k-energy-row">
-          <span>⚡ <b id="kEnergy">0</b> / <span id="kEnergyMax">0</span></span>
+          <span>⚡ <b id="kEnergy">0</b> / <span id="kEnergyMax">0</span> <small id="kEFull" class="k-efull"></small></span>
           <button class="k-mini" data-kgo="boost" type="button">🚀 <span data-i18n="k.nav.boost"></span></button>
         </div>
         <div class="k-ebar"><i id="kEBar"></i></div>
@@ -139,6 +169,8 @@
         <div id="kRefill" class="k-boost"></div>
         <h3 data-i18n="k.boost.title"></h3>
         <div id="kBoosts"></div>
+        <h3 data-i18n="k.skins"></h3>
+        <div id="kSkins" class="k-skins"></div>
       </section>
       <section class="k-page" data-kp="daily">
         <h3 data-i18n="k.daily.t"></h3>

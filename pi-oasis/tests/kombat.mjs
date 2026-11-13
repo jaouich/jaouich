@@ -93,6 +93,40 @@ r = await act({ type: "kTask", id: "fury" });
 ok(r.msg && r.msg.vars.n === 3000, "task 'Start Fury' pays 3000");
 ok((await act({ type: "kTask", id: "fury" })).error === "k.taskDone", "task paid only once");
 ok((await act({ type: "kTask", id: "member" })).error === "k.taskNotYet", "member task needs a membership");
+// community boss
+let bs = await fetch(B + "/api/kombat/boss", { headers: H }).then((x) => x.json());
+ok(bs.boss.lvl >= 1 && bs.boss.max === 50000, "boss level 1 (Scorpion King) has 50,000 HP");
+const hp0 = bs.boss.hp;
+await setK("energy", 1500); await setK("eAt", Date.now()); await setK("tapAt", Date.now() - 5000); await setK("furyUntil", 0); await setK("fury", 0);
+r = await act({ type: "kTap", n: 30 });
+bs = await fetch(B + "/api/kombat/boss", { headers: H }).then((x) => x.json());
+const tv = 1 + r.state.kombat.tap;
+ok(hp0 - bs.boss.hp === tv * 30 && bs.mine >= tv * 30, "my taps hurt the boss (damage = coins tapped)");
+const bobDmg = bs.mine;
+ok((await post("/api/kombat/boss/claim", {}, H)).error === "k.noBossReward", "no reward while the boss is alive");
+// Carol finishes it
+const Sc = (await post("/api/auth", { accessToken: "tokC" })).session;
+const Hc = { Authorization: "Bearer " + Sc };
+await post("/api/action", { action: { type: "kSync" } }, Hc);
+await exec(`UPDATE boss SET hp = 5 WHERE killed_at IS NULL`);
+await post("/api/action", { action: { type: "kTap", n: 10 } }, Hc);
+bs = await fetch(B + "/api/kombat/boss", { headers: H }).then((x) => x.json());
+ok(bs.boss.lvl === 2 && bs.boss.max === 110000 && bs.last && bs.last.killer === "carol", "boss falls, carol gets the final blow, level 2 appears (110,000 HP)");
+ok(bs.reward === bobDmg, "bob's reward = all his damage (" + bobDmg + ")");
+const cb = (await act({ type: "kSync" })).state.kombat.coins;
+const cl = await post("/api/kombat/boss/claim", {}, H);
+ok(cl.n === bobDmg && cl.state.kombat.coins === cb + cl.n, "bob collects his boss reward");
+ok((await post("/api/kombat/boss/claim", {}, H)).error === "k.noBossReward", "boss reward only once");
+const cc = await post("/api/kombat/boss/claim", {}, Hc);
+ok(cc.n === 10 + 5000, "carol: her damage + 5,000 final-blow bonus");
+// skins
+ok((await act({ type: "kSkin", id: "crown" })).error === "k.skinLocked", "crown needs the Gold league");
+await setK("coins", 200000);
+r = await act({ type: "kSkin", id: "shades" });
+ok(r.state.kombat.skin === "shades" && r.state.kombat.coins === 50000, "shades bought for 150,000 and worn");
+r = await act({ type: "kSkin", id: "classic" });
+r = await act({ type: "kSkin", id: "shades" });
+ok(r.state.kombat.coins === 50000, "wearing an owned look again is free");
 // ranking
 const top = await fetch(B + "/api/kombat/top").then((x) => x.json());
 ok(top.top.length >= 1 && top.top[0].username === "bob" && top.top[0].total > 0, "ranking lists bob");

@@ -15,6 +15,8 @@
   let pn = 0, pf = 0, fn = 0, ff = 0, sending = false, busy = false;
   let localFury = 0; // fury predicted on the phone until the server confirms it
   let lastLeague = -1;
+  let boss = null, bossLvl = 0; // community boss from the server
+  let combo = 0, comboAt = 0;
 
   // 1234 -> "1,234", 1.2e6 -> "1.2M"
   const big = (n) => {
@@ -81,6 +83,7 @@
     finally {
       fn = ff = 0; sending = false;
       if (k().furyUntil) localFury = 0; // the server's fury timer wins
+      if (G.account) loadBoss();
       paint();
     }
   }
@@ -130,6 +133,11 @@
     $("kLgBar").style.width = next ? Math.min(100, (100 * (x.total - KL.LEAGUES[lg])) / (next - KL.LEAGUES[lg])) + "%" : "100%";
     $("kMedal").dataset.lg = lg;
     const kk = k();
+    $("kMedal").dataset.skin = kk.skin || "classic";
+    // energy full in…
+    const miss = x.max - x.energy;
+    $("kEFull").textContent = miss > 0 && !furyNow() ? t("k.full", { t: miss / K.REGEN >= 60 ? Math.ceil(miss / K.REGEN / 60) + "m" : Math.ceil(miss / K.REGEN) + "s" }) : "";
+    paintBoss(x);
     $("kDailyDot").classList.toggle("hidden", kk.daily.day === KL.day(nowT) && !tasksReady(kk));
     // fury
     const on = furyNow();
@@ -159,6 +167,19 @@
     clearTimeout(medal._t);
     medal._t = setTimeout(() => (medal.style.transform = ""), 120);
     floatText("+" + x.tap * (fury ? K.FURY_X : 1), e.clientX, e.clientY, fury);
+    // combo: quick taps in a row
+    const tn = Date.now();
+    combo = tn - comboAt < 450 ? combo + 1 : 1;
+    comboAt = tn;
+    if (combo >= 5) {
+      const c = $("kCombo");
+      c.textContent = "COMBO ×" + combo;
+      c.className = "k-combo bump " + (combo >= 100 ? "c3" : combo >= 50 ? "c2" : "");
+      clearTimeout(c._t);
+      c._t = setTimeout(() => c.classList.add("hidden"), 900);
+      if (combo === 50 || combo === 100 || combo % 200 === 0) { sfx.level(); flash(); }
+    }
+    const bb = $("kBoss"); bb.classList.remove("hit"); void bb.offsetWidth; bb.classList.add("hit");
     sfx.tap(fury);
     if (navigator.vibrate) try { navigator.vibrate(fury ? 12 : 6); } catch {}
     paint();
@@ -193,6 +214,75 @@
     await act({ type: "kChest" }, sfx.chest);
     coinRain(24);
   });
+
+  // ---------- Community boss ----------
+  const bossName = (lvl) => t("k.boss." + KL.bossOf(lvl).id);
+  let bossAt = 0;
+  async function loadBoss() {
+    if (Date.now() - bossAt < 2000) return; // at most every 2 s
+    bossAt = Date.now();
+    try {
+      const r = await Pi.kombatBoss();
+      if (bossLvl && r.boss.lvl > bossLvl) { // the boss fell
+        G.toast(t("k.boss.down", { boss: bossName(bossLvl) }));
+        sfx.level(); coinRain(30);
+      }
+      bossLvl = r.boss.lvl;
+      boss = r;
+      paint();
+      if (!$("kBossSheet").classList.contains("hidden")) renderBossSheet();
+    } catch {}
+  }
+  function paintBoss(x) {
+    if (!boss) { $("kBoss").classList.add("hidden"); return; }
+    $("kBoss").classList.remove("hidden");
+    const b = boss.boss;
+    const pend = G.account ? (pn + fn) * x.tap + (pf + ff) * x.tap * K.FURY_X : 0;
+    const hp = Math.max(0, b.hp - pend);
+    $("kBossIc").textContent = KL.bossOf(b.lvl).e;
+    $("kBossName").textContent = `${bossName(b.lvl)} · ${t("k.lvl", { n: b.lvl })}`;
+    $("kBossBar").style.width = (100 * hp) / b.max + "%";
+    $("kBossHp").textContent = `❤ ${big(hp)} / ${big(b.max)}`;
+    $("kBossMine").textContent = !G.account ? t("k.boss.guest") : boss.reward > 0 ? t("k.boss.reward", { n: big(boss.reward) }) : t("k.boss.mine", { n: big(boss.mine + pend) });
+    $("kBoss").classList.toggle("reward", boss.reward > 0);
+  }
+  function renderBossSheet() {
+    if (!boss) return;
+    const b = boss.boss, me = G.account && G.account.username;
+    $("kBsIcon").textContent = KL.bossOf(b.lvl).e;
+    $("kBsName").textContent = `${bossName(b.lvl)} · ${t("k.lvl", { n: b.lvl })}`;
+    $("kBsHp").innerHTML = `<span dir="ltr" style="unicode-bidi:isolate">❤ ${big(b.hp)} / ${big(b.max)}</span><br>⚔️ ${t("k.boss.bonus", { n: big(KL.KILL_BONUS(b.lvl)) })}`;
+    $("kBsTop").innerHTML = boss.top.length ? boss.top.map((p, i) => `<div class="${p.username === me ? "me" : ""}"><span>${["🥇", "🥈", "🥉", "4", "5"][i]}</span>
+      <b>${String(p.username).replace(/[<>&"]/g, "")}</b><small>⚔️</small><span>${big(p.dmg)}</span></div>`).join("") : `<div class="k-note">${t("k.boss.first")}</div>`;
+    $("kBsLast").textContent = boss.last ? t("k.boss.last", { boss: bossName(boss.last.lvl), name: boss.last.killer || "?" }) : "";
+    $("kBsClaim").classList.toggle("hidden", !(boss.reward > 0));
+    $("kBsClaim").textContent = t("k.boss.claim", { n: big(boss.reward) });
+  }
+  $("kBoss").addEventListener("click", () => { renderBossSheet(); $("kBossSheet").classList.remove("hidden"); bossAt = 0; loadBoss(); });
+  $("kBsClose").addEventListener("click", () => $("kBossSheet").classList.add("hidden"));
+  $("kBossSheet").addEventListener("click", (e) => { if (e.target === $("kBossSheet")) $("kBossSheet").classList.add("hidden"); });
+  $("kBsClaim").addEventListener("click", async () => {
+    try {
+      await flush();
+      const r = await Pi.kombatBossClaim();
+      G.setClock(r.now); G.S = r.state;
+      G.toast(t("k.boss.got", { n: big(r.n) })); sfx.chest(); coinRain(30); pop();
+    } catch (e) { G.toast(errMsg(e)); }
+    bossAt = 0; loadBoss();
+  });
+
+  // ---------- Skins ----------
+  function renderSkins() {
+    const kk = k(), lg = KL.league(v().total), coins = v().coins;
+    $("kSkins").innerHTML = KL.SKINS.map((s) => {
+      const own = !!kk.skins[s.id], on = kk.skin === s.id;
+      const lock = !own && s.league != null && lg < s.league;
+      const label = on ? "✓" : own ? t("k.wear") : s.league != null ? (lock ? "🔒 " + KL.LEAGUE_ICON[s.league] : t("k.wear")) : `<i class="kcoin s"></i>${big(s.cost)}`;
+      return `<button class="k-skin ${on ? "on" : ""} ${lock || (!own && s.cost && coins < s.cost) ? "locked" : ""}" data-skin="${s.id}" ${lock ? "disabled" : ""}>
+        <span>${s.e}</span><b>${t("k.skin." + s.id)}</b><small>${label}</small></button>`;
+    }).join("");
+  }
+  $("kSkins").addEventListener("click", (e) => { const b = e.target.closest("[data-skin]"); if (b) act({ type: "kSkin", id: b.dataset.skin }, sfx.level); });
 
   // ---------- Cards ----------
   function renderCards() {
@@ -308,7 +398,7 @@
     if (!open) return;
     paint();
     if (page === "cards") renderCards();
-    if (page === "boost") renderBoosts();
+    if (page === "boost") { renderBoosts(); renderSkins(); }
     if (page === "daily") renderDaily();
   }
   function go(p) {
@@ -323,7 +413,7 @@
   $("kLeagueBtn").addEventListener("click", () => go("league"));
   function pop() { $("kCoins").classList.remove("pop"); void $("kCoins").offsetWidth; $("kCoins").classList.add("pop"); }
 
-  let timer = 0;
+  let timer = 0, bossTimer = 0;
   function show() {
     if (open) return;
     open = true;
@@ -334,13 +424,15 @@
     if (location.hash !== "#kombat") history.replaceState(null, "", "#kombat");
     go("arena");
     act({ type: "kSync" }); // collects passive income and says how much came in
+    loadBoss();
     timer = setInterval(() => { paint(); if (page === "boost") renderBoosts(); }, 250);
+    bossTimer = setInterval(() => { if (page === "arena" && !document.hidden) loadBoss(); }, 5000);
   }
   async function hide() {
     if (!open) return;
     await flush();
     open = false;
-    clearInterval(timer);
+    clearInterval(timer); clearInterval(bossTimer);
     $("kombat").classList.add("hidden");
     $("kombat").setAttribute("aria-hidden", "true");
     document.body.classList.remove("k-open");

@@ -6,6 +6,7 @@ import "../public/logic.js";
 import { processPayouts } from "./payouts.js";
 import { publicKeyOf } from "./stellar.js";
 
+const KL = globalThis.KombatLogic;
 const L = globalThis.OasisLogic;
 const PI_API = "https://api.minepi.com/v2";
 // Pi sign-in: the access token is exchanged with App Studio, which checks it with
@@ -144,6 +145,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS week_rewards ( week_id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS week_scores ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, score INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE INDEX IF NOT EXISTS week_scores_rank ON week_scores(week_id, score DESC)",
+  "CREATE TABLE IF NOT EXISTS boss ( id INTEGER PRIMARY KEY AUTOINCREMENT, lvl INTEGER NOT NULL, hp INTEGER NOT NULL, max_hp INTEGER NOT NULL, started_at INTEGER NOT NULL, killed_at INTEGER, killer TEXT )",
+  "CREATE TABLE IF NOT EXISTS boss_hits ( boss_id INTEGER NOT NULL, uid TEXT NOT NULL, dmg INTEGER NOT NULL, claimed INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (boss_id, uid) )",
   "CREATE TABLE IF NOT EXISTS payouts ( id TEXT PRIMARY KEY, kind TEXT NOT NULL, ref TEXT NOT NULL, uid TEXT NOT NULL, amount REAL NOT NULL, memo TEXT, pi_payment_id TEXT, txid TEXT, status TEXT NOT NULL, error TEXT, tries INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE (kind, ref, uid) )",
 ];
 let schemaReady = null;
@@ -337,6 +340,7 @@ const routes = {
       throw e;
     }
     await saveState(env, u.uid, res.s, now);
+    if (a.type === "kTap" && res.dmg > 0) await bossHit(env, u.uid, res.dmg, now).catch((e) => logError(env, "boss hit", 0, e.message));
     return { state: res.s, msg: res.msg, now };
   },
 
@@ -483,6 +487,47 @@ const routes = {
     return { top: rows };
   },
 
+  // Community boss: current boss, best hitters, my damage and rewards waiting
+  "GET /api/kombat/boss": async (req, env) => {
+    const now = Date.now();
+    const b = await currentBoss(env, now);
+    let me = null;
+    try { me = await auth(req, env); } catch {}
+    const top = await all(env, "SELECT u.username, h.dmg FROM boss_hits h JOIN users u ON u.uid = h.uid WHERE h.boss_id = ? ORDER BY h.dmg DESC LIMIT 5", b.id);
+    const last = await one(env, "SELECT b.lvl, u.username AS killer FROM boss b LEFT JOIN users u ON u.uid = b.killer WHERE b.killed_at IS NOT NULL ORDER BY b.id DESC LIMIT 1");
+    let mine = 0, reward = 0;
+    if (me) {
+      const h = await one(env, "SELECT dmg FROM boss_hits WHERE boss_id = ? AND uid = ?", b.id, me.uid);
+      mine = h ? h.dmg : 0;
+      reward = await bossReward(env, me.uid);
+    }
+    return { boss: { lvl: b.lvl, hp: Math.max(0, b.hp), max: b.max_hp }, top, mine, reward, last };
+  },
+
+  "POST /api/kombat/boss/claim": async (req, env) => {
+    const u = await auth(req, env);
+    const now = Date.now();
+    // Mark first (only once), then pay what was marked
+    const rows = await all(
+      env,
+      "UPDATE boss_hits SET claimed = 1 WHERE uid = ? AND claimed = 0 AND boss_id IN (SELECT id FROM boss WHERE killed_at IS NOT NULL) RETURNING boss_id, dmg",
+      u.uid
+    );
+    if (!rows.length) bad("k.noBossReward");
+    let n = 0;
+    for (const r of rows) {
+      n += r.dmg;
+      const b = await one(env, "SELECT lvl, killer FROM boss WHERE id = ?", r.boss_id);
+      if (b && b.killer === u.uid) n += KL.KILL_BONUS(b.lvl);
+    }
+    const tier = tierOf(u, now, await isPartner(env, u.username));
+    const st = await stateFor(env, u, now, tier);
+    st.kombat = KL.norm(st.kombat, now);
+    st.kombat.coins += n; st.kombat.total += n;
+    await saveState(env, u.uid, st, now);
+    return { state: st, n, now };
+  },
+
   // Owner: everyone who plays, to know them and reward them
   "POST /api/admin/players": async (req, env) => {
     const u = await auth(req, env);
@@ -615,6 +660,31 @@ async function completePayment(env, id, txid, uid) {
     }
   }
   await env.DB.batch(stmts);
+}
+
+// ---------- Community boss ----------
+async function currentBoss(env, now) {
+  let b = await one(env, "SELECT * FROM boss WHERE killed_at IS NULL ORDER BY id DESC LIMIT 1");
+  if (b) return b;
+  const last = await one(env, "SELECT lvl FROM boss ORDER BY id DESC LIMIT 1");
+  const lvl = (last ? last.lvl : 0) + 1, hp = KL.bossHp(lvl);
+  // Only one living boss at a time, even if two players arrive together
+  await run(env, "INSERT INTO boss (lvl, hp, max_hp, started_at) SELECT ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM boss WHERE killed_at IS NULL)", lvl, hp, hp, now);
+  return one(env, "SELECT * FROM boss WHERE killed_at IS NULL ORDER BY id DESC LIMIT 1");
+}
+async function bossHit(env, uid, dmg, now) {
+  const b = await currentBoss(env, now);
+  await env.DB.batch([
+    env.DB.prepare("UPDATE boss SET hp = hp - ? WHERE id = ? AND killed_at IS NULL").bind(dmg, b.id),
+    env.DB.prepare("INSERT INTO boss_hits (boss_id, uid, dmg) VALUES (?, ?, ?) ON CONFLICT(boss_id, uid) DO UPDATE SET dmg = dmg + excluded.dmg").bind(b.id, uid, dmg),
+  ]);
+  // The tap that takes it to 0 is the final blow; the next, stronger boss appears
+  const k = await run(env, "UPDATE boss SET killed_at = ?, killer = ? WHERE id = ? AND killed_at IS NULL AND hp <= 0", now, uid, b.id);
+  if (k.meta.changes) await currentBoss(env, now);
+}
+async function bossReward(env, uid) {
+  const rows = await all(env, "SELECT h.dmg, b.lvl, b.killer FROM boss_hits h JOIN boss b ON b.id = h.boss_id WHERE h.uid = ? AND h.claimed = 0 AND b.killed_at IS NOT NULL", uid);
+  return rows.reduce((n, r) => n + r.dmg + (r.killer === uid ? KL.KILL_BONUS(r.lvl) : 0), 0);
 }
 
 // Rewarded ad: ask Pi whether the ad was really watched, and allow each ad only once

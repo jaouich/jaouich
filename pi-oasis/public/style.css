@@ -658,3 +658,44 @@ body.k-open { overflow: hidden; }
 .pack small { opacity: .7; margin-bottom: 6px; }
 .pack .btn { width: 100%; direction: ltr; }
 #coinPill { cursor: pointer; }
+
+/* Jerry Kombat v3: boss, skins, combo */
+.k-band1 { fill: var(--band1, #e2263b); }
+.k-band2 { fill: var(--band2, #c81d31); }
+.k-medal[data-skin="night"] { --band1: #26233a; --band2: #14121f; }
+.k-medal[data-skin="gold"] { --band1: #f5c445; --band2: #c98a12; }
+.k-medal[data-skin="crown"] { --band1: #7c3aed; --band2: #5b21b6; }
+.sk { display: none; }
+.k-medal[data-skin="turban"] .sk-turban, .k-medal[data-skin="crown"] .sk-crown, .k-medal[data-skin="shades"] .sk-shades { display: inline; }
+.k-medal[data-skin="turban"] .k-bandg, .k-medal[data-skin="shades"] .k-eyes { display: none; }
+.k-boss { width: 100%; display: flex; align-items: center; gap: 10px; margin: 2px 0 10px; padding: 8px 12px; border-radius: 18px; cursor: pointer; font: inherit; color: #fff; text-align: start;
+  background: linear-gradient(100deg, rgba(255, 59, 92, .28), rgba(124, 92, 255, .18)); border: 1px solid rgba(255, 99, 120, .55); }
+.k-boss.hit .k-boss-ic { animation: kHit .25s; }
+@keyframes kHit { 40% { transform: scale(.85) rotate(-10deg); filter: brightness(2); } }
+.k-boss-ic { font-size: 34px; filter: drop-shadow(0 4px 8px rgba(0,0,0,.5)); }
+.k-boss-body { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.k-boss-body b { font-size: 14px; }
+.k-boss-body small { font-size: 11px; opacity: .8; }
+.k-hp { position: relative; height: 14px; border-radius: 99px; background: rgba(0,0,0,.35); overflow: hidden; }
+.k-hp i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #ff2d55, #ff8a3d); border-radius: 99px; transition: width .25s; }
+.k-hp em { position: relative; display: block; text-align: center; font-style: normal; font-size: 10px; font-weight: 800; line-height: 14px; direction: ltr; }
+.k-boss-go { font-size: 22px; }
+.k-boss.reward { border-color: #ffd76a; box-shadow: 0 0 16px rgba(255, 215, 106, .5); animation: kPulse 1.2s infinite; }
+.k-boss-card { max-width: 340px; width: calc(100% - 32px); max-height: 86vh; overflow-y: auto; }
+.k-boss-card .k-top-list { text-align: start; margin: 8px 0; }
+.k-boss-card .btn { margin-top: 8px; }
+.k-combo { position: absolute; z-index: 4; top: 8px; inset-inline-end: 4px; font-weight: 900; font-size: 22px; color: #ffd76a; text-shadow: 0 3px 10px rgba(0,0,0,.6); transform: rotate(8deg); direction: ltr; }
+.k-combo.c2 { color: #ff8a3d; font-size: 26px; }
+.k-combo.c3 { color: #ff2d55; font-size: 30px; }
+.k-combo.bump { animation: kPop .2s; }
+.k-efull { opacity: .7; font-size: 11px; }
+.k-skins { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.k-skin { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 16px; font: inherit; color: #fff; cursor: pointer;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); }
+.k-skin.on { border-color: #7dffb5; box-shadow: 0 0 0 2px #7dffb5 inset; }
+.k-skin.locked { opacity: .5; }
+.k-skin span { font-size: 28px; }
+.k-skin small { font-size: 11px; opacity: .85; display: flex; align-items: center; direction: ltr; }
+.k-boss-card p.k-note { font-size: 13px; font-weight: 500; color: rgba(255,255,255,.8); margin: 6px 0; }
+.k-boss-card #kBsHp { font-size: 15px; font-weight: 800; color: #ffd76a; }
+.k-boss-card .k-lg-icon { font-size: 72px; }

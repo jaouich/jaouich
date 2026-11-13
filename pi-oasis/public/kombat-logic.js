@@ -65,6 +65,26 @@
     { id: "tap", e: "👊", c: 1000 },  // +1 coin per tap
     { id: "cap", e: "🔋", c: 1000 },  // +500 energy limit
   ];
+  // Community bosses: every player's tap damage hits the same boss
+  const BOSSES = [
+    { id: "scorpion", e: "🦂" },
+    { id: "viper", e: "🐍" },
+    { id: "leopard", e: "🐆" },
+    { id: "worm", e: "🪱" },
+    { id: "djinn", e: "🧞" },
+  ];
+  const bossOf = (lvl) => BOSSES[(lvl - 1) % BOSSES.length];
+  const bossHp = (lvl) => Math.round(50000 * Math.pow(2.2, lvl - 1));
+  const KILL_BONUS = (lvl) => 5000 * lvl; // for the final blow
+  // Jerry's looks: unlocked by league or bought with coins (cosmetic only)
+  const SKINS = [
+    { id: "classic", e: "🟥" },
+    { id: "night", e: "⬛", league: 1 },
+    { id: "gold", e: "🟨", league: 3 },
+    { id: "turban", e: "👳", cost: 50000 },
+    { id: "shades", e: "😎", cost: 150000 },
+    { id: "crown", e: "👑", league: 5 },
+  ];
   const cardById = (id) => CARDS.find((x) => x.id === id);
   const cardCost = (card, lvl) => Math.round(card.c * Math.pow(1.55, lvl));
   const cardProfit = (card, lvl) => Math.round((card.p * (Math.pow(1.12, lvl) - 1)) / 0.12); // total at this level
@@ -83,6 +103,7 @@
     if (!k.done) k.done = {};
     if (k.fury == null) { k.fury = 0; k.furyUntil = 0; }
     if (k.chestAt == null) k.chestAt = now + K.CHEST_FIRST;
+    if (!k.skins) { k.skins = { classic: 1 }; k.skin = "classic"; }
     if (!k.refill || k.refill.day !== day(now)) k.refill = { day: day(now), used: 0, at: (k.refill && k.refill.at) || 0 };
     return k;
   }
@@ -137,16 +158,18 @@
         const tv = tapValue(k);
         const e = energyNow(k, now);
         const byTime = k.tapAt ? Math.floor(((now - k.tapAt) / 1000) * K.MAX_TPS) + K.BURST : K.BURST + K.MAX_TPS * 2;
-        let ok;
+        let ok, dmg = 0;
         if (furyOn(k, now)) {
           // Fury: x3 coins and no energy used
           ok = Math.max(0, Math.min(n, byTime));
           gain(k, ok * tv * K.FURY_X);
           k.energy = e;
+          dmg = ok * tv * K.FURY_X;
         } else {
           if (k.furyUntil) k.furyUntil = 0;
           ok = Math.max(0, Math.min(n, Math.floor(e / tv), byTime));
           gain(k, ok * tv);
+          dmg = ok * tv;
           k.energy = e - ok * tv;
           k.fury += ok;
           if (k.fury >= K.FURY_NEED) { k.fury = 0; k.furyUntil = now + K.FURY_MS; k.stats.furies++; }
@@ -154,7 +177,7 @@
         k.stats.taps += ok;
         k.eAt = now;
         k.tapAt = now;
-        return { s, msg: null, accepted: ok };
+        return { s, msg: null, accepted: ok, dmg };
       }
       case "kCard": {
         const card = cardById(a.id);
@@ -206,6 +229,20 @@
         gain(k, task.r);
         return { s, msg: { key: "k.taskGot", vars: { n: task.r } } };
       }
+      case "kSkin": {
+        const sk = SKINS.find((x) => x.id === a.id);
+        if (!sk) fail("badAction");
+        if (!k.skins[sk.id]) {
+          if (sk.league != null && league(k.total) < sk.league) fail("k.skinLocked");
+          if (sk.cost) {
+            if (k.coins < sk.cost) fail("k.noCoins", { n: sk.cost - k.coins });
+            k.coins -= sk.cost;
+          }
+          k.skins[sk.id] = 1;
+        }
+        k.skin = sk.id;
+        return { s, msg: { key: "k.skinOn" } };
+      }
       case "kDaily": {
         const d = day(now);
         if (k.daily.day === d) fail("k.dailyDone");
@@ -219,5 +256,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

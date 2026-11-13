@@ -139,6 +139,8 @@
     redeemVip: () => api("/api/referral/redeem-vip", {}),
     partners: (action, username) => api("/api/admin/partners", { action, username }),
     kombatTop: () => api("/api/kombat/top"),
+    kombatBoss: () => api("/api/kombat/boss"),
+    kombatBossClaim: () => api("/api/kombat/boss/claim", {}),
     players: () => api("/api/admin/players", {}),
     testGifts: (action) => api("/api/admin/test-gifts", { action }),
     setInviter: (username) => api("/api/referral/set-inviter", { username }),

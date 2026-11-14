@@ -164,6 +164,8 @@ const ensureSchema = (env) =>
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN net TEXT").run().catch(() => {}))
     // Player's Pi Testnet wallet address (public G...), to receive test JRY
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_wallet TEXT").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_bal REAL").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_at INTEGER").run().catch(() => {}))
     .catch((e) => { schemaReady = null; throw e; }));
 
 const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
@@ -208,8 +210,22 @@ async function stateFor(env, u, now, tier) {
   return st;
 }
 
+// testJRY held in the player's saved wallet, read from the Pi network (refreshed every 15 min)
+async function jryHeld(env, u, force) {
+  if (!u.jry_wallet || !isTestnet(env)) return 0;
+  const now = Date.now();
+  if (!force && u.jry_at && now - u.jry_at < 15 * 60e3) return u.jry_bal || 0;
+  let bal = u.jry_bal || 0;
+  try { bal = Number((await jryStatusOf(env, u.jry_wallet)).balance) || 0; } catch {}
+  await run(env, "UPDATE users SET jry_bal = ?, jry_at = ? WHERE uid = ?", bal, now, u.uid);
+  u.jry_bal = bal; u.jry_at = now;
+  return bal;
+}
+const holdBoost = (bal) => { const i = KL.holdTier(bal); return i >= 0 ? KL.HOLD_TIERS[i].boost : 0; };
+
 async function account(env, u) {
   const now = Date.now();
+  const held = await jryHeld(env, u);
   const tier = tierOf(u, now, await isPartner(env, u.username));
   const c = await one(env, "SELECT COUNT(*) AS n FROM users WHERE referrer = ?", u.uid);
   const inviter = u.referrer ? await one(env, "SELECT username FROM users WHERE uid = ?", u.referrer) : null;
@@ -224,6 +240,8 @@ async function account(env, u) {
     referralCount: c.n,
     activeRefs: await activeRefs(env, u.uid),
     jryWallet: u.jry_wallet || null,
+    jryHeld: held,
+    holdBoost: holdBoost(held),
     jryOn: !!env.JRY_ISSUER_SEED || isTestnet(env),
     invitedBy: inviter ? inviter.username : null,
     canSetInviter: !u.referrer && Date.now() - u.created_at < INVITER_DAYS * DAY,
@@ -305,6 +323,7 @@ function randomToken() {
 
 // ---------- Routes ----------
 let statsCache = null;
+let marketCache = null;
 // Testnet server? The TESTNET_GIFTS setting, or the Testnet address the request came to
 // (pi-oasis.… / oasisgame6033.…). The Mainnet server (jaouich.…) never matches.
 let testnetHost = false;
@@ -368,7 +387,7 @@ const routes = {
     let res;
     try {
       const refs = a.type === "kTask" ? await activeRefs(env, u.uid) : 0;
-      res = L.apply(state, a, { now, tier, adVerified, rand: secureRandom, refs });
+      res = L.apply(state, a, { now, tier, adVerified, rand: secureRandom, refs, hold: holdBoost(await jryHeld(env, u)) });
     } catch (e) {
       if (e instanceof L.GameError) return json({ error: e.code, vars: e.vars, state, now }, 400);
       throw e;
@@ -655,9 +674,37 @@ const routes = {
     const u = await auth(req, env);
     const a = String(body.address || "").trim().toUpperCase();
     try { decodeStrKey(a, "G"); } catch { bad("k.badWallet"); }
-    await run(env, "UPDATE users SET jry_wallet = ? WHERE uid = ?", a, u.uid);
+    await run(env, "UPDATE users SET jry_wallet = ?, jry_at = NULL WHERE uid = ?", a, u.uid);
     const status = await jryStatusOf(env, a);
+    await run(env, "UPDATE users SET jry_bal = ?, jry_at = ? WHERE uid = ?", Number(status.balance) || 0, Date.now(), u.uid);
     return { account: await account(env, await one(env, "SELECT * FROM users WHERE uid = ?", u.uid)), trust: status.trust, balance: status.balance };
+  },
+
+  // Community market: testJRY price from the Test-Pi pool, pool size, holders (cached 1 min)
+  "GET /api/jry/market": async (req, env) => {
+    const seed = await jryIssuerSeed(env, false);
+    if (!seed) return { on: false };
+    const now = Date.now();
+    if (!marketCache || now - marketCache.at > 60000) {
+      const code = env.JRY_CODE || "testJRY", issuer = await publicKeyOf(seed);
+      const [pools, asset] = await Promise.all([
+        horizonGet(`/liquidity_pools?reserves=native,${code}:${issuer}&limit=10`),
+        horizonGet(`/assets?asset_code=${code}&asset_issuer=${issuer}`),
+      ]);
+      const list = (pools && pools._embedded && pools._embedded.records) || [];
+      // the deepest pool sets the price
+      let pi = 0, jry = 0;
+      for (const p of list) {
+        const r = p.reserves || [];
+        const a = Number((r.find((x) => x.asset === "native") || {}).amount || 0);
+        const b = Number((r.find((x) => x.asset !== "native") || {}).amount || 0);
+        if (a > pi) { pi = a; jry = b; }
+      }
+      const rec = asset && asset._embedded && asset._embedded.records[0];
+      const holders = rec ? Number(rec.num_accounts ?? (rec.accounts && rec.accounts.authorized) ?? 0) : 0;
+      marketCache = { at: now, data: { on: true, code, issuer, poolPi: pi, poolJry: jry, price: jry > 0 ? pi / jry : 0, holders, pools: list.length } };
+    }
+    return marketCache.data;
   },
 
   // Owner tools: status, one-time setup (trustline + mint + home domain), sending

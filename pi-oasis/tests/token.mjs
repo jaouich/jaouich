@@ -49,5 +49,23 @@ r = await post("/api/admin/token", { action: "airdrop", amount: "100" }, HA);
 ok(r.report.length === 0, "never sent twice to the same player");
 st = await post("/api/admin/token", { action: "status" }, HA);
 ok(st.distBalance === "9999999900.0000000" && st.holders === 2, "app wallet: 9,999,999,900 left; 2 wallets hold the token");
+// community market + holder perks
+const mk = await fetch(B + "/api/jry/market").then((x) => x.json());
+ok(mk.on && Math.abs(mk.price - 0.001) < 0.00001 && mk.poolPi === 1894.21 && mk.holders === 2, "market: price ≈ 0.001 Test-Pi, pool 1,894 Test-Pi, 2 holders");
+let me = await fetch(B + "/api/me", { headers: HB }).then((x) => x.json());
+ok(me.account.jryHeld === 100 && me.account.holdBoost === 0, "bob holds 100 testJRY: below 1,000, no perk yet");
+await post("/api/admin/token", { action: "send", to: W, amount: "10000" }, HA);
+w = await post("/api/kombat/wallet", { address: W }, HB);
+me = await fetch(B + "/api/me", { headers: HB }).then((x) => x.json());
+ok(me.account.jryHeld === 10100 && me.account.holdBoost === 0.25, "bob holds 10,100: 🥈 +25% profit/hour");
+await exec(`UPDATE state SET json = json_set(json, '$.kombat.cards', json('{"well":5}'), '$.kombat.last', ${Date.now() - 3600e3}) WHERE uid='${uidB}'`);
+const pphBase = Math.floor(((p, l) => Math.round((p * (Math.pow(1.12, l) - 1)) / 0.12))(10, 5));
+const before = (await sql(`SELECT json FROM state WHERE uid='${uidB}'`))[0].json;
+const c0 = JSON.parse(before).kombat.coins;
+const r2 = await post("/api/action", { action: { type: "kSync" } }, HB);
+const gained = r2.state.kombat.coins - c0;
+ok(Math.abs(gained - Math.floor(pphBase * 1.25)) <= 1, `1 hour away: profit ${gained} = ${pphBase} × 1.25 (holder perk)`);
+ok((await post("/api/action", { action: { type: "kTask", id: "member" } }, HB)).error === "k.taskNotYet", "holding testJRY doesn't count as a membership");
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

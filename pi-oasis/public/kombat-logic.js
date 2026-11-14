@@ -34,7 +34,7 @@
     { id: "bronze", e: "🥉", need: 2, r: 10000, have: (s, k) => league(k.coins) },
     { id: "taps10k", e: "💪", need: 10000, r: 15000, have: (s, k) => k.stats.taps },
     { id: "cards25", e: "🏗️", need: 25, r: 25000, have: (s, k) => cardLevels(k) },
-    { id: "member", e: "👑", need: 1, r: 50000, have: (s, k, x) => (x.boost > 0 ? 1 : 0) },
+    { id: "member", e: "👑", need: 1, r: 50000, have: (s, k, x) => ((x.member != null ? x.member : x.boost > 0) ? 1 : 0) },
     { id: "gold", e: "🥇", need: 4, r: 100000, have: (s, k) => league(k.coins) },
     // Invite friends: only friends who really played count (x.refs from the server)
     { id: "invite1", e: "🤝", need: 1, r: 10000, have: (s, k, x) => x.refs || 0 },
@@ -99,6 +99,13 @@
   const day = (t) => Math.floor(t / 86400000);
   // Weeks start Monday 00:00 UTC (same as the Oasis ranking)
   const weekId = (t) => { const d = new Date(t); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); };
+  // testJRY holder perks: extra Kombat profit per hour (balance checked on the Pi network by the server)
+  const HOLD_TIERS = [
+    { min: 1000, boost: 0.1, e: "🥉" },
+    { min: 10000, boost: 0.25, e: "🥈" },
+    { min: 100000, boost: 0.5, e: "🥇" },
+  ];
+  const holdTier = (bal) => { let i = -1; HOLD_TIERS.forEach((x, j) => { if (bal >= x.min) i = j; }); return i; };
   // Golden hour: one hour a day (UTC, the same for everyone) when taps count x2
   const goldenHourOf = (t) => { let x = (day(t) * 2246822519) >>> 0; x ^= x >>> 13; x = Math.imul(x, 3266489917) >>> 0; x ^= x >>> 16; return (x >>> 0) % 24; };
   const goldenStart = (t) => day(t) * 86400000 + goldenHourOf(t) * 3600e3;
@@ -297,5 +304,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

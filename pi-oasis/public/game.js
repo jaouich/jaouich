@@ -929,7 +929,8 @@
     set S(x) { S = x; },
     get account() { return account; },
     setClock(serverNow) { clockOffset = serverNow - Date.now(); },
-    now, toast, msgText, saveGuest, boost: () => perks().boost,
+    member: () => perks().boost > 0,
+    now, toast, msgText, saveGuest, boost: () => perks().boost + ((account && account.holdBoost) || 0),
     setAccount(a) { account = a; render(); },
     refLink: () => (account ? `${publicUrl || location.origin + location.pathname}?ref=${encodeURIComponent(account.username)}` : ""),
   };

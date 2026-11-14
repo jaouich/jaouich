@@ -385,7 +385,7 @@
   $("kBoosts").addEventListener("click", (e) => { const b = e.target.closest("[data-kboost]"); if (b) act({ type: "kBoost", id: b.dataset.kboost }); });
 
   // ---------- Earn: daily reward + tasks ----------
-  const taskCtx = () => ({ boost: G.boost(), cityLevel: L.cityLevel, refs: (G.account && G.account.activeRefs) || 0 });
+  const taskCtx = () => ({ boost: G.boost(), member: G.member(), cityLevel: L.cityLevel, refs: (G.account && G.account.activeRefs) || 0 });
   const tasksReady = (kk) => KL.TASKS.some((x) => !kk.done[x.id] && x.have(G.S, kk, taskCtx()) >= x.need);
   function renderDaily() {
     const kk = k(), d = KL.day(G.now());
@@ -427,6 +427,7 @@
     const kk = k(), need = KL.AIRDROP_DAYS, days = kk.act.days;
     $("kDrop").innerHTML = `<b>🪂 ${t("k.drop.t")}</b><span class="k-tbar"><i style="width:${Math.min(100, (100 * days) / need)}%"></i></span>
       <small>${days >= need ? t("k.drop.ok") : t("k.drop.days", { n: days, need })}</small>`;
+    renderMarket();
     // test JRY: the player's Pi Testnet wallet address
     const acc = G.account;
     $("kJry").classList.toggle("hidden", !(acc && acc.jryOn));
@@ -468,6 +469,26 @@
       G.toast(t("k.jry.ok"));
     } catch (e) { G.toast(errMsg(e)); }
   });
+  // ---------- Jerry community market: testJRY price, pool, holders, my perks ----------
+  const num = (n, d) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: d });
+  async function renderMarket() {
+    let m;
+    try { m = await Pi.jryMarket(); } catch { return; }
+    $("kMarket").classList.toggle("hidden", !m.on);
+    if (!m.on) return;
+    const acc = G.account, held = (acc && acc.jryHeld) || 0, ti = KL.holdTier(held);
+    const perJry = m.price, perPi = m.price > 0 ? 1 / m.price : 0;
+    $("kMarket").innerHTML = `<div class="k-mk-top"><img src="jry.png" alt=""><div><b>testJRY</b><small>${t("k.mk.sub")}</small></div></div>
+      <div class="k-mk-grid">
+        <div><small>${t("k.mk.price")}</small><b>${perJry ? num(perJry, 6) : "—"}</b><small>Test-Pi</small></div>
+        <div><small>1 Test-Pi =</small><b>${perPi ? num(perPi, 0) : "—"}</b><small>testJRY</small></div>
+        <div><small>${t("k.mk.holders")}</small><b>${num(m.holders, 0)}</b><small>👥</small></div>
+        <div><small>${t("k.mk.pool")}</small><b>${big(m.poolPi)}</b><small>Test-Pi</small></div>
+      </div>
+      <div class="k-mk-me">${acc && acc.jryWallet ? t("k.mk.mine", { n: num(held, 2) }) + (ti >= 0 ? ` · ${KL.HOLD_TIERS[ti].e} +${Math.round(KL.HOLD_TIERS[ti].boost * 100)}%` : "") : t("k.mk.noWallet")}</div>
+      <div class="k-mk-tiers">${KL.HOLD_TIERS.map((x, i) => `<span class="${i === ti ? "on" : ""}">${x.e} ${big(x.min)}+ → +${Math.round(x.boost * 100)}%</span>`).join("")}</div>
+      <small class="k-note">${t("k.mk.how")}</small>`;
+  }
   async function claimWeek() {
     try {
       await flush();

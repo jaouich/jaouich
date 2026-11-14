@@ -162,6 +162,10 @@ async function horizon(u, opt) {
     const lines = [...new Set([...a.trust, ...Object.keys(a.bal)])].map((k) => ({ asset_type: "credit_alphanum12", asset_code: k.split(":")[0], asset_issuer: k.split(":")[1], balance: amt(a.bal[k] || 0n) }));
     return J({ sequence: String(a.seq), home_domain: a.home || undefined, balances: [{ asset_type: "native", balance: "50.0000000" }, ...lines] });
   }
+  if (p.startsWith("/liquidity_pools?")) {
+    const q = new URLSearchParams(p.slice(17)), res = q.get("reserves").split(",");
+    return J({ _embedded: { records: [{ id: "pool1", reserves: [{ asset: "native", amount: "1894.2100000" }, { asset: res[1], amount: "1894208.9700000" }], total_shares: "59900.15" }] } });
+  }
   if (p.startsWith("/assets?")) {
     const q = new URLSearchParams(p.slice(8)), key = q.get("asset_code") + ":" + q.get("asset_issuer");
     let total = 0n, holders = 0;

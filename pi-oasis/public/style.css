@@ -750,3 +750,19 @@ body.k-open { overflow: hidden; }
 .k-jry-row { display: flex; gap: 8px; }
 .k-jry-row input { flex: 1; min-width: 0; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.25); color: #fff; padding: 8px 10px; font: 12px ui-monospace, monospace; direction: ltr; }
 #tkAmount { width: 110px; border-radius: 12px; border: 1px solid #e3cf9e; padding: 0 10px; font: inherit; }
+
+/* Jerry community market */
+.k-market { margin: 14px 0 4px; padding: 12px; border-radius: 18px; background: linear-gradient(130deg, rgba(255, 215, 106, .16), rgba(124, 92, 255, .2)); border: 1px solid rgba(255, 215, 106, .5); }
+.k-mk-top { display: flex; align-items: center; gap: 10px; }
+.k-mk-top img { width: 44px; height: 44px; border-radius: 50%; }
+.k-mk-top div { display: flex; flex-direction: column; }
+.k-mk-top small { font-size: 11px; opacity: .8; }
+.k-mk-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 10px 0; }
+.k-mk-grid div { display: flex; flex-direction: column; align-items: center; padding: 6px 2px; border-radius: 12px; background: rgba(0,0,0,.25); text-align: center; }
+.k-mk-grid small { font-size: 10px; opacity: .75; }
+.k-mk-grid b { font-size: 14px; color: #ffd76a; direction: ltr; }
+.k-mk-me { font-weight: 800; margin: 4px 0 8px; direction: ltr; unicode-bidi: plaintext; }
+.k-mk-tiers { display: flex; flex-wrap: wrap; gap: 6px; }
+.k-mk-tiers span { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); direction: ltr; }
+.k-mk-tiers span.on { background: #ffd76a; color: #2a1162; font-weight: 800; }
+.k-mk-grid small:first-child { direction: ltr; unicode-bidi: isolate; }

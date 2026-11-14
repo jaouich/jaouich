@@ -166,7 +166,7 @@ async function horizon(u, opt) {
     const q = new URLSearchParams(p.slice(8)), key = q.get("asset_code") + ":" + q.get("asset_issuer");
     let total = 0n, holders = 0;
     for (const a of ledger.values()) { if (a.trust.has(key)) holders++; total += a.bal[key] || 0n; }
-    return J({ _embedded: { records: holders ? [{ asset_code: q.get("asset_code"), asset_issuer: q.get("asset_issuer"), amount: amt(total), num_accounts: holders }] : [] } });
+    return J({ _embedded: { records: holders ? [{ asset_code: q.get("asset_code"), asset_issuer: q.get("asset_issuer"), balances: { authorized: amt(total) }, accounts: { authorized: holders } }] : [] } });
   }
   if (p === "/fee_stats") return J({ last_ledger_base_fee: "100000" });
   if (p.startsWith(`/accounts/${APP.G}/transactions`)) return J({ _embedded: { records: chain.txs.map((t) => ({ hash: t.hash, memo: t.memo, successful: true })).reverse() } });

@@ -873,13 +873,16 @@ const jryLine = (acct, t) => (acct && acct.balances || []).find((b) => b.asset_c
 async function jryState(env, t) {
   const [dist, iss, asset] = await Promise.all([horizonGet(`/accounts/${t.dist}`), horizonGet(`/accounts/${t.issuer}`), horizonGet(`/assets?asset_code=${t.code}&asset_issuer=${t.issuer}`)]);
   const line = jryLine(dist, t), rec = asset && asset._embedded && asset._embedded.records[0];
+  // Newer Horizon gives totals in balances.authorized / accounts.authorized (older: amount / num_accounts)
+  const supply = rec ? String(rec.amount ?? (rec.balances && rec.balances.authorized) ?? "0") : "0";
+  const holders = rec ? Number(rec.num_accounts ?? (rec.accounts && rec.accounts.authorized) ?? 0) : 0;
   const sent = await one(env, "SELECT COUNT(*) AS n FROM jry_sends WHERE status = 'sent'");
   const native = ((dist && dist.balances) || []).find((b) => b.asset_type === "native");
   return {
     appPi: native ? native.balance : "0",
     code: t.code, issuer: t.issuer, distributor: t.dist, home: (iss && iss.home_domain) || "", wantHome: t.home,
-    issuerActive: !!(iss && iss.sequence), distTrust: !!line, distBalance: line ? line.balance : "0", minted: !!(rec && Number(rec.amount) > 0),
-    supply: rec ? rec.amount : "0", target: t.supply, holders: rec ? rec.num_accounts : 0, sent: sent.n, toml: `https://${t.home}/.well-known/pi.toml`,
+    issuerActive: !!(iss && iss.sequence), distTrust: !!line, distBalance: line ? line.balance : "0", minted: Number(supply) > 0,
+    supply, target: t.supply, holders, sent: sent.n, toml: `https://${t.home}/.well-known/pi.toml`,
   };
 }
 async function jryStatusOf(env, address) {

@@ -218,13 +218,13 @@ async function account(env, u) {
     tier,
     tierId: L.TIERS[tier].id,
     isAdmin: isAdmin(env, u),
-    testGifts: isAdmin(env, u) && env.TESTNET_GIFTS === "1",
+    testGifts: isAdmin(env, u) && isTestnet(env),
     vipUntil: u.vip_until,
     referralBalance: u.ref_balance,
     referralCount: c.n,
     activeRefs: await activeRefs(env, u.uid),
     jryWallet: u.jry_wallet || null,
-    jryOn: !!env.JRY_ISSUER_SEED || env.TESTNET_GIFTS === "1",
+    jryOn: !!env.JRY_ISSUER_SEED || isTestnet(env),
     invitedBy: inviter ? inviter.username : null,
     canSetInviter: !u.referrer && Date.now() - u.created_at < INVITER_DAYS * DAY,
   };
@@ -305,6 +305,10 @@ function randomToken() {
 
 // ---------- Routes ----------
 let statsCache = null;
+// Testnet server? The TESTNET_GIFTS setting, or the Testnet address the request came to
+// (pi-oasis.… / oasisgame6033.…). The Mainnet server (jaouich.…) never matches.
+let testnetHost = false;
+const isTestnet = (env) => env.TESTNET_GIFTS === "1" || testnetHost;
 const routes = {
   // Sign in: exchange the Pi access token with App Studio (one exchange per sign-in).
   // Any uid/username sent by the browser is ignored.
@@ -751,7 +755,7 @@ const routes = {
   // wallets (needed before it gives a Mainnet app wallet). Never enabled on Mainnet.
   "POST /api/admin/test-gifts": async (req, env, body) => {
     const u = await auth(req, env);
-    if (!isAdmin(env, u) || env.TESTNET_GIFTS !== "1") throw new HttpError(403, "forbidden");
+    if (!isAdmin(env, u) || !isTestnet(env)) throw new HttpError(403, "forbidden");
     if (body.action === "send") {
       const now = Date.now();
       const users = await all(env, "SELECT uid FROM users WHERE uid NOT IN (SELECT uid FROM payouts WHERE kind = 'gift') ORDER BY created_at DESC LIMIT 20");
@@ -848,7 +852,7 @@ async function completePayment(env, id, txid, uid) {
 // server creates once and keeps in the database (test tokens have no value; never on Mainnet).
 async function jryIssuerSeed(env, create) {
   if (env.JRY_ISSUER_SEED) return env.JRY_ISSUER_SEED;
-  if (env.TESTNET_GIFTS !== "1") return null;
+  if (!isTestnet(env)) return null;
   let row = await one(env, "SELECT seed FROM jry_keys WHERE id = 1");
   if (!row && create) {
     await run(env, "INSERT OR IGNORE INTO jry_keys (id, seed, created_at) VALUES (1, ?, ?)", await newSeed(), Date.now());
@@ -971,6 +975,7 @@ export default {
 
   async fetch(req, env) {
     const url = new URL(req.url);
+    if (/^pi-oasis\.|^oasisgame6033\./.test(url.hostname)) testnetHost = true;
     // Pi Developer Portal domain check: each Worker (Testnet / Mainnet) has its own key
     if (url.pathname === "/validation-key.txt") {
       return env.VALIDATION_KEY

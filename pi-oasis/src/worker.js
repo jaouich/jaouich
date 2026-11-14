@@ -29,9 +29,9 @@ const round = (n) => Math.round(n * 1e7) / 1e7;
 const json = (o, status = 200) =>
   new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
 class HttpError extends Error {
-  constructor(status, code) { super(code); this.status = status; this.code = code; }
+  constructor(status, code, vars) { super(code); this.status = status; this.code = code; this.vars = vars; }
 }
-const bad = (code) => { throw new HttpError(400, code); };
+const bad = (code, vars) => { throw new HttpError(400, code, vars); };
 
 // ---------- Pi API ----------
 async function pi(env, path, { method = "GET", body, key } = {}) {
@@ -150,6 +150,10 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS kombat_week_claims ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, place INTEGER NOT NULL, prize INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE TABLE IF NOT EXISTS polls ( id INTEGER PRIMARY KEY AUTOINCREMENT, q TEXT NOT NULL, options TEXT NOT NULL, created_at INTEGER NOT NULL, ends_at INTEGER NOT NULL, closed INTEGER NOT NULL DEFAULT 0 )",
   "CREATE TABLE IF NOT EXISTS poll_votes ( poll_id INTEGER NOT NULL, uid TEXT NOT NULL, opt INTEGER NOT NULL, weight INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (poll_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS nft_items ( id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, edition INTEGER NOT NULL, owner TEXT NOT NULL, price INTEGER, minted_at INTEGER NOT NULL, UNIQUE (kind, edition) )",
+  "CREATE INDEX IF NOT EXISTS nft_owner ON nft_items(owner)",
+  "CREATE TABLE IF NOT EXISTS nft_moves ( item_id INTEGER NOT NULL, from_uid TEXT, to_uid TEXT NOT NULL, price INTEGER NOT NULL, at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS nft_credits ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, amount INTEGER NOT NULL, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_buys ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, address TEXT NOT NULL, pi REAL NOT NULL, jry TEXT NOT NULL, status TEXT NOT NULL, txid TEXT, error TEXT, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_keys ( id INTEGER PRIMARY KEY, seed TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_sends ( uid TEXT PRIMARY KEY, address TEXT NOT NULL, amount TEXT NOT NULL, txid TEXT, status TEXT NOT NULL, error TEXT, at INTEGER NOT NULL )",
@@ -204,6 +208,14 @@ async function applyMembership(env, u, tier, now) {
 async function stateFor(env, u, now, tier) {
   const st = await loadState(env, u.uid, now);
   let changed = L.tickCity(st, now, secureRandom); // new city orders appear on their own
+  // Kombat coins from collectibles sold while away (taken once, then added)
+  const credits = await all(env, "DELETE FROM nft_credits WHERE uid = ? RETURNING amount", u.uid);
+  if (credits.length) {
+    st.kombat = KL.norm(st.kombat, now);
+    const n = credits.reduce((a, c) => a + c.amount, 0);
+    st.kombat.coins += n; st.kombat.earn.trade = (st.kombat.earn.trade || 0) + n;
+    changed = true;
+  }
   if (tier === PARTNER && !st.partnerGift) {
     L.addAnimal(st, 3, now, "partner");
     st.partnerGift = 1;
@@ -244,7 +256,8 @@ async function account(env, u) {
     activeRefs: await activeRefs(env, u.uid),
     jryWallet: u.jry_wallet || null,
     jryHeld: held,
-    holdBoost: holdBoost(held),
+    holdBoost: holdBoost(held) + (await nftBoost(env, u.uid)),
+    nftBoost: await nftBoost(env, u.uid),
     jryOn: !!env.JRY_ISSUER_SEED || isTestnet(env),
     invitedBy: inviter ? inviter.username : null,
     canSetInviter: !u.referrer && Date.now() - u.created_at < INVITER_DAYS * DAY,
@@ -390,7 +403,7 @@ const routes = {
     let res;
     try {
       const refs = a.type === "kTask" ? await activeRefs(env, u.uid) : 0;
-      res = L.apply(state, a, { now, tier, adVerified, rand: secureRandom, refs, hold: holdBoost(await jryHeld(env, u)) });
+      res = L.apply(state, a, { now, tier, adVerified, rand: secureRandom, refs, hold: holdBoost(await jryHeld(env, u)) + (await nftBoost(env, u.uid)) });
     } catch (e) {
       if (e instanceof L.GameError) return json({ error: e.code, vars: e.vars, state, now }, 400);
       throw e;
@@ -686,6 +699,70 @@ const routes = {
     const status = await jryStatusOf(env, a);
     await run(env, "UPDATE users SET jry_bal = ?, jry_at = ? WHERE uid = ?", Number(status.balance) || 0, Date.now(), u.uid);
     return { account: await account(env, await one(env, "SELECT * FROM users WHERE uid = ?", u.uid)), trust: status.trust, balance: status.balance };
+  },
+
+  // ---------- Jerry Collectibles (NFT-style, Kombat coins) ----------
+  "GET /api/nft": async (req, env) => {
+    let me = null;
+    try { me = await auth(req, env); } catch {}
+    const minted = await all(env, "SELECT kind, COUNT(*) AS n FROM nft_items GROUP BY kind");
+    const market = await all(env, "SELECT i.id, i.kind, i.edition, i.price, u.username AS seller FROM nft_items i JOIN users u ON u.uid = i.owner WHERE i.price IS NOT NULL ORDER BY i.price ASC LIMIT 100");
+    const mine = me ? await all(env, "SELECT id, kind, edition, price FROM nft_items WHERE owner = ? ORDER BY kind, edition", me.uid) : [];
+    const recent = await all(env, "SELECT m.price, m.at, i.kind, i.edition, f.username AS seller, t.username AS buyer FROM nft_moves m JOIN nft_items i ON i.id = m.item_id LEFT JOIN users f ON f.uid = m.from_uid JOIN users t ON t.uid = m.to_uid WHERE m.from_uid IS NOT NULL ORDER BY m.at DESC LIMIT 10");
+    return { minted: Object.fromEntries(minted.map((x) => [x.kind, x.n])), market, mine, recent, boost: me ? await nftBoost(env, me.uid) : 0 };
+  },
+
+  // Mint a new copy (numbered) while editions are left
+  "POST /api/nft/mint": async (req, env, body) => {
+    const u = await auth(req, env);
+    const c = KL.nftById(String(body.kind || ""));
+    if (!c) bad("badAction");
+    const now = Date.now();
+    const st = await stateFor(env, u, now, tierOf(u, now, await isPartner(env, u.username)));
+    st.kombat = KL.norm(st.kombat, now);
+    if (st.kombat.coins < c.price) bad("k.noCoins", { n: c.price - Math.floor(st.kombat.coins) });
+    const n = (await one(env, "SELECT COUNT(*) AS n FROM nft_items WHERE kind = ?", c.id)).n;
+    if (n >= c.max) bad("k.nftSoldOut");
+    const ins = await run(env, "INSERT OR IGNORE INTO nft_items (kind, edition, owner, minted_at) VALUES (?, ?, ?, ?)", c.id, n + 1, u.uid, now);
+    if (!ins.meta.changes) bad("k.nftBusy"); // someone minted the same number a moment ago: try again
+    const item = await one(env, "SELECT id, edition FROM nft_items WHERE kind = ? AND edition = ?", c.id, n + 1);
+    st.kombat.coins -= c.price;
+    await saveState(env, u.uid, st, now);
+    await run(env, "INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, NULL, ?, ?, ?)", item.id, u.uid, c.price, now);
+    return { state: st, item: { id: item.id, kind: c.id, edition: item.edition }, now };
+  },
+
+  // List my copy for sale at my price, or take it off the market
+  "POST /api/nft/list": async (req, env, body) => {
+    const u = await auth(req, env);
+    const id = Number(body.id) || 0;
+    const price = body.price == null ? null : Math.floor(Number(body.price));
+    if (price != null && !(price >= 1 && price <= 1e12)) bad("k.nftPrice");
+    const r = await run(env, "UPDATE nft_items SET price = ? WHERE id = ? AND owner = ?", price, id, u.uid);
+    if (!r.meta.changes) bad("k.nftNotYours");
+    return { ok: true };
+  },
+
+  // Buy a listed copy: the item is reserved first, then coins move (5% burned)
+  "POST /api/nft/buy": async (req, env, body) => {
+    const u = await auth(req, env);
+    const id = Number(body.id) || 0, price = Math.floor(Number(body.price));
+    const item = await one(env, "SELECT * FROM nft_items WHERE id = ?", id);
+    if (!item || item.price == null || item.price !== price) bad("k.nftGone");
+    if (item.owner === u.uid) bad("k.nftOwn");
+    const now = Date.now();
+    const st = await stateFor(env, u, now, tierOf(u, now, await isPartner(env, u.username)));
+    st.kombat = KL.norm(st.kombat, now);
+    if (st.kombat.coins < price) bad("k.noCoins", { n: price - Math.floor(st.kombat.coins) });
+    const r = await run(env, "UPDATE nft_items SET owner = ?, price = NULL WHERE id = ? AND owner = ? AND price = ?", u.uid, id, item.owner, price);
+    if (!r.meta.changes) bad("k.nftGone");
+    st.kombat.coins -= price;
+    await saveState(env, u.uid, st, now);
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO nft_credits (uid, amount, at) VALUES (?, ?, ?)").bind(item.owner, Math.floor(price * (1 - KL.NFT_FEE)), now),
+      env.DB.prepare("INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, ?, ?, ?, ?)").bind(id, item.owner, u.uid, price, now),
+    ]);
+    return { state: st, now };
   },
 
   // ---------- Jerry community: votes, top holders, chat link ----------
@@ -1080,6 +1157,12 @@ async function weekPrize(env, uid, wid) {
   return { place, prize: KL.WEEK_PRIZES[place - 1], claimed: !!c };
 }
 
+// Profit bonus from the collectible designs a player owns
+async function nftBoost(env, uid) {
+  const rows = await all(env, "SELECT DISTINCT kind FROM nft_items WHERE owner = ?", uid);
+  return KL.nftBoostOf(rows.map((r) => r.kind));
+}
+
 // Invited friends who really played Kombat (empty accounts don't count)
 async function activeRefs(env, uid) {
   const r = await one(env, "SELECT COUNT(*) AS n FROM users f JOIN state s ON s.uid = f.uid WHERE f.referrer = ? AND json_extract(s.json, '$.kombat.act.days') >= 1", uid);
@@ -1174,7 +1257,7 @@ export default {
         if (url.pathname.startsWith("/api/payments/") || url.pathname === "/api/auth") {
           await logError(env, `refused ${req.method} ${url.pathname}`, e.status, e.code);
         }
-        return json({ error: e.code }, e.status);
+        return json(e.vars ? { error: e.code, vars: e.vars } : { error: e.code }, e.status);
       }
       if (e instanceof SyntaxError) return json({ error: "badAction" }, 400);
       console.error(e && e.stack);

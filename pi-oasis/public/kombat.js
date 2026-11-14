@@ -130,7 +130,8 @@
     $("kEBar").style.width = (100 * x.energy) / x.max + "%";
     $("kFBar").style.width = x.furyFill * 100 + "%";
     const lg = x.league, next = KL.LEAGUES[lg + 1];
-    $("kLeagueBtn").textContent = lgName(lg);
+    $("kLeagueBtn").textContent = KL.LEAGUE_ICON[lg]; // icon only: the name is on the League tab
+    $("kLeagueBtn").title = t("k.lg." + lg);
     $("kLgName").textContent = next ? `${lgName(lg)} → ${KL.LEAGUE_ICON[lg + 1]} ${big(next)}` : lgName(lg);
     $("kLgBar").style.width = next ? Math.max(0, Math.min(100, (100 * (x.coins - KL.LEAGUES[lg])) / (next - KL.LEAGUES[lg]))) + "%" : "100%";
     $("kMedal").dataset.lg = lg;
@@ -461,6 +462,67 @@
       G.toast(t("k.jry.ok"));
     } catch (e) { G.toast(errMsg(e)); }
   });
+  // ---------- Jerry Collectibles: mint, market, my copies ----------
+  let nTab = "mint", nData = null;
+  const nCard = (c, inner, ed) => `<div class="n-card r-${c.r}"><div class="n-art"><span>${c.e}</span>${ed ? `<em>#${ed}/${c.max}</em>` : ""}</div>
+    <b>${t("n.c." + c.id)}</b><small class="n-r">${t("n.r." + c.r)} · +${Math.round(c.perk * 100)}%/h</small>${inner}</div>`;
+  async function renderNft() {
+    try { nData = await Pi.nft(); } catch { return; }
+    const d = nData, coins = v().coins;
+    $("nBoost").textContent = t("n.boost", { n: Math.round(d.boost * 100), max: Math.round(KL.NFT_MAX * 100) });
+    document.querySelectorAll("[data-ntab]").forEach((b) => b.classList.toggle("on", b.dataset.ntab === nTab));
+    let html = "";
+    if (nTab === "mint") {
+      html = KL.COLLECTIBLES.map((c) => {
+        const n = d.minted[c.id] || 0, left = c.max - n;
+        return nCard(c, `<small>${t("n.left", { n: left, max: c.max })}</small>${left > 0
+          ? `<button class="k-buy" data-mint="${c.id}" ${coins >= c.price ? "" : "disabled"}><b><i class="kcoin s"></i>${big(c.price)}</b><small>${t("n.mintBtn")}</small></button>`
+          : `<span class="n-out">${t("n.soldOut")}</span>`}`);
+      }).join("");
+    } else if (nTab === "market") {
+      html = d.market.length ? d.market.map((it) => nCard(KL.nftById(it.kind), `<small>${t("n.seller", { name: esc(it.seller) })}</small>
+        ${G.account && it.seller === G.account.username ? `<span class="n-out">${t("n.yours")}</span>` : `<button class="k-buy" data-buy-nft="${it.id}" data-price="${it.price}" ${coins >= it.price ? "" : "disabled"}><b><i class="kcoin s"></i>${big(it.price)}</b><small>${t("n.buyBtn")}</small></button>`}`, it.edition)).join("")
+        : `<div class="k-note">${t("n.emptyMarket")}</div>`;
+    } else {
+      html = !G.account ? `<div class="k-note">${t("k.league.offline")}</div>` : d.mine.length ? d.mine.map((it) => nCard(KL.nftById(it.kind), it.price != null
+        ? `<small>${t("n.listed", { n: big(it.price) })}</small><button class="k-goal-share" data-unlist="${it.id}">${t("n.unlist")}</button>`
+        : `<button class="k-goal-share" data-list="${it.id}">${t("n.sell")}</button>`, it.edition)).join("") : `<div class="k-note">${t("n.none")}</div>`;
+    }
+    $("nList").innerHTML = html;
+    $("nRecent").innerHTML = d.recent.length ? d.recent.map((r) => `<div><span>${KL.nftById(r.kind).e}</span><b>#${r.edition} ${esc(r.seller || "")} → ${esc(r.buyer)}</b><small></small><span><i class="kcoin s"></i>${big(r.price)}</span></div>`).join("") : `<p class="k-note">${t("n.noSales")}</p>`;
+  }
+  document.querySelector('[data-kp="collect"]').addEventListener("click", async (e) => {
+    const tab = e.target.closest("[data-ntab]");
+    if (tab) { nTab = tab.dataset.ntab; return renderNft(); }
+    const b = e.target.closest("[data-mint],[data-buy-nft],[data-list],[data-unlist]");
+    if (!b) return;
+    if (!G.account) return G.toast(t("t.loginFirst"));
+    try {
+      await flush();
+      if (b.dataset.mint) {
+        const r = await Pi.nftMint(b.dataset.mint);
+        G.S = r.state; G.setClock(r.now);
+        const c = KL.nftById(r.item.kind);
+        G.toast(t("n.minted", { e: c.e, name: t("n.c." + c.id), n: r.item.edition, max: c.max })); sfx.level(); coinRain(30);
+      } else if (b.dataset.buyNft) {
+        if (!confirm(t("n.confirmBuy", { n: big(+b.dataset.price) }))) return;
+        const r = await Pi.nftBuy(+b.dataset.buyNft, +b.dataset.price);
+        G.S = r.state; G.setClock(r.now);
+        G.toast(t("n.bought")); sfx.chest(); coinRain(20);
+      } else if (b.dataset.list) {
+        const p = prompt(t("n.askPrice"));
+        if (!p) return;
+        await Pi.nftList(+b.dataset.list, Math.floor(Number(String(p).replace(/[^0-9]/g, ""))));
+        G.toast(t("n.listedOk")); sfx.coin();
+      } else if (b.dataset.unlist) {
+        await Pi.nftList(+b.dataset.unlist, null);
+        G.toast(t("n.unlisted"));
+      }
+      const me = await Pi.me(); G.setAccount(me.account); G.S = me.state;
+    } catch (err) { G.toast(errMsg(err)); }
+    renderNft(); paint();
+  });
+
   // ---------- Jerry community tab: chat, goal, market, wallet, votes, top holders ----------
   async function renderCommunity() {
     renderMarket(); loadGoal();
@@ -485,7 +547,7 @@
     };
     $("kPolls").innerHTML = c.polls.length || c.past.length ? c.polls.map(poll).join("") + c.past.map(poll).join("") : `<div class="k-note">${t("k.com.noPolls")}</div>`;
     $("kHolders").innerHTML = c.holders.length ? c.holders.map((h, i) => `<div class="${h.username === me ? "me" : ""}"><span>${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
-      <b>${esc(h.username)}</b><small>${(KL.HOLD_TIERS[KL.holdTier(h.bal)] || {}).e || ""}</small><span>🪙 ${big(h.bal)}</span></div>`).join("") : `<div class="k-note">${t("k.com.noHolders")}</div>`;
+      <b>${esc(h.username)}</b><small>${(KL.HOLD_TIERS[KL.holdTier(h.bal)] || {}).e || ""}</small><span>🪙 ${big(h.bal)}</span></div>`).join("") : `<p class="k-note">${t("k.com.noHolders")}</p>`;
   }
   const esc = (x) => String(x).replace(/[<>&"]/g, (ch) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[ch]));
   $("kPolls").addEventListener("click", async (e) => {
@@ -517,7 +579,8 @@
       <div class="k-shop"><b>🛒 ${t("k.buy.t")}</b>
         <div class="k-shop-row">${(m.packs || KL.JRY_PACKS).map((pi) => `<button class="k-buy" data-buy="${pi}"><b>${pi} Test-Pi</b><small>≈ ${num(pi * (perPi || 1000), 0)} testJRY</small></button>`).join("")}</div>
         ${m.mine && m.mine.owed ? `<button class="k-goal-share k-retry" data-retry="1">⏳ ${t("k.buy.owed", { n: num(m.mine.owedJry, 0) })}</button>` : ""}
-        <small>${t("k.buy.d")}</small></div>
+        <small>${t("k.buy.d")}</small>
+        <small class="k-sell">💱 ${t("k.sell.d")}</small></div>
       <small class="k-note">${t("k.mk.how")}</small>`;
   }
   $("kMarket").addEventListener("click", async (e) => {
@@ -571,6 +634,7 @@
     $("kombat").querySelector(".k-pages").scrollTop = 0;
     if (p === "league") renderLeague();
     if (p === "community") renderCommunity();
+    if (p === "collect") renderNft();
     renderAll();
   }
   $("kombat").addEventListener("click", (e) => { const b = e.target.closest("[data-kgo]"); if (b) go(b.dataset.kgo); });

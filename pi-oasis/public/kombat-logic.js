@@ -105,6 +105,22 @@
     { min: 10000, boost: 0.25, e: "🥈" },
     { min: 100000, boost: 0.5, e: "🥇" },
   ];
+  // Jerry Collectibles: limited editions, numbered copies, tradable between players for Kombat coins.
+  // Owning a design (any copy) adds Kombat profit per hour; perks add up to NFT_MAX.
+  const COLLECTIBLES = [
+    { id: "scorpion", e: "🦂", r: "common", max: 500, price: 20000, perk: 0.01 },
+    { id: "palm", e: "🌴", r: "common", max: 500, price: 20000, perk: 0.01 },
+    { id: "lamp", e: "🪔", r: "rare", max: 200, price: 100000, perk: 0.03 },
+    { id: "caravan", e: "🐪", r: "rare", max: 200, price: 100000, perk: 0.03 },
+    { id: "dagger", e: "🗡️", r: "epic", max: 50, price: 500000, perk: 0.06 },
+    { id: "crown", e: "👑", r: "epic", max: 50, price: 500000, perk: 0.06 },
+    { id: "origins", e: "🦊", r: "legendary", max: 10, price: 3000000, perk: 0.12 },
+    { id: "star", e: "⭐", r: "mythic", max: 1, price: 20000000, perk: 0.25 },
+  ];
+  const NFT_FEE = 0.05; // 5% of each sale is burned (fewer coins in the game)
+  const NFT_MAX = 0.5;
+  const nftById = (id) => COLLECTIBLES.find((x) => x.id === id);
+  const nftBoostOf = (kinds) => Math.min(NFT_MAX, [...new Set(kinds)].reduce((n, k) => n + ((nftById(k) || {}).perk || 0), 0));
   // In-game testJRY store (Testnet): Test-Pi amounts a player can pay
   const JRY_PACKS = [1, 5, 10];
   // Community votes: holders' votes count more
@@ -308,5 +324,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { COLLECTIBLES, NFT_FEE, NFT_MAX, nftById, nftBoostOf, JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

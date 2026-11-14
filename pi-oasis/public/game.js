@@ -677,7 +677,9 @@
 
   // ---------- Guide: first-time tour + help center ----------
   const TOUR = [null, "farm", "camels", "city", "stake", "rank", "vip", null];
-  const HELP = ["basics", "farm", "camels", "city", "granary", "ranking", "club", "referral", "missions", "safety", "faq"];
+  const HELP = ["basics", "farm", "camels", "city", "granary", "events", "shop", "ranking", "club", "referral", "missions",
+    "kombat", "kfun", "kboss", "kleague", "kcollect", "ktribes", "kjry", "kvote", "kairdrop", "safety", "faq"];
+  const KOMBAT_HELP = HELP.filter((k) => k[0] === "k");
   let tourI = -1;
   const goTab = (tab) => document.querySelector(`.tabs [data-tab="${tab}"]`).click();
   function showTour(i) {
@@ -708,16 +710,18 @@
     if (tourI >= TOUR.length - 1) return endTour();
     showTour(tourI + 1);
   });
-  function renderHelp() {
-    $("helpCard").innerHTML = `<div class="grab"></div><h3>${t("help.title")}</h3><p class="hint">${t("help.intro")}</p>` +
-      HELP.map((k, i) => `<details class="hsec" ${i === 0 ? "open" : ""}><summary>${t(`help.${k}.t`)}</summary><p>${t(`help.${k}.d`)}</p></details>`).join("") +
+  // kombat = true: only the Jerry Kombat sections, first one open
+  function renderHelp(kombat) {
+    const list = kombat ? KOMBAT_HELP : HELP;
+    $("helpCard").innerHTML = `<div class="grab"></div><h3>${t(kombat ? "help.ktitle" : "help.title")}</h3><p class="hint">${t(kombat ? "help.kintro" : "help.intro")}</p>` +
+      list.map((k, i) => `<details class="hsec" ${i === 0 ? "open" : ""}><summary>${t(`help.${k}.t`)}</summary><p>${t(`help.${k}.d`)}</p></details>`).join("") +
       `<button class="btn" data-replay style="margin-top:10px">${t("help.replay")}</button>
        <button class="btn secondary" data-close style="margin-top:8px">${t("help.close")}</button>`;
   }
   const helpOpen = () => !$("help").classList.contains("hidden");
-  function openHelp() { renderHelp(); $("help").classList.remove("hidden"); }
+  function openHelp(kombat) { renderHelp(kombat === true); $("help").classList.remove("hidden"); }
   const closeHelp = () => $("help").classList.add("hidden");
-  $("helpBtn").addEventListener("click", openHelp);
+  $("helpBtn").addEventListener("click", () => openHelp(false));
   $("helpBg").addEventListener("click", closeHelp);
   $("helpCard").addEventListener("click", (e) => {
     const b = e.target.closest("button");
@@ -944,6 +948,7 @@
     get account() { return account; },
     setClock(serverNow) { clockOffset = serverNow - Date.now(); },
     member: () => perks().boost > 0,
+    openHelp: () => openHelp(true),
     now, toast, msgText, saveGuest, boost: () => perks().boost + ((account && account.holdBoost) || 0),
     setAccount(a) { account = a; render(); },
     refLink: () => (account ? `${publicUrl || location.origin + location.pathname}?ref=${encodeURIComponent(account.username)}` : ""),

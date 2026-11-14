@@ -835,3 +835,5 @@ body.k-open { overflow: hidden; }
 .k-emojis button { font-size: 22px; padding: 6px 0; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.2); cursor: pointer; }
 .k-emojis button.on { background: #ffd76a; border-color: #ffd76a; }
 #trName { font-family: inherit; font-size: 14px; direction: auto; }
+
+#help { z-index: 95; }

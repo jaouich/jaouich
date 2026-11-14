@@ -60,6 +60,7 @@
     try { localStorage.setItem("k_mute", m ? "1" : "0"); } catch {}
   }
   $("kSound").addEventListener("click", () => setMute(!muted));
+  $("kHelp").addEventListener("click", () => G.openHelp());
   setMute(muted);
 
   // Runs an action on the server (signed in) or on the phone (guest)

@@ -524,8 +524,54 @@
   });
 
   // ---------- Jerry community tab: chat, goal, market, wallet, votes, top holders ----------
+  // ---------- Tribes ----------
+  let trEmoji = KL.TRIBE.EMOJIS[0];
+  async function renderTribes() {
+    let d;
+    try { d = await Pi.tribes(); } catch { return; }
+    const acc = G.account, coins = v().coins;
+    const row = (x, i, joinable) => `<div class="${d.mine && d.mine.id === x.id ? "me" : ""}"><span>${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
+      <b>${x.emoji} ${esc(x.name)}</b><small>👥 ${x.members}/${d.max}</small><span>${joinable && x.members < d.max ? `<button class="k-mini" data-tjoin="${x.id}">${t("tr.join")}</button>` : `<i class="kcoin s"></i>${big(x.score)}`}</span></div>`;
+    let html = "";
+    if (d.prize && !d.prize.claimed) html += `<button class="btn gold k-wide" data-tclaim="1">${t("tr.claim", { place: d.prize.place, e: d.prize.emoji, name: esc(d.prize.name), n: big(d.prize.prize) })}</button>`;
+    if (d.mine) {
+      const m = d.mine;
+      html += `<div class="k-tribe-card"><div class="k-tribe-ic">${m.emoji}</div><div><b>${esc(m.name)}</b>
+        <small>👥 ${m.members}/${d.max} · ${m.rank ? t("tr.rank", { n: m.rank }) : t("tr.unranked")} · 🪙 ${big(m.week)}</small></div></div>
+        <div class="k-tribe-actions"><button class="k-goal-share" data-tinvite="1">📣 ${t("tr.invite")}</button><button class="k-mini" data-tleave="1">${t("tr.leave")}</button></div>
+        <div class="k-top-list">${d.members.map((x, i) => `<div class="${acc && x.username === acc.username ? "me" : ""}"><span>${i + 1}</span><b>${esc(x.username)}</b><small></small><span><i class="kcoin s"></i>${big(x.week)}</span></div>`).join("")}</div>`;
+    } else {
+      html += `<div class="k-tribe-new"><b>🏕️ ${t("tr.new")}</b><small>${t("tr.newD", { n: big(d.cost), max: d.max })}</small>
+        <div class="k-emojis">${KL.TRIBE.EMOJIS.map((e) => `<button class="${e === trEmoji ? "on" : ""}" data-temoji="${e}">${e}</button>`).join("")}</div>
+        <div class="k-jry-row"><input id="trName" maxlength="20" autocomplete="off" placeholder="${t("tr.name")}"><button class="k-goal-share" data-tcreate="1" ${coins >= d.cost ? "" : "disabled"}><i class="kcoin s"></i>${big(d.cost)}</button></div></div>`;
+    }
+    html += `<div class="k-tour"><div class="k-tour-top"><b>🏆 ${t("tr.week")}</b><span>⏳ ${ago(d.ends - G.now())}</span></div>
+      <small>${t("tr.weekD", { a: big(d.prizes[0]), b: big(d.prizes[1]), c: big(d.prizes[2]) })}</small></div>
+      <div class="k-top-list">${d.top.length ? d.top.map((x, i) => row(x, i, !d.mine && acc)).join("") : `<p class="k-note">${t("tr.none")}</p>`}</div>`;
+    $("kTribe").innerHTML = html;
+  }
+  $("kTribe").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-temoji],[data-tcreate],[data-tjoin],[data-tleave],[data-tclaim],[data-tinvite]");
+    if (!b) return;
+    if (b.dataset.temoji) { trEmoji = b.dataset.temoji; document.querySelectorAll("[data-temoji]").forEach((x) => x.classList.toggle("on", x === b)); return; }
+    if (!G.account) return G.toast(t("t.loginFirst"));
+    try {
+      if (b.dataset.tinvite) {
+        const link = G.refLink(), text = t("tr.share", { link, code: G.account.username });
+        try { if (navigator.share) { await navigator.share({ text }); return; } } catch (er) { if (er && er.name === "AbortError") return; }
+        return navigator.clipboard?.writeText(text).then(() => G.toast(t("t.copied")));
+      }
+      await flush();
+      if (b.dataset.tcreate) { const r = await Pi.tribeCreate($("trName").value.trim(), trEmoji); G.S = r.state; G.setClock(r.now); G.toast(t("tr.created")); sfx.level(); coinRain(30); }
+      if (b.dataset.tjoin) { await Pi.tribeJoin(+b.dataset.tjoin); G.toast(t("tr.joined")); sfx.chest(); }
+      if (b.dataset.tleave) { if (!confirm(t("tr.confirmLeave"))) return; await Pi.tribeLeave(); G.toast(t("tr.left")); }
+      if (b.dataset.tclaim) { const r = await Pi.tribeClaim(); G.S = r.state; G.setClock(r.now); G.toast(t("tr.got", { n: big(r.n) })); sfx.level(); coinRain(40); pop(); }
+    } catch (err) { G.toast(errMsg(err)); }
+    renderTribes(); paint();
+  });
+
   async function renderCommunity() {
-    renderMarket(); loadGoal();
+    renderTribes(); renderMarket(); loadGoal();
     const acc = G.account;
     $("kJry").classList.toggle("hidden", !(acc && acc.jryOn));
     if (acc && acc.jryOn) {

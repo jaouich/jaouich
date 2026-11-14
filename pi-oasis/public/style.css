@@ -821,3 +821,17 @@ body.k-open { overflow: hidden; }
 .k-league-pill { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; }
 .n-card .k-buy { padding: 8px 4px; }
 .k-sell { opacity: .9 !important; }
+
+/* Tribes */
+.k-tribe-card { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 18px; background: linear-gradient(120deg, rgba(47, 174, 120, .3), rgba(124, 92, 255, .25)); border: 1px solid rgba(125, 255, 181, .5); }
+.k-tribe-ic { font-size: 42px; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.3); }
+.k-tribe-card > div:last-child { display: flex; flex-direction: column; gap: 4px; }
+.k-tribe-card b { font-size: 18px; }
+.k-tribe-card small { opacity: .85; font-size: 12px; }
+.k-tribe-actions { display: flex; gap: 8px; justify-content: space-between; margin: 8px 0; }
+.k-tribe-new { padding: 12px; border-radius: 18px; background: rgba(255,255,255,.07); border: 1px dashed rgba(255,255,255,.3); display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.k-tribe-new small { opacity: .8; font-size: 12px; }
+.k-emojis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.k-emojis button { font-size: 22px; padding: 6px 0; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.2); cursor: pointer; }
+.k-emojis button.on { background: #ffd76a; border-color: #ffd76a; }
+#trName { font-family: inherit; font-size: 14px; direction: auto; }

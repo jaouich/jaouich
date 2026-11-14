@@ -150,6 +150,11 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS kombat_week_claims ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, place INTEGER NOT NULL, prize INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE TABLE IF NOT EXISTS polls ( id INTEGER PRIMARY KEY AUTOINCREMENT, q TEXT NOT NULL, options TEXT NOT NULL, created_at INTEGER NOT NULL, ends_at INTEGER NOT NULL, closed INTEGER NOT NULL DEFAULT 0 )",
   "CREATE TABLE IF NOT EXISTS poll_votes ( poll_id INTEGER NOT NULL, uid TEXT NOT NULL, opt INTEGER NOT NULL, weight INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (poll_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS tribes ( id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE COLLATE NOCASE, emoji TEXT NOT NULL, owner TEXT NOT NULL, created_at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS tribe_members ( uid TEXT PRIMARY KEY, tribe_id INTEGER NOT NULL, joined_at INTEGER NOT NULL )",
+  "CREATE INDEX IF NOT EXISTS tribe_members_t ON tribe_members(tribe_id)",
+  "CREATE TABLE IF NOT EXISTS tribe_claims ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, place INTEGER NOT NULL, prize INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS tribe_left ( uid TEXT PRIMARY KEY, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS nft_items ( id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, edition INTEGER NOT NULL, owner TEXT NOT NULL, price INTEGER, minted_at INTEGER NOT NULL, UNIQUE (kind, edition) )",
   "CREATE INDEX IF NOT EXISTS nft_owner ON nft_items(owner)",
   "CREATE TABLE IF NOT EXISTS nft_moves ( item_id INTEGER NOT NULL, from_uid TEXT, to_uid TEXT NOT NULL, price INTEGER NOT NULL, at INTEGER NOT NULL )",
@@ -701,6 +706,104 @@ const routes = {
     return { account: await account(env, await one(env, "SELECT * FROM users WHERE uid = ?", u.uid)), trust: status.trust, balance: status.balance };
   },
 
+  // ---------- Tribes ----------
+  "GET /api/tribes": async (req, env) => {
+    let me = null;
+    try { me = await auth(req, env); } catch {}
+    const now = Date.now(), wk = KL.weekId(now), last = KL.weekId(now - 7 * DAY);
+    const top = await tribeRanking(env, wk, 30);
+    let mine = null, members = [], prize = null;
+    if (me) {
+      const m = await one(env, "SELECT t.*, tm.joined_at FROM tribe_members tm JOIN tribes t ON t.id = tm.tribe_id WHERE tm.uid = ?", me.uid);
+      if (m) {
+        const rankRow = top.findIndex((x) => x.id === m.id);
+        const count = (await one(env, "SELECT COUNT(*) AS n FROM tribe_members WHERE tribe_id = ?", m.id)).n;
+        mine = { id: m.id, name: m.name, emoji: m.emoji, owner: m.owner === me.uid, members: count, rank: rankRow >= 0 ? rankRow + 1 : null, week: rankRow >= 0 ? top[rankRow].score : 0 };
+        members = await all(env, `SELECT u.username, COALESCE(w.earned, 0) AS week FROM tribe_members tm JOIN users u ON u.uid = tm.uid
+          LEFT JOIN kombat_weeks w ON w.uid = tm.uid AND w.week_id = ? WHERE tm.tribe_id = ? ORDER BY week DESC LIMIT 30`, wk, m.id);
+      }
+      prize = await tribePrize(env, me.uid, last);
+    }
+    return { top, mine, members, prize, ends: wk + 7 * DAY, cost: KL.TRIBE.COST, max: KL.TRIBE.MAX, prizes: KL.TRIBE.PRIZES };
+  },
+
+  "POST /api/tribes/create": async (req, env, body) => {
+    const u = await auth(req, env);
+    const name = String(body.name || "").trim().replace(/\s+/g, " ");
+    const emoji = String(body.emoji || "");
+    if (!KL.tribeNameOk(name)) bad("k.tribeName");
+    if (!KL.TRIBE.EMOJIS.includes(emoji)) bad("badAction");
+    if (await one(env, "SELECT 1 AS x FROM tribe_members WHERE uid = ?", u.uid)) bad("k.tribeAlready");
+    const now = Date.now();
+    const st = await stateFor(env, u, now, tierOf(u, now, await isPartner(env, u.username)));
+    st.kombat = KL.norm(st.kombat, now);
+    if (st.kombat.coins < KL.TRIBE.COST) bad("k.noCoins", { n: KL.TRIBE.COST - Math.floor(st.kombat.coins) });
+    const ins = await run(env, "INSERT OR IGNORE INTO tribes (name, emoji, owner, created_at) VALUES (?, ?, ?, ?)", name, emoji, u.uid, now);
+    if (!ins.meta.changes) bad("k.tribeTaken");
+    const t = await one(env, "SELECT id FROM tribes WHERE name = ?", name);
+    await run(env, "INSERT INTO tribe_members (uid, tribe_id, joined_at) VALUES (?, ?, ?)", u.uid, t.id, now);
+    st.kombat.coins -= KL.TRIBE.COST;
+    await saveState(env, u.uid, st, now);
+    return { state: st, id: t.id, now };
+  },
+
+  "POST /api/tribes/join": async (req, env, body) => {
+    const u = await auth(req, env);
+    const id = Number(body.id) || 0, now = Date.now();
+    if (!(await one(env, "SELECT 1 AS x FROM tribes WHERE id = ?", id))) bad("k.tribeGone");
+    if (await one(env, "SELECT 1 AS x FROM tribe_members WHERE uid = ?", u.uid)) bad("k.tribeAlready");
+    const left = await one(env, "SELECT at FROM tribe_left WHERE uid = ?", u.uid);
+    if (left && now - left.at < KL.TRIBE.LEAVE_WAIT) bad("k.tribeWait", { h: Math.ceil((KL.TRIBE.LEAVE_WAIT - (now - left.at)) / 3600e3) });
+    // join only while there is room (checked in the same statement)
+    const r = await run(env, "INSERT INTO tribe_members (uid, tribe_id, joined_at) SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM tribe_members WHERE tribe_id = ?) < ?", u.uid, id, now, id, KL.TRIBE.MAX);
+    if (!r.meta.changes) bad("k.tribeFull");
+    return { ok: true };
+  },
+
+  "POST /api/tribes/leave": async (req, env) => {
+    const u = await auth(req, env);
+    const m = await one(env, "SELECT tribe_id FROM tribe_members WHERE uid = ?", u.uid);
+    if (!m) bad("k.tribeNone");
+    const now = Date.now();
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM tribe_members WHERE uid = ?").bind(u.uid),
+      env.DB.prepare("INSERT OR REPLACE INTO tribe_left (uid, at) VALUES (?, ?)").bind(u.uid, now),
+    ]);
+    // the founder leaves: the longest member takes over; an empty tribe is removed
+    const t = await one(env, "SELECT owner FROM tribes WHERE id = ?", m.tribe_id);
+    if (t && t.owner === u.uid) {
+      const next = await one(env, "SELECT uid FROM tribe_members WHERE tribe_id = ? ORDER BY joined_at LIMIT 1", m.tribe_id);
+      if (next) await run(env, "UPDATE tribes SET owner = ? WHERE id = ?", next.uid, m.tribe_id);
+      else await run(env, "DELETE FROM tribes WHERE id = ?", m.tribe_id);
+    }
+    return { ok: true };
+  },
+
+  // Members of last week's top 3 tribes (who joined before that week) collect once
+  "POST /api/tribes/claim": async (req, env) => {
+    const u = await auth(req, env);
+    const now = Date.now(), last = KL.weekId(now - 7 * DAY);
+    const p = await tribePrize(env, u.uid, last);
+    if (!p || p.claimed) bad("k.noTribePrize");
+    const r = await run(env, "INSERT OR IGNORE INTO tribe_claims (week_id, uid, place, prize, at) VALUES (?, ?, ?, ?, ?)", last, u.uid, p.place, p.prize, now);
+    if (!r.meta.changes) bad("k.noTribePrize");
+    const st = await stateFor(env, u, now, tierOf(u, now, await isPartner(env, u.username)));
+    st.kombat = KL.norm(st.kombat, now);
+    st.kombat.coins += p.prize; st.kombat.total += p.prize;
+    st.kombat.earn.tribe = (st.kombat.earn.tribe || 0) + p.prize;
+    await saveState(env, u.uid, st, now);
+    return { state: st, n: p.prize, place: p.place, now };
+  },
+
+  // Owner: remove a tribe (e.g. an offensive name)
+  "POST /api/admin/tribes": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const id = Number(body.id) || 0;
+    await env.DB.batch([env.DB.prepare("DELETE FROM tribe_members WHERE tribe_id = ?").bind(id), env.DB.prepare("DELETE FROM tribes WHERE id = ?").bind(id)]);
+    return { ok: true };
+  },
+
   // ---------- Jerry Collectibles (NFT-style, Kombat coins) ----------
   "GET /api/nft": async (req, env) => {
     let me = null;
@@ -1155,6 +1258,23 @@ async function weekPrize(env, uid, wid) {
   if (place > KL.WEEK_PRIZES.length) return null;
   const c = await one(env, "SELECT 1 AS x FROM kombat_week_claims WHERE week_id = ? AND uid = ?", wid, uid);
   return { place, prize: KL.WEEK_PRIZES[place - 1], claimed: !!c };
+}
+
+// Tribes ranked by their members' Kombat coins earned in a week
+async function tribeRanking(env, wid, limit) {
+  return all(env, `SELECT t.id, t.name, t.emoji, COUNT(tm.uid) AS members, COALESCE(SUM(w.earned), 0) AS score
+    FROM tribes t JOIN tribe_members tm ON tm.tribe_id = t.id LEFT JOIN kombat_weeks w ON w.uid = tm.uid AND w.week_id = ?
+    GROUP BY t.id ORDER BY score DESC, t.id ASC LIMIT ?`, wid, limit);
+}
+// My tribe's place and prize for a finished week (members who joined before that week only)
+async function tribePrize(env, uid, wid) {
+  const m = await one(env, "SELECT tribe_id, joined_at FROM tribe_members WHERE uid = ?", uid);
+  if (!m || m.joined_at >= wid) return null;
+  const top = await tribeRanking(env, wid, KL.TRIBE.PRIZES.length);
+  const i = top.findIndex((x) => x.id === m.tribe_id && x.score > 0);
+  if (i < 0) return null;
+  const c = await one(env, "SELECT 1 AS x FROM tribe_claims WHERE week_id = ? AND uid = ?", wid, uid);
+  return { place: i + 1, prize: KL.TRIBE.PRIZES[i], claimed: !!c, name: top[i].name, emoji: top[i].emoji };
 }
 
 // Profit bonus from the collectible designs a player owns

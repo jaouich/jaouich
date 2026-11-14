@@ -105,6 +105,10 @@
     { min: 10000, boost: 0.25, e: "🥈" },
     { min: 100000, boost: 0.5, e: "🥇" },
   ];
+  // Tribes: teams of players; weekly tribe ranking from members' coins earned this week
+  const TRIBE = { COST: 250000, MAX: 30, PRIZES: [300000, 150000, 75000], LEAVE_WAIT: 24 * 3600e3,
+    EMOJIS: ["🦊", "🐪", "🦂", "🐍", "🦅", "🐆", "🌴", "🔥", "⚡", "🌙", "⭐", "👑"] };
+  const tribeNameOk = (n) => /^[\p{L}\p{N}][\p{L}\p{N} _-]{1,18}[\p{L}\p{N}]$/u.test(n);
   // Jerry Collectibles: limited editions, numbered copies, tradable between players for Kombat coins.
   // Owning a design (any copy) adds Kombat profit per hour; perks add up to NFT_MAX.
   const COLLECTIBLES = [
@@ -324,5 +328,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { COLLECTIBLES, NFT_FEE, NFT_MAX, nftById, nftBoostOf, JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { TRIBE, tribeNameOk, COLLECTIBLES, NFT_FEE, NFT_MAX, nftById, nftBoostOf, JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

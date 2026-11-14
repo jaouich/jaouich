@@ -30,8 +30,16 @@ export async function processPayouts(env, d) {
   try {
     const inc = await d.pi(env, "/payments/incomplete_server_payments");
     for (const p of inc.incomplete_server_payments || []) {
-      await finishPayment(env, d, p, appAddress);
-      report.resumed++;
+      // One stuck payment must not stop the others
+      try {
+        await finishPayment(env, d, p, appAddress);
+        report.resumed++;
+      } catch (e) {
+        report.failed++;
+        const po = await d.one(env, "SELECT * FROM payouts WHERE pi_payment_id = ?", p.identifier);
+        if (po) await failPayout(env, d, po, e);
+        else await d.logError(env, "payouts: resume " + p.identifier, 0, String(e && e.message || e));
+      }
     }
   } catch (e) {
     await d.logError(env, "payouts: resume", 0, e.message);
@@ -74,7 +82,7 @@ export async function processPayouts(env, d) {
   }
 
   // 4) Send
-  const todo = await d.all(env, "SELECT * FROM payouts WHERE status IN ('new', 'created') ORDER BY created_at LIMIT ?", PER_RUN);
+  const todo = await d.all(env, "SELECT * FROM payouts WHERE status IN ('new', 'created') ORDER BY tries ASC, created_at LIMIT ?", PER_RUN);
   for (const po of todo) {
     try {
       let p;
@@ -135,10 +143,20 @@ async function findTxByMemo(network, address, memo) {
 }
 
 async function failPayout(env, d, po, e) {
-  const msg = String((e && e.message) || e).slice(0, 300);
+  const msg = String((e && (e.detail || e.message)) || e).slice(0, 300);
   await d.logError(env, `payout ${po.kind} ${po.amount} Pi`, 0, msg);
   // Created but nothing sent yet: retry next run. Not even created after 3 tries: give up.
   const tries = (po.tries || 0) + 1;
+  // A gift is only a test: if the player's Testnet wallet can't receive it (e.g. never opened),
+  // cancel it at Pi right away (or after 3 tries) so it never blocks the gifts to other players.
+  const noWallet = /op_no_destination|not found|Pi API 4\d\d/i.test(msg);
+  if (po.kind === "gift" && (noWallet || tries >= 3)) {
+    if (po.pi_payment_id) {
+      try { await d.pi(env, `/payments/${encodeURIComponent(po.pi_payment_id)}/cancel`, { method: "POST", body: {} }); } catch (e2) {}
+    }
+    await d.run(env, "UPDATE payouts SET tries = ?, error = ?, status = 'failed', updated_at = ? WHERE id = ?", tries, msg, Date.now(), po.id);
+    return;
+  }
   const giveUp = !po.pi_payment_id && tries >= 3;
   await d.run(env, "UPDATE payouts SET tries = ?, error = ?, status = ?, updated_at = ? WHERE id = ?", tries, msg, giveUp ? "failed" : po.status, Date.now(), po.id);
   if (giveUp && po.kind === "withdraw") {

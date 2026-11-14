@@ -29,6 +29,20 @@ const again = await post("/api/admin/test-gifts", { action: "send" }, H(A));
 ok((await chain()).txs.length === before + 3, "pressing again never pays the same player twice");
 ok(again.paid === 3, "report still 3");
 
+// Players whose gift can't arrive must not block the others
+await fetch(B + "/__test/nowallet?uF");
+await post("/api/auth", { accessToken: "tokF" }); // fatima: Testnet wallet never opened
+await post("/api/auth", { accessToken: "tokD" });  // dina: not a user of this Pi app ("user not found")
+await post("/api/auth", { accessToken: "tokE" });
+let g = await post("/api/admin/test-gifts", { action: "send" }, H(A));
+const failed = g.gifts.filter((x) => x.status === "failed");
+ok(failed.length >= 1 && failed.every((x) => x.error), "gifts that can't arrive are marked ❌ with the reason, right away");
+const stuck = await fetch(B + "/__test/sql", { method: "POST", body: "SELECT COUNT(*) AS n FROM payouts WHERE kind = 'gift' AND status IN ('new','created')" }).then((r) => r.json());
+ok(stuck[0].n === 0, "no gift left stuck in the queue");
+ok(g.paid === 3, "the 3 paid gifts stay paid");
+const fat = g.gifts.find((x) => x.username === "fatima");
+ok(fat && fat.status === "failed" && /no_destination/.test(fat.error), "unopened Testnet wallet: ❌ op_no_destination, payment cancelled at Pi");
+
 await fetch(B + "/__test/gifts?off");
 ok((await post("/api/admin/test-gifts", { action: "send" }, H(A))).s === 403, "disabled when TESTNET_GIFTS is not set (Mainnet)");
 const meA2 = await fetch(B + "/api/me", { headers: H(A) }).then((r) => r.json());

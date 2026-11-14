@@ -48,7 +48,9 @@ async function pi(env, path, { method = "GET", body, key } = {}) {
     console.error("Pi API", path, r.status, JSON.stringify(data));
     await logError(env, `Pi API ${method} ${path}`, r.status, data.error_message || data.error || data.message || "");
     // A Pi API failure is a server-side problem (e.g. wrong API key), never the player's session
-    throw new HttpError(502, "server");
+    const err = new HttpError(502, "server");
+    err.detail = `Pi API ${r.status}: ${data.error_message || data.error || data.message || "error"}`; // shown to the owner in payout lists
+    throw err;
   }
   return data;
 }
@@ -1127,7 +1129,12 @@ const routes = {
           env.DB.prepare("INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'gift', 'testnet', ?, 0.01, 'Pi Oasis Testnet gift', 'new', ?, ?)")
             .bind(crypto.randomUUID(), x.uid, now, now)));
       }
-      await runPayouts(env);
+      // Up to 3 rounds of 5, so one press can reach the 5 players Pi asks for even if some fail
+      for (let i = 0; i < 3; i++) {
+        await runPayouts(env);
+        const left = await one(env, "SELECT COUNT(*) AS n FROM payouts WHERE kind = 'gift' AND status IN ('new', 'created')");
+        if (!left.n) break;
+      }
     }
     const gifts = await all(env, "SELECT u.username, p.status, p.error FROM payouts p LEFT JOIN users u ON u.uid = p.uid WHERE p.kind = 'gift' ORDER BY p.created_at DESC LIMIT 50");
     const players = await one(env, "SELECT COUNT(*) AS n FROM users");

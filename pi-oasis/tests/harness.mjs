@@ -42,20 +42,22 @@ globalThis.fetch = async (url, opt = {}) => {
     const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s });
     if (p2 === "/payments" && opt.method === "POST") {
       const b = JSON.parse(opt.body).payment;
-      if (!["uA", "uB", "uC", "uA2"].includes(b.uid)) return J({ error_message: "user not found" }, 400);
+      if (!["uA", "uB", "uC", "uA2", "uF"].includes(b.uid)) return J({ error_message: "user not found" }, 400);
       const id = "a2u" + ++a2uN;
       a2u[id] = { identifier: id, user_uid: b.uid, amount: b.amount, memo: b.memo, metadata: b.metadata, direction: "app_to_user",
         from_address: APP.G, to_address: walletOf(b.uid), network: "Pi Testnet", status: { developer_completed: false, cancelled: false }, transaction: null };
+      if (globalThis.__noWallet === b.uid) { a2u[id].to_address = kp().G; (globalThis.__deadAddrs ||= new Set()).add(a2u[id].to_address); } // a wallet never opened on Testnet
       return J(a2u[id]);
     }
-    if (p2 === "/payments/incomplete_server_payments") return J({ incomplete_server_payments: Object.values(a2u).filter((x) => !x.status.developer_completed) });
+    if (p2 === "/payments/incomplete_server_payments") return J({ incomplete_server_payments: Object.values(a2u).filter((x) => !x.status.developer_completed && !x.status.cancelled) });
     let m2;
     if ((m2 = p2.match(/^\/payments\/(a2u\d+)$/))) return J(a2u[m2[1]]);
+    if ((m2 = p2.match(/^\/payments\/(a2u\d+)\/cancel$/))) { const x = a2u[m2[1]]; x.status.cancelled = true; return J(x); }
     if ((m2 = p2.match(/^\/payments\/(a2u\d+)\/complete$/))) { const x = a2u[m2[1]]; x.status.developer_completed = true; x.transaction = { txid: JSON.parse(opt.body).txid }; return J(x); }
   }
   if (u.endsWith("/v2/me")) {
     const t = (opt.headers?.Authorization || "").replace("Bearer ", "");
-    const devApp = { tokC: { uid: "uC", username: "carol" }, tokA2: { uid: "uA2", username: "alice" }, tokD: { uid: "uD", username: "dina" }, tokE: { uid: "uE", username: "emad" } };
+    const devApp = { tokC: { uid: "uC", username: "carol" }, tokA2: { uid: "uA2", username: "alice" }, tokD: { uid: "uD", username: "dina" }, tokE: { uid: "uE", username: "emad" }, tokF: { uid: "uF", username: "fatima" } };
     return devApp[t] ? new Response(JSON.stringify(devApp[t])) : new Response("{}", { status: 401 });
   }
   if (!u.startsWith("https://api.minepi.com/v2")) return realFetch(url, opt);
@@ -192,6 +194,7 @@ async function horizon(u, opt) {
     let t; try { t = readEnvelope(env64); } catch (e) { return J({ title: e.message }, 400); }
     if (t.seq !== chain.seq + 1n) return J({ extras: { result_codes: { transaction: "tx_bad_seq" } } }, 400);
     if (t.from !== APP.G) return J({ title: "wrong source" }, 400);
+    if (globalThis.__deadAddrs && globalThis.__deadAddrs.has(t.to)) return J({ extras: { result_codes: { transaction: "tx_failed", operations: ["op_no_destination"] } } }, 400);
     chain.seq += 1n; chain.txs.push(t);
     if (chain.dropNextResponse) { chain.dropNextResponse = false; return J({ title: "timeout" }, 504); }
     return J({ hash: t.hash });
@@ -212,6 +215,7 @@ http.createServer(async (rq, rs) => {
   if (rq.url.startsWith("/__test/studio")) { if (rq.url.endsWith("on")) env.PI_STUDIO_API_KEY = "STUDIOKEY"; else delete env.PI_STUDIO_API_KEY; rs.end("ok"); return; }
   if (rq.url === "/__test/completes") { rs.end(String(globalThis.__completes || 0)); return; }
   if (rq.url === "/__test/calls") { rs.end(String(globalThis.__studioCalls || 0)); return; }
+  if (rq.url.startsWith("/__test/nowallet?")) { globalThis.__noWallet = rq.url.split("?")[1]; rs.end("ok"); return; }
   if (rq.url === "/__test/tnexec") { tdb.exec(Buffer.concat(chunks).toString()); rs.end("ok"); return; }
   if (rq.url.startsWith("/__test/mainnet")) { if (rq.url.endsWith("on")) { env.TESTNET_DB = TESTNET_DB; delete env.TESTNET_GIFTS; } else { delete env.TESTNET_DB; env.TESTNET_GIFTS = "1"; } rs.end("ok"); return; }
   if (rq.url === "/__test/exec") { db.exec(Buffer.concat(chunks).toString()); rs.end("ok"); return; }

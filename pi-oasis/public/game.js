@@ -43,7 +43,7 @@
     const web = account ? `${publicUrl || location.origin + location.pathname}?ref=${encodeURIComponent(account.username)}` : "";
     let host = "";
     try { host = new URL(web || location.href).host; } catch (e) {}
-    return { link: web.replace(/^https?:\/\//, "pi://"), host };
+    return { link: web, host };
   }
 
   function toast(msg) {
@@ -356,7 +356,7 @@
     $("dailyBtn").disabled = done;
     $("dailyBtn").textContent = done ? t("daily.done") : t("daily.claim", { n: C.DAILY * perks().daily });
     if (account) {
-      $("refLink").value = piShare().link; // pi:// so it opens in Pi Browser, not Google/Chrome
+      $("refLink").value = piShare().link;
       $("refCode").textContent = account.username;
       $("inviterBox").classList.toggle("hidden", !account.canSetInviter);
       $("invitedBy").classList.toggle("hidden", !account.invitedBy);
@@ -610,6 +610,7 @@
       const res = await Pi.login();
       clockOffset = res.now - Date.now();
       account = res.account;
+      document.getElementById("piGate")?.remove(); // signed in, so this is Pi Browser
       publicUrl = res.publicUrl || "";
       if (res.via === "appstudio" && !res.canBuy) enterOldApp(); // purchases only work in the official app until its key is set
       S = res.state; // the server's game replaces the guest demo
@@ -632,6 +633,39 @@
   $("loginBtn").addEventListener("click", () => signIn(false));
   // Inside Pi Browser, sign in automatically on load
   if (window.Pi) signIn(true);
+
+  // ---------- Opened from WhatsApp/Telegram in Chrome or Safari: send the visitor to Pi Browser ----------
+  // Shared links are https (so they can be tapped in chats); this page opens them in Pi Browser.
+  (function piBrowserGate() {
+    const ua = navigator.userAgent || "";
+    if (/PiBrowser/i.test(ua)) return;
+    try { if (sessionStorage.getItem("oasis.stay")) return; } catch (e) {}
+    const piUrl = "pi://" + location.host + location.pathname + location.search;
+    const android = /Android/i.test(ua);
+    // Android: open Pi Browser, or its Play Store page if it isn't installed
+    const openUrl = android
+      ? `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=pi;package=pi.browser;S.browser_fallback_url=${encodeURIComponent("https://play.google.com/store/apps/details?id=pi.browser")};end`
+      : piUrl;
+    const d = document.createElement("div");
+    d.id = "piGate";
+    d.innerHTML = `<div class="pg-card">
+      <div class="pg-logo">🌴</div>
+      <h2>${esc(t("pg.title"))}</h2>
+      <p>${esc(t("pg.text"))}</p>
+      <a class="btn gold pg-open" href="${esc(openUrl)}">${esc(t("pg.open"))}</a>
+      <p class="hint">${esc(t("pg.manual"))}</p>
+      <button class="btn small secondary pg-copy" type="button"><b dir="ltr">${esc(location.host)}</b> · ${esc(t("pg.copy"))}</button>
+      <a class="pg-get" href="https://minepi.com" target="_blank" rel="noopener">${esc(t("pg.get"))}</a>
+      <button class="pg-stay" type="button">${esc(t("pg.stay"))}</button>
+    </div>`;
+    document.body.appendChild(d);
+    d.querySelector(".pg-copy").addEventListener("click", () =>
+      navigator.clipboard?.writeText(location.host + location.search).then(() => toast(t("t.copied")), () => {}));
+    d.querySelector(".pg-stay").addEventListener("click", () => {
+      try { sessionStorage.setItem("oasis.stay", "1"); } catch (e) {}
+      d.remove();
+    });
+  })();
 
   // ---------- Tabs & language ----------
   document.querySelector(".tabs").addEventListener("click", (e) => {

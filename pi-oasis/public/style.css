@@ -849,3 +849,15 @@ body.k-open { overflow: hidden; }
 .cj-ok { color: #7dffb5; font-weight: 800; font-size: 13px; }
 .cj-wait { color: #ffd76a; font-weight: 800; font-size: 13px; }
 #cjNote { font-family: inherit; font-size: 13px; direction: auto; }
+
+/* Opened outside Pi Browser (e.g. from WhatsApp): a page that sends the visitor to Pi Browser */
+#piGate { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(20, 40, 30, .72); backdrop-filter: blur(4px); }
+#piGate .pg-card { background: #fffaf0; color: var(--ink); border-radius: var(--radius); padding: 24px 20px; max-width: 380px; width: 100%;
+  text-align: center; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
+#piGate .pg-logo { font-size: 48px; line-height: 1; }
+#piGate h2 { margin: 0; font-family: var(--display); color: var(--emerald-d); }
+#piGate p { margin: 0; }
+#piGate .pg-open { display: block; text-decoration: none; font-size: 1.1em; padding: 14px; }
+#piGate .pg-get { color: var(--emerald); font-size: .92em; }
+#piGate .pg-stay { background: none; border: 0; color: var(--muted); text-decoration: underline; font: inherit; font-size: .88em; cursor: pointer; }

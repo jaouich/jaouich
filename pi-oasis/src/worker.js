@@ -390,6 +390,14 @@ let marketCache = null;
 // Testnet server? The TESTNET_GIFTS setting, or the Testnet address the request came to
 // (pi-oasis.… / oasisgame6033.…). The Mainnet server (jaouich.…) never matches.
 let testnetHost = false;
+// Testnet app settings (not secret). Secrets (API key, wallet) still come from Cloudflare.
+const TESTNET_VARS = {
+  VALIDATION_KEY: "7c51468ad7937a22873ad4adf0fd7d80b1be68a1f78733624eb98d53c35fe3985aacf7642e50d4d5ee31e85304b4542b08ff9c6322821708bf153f78d54cad8d",
+  PUBLIC_URL: "https://oasisgame6033.pinet.com",
+  TESTNET_GIFTS: "1",
+  JRY_CODE: "testJRY",
+  JRY_HOME: "pi-oasis.jaouich.workers.dev",
+};
 const isTestnet = (env) => env.TESTNET_GIFTS === "1" || testnetHost;
 const routes = {
   // Sign in: exchange the Pi access token with App Studio (one exchange per sign-in).
@@ -1425,7 +1433,12 @@ export default {
 
   async fetch(req, env) {
     const url = new URL(req.url);
-    if (/^pi-oasis\.|^oasisgame6033\./.test(url.hostname)) testnetHost = true;
+    if (/^pi-oasis\.|^oasisgame6033\./.test(url.hostname)) {
+      testnetHost = true;
+      // The Testnet address always runs with the Testnet app's settings, whatever the dashboard
+      // variables say (they once held the Mainnet link and key, which sent invites to Mainnet).
+      env = Object.assign(Object.create(env), TESTNET_VARS);
+    }
     // Pi Developer Portal domain check: each Worker (Testnet / Mainnet) has its own key
     if (url.pathname === "/validation-key.txt") {
       return env.VALIDATION_KEY

@@ -539,6 +539,7 @@
 
   // ---------- Owner: test JRY token (Pi Testnet) ----------
   function showToken(s) {
+    $("tkAppAddr").value = s.distributor || "";
     const row = (ok, k, extra) => `<div><span>${ok ? "✅" : "⬜"} ${t(k)}</span><small class="hint" style="direction:ltr">${extra || ""}</small></div>`;
     const short = (g) => (g ? g.slice(0, 5) + "…" + g.slice(-4) : "");
     $("tkStatus").innerHTML = row(s.issuerActive, "tk.issuer", short(s.issuer)) + row(s.distTrust, "tk.trust", short(s.distributor)) +
@@ -555,6 +556,11 @@
     } catch (e) { toast(e.code ? errText(e.code, e.data && e.data.vars) : e.message); }
   }
   $("tkSetup").addEventListener("click", () => token("setup"));
+  $("tkCopy").addEventListener("click", () => {
+    const v = $("tkAppAddr").value;
+    if (!v) return;
+    navigator.clipboard?.writeText(v).then(() => toast(t("t.copied")), () => { $("tkAppAddr").select(); });
+  });
   $("tkSend").addEventListener("click", () => {
     const to = $("tkTo").value.trim(), amount = $("tkSendAmt").value.trim();
     if (to && amount && confirm(t("tk.sendConfirm", { n: amount, to: to.slice(0, 5) + "…" + to.slice(-4) }))) token("send", { to, amount }).then(() => toast(t("tk.sent2")));

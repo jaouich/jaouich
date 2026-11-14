@@ -578,7 +578,7 @@ body.k-open { overflow: hidden; }
 .k-top-list > div { display: grid; grid-template-columns: 30px 1fr auto auto; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 14px; background: rgba(255,255,255,.07); }
 .k-top-list > div.me { background: rgba(255, 215, 106, .2); border: 1px solid #ffd76a; }
 .k-top-list span:last-child { direction: ltr; font-weight: 700; display: flex; align-items: center; }
-.k-nav { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 0 -14px; padding: 8px 8px calc(env(safe-area-inset-bottom) + 8px); background: rgba(10, 4, 30, .85); border-top: 1px solid rgba(255,255,255,.1); }
+.k-nav { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin: 0 -14px; padding: 8px 8px calc(env(safe-area-inset-bottom) + 8px); background: rgba(10, 4, 30, .85); border-top: 1px solid rgba(255,255,255,.1); }
 .k-nav button { position: relative; border: 0; background: none; color: rgba(255,255,255,.65); font: inherit; font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; border-radius: 14px; cursor: pointer; }
 .k-nav button i { font-style: normal; font-size: 22px; }
 .k-nav button.active { color: #fff; background: rgba(255,255,255,.1); }
@@ -766,3 +766,24 @@ body.k-open { overflow: hidden; }
 .k-mk-tiers span { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); direction: ltr; }
 .k-mk-tiers span.on { background: #ffd76a; color: #2a1162; font-weight: 800; }
 .k-mk-grid small:first-child { direction: ltr; unicode-bidi: isolate; }
+
+/* Community tab */
+.k-nav button { font-size: 10px; }
+.k-nav button i { font-size: 20px; }
+.k-chat { display: flex; align-items: center; gap: 10px; padding: 12px; margin: 8px 0; border-radius: 18px; text-decoration: none; color: #fff; background: linear-gradient(110deg, #2fae78, #0f6b4a); box-shadow: 0 6px 18px rgba(15, 107, 74, .4); }
+.k-chat span:first-child { font-size: 30px; }
+.k-chat span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+.k-chat small { opacity: .85; font-size: 12px; }
+.k-chat span:last-child { font-size: 26px; }
+.k-poll { padding: 12px; border-radius: 18px; margin-bottom: 10px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); display: flex; flex-direction: column; gap: 6px; }
+.k-poll > small { opacity: .75; font-size: 12px; }
+.k-poll.done { opacity: .7; }
+.k-opt { position: relative; overflow: hidden; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.2); color: #fff; font: inherit; font-weight: 700; cursor: pointer; text-align: start; }
+.k-opt i { position: absolute; inset: 0 auto 0 0; background: rgba(124, 92, 255, .45); z-index: 0; transition: width .4s; }
+.k-opt span, .k-opt em { position: relative; z-index: 1; }
+.k-opt em { font-style: normal; direction: ltr; }
+.k-opt.mine { border-color: #7dffb5; }
+.k-opt.win i { background: rgba(255, 215, 106, .55); }
+#pollBox { margin-top: 18px; }
+#pollBox input, #pollBox textarea { border-radius: 12px; border: 1px solid #e3cf9e; padding: 8px 10px; font: inherit; background: #fff; box-sizing: border-box; }
+#paDays { border-radius: 12px; border: 1px solid #e3cf9e; padding: 0 8px; font: inherit; }

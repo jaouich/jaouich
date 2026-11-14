@@ -148,6 +148,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS kombat_weeks ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, earned INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE INDEX IF NOT EXISTS kombat_weeks_rank ON kombat_weeks(week_id, earned DESC)",
   "CREATE TABLE IF NOT EXISTS kombat_week_claims ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, place INTEGER NOT NULL, prize INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS polls ( id INTEGER PRIMARY KEY AUTOINCREMENT, q TEXT NOT NULL, options TEXT NOT NULL, created_at INTEGER NOT NULL, ends_at INTEGER NOT NULL, closed INTEGER NOT NULL DEFAULT 0 )",
+  "CREATE TABLE IF NOT EXISTS poll_votes ( poll_id INTEGER NOT NULL, uid TEXT NOT NULL, opt INTEGER NOT NULL, weight INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (poll_id, uid) )",
   "CREATE TABLE IF NOT EXISTS jry_keys ( id INTEGER PRIMARY KEY, seed TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_sends ( uid TEXT PRIMARY KEY, address TEXT NOT NULL, amount TEXT NOT NULL, txid TEXT, status TEXT NOT NULL, error TEXT, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS airdrop_block ( username TEXT PRIMARY KEY COLLATE NOCASE, at INTEGER NOT NULL )",
@@ -678,6 +680,62 @@ const routes = {
     const status = await jryStatusOf(env, a);
     await run(env, "UPDATE users SET jry_bal = ?, jry_at = ? WHERE uid = ?", Number(status.balance) || 0, Date.now(), u.uid);
     return { account: await account(env, await one(env, "SELECT * FROM users WHERE uid = ?", u.uid)), trust: status.trust, balance: status.balance };
+  },
+
+  // ---------- Jerry community: votes, top holders, chat link ----------
+  "GET /api/community": async (req, env) => {
+    const now = Date.now();
+    let me = null;
+    try { me = await auth(req, env); } catch {}
+    const polls = await all(env, "SELECT * FROM polls WHERE closed = 0 AND ends_at > ? ORDER BY id DESC LIMIT 3", now);
+    const last = await all(env, "SELECT * FROM polls WHERE closed = 1 OR ends_at <= ? ORDER BY id DESC LIMIT 2", now);
+    const withTally = async (p) => {
+      const opts = JSON.parse(p.options);
+      const rows = await all(env, "SELECT opt, SUM(weight) AS w, COUNT(*) AS n FROM poll_votes WHERE poll_id = ? GROUP BY opt", p.id);
+      const mine = me ? await one(env, "SELECT opt FROM poll_votes WHERE poll_id = ? AND uid = ?", p.id, me.uid) : null;
+      return { id: p.id, q: p.q, ends: p.ends_at, open: !p.closed && p.ends_at > now,
+        options: opts.map((o, i) => { const r = rows.find((x) => x.opt === i); return { text: o, weight: r ? r.w : 0, voters: r ? r.n : 0 }; }),
+        mine: mine ? mine.opt : null };
+    };
+    const holders = isTestnet(env)
+      ? await all(env, "SELECT username, jry_bal AS bal FROM users WHERE jry_bal >= 1 ORDER BY jry_bal DESC LIMIT 20")
+      : [];
+    return {
+      polls: await Promise.all(polls.map(withTally)),
+      past: await Promise.all(last.map(withTally)),
+      holders,
+      myWeight: me ? KL.voteWeight(await jryHeld(env, me)) : 1,
+      chat: env.COMMUNITY_CHAT_URL || "",
+    };
+  },
+
+  "POST /api/community/vote": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now();
+    const p = await one(env, "SELECT * FROM polls WHERE id = ?", Number(body.id) || 0);
+    if (!p || p.closed || p.ends_at <= now) bad("k.pollClosed");
+    const opt = Number(body.opt);
+    if (!Number.isInteger(opt) || opt < 0 || opt >= JSON.parse(p.options).length) bad("badAction");
+    // Weight from testJRY held now (read on the Pi network). Changing your vote is allowed until it closes.
+    const weight = KL.voteWeight(await jryHeld(env, u, true));
+    await run(env, "INSERT INTO poll_votes (poll_id, uid, opt, weight, at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(poll_id, uid) DO UPDATE SET opt = excluded.opt, weight = excluded.weight, at = excluded.at", p.id, u.uid, opt, weight, now);
+    return { ok: true, weight };
+  },
+
+  // Owner: create or close a vote
+  "POST /api/admin/polls": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    if (body.action === "create") {
+      const q = String(body.q || "").trim().slice(0, 200);
+      const options = (Array.isArray(body.options) ? body.options : []).map((x) => String(x).trim().slice(0, 80)).filter(Boolean).slice(0, 6);
+      const days = Math.min(30, Math.max(1, Number(body.days) || 3));
+      if (!q || options.length < 2) bad("k.pollBad");
+      await run(env, "INSERT INTO polls (q, options, created_at, ends_at) VALUES (?, ?, ?, ?)", q, JSON.stringify(options), Date.now(), Date.now() + days * DAY);
+    } else if (body.action === "close") {
+      await run(env, "UPDATE polls SET closed = 1 WHERE id = ?", Number(body.id) || 0);
+    }
+    return { ok: true };
   },
 
   // Community market: testJRY price from the Test-Pi pool, pool size, holders (cached 1 min)

@@ -67,5 +67,26 @@ const gained = r2.state.kombat.coins - c0;
 ok(Math.abs(gained - Math.floor(pphBase * 1.25)) <= 1, `1 hour away: profit ${gained} = ${pphBase} × 1.25 (holder perk)`);
 ok((await post("/api/action", { action: { type: "kTask", id: "member" } }, HB)).error === "k.taskNotYet", "holding testJRY doesn't count as a membership");
 
+// community votes (holders count more) + top holders
+ok((await post("/api/admin/polls", { action: "create", q: "Next boss?", options: ["Scorpion", "Djinn"] }, HB)).s === 403, "only the owner starts votes");
+ok((await post("/api/admin/polls", { action: "create", q: "Only one", options: ["A"] }, HA)).error === "k.pollBad", "a vote needs at least 2 choices");
+await post("/api/admin/polls", { action: "create", q: "Next boss?", options: ["Scorpion", "Djinn"], days: 3 }, HA);
+let cm = await fetch(B + "/api/community", { headers: HB }).then((x) => x.json());
+const pid = cm.polls[0].id;
+ok(cm.polls.length === 1 && cm.myWeight === 3, "bob (🥈 10,100 testJRY) sees the vote; his vote counts ×3");
+let v = await post("/api/community/vote", { id: pid, opt: 1 }, HB);
+ok(v.weight === 3, "bob votes Djinn ×3");
+v = await post("/api/community/vote", { id: pid, opt: 0 }, HA);
+ok(v.weight === 1, "alice (no wallet) votes Scorpion ×1");
+await post("/api/community/vote", { id: pid, opt: 1 }, HB); // voting again only changes the choice
+cm = await fetch(B + "/api/community", { headers: HB }).then((x) => x.json());
+ok(cm.polls[0].options[1].weight === 3 && cm.polls[0].options[0].weight === 1 && cm.polls[0].mine === 1, "tally: Djinn 3, Scorpion 1 (one vote per player)");
+ok(cm.holders.length >= 1 && cm.holders[0].username === "bob" && cm.holders[0].bal === 10100, "top holders: bob first with 10,100");
+ok((await post("/api/community/vote", { id: pid, opt: 9 }, HB)).s === 400, "unknown choice refused");
+await post("/api/admin/polls", { action: "close", id: pid }, HA);
+ok((await post("/api/community/vote", { id: pid, opt: 0 }, HB)).error === "k.pollClosed", "no votes after it closes");
+cm = await fetch(B + "/api/community").then((x) => x.json());
+ok(cm.polls.length === 0 && cm.past.length === 1 && cm.past[0].open === false, "closed vote shown with its result");
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

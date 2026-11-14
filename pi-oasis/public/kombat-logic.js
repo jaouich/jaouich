@@ -105,6 +105,8 @@
     { min: 10000, boost: 0.25, e: "🥈" },
     { min: 100000, boost: 0.5, e: "🥇" },
   ];
+  // Community votes: holders' votes count more
+  const voteWeight = (bal) => [1, 2, 3, 5][holdTier(bal) + 1];
   const holdTier = (bal) => { let i = -1; HOLD_TIERS.forEach((x, j) => { if (bal >= x.min) i = j; }); return i; };
   // Golden hour: one hour a day (UTC, the same for everyone) when taps count x2
   const goldenHourOf = (t) => { let x = (day(t) * 2246822519) >>> 0; x ^= x >>> 13; x = Math.imul(x, 3266489917) >>> 0; x ^= x >>> 16; return (x >>> 0) % 24; };
@@ -304,5 +306,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -427,14 +427,6 @@
     const kk = k(), need = KL.AIRDROP_DAYS, days = kk.act.days;
     $("kDrop").innerHTML = `<b>🪂 ${t("k.drop.t")}</b><span class="k-tbar"><i style="width:${Math.min(100, (100 * days) / need)}%"></i></span>
       <small>${days >= need ? t("k.drop.ok") : t("k.drop.days", { n: days, need })}</small>`;
-    renderMarket();
-    // test JRY: the player's Pi Testnet wallet address
-    const acc = G.account;
-    $("kJry").classList.toggle("hidden", !(acc && acc.jryOn));
-    if (acc && acc.jryOn) {
-      if (document.activeElement !== $("kJryAddr")) $("kJryAddr").value = acc.jryWallet || "";
-      $("kJryState").textContent = acc.jryWallet ? t("k.jry.saved", { a: acc.jryWallet.slice(0, 5) + "…" + acc.jryWallet.slice(-4) }) : "";
-    }
     $("kTop").innerHTML = `<div class="k-note">…</div>`;
     const me = G.account && G.account.username;
     const row = (p, i, icon) => `<div class="${p.username === me ? "me" : ""}"><span>${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
@@ -469,6 +461,41 @@
       G.toast(t("k.jry.ok"));
     } catch (e) { G.toast(errMsg(e)); }
   });
+  // ---------- Jerry community tab: chat, goal, market, wallet, votes, top holders ----------
+  async function renderCommunity() {
+    renderMarket(); loadGoal();
+    const acc = G.account;
+    $("kJry").classList.toggle("hidden", !(acc && acc.jryOn));
+    if (acc && acc.jryOn) {
+      if (document.activeElement !== $("kJryAddr")) $("kJryAddr").value = acc.jryWallet || "";
+      $("kJryState").textContent = acc.jryWallet ? t("k.jry.saved", { a: acc.jryWallet.slice(0, 5) + "…" + acc.jryWallet.slice(-4) }) : "";
+    }
+    let c;
+    try { c = await Pi.community(); } catch { return; }
+    $("kChat").classList.toggle("hidden", !c.chat);
+    if (c.chat) $("kChat").href = c.chat;
+    const me = acc && acc.username;
+    const poll = (p) => {
+      const total = p.options.reduce((n, o) => n + o.weight, 0) || 1;
+      const win = Math.max(...p.options.map((o) => o.weight));
+      return `<div class="k-poll ${p.open ? "" : "done"}"><b>${esc(p.q)}</b>
+        <small>${p.open ? t("k.com.ends", { t: ago(p.ends - G.now()) }) + " · " + t("k.com.weight", { n: c.myWeight }) : t("k.com.closed")}</small>
+        ${p.options.map((o, i) => `<button class="k-opt ${p.mine === i ? "mine" : ""} ${!p.open && o.weight === win && win > 0 ? "win" : ""}" data-poll="${p.id}" data-opt="${i}" ${p.open ? "" : "disabled"}>
+          <i style="width:${(100 * o.weight) / total}%"></i><span>${p.mine === i ? "✓ " : ""}${esc(o.text)}</span><em>${Math.round((100 * o.weight) / total)}%</em></button>`).join("")}</div>`;
+    };
+    $("kPolls").innerHTML = c.polls.length || c.past.length ? c.polls.map(poll).join("") + c.past.map(poll).join("") : `<div class="k-note">${t("k.com.noPolls")}</div>`;
+    $("kHolders").innerHTML = c.holders.length ? c.holders.map((h, i) => `<div class="${h.username === me ? "me" : ""}"><span>${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
+      <b>${esc(h.username)}</b><small>${(KL.HOLD_TIERS[KL.holdTier(h.bal)] || {}).e || ""}</small><span>🪙 ${big(h.bal)}</span></div>`).join("") : `<div class="k-note">${t("k.com.noHolders")}</div>`;
+  }
+  const esc = (x) => String(x).replace(/[<>&"]/g, (ch) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[ch]));
+  $("kPolls").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-poll]");
+    if (!b) return;
+    if (!G.account) return G.toast(t("t.loginFirst"));
+    try { const r = await Pi.vote(+b.dataset.poll, +b.dataset.opt); G.toast(t("k.com.voted", { n: r.weight })); sfx.coin(); renderCommunity(); }
+    catch (e2) { G.toast(errMsg(e2)); }
+  });
+
   // ---------- Jerry community market: testJRY price, pool, holders, my perks ----------
   const num = (n, d) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: d });
   async function renderMarket() {
@@ -520,6 +547,7 @@
     document.querySelectorAll(".k-nav button").forEach((x) => x.classList.toggle("active", x.dataset.kgo === p));
     $("kombat").querySelector(".k-pages").scrollTop = 0;
     if (p === "league") renderLeague();
+    if (p === "community") renderCommunity();
     renderAll();
   }
   $("kombat").addEventListener("click", (e) => { const b = e.target.closest("[data-kgo]"); if (b) go(b.dataset.kgo); });

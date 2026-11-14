@@ -529,6 +529,14 @@
     toast(t("ad.csvOk"));
   });
 
+  // ---------- Owner: community votes ----------
+  $("paCreate").addEventListener("click", async () => {
+    const q = $("paQ").value.trim(), options = $("paOpts").value.split("\n").map((x) => x.trim()).filter(Boolean);
+    if (!q || options.length < 2) return toast(t("e.k.pollBad"));
+    try { await Pi.polls("create", { q, options, days: +$("paDays").value }); $("paQ").value = ""; $("paOpts").value = ""; toast(t("pa.ok")); }
+    catch (e) { toast(e.code ? errText(e.code) : e.message); }
+  });
+
   // ---------- Owner: test JRY token (Pi Testnet) ----------
   function showToken(s) {
     const row = (ok, k, extra) => `<div><span>${ok ? "✅" : "⬜"} ${t(k)}</span><small class="hint" style="direction:ltr">${extra || ""}</small></div>`;

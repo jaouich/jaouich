@@ -26,6 +26,8 @@ TESTNET_GIFTS = "1"
 # test JRY token (Pi Testnet). The issuer secret goes in the Cloudflare secret JRY_ISSUER_SEED.
 JRY_CODE = "testJRY"
 JRY_HOME = "pi-oasis.jaouich.workers.dev"
+# Link to the Jerry community chat room in Pi Chat (from the Developer Portal: "Create Chat Room"). Empty = hidden.
+COMMUNITY_CHAT_URL = ""
 
 # Hourly run: weekly prizes and referral withdrawals (App-to-User payments)
 [triggers]

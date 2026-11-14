@@ -529,6 +529,22 @@
     toast(t("ad.csvOk"));
   });
 
+  // ---------- Owner: Partner requests from the community ----------
+  async function partnerRequests(action, uid) {
+    try {
+      const r = await Pi.partnerRequests(action, uid);
+      $("prList").innerHTML = r.requests.length ? r.requests.map((x) => `<div class="pl"><span><b>${esc(x.username)}</b> ${x.wallet ? "🪙" : ""}<br><small class="hint">${esc(x.note || "—")}</small></span>
+        <span class="pl-num"><button class="btn small" data-prok="${esc(x.uid)}">${t("pr.ok")}</button> <button class="btn small secondary" data-prno="${esc(x.uid)}">${t("pr.no")}</button></span></div>`).join("")
+        : `<div class="hint">${t("pr.none")}</div>`;
+      if (action === "approve") { toast(t("pr.done")); partners("list"); }
+    } catch (e) { toast(e.message); }
+  }
+  $("prList").addEventListener("click", (e) => {
+    const ok = e.target.closest("[data-prok]"), no = e.target.closest("[data-prno]");
+    if (ok) partnerRequests("approve", ok.dataset.prok);
+    if (no) partnerRequests("reject", no.dataset.prno);
+  });
+
   // ---------- Owner: community votes ----------
   $("paCreate").addEventListener("click", async () => {
     const q = $("paQ").value.trim(), options = $("paOpts").value.split("\n").map((x) => x.trim()).filter(Boolean);
@@ -594,7 +610,7 @@
       $("userLabel").textContent = t("welcome", { name: account.username });
       $("loginBtn").classList.add("hidden");
       render();
-      if (account.isAdmin) { partners("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
+      if (account.isAdmin) { partners("list"); partnerRequests("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
       if (account.testGifts) testGifts("list");
     } catch (e) {
       if (!silent) toast(e.message === "timeout" ? t("t.openInPi") : e.message);
@@ -623,7 +639,7 @@
     if (tourI >= 0) showTour(tourI);
     if (helpOpen()) renderHelp();
     if (document.querySelector("#tab-rank.active")) renderRank();
-    if (account && account.isAdmin) { partners("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
+    if (account && account.isAdmin) { partners("list"); partnerRequests("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
     if (account && account.testGifts) testGifts("list");
   });
 

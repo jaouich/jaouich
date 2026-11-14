@@ -150,6 +150,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS kombat_week_claims ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, place INTEGER NOT NULL, prize INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE TABLE IF NOT EXISTS polls ( id INTEGER PRIMARY KEY AUTOINCREMENT, q TEXT NOT NULL, options TEXT NOT NULL, created_at INTEGER NOT NULL, ends_at INTEGER NOT NULL, closed INTEGER NOT NULL DEFAULT 0 )",
   "CREATE TABLE IF NOT EXISTS poll_votes ( poll_id INTEGER NOT NULL, uid TEXT NOT NULL, opt INTEGER NOT NULL, weight INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (poll_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS partner_requests ( uid TEXT PRIMARY KEY, username TEXT NOT NULL, note TEXT, status TEXT NOT NULL, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS tribes ( id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE COLLATE NOCASE, emoji TEXT NOT NULL, owner TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS tribe_members ( uid TEXT PRIMARY KEY, tribe_id INTEGER NOT NULL, joined_at INTEGER NOT NULL )",
   "CREATE INDEX IF NOT EXISTS tribe_members_t ON tribe_members(tribe_id)",
@@ -260,6 +261,7 @@ async function account(env, u) {
     referralCount: c.n,
     activeRefs: await activeRefs(env, u.uid),
     jryWallet: u.jry_wallet || null,
+    partnerReq: tier === PARTNER ? "approved" : ((await one(env, "SELECT status FROM partner_requests WHERE uid = ?", u.uid)) || {}).status || null,
     jryHeld: held,
     holdBoost: holdBoost(held) + (await nftBoost(env, u.uid)),
     nftBoost: await nftBoost(env, u.uid),
@@ -704,6 +706,36 @@ const routes = {
     const status = await jryStatusOf(env, a);
     await run(env, "UPDATE users SET jry_bal = ?, jry_at = ? WHERE uid = ?", Number(status.balance) || 0, Date.now(), u.uid);
     return { account: await account(env, await one(env, "SELECT * FROM users WHERE uid = ?", u.uid)), trust: status.trust, balance: status.balance };
+  },
+
+  // ---------- Partner membership requests (Jerry Development community) ----------
+  "POST /api/partner/request": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (await isPartner(env, u.username)) bad("k.alreadyPartner");
+    const note = String(body.note || "").trim().slice(0, 140);
+    const prev = await one(env, "SELECT status FROM partner_requests WHERE uid = ?", u.uid);
+    if (prev && prev.status === "pending") bad("k.reqPending");
+    await run(env, "INSERT OR REPLACE INTO partner_requests (uid, username, note, status, at) VALUES (?, ?, ?, 'pending', ?)", u.uid, u.username, note, Date.now());
+    return { account: await account(env, u) };
+  },
+
+  // Owner: see requests, approve (grants Partner) or reject
+  "POST /api/admin/partner-requests": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const target = String(body.uid || "");
+    if (body.action === "approve" || body.action === "reject") {
+      const r = await one(env, "SELECT * FROM partner_requests WHERE uid = ?", target);
+      if (!r) bad("badAction");
+      await run(env, "UPDATE partner_requests SET status = ? WHERE uid = ?", body.action === "approve" ? "approved" : "rejected", target);
+      if (body.action === "approve") {
+        const name = (await one(env, "SELECT username FROM users WHERE uid = ?", target) || r).username;
+        await run(env, "INSERT OR IGNORE INTO partners (username, granted_by, granted_at) VALUES (?, ?, ?)", name, u.username, Date.now());
+      }
+    }
+    const list = await all(env, `SELECT r.uid, COALESCE(u.username, r.username) AS username, r.note, r.at, u.jry_wallet IS NOT NULL AS wallet
+      FROM partner_requests r LEFT JOIN users u ON u.uid = r.uid WHERE r.status = 'pending' ORDER BY r.at LIMIT 100`);
+    return { requests: list };
   },
 
   // ---------- Tribes ----------

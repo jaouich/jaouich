@@ -837,3 +837,15 @@ body.k-open { overflow: hidden; }
 #trName { font-family: inherit; font-size: 14px; direction: auto; }
 
 #help { z-index: 95; }
+
+/* For Jerry Development members */
+.k-join { display: flex; flex-direction: column; gap: 8px; padding: 14px; margin: 6px 0 12px; border-radius: 20px; background: linear-gradient(130deg, rgba(255, 79, 163, .25), rgba(124, 92, 255, .3)); border: 1px solid rgba(255, 79, 163, .6); }
+.k-join > b { font-size: 16px; }
+.k-join > small { opacity: .85; font-size: 12px; }
+.cj-step { display: flex; gap: 10px; padding: 10px; border-radius: 14px; background: rgba(0,0,0,.25); }
+.cj-step > em { flex: none; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 900; color: #2a1162; background: #ffd76a; }
+.cj-step > div { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cj-step small { font-size: 12px; opacity: .85; }
+.cj-ok { color: #7dffb5; font-weight: 800; font-size: 13px; }
+.cj-wait { color: #ffd76a; font-weight: 800; font-size: 13px; }
+#cjNote { font-family: inherit; font-size: 13px; direction: auto; }

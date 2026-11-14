@@ -156,6 +156,8 @@
     community: () => api("/api/community"),
     nft: () => api("/api/nft"),
     tribes: () => api("/api/tribes"),
+    partnerRequest: (note) => api("/api/partner/request", { note }),
+    partnerRequests: (action, uid) => api("/api/admin/partner-requests", { action, uid }),
     tribeCreate: (name, emoji) => api("/api/tribes/create", { name, emoji }),
     tribeJoin: (id) => api("/api/tribes/join", { id }),
     tribeLeave: () => api("/api/tribes/leave", {}),

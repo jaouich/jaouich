@@ -571,8 +571,30 @@
     renderTribes(); paint();
   });
 
+  // ---------- 📣 For Jerry Development members: Partner request + Testnet wallet ----------
+  function renderJoin() {
+    const acc = G.account;
+    if (!acc) { $("kJoin").innerHTML = `<b>📣 ${t("cj.title")}</b><small>${t("t.loginFirst")}</small>`; return; }
+    const st = acc.partnerReq;
+    const step1 = st === "approved" ? `<span class="cj-ok">💎 ${t("cj.partnerOk")}</span>`
+      : st === "pending" ? `<span class="cj-wait">⏳ ${t("cj.pending")}</span>`
+      : `${st === "rejected" ? `<small>${t("cj.rejected")}</small>` : ""}<div class="k-jry-row"><input id="cjNote" maxlength="140" placeholder="${t("cj.note")}"><button class="k-goal-share" data-cjreq="1">${t("cj.request")}</button></div>`;
+    const step2 = acc.jryWallet ? `<span class="cj-ok">✅ ${t("cj.walletOk", { a: acc.jryWallet.slice(0, 5) + "…" + acc.jryWallet.slice(-4) })}</span>`
+      : `<button class="k-goal-share" data-cjwallet="1">🪙 ${t("cj.walletGo")}</button>`;
+    $("kJoin").innerHTML = `<b>📣 ${t("cj.title")}</b><small>${t("cj.sub")}</small>
+      <div class="cj-step"><em>1</em><div><b>${t("cj.s1")}</b><small>${t("cj.s1d", { name: esc(acc.username) })}</small>${step1}</div></div>
+      <div class="cj-step"><em>2</em><div><b>${t("cj.s2")}</b><small>${t("cj.s2d")}</small>${step2}</div></div>`;
+  }
+  $("kJoin").addEventListener("click", async (e) => {
+    if (e.target.closest("[data-cjwallet]")) { $("kJry").scrollIntoView({ behavior: "smooth", block: "center" }); return setTimeout(() => $("kJryAddr").focus(), 400); }
+    if (!e.target.closest("[data-cjreq]")) return;
+    try { const r = await Pi.partnerRequest(($("cjNote") || {}).value || ""); G.setAccount(r.account); G.toast(t("cj.sent")); sfx.coin(); }
+    catch (err) { G.toast(errMsg(err)); }
+    renderJoin();
+  });
+
   async function renderCommunity() {
-    renderTribes(); renderMarket(); loadGoal();
+    renderJoin(); renderTribes(); renderMarket(); loadGoal();
     const acc = G.account;
     $("kJry").classList.toggle("hidden", !(acc && acc.jryOn));
     if (acc && acc.jryOn) {

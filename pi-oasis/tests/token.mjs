@@ -88,5 +88,24 @@ ok((await post("/api/community/vote", { id: pid, opt: 0 }, HB)).error === "k.pol
 cm = await fetch(B + "/api/community").then((x) => x.json());
 ok(cm.polls.length === 0 && cm.past.length === 1 && cm.past[0].open === false, "closed vote shown with its result");
 
+// in-game testJRY store
+const pay = (o) => fetch(B + "/__test/pay", { method: "POST", body: JSON.stringify(o) });
+const uidA = (await sql("SELECT uid FROM users WHERE username='alice'"))[0].uid;
+await pay({ id: "jb0", uid: uidA, amount: 1, type: "jry", pi: 1, txid: "tj0" });
+ok((await post("/api/payments/approve", { paymentId: "jb0" }, HA)).error === "k.needWallet", "no saved wallet: refused before any Pi moves");
+await pay({ id: "jb1", uid: "uB", amount: 3, type: "jry", pi: 3, txid: "tj1" });
+ok((await post("/api/payments/approve", { paymentId: "jb1" }, HB)).s === 400, "only 1 / 5 / 10 Test-Pi packs");
+const before5 = (await post("/api/kombat/wallet", { address: W }, HB)).balance;
+await pay({ id: "jb2", uid: "uB", amount: 5, type: "jry", pi: 5, txid: "tj2" });
+ok((await post("/api/payments/approve", { paymentId: "jb2" }, HB)).ok === true, "5 Test-Pi pack approved (wallet ready)");
+const done = await post("/api/payments/complete", { paymentId: "jb2", txid: "tj2" }, HB);
+const after5 = (await post("/api/kombat/wallet", { address: W }, HB)).balance;
+ok(done.ok && Math.round(Number(after5) - Number(before5)) === 5000, "5 Test-Pi → 5,000 testJRY at the pool price (" + (Number(after5) - Number(before5)) + ")");
+await post("/api/payments/complete", { paymentId: "jb2", txid: "tj2" }, HB);
+const again = (await post("/api/kombat/wallet", { address: W }, HB)).balance;
+ok(again === after5, "completing twice never sends twice");
+const mm = await fetch(B + "/api/jry/market", { headers: HB }).then((x) => x.json());
+ok(mm.mine && mm.mine.owed === 0 && mm.packs.join() === "1,5,10", "nothing owed; packs 1/5/10");
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

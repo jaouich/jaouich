@@ -199,7 +199,7 @@ const env = { DB, ASSETS, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_
 http.createServer(async (rq, rs) => {
   const chunks = []; for await (const c of rq) chunks.push(c);
   const req = new Request("http://localhost:3457" + rq.url, { method: rq.method, headers: rq.headers, body: rq.method === "POST" ? Buffer.concat(chunks) : undefined });
-  if (rq.url === "/__test/pay") { const b = JSON.parse(Buffer.concat(chunks)); payments[b.id] = { app: b.studio ? "studio" : "dev", identifier: b.id, user_uid: b.uid, amount: b.amount, direction: b.direction || "user_to_app", metadata: { type: b.type || "vip_month", ...(b.tier ? { tier: b.tier } : {}), ...(b.pack ? { pack: b.pack } : {}) }, status: { cancelled: !!b.cancelled }, transaction: b.txid ? { txid: b.txid } : null }; rs.end("ok"); return; }
+  if (rq.url === "/__test/pay") { const b = JSON.parse(Buffer.concat(chunks)); payments[b.id] = { app: b.studio ? "studio" : "dev", identifier: b.id, user_uid: b.uid, amount: b.amount, direction: b.direction || "user_to_app", metadata: { type: b.type || "vip_month", ...(b.tier ? { tier: b.tier } : {}), ...(b.pack ? { pack: b.pack } : {}), ...(b.pi ? { pi: b.pi } : {}) }, status: { cancelled: !!b.cancelled }, transaction: b.txid ? { txid: b.txid } : null }; rs.end("ok"); return; }
   if (rq.url === "/__test/chain") { rs.end(JSON.stringify({ txs: chain.txs.map((t) => ({ ...t, seq: String(t.seq), amount: String(t.amount) })), wallets, a2u })); return; }
   if (rq.url === "/__test/drop-next") { chain.dropNextResponse = true; rs.end("ok"); return; }
   if (rq.url === "/__test/cron") { const w = []; await worker.scheduled({}, env, { waitUntil: (p) => w.push(p) }); await Promise.all(w); rs.end("ok"); return; }

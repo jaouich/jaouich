@@ -87,6 +87,10 @@
     if (!pack) return Promise.reject(new Error(I18N.t("e.payment")));
     return pay({ amount: pack.price, memo: `Pi Oasis – ${pack.dates} dates`, metadata: { type: "dates", pack: pack.id } });
   }
+  // testJRY store (Testnet): pay Test-Pi, receive testJRY in the saved wallet
+  function buyJry(pi) {
+    return pay({ amount: pi, memo: `Pi Oasis – testJRY for ${pi} Test-Pi`, metadata: { type: "jry", pi } });
+  }
   function pay(paymentData) {
     return new Promise((resolve, reject) => {
       if (!piReady || !session) return reject(new Error(I18N.t("t.loginFirst")));
@@ -132,6 +136,8 @@
     login,
     buyVip,
     buyDates,
+    buyJry,
+    jryRetry: () => api("/api/jry/retry", {}),
     showRewardedAd,
     me: () => api("/api/me"),
     action: (action) => api("/api/action", { action }),

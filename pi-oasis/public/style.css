@@ -787,3 +787,13 @@ body.k-open { overflow: hidden; }
 #pollBox { margin-top: 18px; }
 #pollBox input, #pollBox textarea { border-radius: 12px; border: 1px solid #e3cf9e; padding: 8px 10px; font: inherit; background: #fff; box-sizing: border-box; }
 #paDays { border-radius: 12px; border: 1px solid #e3cf9e; padding: 0 8px; font: inherit; }
+
+/* testJRY store */
+.k-shop { margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255, 215, 106, .4); display: flex; flex-direction: column; gap: 8px; }
+.k-shop-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.k-buy { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; border: 0; border-radius: 14px; cursor: pointer; font: inherit; color: #2a1162; background: linear-gradient(#ffe58a, #e9b322); box-shadow: 0 4px 0 #a87708; }
+.k-buy b { font-size: 15px; direction: ltr; }
+.k-buy small { font-size: 11px; direction: ltr; }
+.k-buy:disabled { opacity: .6; }
+.k-shop > small { font-size: 11px; opacity: .8; }
+.k-retry { align-self: stretch; }

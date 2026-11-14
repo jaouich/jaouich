@@ -514,8 +514,31 @@
       </div>
       <div class="k-mk-me">${acc && acc.jryWallet ? t("k.mk.mine", { n: num(held, 2) }) + (ti >= 0 ? ` · ${KL.HOLD_TIERS[ti].e} +${Math.round(KL.HOLD_TIERS[ti].boost * 100)}%` : "") : t("k.mk.noWallet")}</div>
       <div class="k-mk-tiers">${KL.HOLD_TIERS.map((x, i) => `<span class="${i === ti ? "on" : ""}">${x.e} ${big(x.min)}+ → +${Math.round(x.boost * 100)}%</span>`).join("")}</div>
+      <div class="k-shop"><b>🛒 ${t("k.buy.t")}</b>
+        <div class="k-shop-row">${(m.packs || KL.JRY_PACKS).map((pi) => `<button class="k-buy" data-buy="${pi}"><b>${pi} Test-Pi</b><small>≈ ${num(pi * (perPi || 1000), 0)} testJRY</small></button>`).join("")}</div>
+        ${m.mine && m.mine.owed ? `<button class="k-goal-share k-retry" data-retry="1">⏳ ${t("k.buy.owed", { n: num(m.mine.owedJry, 0) })}</button>` : ""}
+        <small>${t("k.buy.d")}</small></div>
       <small class="k-note">${t("k.mk.how")}</small>`;
   }
+  $("kMarket").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-buy]"), r = e.target.closest("[data-retry]");
+    if (!b && !r) return;
+    const acc = G.account;
+    if (!acc) return G.toast(t("t.loginFirst"));
+    if (r) {
+      try { const x = await Pi.jryRetry(); G.toast(x.sent ? t("k.buy.ok") : t("k.buy.still")); } catch (err) { G.toast(errMsg(err)); }
+      return renderMarket();
+    }
+    if (!acc.jryWallet) { G.toast(t("e.k.needWallet")); return $("kJryAddr").focus(); }
+    b.disabled = true;
+    try {
+      const res = await Pi.buyJry(Number(b.dataset.buy));
+      if (res.account) G.setAccount(res.account);
+      G.toast(t("k.buy.ok")); sfx.chest(); coinRain(30);
+    } catch (err) { G.toast(errMsg(err)); }
+    b.disabled = false;
+    renderMarket();
+  });
   async function claimWeek() {
     try {
       await flush();

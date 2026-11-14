@@ -150,6 +150,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS kombat_week_claims ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, place INTEGER NOT NULL, prize INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE TABLE IF NOT EXISTS polls ( id INTEGER PRIMARY KEY AUTOINCREMENT, q TEXT NOT NULL, options TEXT NOT NULL, created_at INTEGER NOT NULL, ends_at INTEGER NOT NULL, closed INTEGER NOT NULL DEFAULT 0 )",
   "CREATE TABLE IF NOT EXISTS poll_votes ( poll_id INTEGER NOT NULL, uid TEXT NOT NULL, opt INTEGER NOT NULL, weight INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (poll_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS jry_buys ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, address TEXT NOT NULL, pi REAL NOT NULL, jry TEXT NOT NULL, status TEXT NOT NULL, txid TEXT, error TEXT, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_keys ( id INTEGER PRIMARY KEY, seed TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_sends ( uid TEXT PRIMARY KEY, address TEXT NOT NULL, amount TEXT NOT NULL, txid TEXT, status TEXT NOT NULL, error TEXT, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS airdrop_block ( username TEXT PRIMARY KEY COLLATE NOCASE, at INTEGER NOT NULL )",
@@ -411,6 +412,11 @@ const routes = {
     // A lower tier than the active one would be a downgrade: stop before any Pi moves
     const nowT = Date.now();
     if (item.tier && u.vip_until > nowT && item.price < L.TIERS[paidTier(u, nowT)].price) bad("lowerTier");
+    if (item.jry) {
+      if (!isTestnet(env)) bad("badPayment");
+      if (!u.jry_wallet) bad("k.needWallet");
+      if (!(await jryStatusOf(env, u.jry_wallet)).trust) bad("k.noTrust");
+    }
     // Persist the payment id before approving (irreversible on Pi's side)
     await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'pending', ?)", id, u.uid, item.price, nowT);
     const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
@@ -740,29 +746,25 @@ const routes = {
 
   // Community market: testJRY price from the Test-Pi pool, pool size, holders (cached 1 min)
   "GET /api/jry/market": async (req, env) => {
-    const seed = await jryIssuerSeed(env, false);
-    if (!seed) return { on: false };
-    const now = Date.now();
-    if (!marketCache || now - marketCache.at > 60000) {
-      const code = env.JRY_CODE || "testJRY", issuer = await publicKeyOf(seed);
-      const [pools, asset] = await Promise.all([
-        horizonGet(`/liquidity_pools?reserves=native,${code}:${issuer}&limit=10`),
-        horizonGet(`/assets?asset_code=${code}&asset_issuer=${issuer}`),
-      ]);
-      const list = (pools && pools._embedded && pools._embedded.records) || [];
-      // the deepest pool sets the price
-      let pi = 0, jry = 0;
-      for (const p of list) {
-        const r = p.reserves || [];
-        const a = Number((r.find((x) => x.asset === "native") || {}).amount || 0);
-        const b = Number((r.find((x) => x.asset !== "native") || {}).amount || 0);
-        if (a > pi) { pi = a; jry = b; }
-      }
-      const rec = asset && asset._embedded && asset._embedded.records[0];
-      const holders = rec ? Number(rec.num_accounts ?? (rec.accounts && rec.accounts.authorized) ?? 0) : 0;
-      marketCache = { at: now, data: { on: true, code, issuer, poolPi: pi, poolJry: jry, price: jry > 0 ? pi / jry : 0, holders, pools: list.length } };
-    }
-    return marketCache.data;
+    const m = await jryMarket(env);
+    let mine = null;
+    try {
+      const u = await auth(req, env);
+      const r = await one(env, "SELECT COUNT(*) AS n, COALESCE(SUM(CAST(jry AS REAL)), 0) AS j FROM jry_buys WHERE uid = ? AND status != 'sent'", u.uid);
+      mine = { owed: r.n, owedJry: r.j };
+    } catch {}
+    return { ...m, mine };
+  },
+
+  // Retry my testJRY orders that weren't delivered (e.g. the wallet hadn't added the token)
+  "POST /api/jry/retry": async (req, env) => {
+    const u = await auth(req, env);
+    const rows = await all(env, "SELECT id FROM jry_buys WHERE uid = ? AND status != 'sent' LIMIT 10", u.uid);
+    // the address may have changed since: use the wallet saved now
+    if (u.jry_wallet) await run(env, "UPDATE jry_buys SET address = ? WHERE uid = ? AND status != 'sent'", u.jry_wallet, u.uid);
+    let sent = 0;
+    for (const r of rows) if ((await deliverJry(env, r.id)).status === "sent") sent++;
+    return { sent, left: rows.length - sent };
   },
 
   // Owner tools: status, one-time setup (trustline + mint + home domain), sending
@@ -905,6 +907,11 @@ function checkPayment(p, uid) {
   if (p.direction && p.direction !== "user_to_app") bad("badPayment");
   if (uid && p.user_uid !== uid) bad("notYours");
   if (p.status?.cancelled || p.status?.user_cancelled) bad("badPayment");
+  if (p.metadata?.type === "jry") {
+    // testJRY store (Testnet): pay 1 / 5 / 10 Test-Pi, receive testJRY at the pool price
+    if (!KL.JRY_PACKS.includes(Number(p.amount)) || Number(p.metadata.pi) !== Number(p.amount)) bad("badPayment");
+    return { price: Number(p.amount), jry: true };
+  }
   if (p.metadata?.type === "dates") {
     const pack = L.PACKS.find((x) => x.id === p.metadata.pack);
     if (!pack || Number(p.amount) !== pack.price) bad("badPayment");
@@ -950,6 +957,55 @@ async function completePayment(env, id, txid, uid) {
     }
   }
   await env.DB.batch(stmts);
+  if (item.jry && u) {
+    // testJRY at the pool price at the moment of payment, sent from the app wallet
+    const m = await jryMarket(env).catch(() => null);
+    const perPi = m && m.price > 0 ? 1 / m.price : 1000;
+    const jry = (Math.floor(item.price * perPi * 1e7) / 1e7).toFixed(7);
+    await run(env, "INSERT OR IGNORE INTO jry_buys (id, uid, address, pi, jry, status, at) VALUES (?, ?, ?, ?, ?, 'owed', ?)", id, u.uid, u.jry_wallet || "", item.price, jry, now);
+    await deliverJry(env, id);
+  }
+}
+
+// testJRY market numbers from the Test-Pi pool (cached for a minute)
+async function jryMarket(env) {
+  const seed = await jryIssuerSeed(env, false);
+  if (!seed) return { on: false };
+  const now = Date.now();
+  if (!marketCache || now - marketCache.at > 60000) {
+    const code = env.JRY_CODE || "testJRY", issuer = await publicKeyOf(seed);
+    const [pools, asset] = await Promise.all([
+      horizonGet(`/liquidity_pools?reserves=native,${code}:${issuer}&limit=10`),
+      horizonGet(`/assets?asset_code=${code}&asset_issuer=${issuer}`),
+    ]);
+    const list = (pools && pools._embedded && pools._embedded.records) || [];
+    let pi = 0, jry = 0;
+    for (const p of list) {
+      const r = p.reserves || [];
+      const a = Number((r.find((x) => x.asset === "native") || {}).amount || 0);
+      const b = Number((r.find((x) => x.asset !== "native") || {}).amount || 0);
+      if (a > pi) { pi = a; jry = b; }
+    }
+    const rec = asset && asset._embedded && asset._embedded.records[0];
+    const holders = rec ? Number(rec.num_accounts ?? (rec.accounts && rec.accounts.authorized) ?? 0) : 0;
+    marketCache = { at: now, data: { on: true, code, issuer, poolPi: pi, poolJry: jry, price: jry > 0 ? pi / jry : 0, holders, pools: list.length, packs: KL.JRY_PACKS } };
+  }
+  return marketCache.data;
+}
+
+// Sends a testJRY store order that isn't delivered yet (never twice)
+async function deliverJry(env, id) {
+  const b = await one(env, "SELECT * FROM jry_buys WHERE id = ?", id);
+  if (!b || b.status === "sent") return b;
+  try {
+    const t = await jryConfig(env);
+    const txid = await jrySend(env, t, b.address, b.jry);
+    await run(env, "UPDATE jry_buys SET status = 'sent', txid = ?, error = NULL WHERE id = ? AND status != 'sent'", txid, id);
+  } catch (e) {
+    await run(env, "UPDATE jry_buys SET error = ? WHERE id = ?", String(e.message || e.code).slice(0, 200), id);
+    await logError(env, "testJRY delivery", 0, String(e.message || e.code));
+  }
+  return one(env, "SELECT * FROM jry_buys WHERE id = ?", id);
 }
 
 // ---------- test JRY helpers ----------

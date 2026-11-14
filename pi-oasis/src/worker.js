@@ -271,6 +271,44 @@ async function account(env, u) {
   };
 }
 
+// Mainnet only: a player's first sign-in brings their game progress over from the Testnet
+// game (matched by verified Pi username), so nobody starts from zero. Only the game itself is
+// copied: farm, camels, city, dates and Jerry Kombat. Nothing paid with Test-Pi comes along
+// (memberships, referral Test-Pi, testJRY, collectibles), and this week's ranking starts at 0
+// so real-Pi prizes stay fair. Partner status granted by the owner on Testnet is kept.
+// `mine` = the player's current Mainnet game (existing account): it is replaced only when the
+// Testnet one is further along, and either way it is checked only once.
+const progressOf = (s) => (s.dates || 0) + ((s.kombat && s.kombat.total) || 0) + ((s.animals || []).length + ((s.city && s.city.xp) || 0)) * 1000;
+async function carryFromTestnet(env, me, now, mine) {
+  if (!env.TESTNET_DB || isTestnet(env)) return false;
+  try {
+    const row = await env.TESTNET_DB.prepare(
+      "SELECT s.json FROM users u JOIN state s ON s.uid = u.uid WHERE u.username = ? COLLATE NOCASE"
+    ).bind(me.username).first();
+    let st = null;
+    if (row) {
+      st = L.normalize(JSON.parse(row.json), now);
+      if (mine && progressOf(mine) >= progressOf(st)) st = null;
+    }
+    if (st) {
+      st.week = { id: L.weekId(now), score: 0 };
+      if (st.kombat) delete st.kombat.wk;
+      st.fromTestnet = now;
+      st.carryChecked = 1;
+      await saveState(env, me.uid, st, now);
+    } else if (mine) {
+      mine.carryChecked = 1;
+      await saveState(env, me.uid, mine, now);
+    }
+    const p = await env.TESTNET_DB.prepare("SELECT granted_by FROM partners WHERE username = ? COLLATE NOCASE").bind(me.username).first();
+    if (p) await run(env, "INSERT OR IGNORE INTO partners (username, granted_by, granted_at) VALUES (?, ?, ?)", me.username, p.granted_by || "testnet", now);
+    return !!st;
+  } catch (e) {
+    await logError(env, "carry", 0, String(e && e.message || e));
+    return false;
+  }
+}
+
 async function loadState(env, uid, now) {
   const row = await one(env, "SELECT json FROM state WHERE uid = ?", uid);
   return L.normalize(row ? JSON.parse(row.json) : null, now);
@@ -375,10 +413,16 @@ const routes = {
         if (r) referrer = r.uid;
       }
       await run(env, "INSERT INTO users (uid, username, referrer, vip_until, ref_balance, created_at) VALUES (?, ?, ?, 0, 0, ?)", me.uid, me.username, referrer, now);
+      await carryFromTestnet(env, me, now, null);
     } else if (u.username !== me.username) {
       // Username changed on Pi: free the name if a stale row still holds it
       await run(env, "UPDATE users SET username = username || '#' || uid WHERE username = ? AND uid != ?", me.username, me.uid);
       await run(env, "UPDATE users SET username = ? WHERE uid = ?", me.username, me.uid);
+    }
+    else if (env.TESTNET_DB && !isTestnet(env)) {
+      // Opened the Mainnet game before the carry-over existed: check once
+      const mine = await loadState(env, me.uid, now);
+      if (!mine.carryChecked) await carryFromTestnet(env, me, now, mine);
     }
     const net = await netHash(req, env);
     if (net) await run(env, "UPDATE users SET net = ? WHERE uid = ?", net, me.uid);

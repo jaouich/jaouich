@@ -619,6 +619,12 @@
       render();
       if (account.isAdmin) { partners("list"); partnerRequests("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
       if (account.testGifts) testGifts("list");
+      // Mainnet: once, say that the Testnet progress came along
+      if (S.fromTestnet && Date.now() - S.fromTestnet < 7 * 864e5) {
+        let seen = false;
+        try { seen = localStorage.getItem("oasis.carried") === String(S.fromTestnet); localStorage.setItem("oasis.carried", String(S.fromTestnet)); } catch (e) {}
+        if (!seen) setTimeout(() => toast(t("t.carried")), 1200);
+      }
     } catch (e) {
       if (!silent) toast(e.message === "timeout" ? t("t.openInPi") : e.message);
     } finally { $("loginBtn").disabled = false; }

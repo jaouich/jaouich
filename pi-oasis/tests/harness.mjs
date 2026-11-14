@@ -8,13 +8,17 @@ import { encodeStrKey, decodeStrKey } from "../src/stellar.js";
 const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const db = new DatabaseSync(":memory:");
 // empty DB: worker must create tables
-const stmt = (sql, p = []) => ({
+const mkStmt = (d) => { const stmt = (sql, p = []) => ({
   bind: (...b) => stmt(sql, b),
-  first: async () => db.prepare(sql).get(...p) ?? null,
-  all: async () => ({ results: db.prepare(sql).all(...p) }),
-  run: async () => { const r = db.prepare(sql).run(...p); return { meta: { changes: Number(r.changes) } }; },
-});
+  first: async () => d.prepare(sql).get(...p) ?? null,
+  all: async () => ({ results: d.prepare(sql).all(...p) }),
+  run: async () => { const r = d.prepare(sql).run(...p); return { meta: { changes: Number(r.changes) } }; },
+}); return stmt; };
+const stmt = mkStmt(db);
 const DB = { prepare: (sql) => stmt(sql), batch: async (list) => Promise.all(list.map((s) => s.run())) };
+// Second database: the Testnet game's data, read by the Mainnet copy (carry-over test)
+const tdb = new DatabaseSync(":memory:"), tstmt = mkStmt(tdb);
+const TESTNET_DB = { prepare: (sql) => tstmt(sql) };
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png" };
 const ASSETS = { fetch: async (req) => {
   let p = new URL(req.url).pathname; if (p === "/") p = "/index.html";
@@ -51,7 +55,7 @@ globalThis.fetch = async (url, opt = {}) => {
   }
   if (u.endsWith("/v2/me")) {
     const t = (opt.headers?.Authorization || "").replace("Bearer ", "");
-    const devApp = { tokC: { uid: "uC", username: "carol" }, tokA2: { uid: "uA2", username: "alice" } };
+    const devApp = { tokC: { uid: "uC", username: "carol" }, tokA2: { uid: "uA2", username: "alice" }, tokD: { uid: "uD", username: "dina" }, tokE: { uid: "uE", username: "emad" } };
     return devApp[t] ? new Response(JSON.stringify(devApp[t])) : new Response("{}", { status: 401 });
   }
   if (!u.startsWith("https://api.minepi.com/v2")) return realFetch(url, opt);
@@ -208,6 +212,8 @@ http.createServer(async (rq, rs) => {
   if (rq.url.startsWith("/__test/studio")) { if (rq.url.endsWith("on")) env.PI_STUDIO_API_KEY = "STUDIOKEY"; else delete env.PI_STUDIO_API_KEY; rs.end("ok"); return; }
   if (rq.url === "/__test/completes") { rs.end(String(globalThis.__completes || 0)); return; }
   if (rq.url === "/__test/calls") { rs.end(String(globalThis.__studioCalls || 0)); return; }
+  if (rq.url === "/__test/tnexec") { tdb.exec(Buffer.concat(chunks).toString()); rs.end("ok"); return; }
+  if (rq.url.startsWith("/__test/mainnet")) { if (rq.url.endsWith("on")) { env.TESTNET_DB = TESTNET_DB; delete env.TESTNET_GIFTS; } else { delete env.TESTNET_DB; env.TESTNET_GIFTS = "1"; } rs.end("ok"); return; }
   if (rq.url === "/__test/exec") { db.exec(Buffer.concat(chunks).toString()); rs.end("ok"); return; }
   if (rq.url === "/__test/sql") { rs.end(JSON.stringify(db.prepare(Buffer.concat(chunks).toString()).all())); return; }
   const res = await worker.fetch(req, env);

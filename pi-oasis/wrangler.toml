@@ -61,5 +61,11 @@ ADMIN_USERNAMES = "jaouich"
 binding = "DB"
 database_name = "pi-oasis-mainnet-db"
 
+# Read only by the Mainnet game: a player's first Mainnet sign-in copies their Testnet
+# game progress (farm, camels, city, dates, Kombat) from here. Nothing paid in Test-Pi is copied.
+[[env.main.d1_databases]]
+binding = "TESTNET_DB"
+database_name = "pi-oasis-main-db"
+
 [env.main.triggers]
 crons = ["23 * * * *"]

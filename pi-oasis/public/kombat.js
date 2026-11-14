@@ -310,7 +310,7 @@
   async function share() {
     const link = G.refLink();
     if (!link) return G.toast(t("t.loginFirst"));
-    const text = t("k.share.text", { link, code: G.account.username, goal: big(goal ? goal.goal : KL.AIRDROP_GOAL) });
+    const text = t("k.share.text", { ...G.piLink(), code: G.account.username, goal: big(goal ? goal.goal : KL.AIRDROP_GOAL) });
     try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
     navigator.clipboard?.writeText(text).then(() => G.toast(t("t.copied")), () => {});
   }
@@ -558,7 +558,7 @@
     if (!G.account) return G.toast(t("t.loginFirst"));
     try {
       if (b.dataset.tinvite) {
-        const link = G.refLink(), text = t("tr.share", { link, code: G.account.username });
+        const text = t("tr.share", { ...G.piLink(), code: G.account.username });
         try { if (navigator.share) { await navigator.share({ text }); return; } } catch (er) { if (er && er.name === "AbortError") return; }
         return navigator.clipboard?.writeText(text).then(() => G.toast(t("t.copied")));
       }

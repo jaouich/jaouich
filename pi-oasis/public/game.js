@@ -38,6 +38,14 @@
   const seedName = (s) => t("seed." + s.id);
   const stakeName = (o) => t("stake." + o.id);
 
+  // Share links open straight in Pi Browser (pi://), with the plain host as a fallback to type in.
+  function piShare() {
+    const web = account ? `${publicUrl || location.origin + location.pathname}?ref=${encodeURIComponent(account.username)}` : "";
+    let host = "";
+    try { host = new URL(web || location.href).host; } catch (e) {}
+    return { link: web.replace(/^https?:\/\//, "pi://"), host };
+  }
+
   function toast(msg) {
     if (!msg) return;
     const el = $("toast");
@@ -348,8 +356,7 @@
     $("dailyBtn").disabled = done;
     $("dailyBtn").textContent = done ? t("daily.done") : t("daily.claim", { n: C.DAILY * perks().daily });
     if (account) {
-      const base = publicUrl || location.origin + location.pathname;
-      $("refLink").value = `${base}?ref=${encodeURIComponent(account.username)}`;
+      $("refLink").value = piShare().link; // pi:// so it opens in Pi Browser, not Google/Chrome
       $("refCode").textContent = account.username;
       $("inviterBox").classList.toggle("hidden", !account.canSetInviter);
       $("invitedBy").classList.toggle("hidden", !account.invitedBy);
@@ -406,7 +413,7 @@
   });
   $("shareRef").addEventListener("click", async () => {
     if (!account) return toast(t("t.loginFirst"));
-    const text = t("share.text", { link: $("refLink").value, code: account.username });
+    const text = t("share.text", { ...piShare(), code: account.username });
     try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
     navigator.clipboard?.writeText(text).then(() => toast(t("t.copied")), () => {});
   });
@@ -968,6 +975,7 @@
     now, toast, msgText, saveGuest, boost: () => perks().boost + ((account && account.holdBoost) || 0),
     setAccount(a) { account = a; render(); },
     refLink: () => (account ? `${publicUrl || location.origin + location.pathname}?ref=${encodeURIComponent(account.username)}` : ""),
+    piLink: () => piShare(),
   };
 
   window.I18N.apply();

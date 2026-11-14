@@ -60,7 +60,7 @@
     try { ref = new URLSearchParams(location.search).get("ref") || localStorage.getItem("oasis_ref"); } catch {}
     // "payments" scope is required for the VIP subscription (Pi.createPayment).
     const auth = await withTimeout(
-      window.Pi.authenticate(["username", "payments"], onIncompletePaymentFound),
+      window.Pi.authenticate(["username", "payments", "wallet_address"], onIncompletePaymentFound),
       120000
     );
     // Only the accessToken is sent. The server exchanges it with App Studio

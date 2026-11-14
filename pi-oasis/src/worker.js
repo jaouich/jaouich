@@ -1131,6 +1131,8 @@ const routes = {
     if (!isAdmin(env, u) || !isTestnet(env)) throw new HttpError(403, "forbidden");
     if (body.action === "send") {
       const now = Date.now();
+      // Failed gifts get another chance (e.g. the player has since allowed wallet access)
+      await run(env, "DELETE FROM payouts WHERE kind = 'gift' AND status = 'failed'");
       const users = await all(env, "SELECT uid FROM users WHERE uid NOT IN (SELECT uid FROM payouts WHERE kind = 'gift') ORDER BY created_at DESC LIMIT 20");
       if (users.length) {
         await env.DB.batch(users.map((x) =>

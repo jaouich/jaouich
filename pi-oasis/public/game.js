@@ -547,6 +547,10 @@
     } catch (e) { toast(e.code ? errText(e.code, e.data && e.data.vars) : e.message); }
   }
   $("tkSetup").addEventListener("click", () => token("setup"));
+  $("tkSend").addEventListener("click", () => {
+    const to = $("tkTo").value.trim(), amount = $("tkSendAmt").value.trim();
+    if (to && amount && confirm(t("tk.sendConfirm", { n: amount, to: to.slice(0, 5) + "…" + to.slice(-4) }))) token("send", { to, amount }).then(() => toast(t("tk.sent2")));
+  });
   $("tkRefresh").addEventListener("click", () => token("status"));
   $("tkDrop").addEventListener("click", () => { if (confirm(t("tk.confirm", { n: $("tkAmount").value }))) token("airdrop", { amount: $("tkAmount").value.trim() }); });
 

@@ -127,6 +127,19 @@
   const nftBoostOf = (kinds) => Math.min(NFT_MAX, [...new Set(kinds)].reduce((n, k) => n + ((nftById(k) || {}).perk || 0), 0));
   // In-game testJRY store (Testnet): Test-Pi amounts a player can pay
   const JRY_PACKS = [1, 5, 10];
+  // Kombat coins bought with Pi (200,000 coins per Pi). They raise the league (current coins)
+  // but never count toward the weekly tournament or lifetime total (airdrop).
+  const COINS_PER_PI = 200000;
+  const COIN_PACKS = [
+    { id: "c40k", price: 0.2, coins: 40000 },
+    { id: "c200k", price: 1, coins: 200000 },
+    { id: "c400k", price: 2, coins: 400000 },
+    { id: "c1m", price: 5, coins: 1000000 },
+  ];
+  // Players' testJRY market: sellers list a lot at their own Pi price, buyers take the cheapest.
+  // The app holds the lot until it sells (or goes back to the seller) and keeps FEE of the Pi.
+  // REDEEM_BONUS: paying with testJRY instead of Pi gives this much more (dates / coins).
+  const P2P = { FEE: 0.02, MIN_PI: 0.01, MAX_PI: 10000, MIN_JRY: 1, MAX_JRY: 1e10, MAX_OPEN: 5, HOLD_MS: 10 * 60000, REDEEM_BONUS: 0.1, MIN_REDEEM_PI: 0.001 };
   // Community votes: holders' votes count more
   const voteWeight = (bal) => [1, 2, 3, 5][holdTier(bal) + 1];
   const holdTier = (bal) => { let i = -1; HOLD_TIERS.forEach((x, j) => { if (bal >= x.min) i = j; }); return i; };
@@ -328,5 +341,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { TRIBE, tribeNameOk, COLLECTIBLES, NFT_FEE, NFT_MAX, nftById, nftBoostOf, JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { COINS_PER_PI, COIN_PACKS, P2P, TRIBE, tribeNameOk, COLLECTIBLES, NFT_FEE, NFT_MAX, nftById, nftBoostOf, JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

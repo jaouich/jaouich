@@ -150,11 +150,21 @@ function applyTokenTx(t) {
     if (op.to !== issuer && !to.trust.has(op.asset)) return { codes: { operations: ["op_no_trust"] } };
     if (t.from !== issuer) { if ((a.bal[op.asset] || 0n) < op.amount) return { codes: { operations: ["op_underfunded"] } }; a.bal[op.asset] -= op.amount; }
     to.bal[op.asset] = (to.bal[op.asset] || 0n) + op.amount;
+    tokenPays.unshift({ from: t.from, to: op.to, asset: op.asset, amount: op.amount, hash: t.hash });
   }
   a.seq += 1n;
   return null;
 }
 const amt = (s) => (Number(s) / 1e7).toFixed(7);
+// Token payments seen by Horizon (newest first), for /accounts/{G}/payments
+const tokenPays = []; let payN = 0;
+globalThis.__userPay = (from, to, asset, amount) => {
+  const a = acc(from), b = acc(to);
+  if ((a.bal[asset] || 0n) < amount) return "underfunded";
+  a.bal[asset] -= amount; b.bal[asset] = (b.bal[asset] || 0n) + amount;
+  tokenPays.unshift({ from, to, asset, amount, hash: "user" + ++payN });
+  return "ok";
+};
 async function horizon(u, opt) {
   const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s });
   const p = u.replace("https://api.testnet.minepi.com", "");
@@ -179,6 +189,9 @@ async function horizon(u, opt) {
     return J({ _embedded: { records: holders ? [{ asset_code: q.get("asset_code"), asset_issuer: q.get("asset_issuer"), balances: { authorized: amt(total) }, accounts: { authorized: holders } }] : [] } });
   }
   if (p === "/fee_stats") return J({ last_ledger_base_fee: "100000" });
+  if (p.startsWith(`/accounts/${APP.G}/payments`)) return J({ _embedded: { records: tokenPays.filter((x) => x.from === APP.G || x.to === APP.G).map((x) => ({
+    type: "payment", from: x.from, to: x.to, asset_type: "credit_alphanum12", asset_code: x.asset.split(":")[0], asset_issuer: x.asset.split(":")[1], amount: amt(x.amount),
+    transaction_hash: x.hash, transaction_successful: true, created_at: new Date().toISOString() })) } });
   if (p.startsWith(`/accounts/${APP.G}/transactions`)) return J({ _embedded: { records: chain.txs.map((t) => ({ hash: t.hash, memo: t.memo, successful: true })).reverse() } });
   if (p === "/transactions" && opt.method === "POST") {
     const env64 = decodeURIComponent(String(opt.body).slice(3));
@@ -206,7 +219,7 @@ const env = { DB, ASSETS, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_
 http.createServer(async (rq, rs) => {
   const chunks = []; for await (const c of rq) chunks.push(c);
   const req = new Request("http://localhost:3457" + rq.url, { method: rq.method, headers: rq.headers, body: rq.method === "POST" ? Buffer.concat(chunks) : undefined });
-  if (rq.url === "/__test/pay") { const b = JSON.parse(Buffer.concat(chunks)); payments[b.id] = { app: b.studio ? "studio" : "dev", identifier: b.id, user_uid: b.uid, amount: b.amount, direction: b.direction || "user_to_app", metadata: { type: b.type || "vip_month", ...(b.tier ? { tier: b.tier } : {}), ...(b.pack ? { pack: b.pack } : {}), ...(b.pi ? { pi: b.pi } : {}) }, status: { cancelled: !!b.cancelled }, transaction: b.txid ? { txid: b.txid } : null }; rs.end("ok"); return; }
+  if (rq.url === "/__test/pay") { const b = JSON.parse(Buffer.concat(chunks)); payments[b.id] = { app: b.studio ? "studio" : "dev", identifier: b.id, user_uid: b.uid, amount: b.amount, direction: b.direction || "user_to_app", metadata: { type: b.type || "vip_month", ...(b.tier ? { tier: b.tier } : {}), ...(b.pack ? { pack: b.pack } : {}), ...(b.pi ? { pi: b.pi } : {}), ...(b.offer ? { offer: b.offer } : {}) }, status: { cancelled: !!b.cancelled }, transaction: b.txid ? { txid: b.txid } : null }; rs.end("ok"); return; }
   if (rq.url === "/__test/chain") { rs.end(JSON.stringify({ txs: chain.txs.map((t) => ({ ...t, seq: String(t.seq), amount: String(t.amount) })), wallets, a2u })); return; }
   if (rq.url === "/__test/drop-next") { chain.dropNextResponse = true; rs.end("ok"); return; }
   if (rq.url === "/__test/cron") { const w = []; await worker.scheduled({}, env, { waitUntil: (p) => w.push(p) }); await Promise.all(w); rs.end("ok"); return; }
@@ -215,6 +228,10 @@ http.createServer(async (rq, rs) => {
   if (rq.url.startsWith("/__test/studio")) { if (rq.url.endsWith("on")) env.PI_STUDIO_API_KEY = "STUDIOKEY"; else delete env.PI_STUDIO_API_KEY; rs.end("ok"); return; }
   if (rq.url === "/__test/completes") { rs.end(String(globalThis.__completes || 0)); return; }
   if (rq.url === "/__test/calls") { rs.end(String(globalThis.__studioCalls || 0)); return; }
+  if (rq.url.startsWith("/__test/kp")) { rs.end(JSON.stringify(kp())); return; }
+  // A player's own wallet: trustline + tokens (minted by the issuer), or a payment they send
+  if (rq.url.startsWith("/__test/fund?")) { const q = new URLSearchParams(rq.url.split("?")[1]); const a = acc(q.get("g")); const k = "testJRY:" + q.get("issuer"); a.trust.add(k); a.bal[k] = (a.bal[k] || 0n) + BigInt(q.get("n")) * 10000000n; rs.end("ok"); return; }
+  if (rq.url.startsWith("/__test/userpay?")) { const q = new URLSearchParams(rq.url.split("?")[1]); rs.end(globalThis.__userPay(q.get("from"), q.get("to") || APP.G, "testJRY:" + q.get("issuer"), BigInt(Math.round(Number(q.get("n")) * 1e7)))); return; }
   if (rq.url.startsWith("/__test/nowallet?")) { globalThis.__noWallet = rq.url.split("?")[1]; rs.end("ok"); return; }
   if (rq.url === "/__test/tnexec") { tdb.exec(Buffer.concat(chunks).toString()); rs.end("ok"); return; }
   if (rq.url.startsWith("/__test/mainnet")) { if (rq.url.endsWith("on")) { env.TESTNET_DB = TESTNET_DB; delete env.TESTNET_GIFTS; } else { delete env.TESTNET_DB; env.TESTNET_GIFTS = "1"; } rs.end("ok"); return; }

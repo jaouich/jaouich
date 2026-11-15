@@ -91,6 +91,16 @@
   function buyJry(pi) {
     return pay({ amount: pi, memo: `Pi Oasis – testJRY for ${pi} Test-Pi`, metadata: { type: "jry", pi } });
   }
+  // Kombat coins: 200,000 per Pi
+  function buyCoins(packId) {
+    const pack = window.KombatLogic.COIN_PACKS.find((x) => x.id === packId);
+    if (!pack) return Promise.reject(new Error(I18N.t("e.payment")));
+    return pay({ amount: pack.price, memo: `Jerry Kombat – ${pack.coins} coins`, metadata: { type: "kcoins", pack: pack.id } });
+  }
+  // Players' testJRY market: pay the seller's price for one offer
+  function buyOffer(o) {
+    return pay({ amount: o.pi, memo: `testJRY market #${o.id}`, metadata: { type: "p2p", offer: o.id } });
+  }
   function pay(paymentData) {
     return new Promise((resolve, reject) => {
       if (!piReady || !session) return reject(new Error(I18N.t("t.loginFirst")));
@@ -137,6 +147,12 @@
     buyVip,
     buyDates,
     buyJry,
+    buyCoins,
+    buyOffer,
+    p2p: () => api("/api/p2p"),
+    p2pOffer: (o) => api("/api/p2p/offer", o),
+    p2pCheck: (id) => api("/api/p2p/check", { id }),
+    p2pCancel: (id) => api("/api/p2p/cancel", { id }),
     jryRetry: () => api("/api/jry/retry", {}),
     showRewardedAd,
     me: () => api("/api/me"),

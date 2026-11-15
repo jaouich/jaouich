@@ -383,6 +383,25 @@
         <button class="btn small ${coins >= cost ? "" : "secondary"}" data-kboost="${b.id}" ${max ? "disabled" : ""}>${max ? t("k.max") : `<i class="kcoin s"></i>${big(cost)}`}</button></div>`;
     }).join("") + `<div class="k-boost k-tip"><span class="k-be">🔥</span><span><b>${t("k.fury")}</b><small>${t("k.furyTip", { n: K.FURY_NEED })}</small></span></div>`;
   }
+  // Kombat coins with Pi
+  function renderCoinShop() {
+    $("kCoinShop").innerHTML = KL.COIN_PACKS.map((p) => `<button class="k-buy" data-kpack="${p.id}"><b>${p.price} π</b><small><i class="kcoin s"></i>${big(p.coins)}</small></button>`).join("");
+  }
+  $("kCoinShop").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-kpack]");
+    if (!b) return;
+    if (!G.account) return G.toast(t("t.loginFirst"));
+    b.disabled = true;
+    try {
+      await flush();
+      const res = await Pi.buyCoins(b.dataset.kpack);
+      if (res.account) G.setAccount(res.account);
+      if (res.state) G.S = res.state;
+      G.toast(t("k.coins.ok")); sfx.chest(); coinRain(40);
+      renderAll();
+    } catch (err) { G.toast(errMsg(err)); }
+    b.disabled = false;
+  });
   $("kRefill").addEventListener("click", (e) => { if (e.target.closest("[data-kact=refill]")) act({ type: "kRefill" }, sfx.fury); });
   $("kBoosts").addEventListener("click", (e) => { const b = e.target.closest("[data-kboost]"); if (b) act({ type: "kBoost", id: b.dataset.kboost }); });
 
@@ -594,7 +613,7 @@
   });
 
   async function renderCommunity() {
-    renderJoin(); renderTribes(); renderMarket(); loadGoal();
+    renderJoin(); renderTribes(); renderMarket(); renderP2P(); loadGoal();
     const acc = G.account;
     $("kJry").classList.toggle("hidden", !(acc && acc.jryOn));
     if (acc && acc.jryOn) {
@@ -671,6 +690,99 @@
     b.disabled = false;
     renderMarket();
   });
+  // ---------- 🤝 Players' testJRY market + swap testJRY for points ----------
+  let p2p = null;
+  const unitTxt = (u) => (u > 0 ? `\u2066${num(u * 1e6, 4)} π / 1M\u2069` : "—"); // isolated so it reads right inside Arabic
+  async function renderP2P() {
+    try { p2p = await Pi.p2p(); } catch { return; }
+    $("kP2P").classList.toggle("hidden", !p2p.on);
+    if (!p2p.on) return;
+    const d = p2p, pool = d.price;
+    const vs = (u) => {
+      if (!(pool > 0) || !(u > 0)) return "";
+      const pc = Math.round((u / pool - 1) * 100);
+      return `<em class="${pc < 0 ? "cheap" : "dear"}">${pc < 0 ? "−" : "+"}${Math.abs(pc)}% ${t("p2p.vsPool")}</em>`;
+    };
+    const offers = d.offers.length ? d.offers.map((o) => `<div class="p2p-row">
+        <span><b dir="ltr">${num(o.jry, 2)} testJRY</b><small>👤 ${esc(o.seller || "?")} · ${unitTxt(o.unit)} ${vs(o.unit)}</small></span>
+        ${o.mine ? `<small class="p2p-tag">${t("p2p.mine")}</small>` : o.status === "reserved" ? `<small class="p2p-tag">⏳ ${t("p2p.held")}</small>`
+          : `<button class="k-buy p2p-buy" data-p2pbuy="${o.id}"><b>${num(o.pi, 4)} π</b><small>${t("p2p.buy")}</small></button>`}
+      </div>`).join("") : `<p class="k-note">${t("p2p.empty")}</p>`;
+    const st = (o) => t("p2p.st." + o.status);
+    const mine = d.mine.length ? `<h4>${t("p2p.myT")}</h4>` + d.mine.map((o) => `<div class="p2p-mine">
+        <div><b dir="ltr">${num(o.jry, 2)} testJRY</b> → ${o.kind === "sell" ? `<b>${num(o.pi, 4)} π</b>` : o.got ? `<b>+${big(o.got)}</b> ${o.reward === "coins" ? "🪙" : "🌴"}` : o.reward === "coins" ? "🪙" : "🌴"}
+          <small class="p2p-st ${o.status}">${st(o)}</small></div>
+        ${o.status === "deposit" ? `<small>${t("p2p.send", { n: num(o.jry, 7) })}</small>
+          <button class="p2p-addr" data-p2pcopy="${esc(d.app)}" dir="ltr">${esc(d.app.slice(0, 6))}…${esc(d.app.slice(-6))} 📋</button>
+          <div class="p2p-acts"><button class="btn small gold" data-p2pcheck="${o.id}">${t("p2p.sent")}</button><button class="btn small secondary" data-p2pcancel="${o.id}">${t("p2p.cancel")}</button></div>` : ""}
+        ${o.status === "open" || o.status === "returning" ? `<div class="p2p-acts"><button class="btn small secondary" data-p2pcancel="${o.id}">${t("p2p.back")}</button></div>` : ""}
+        ${o.error ? `<small class="p2p-err">${esc(o.error)}</small>` : ""}
+      </div>`).join("") : "";
+    const noWallet = !d.wallet ? `<button class="k-goal-share" data-cjwallet="1">💼 ${t("p2p.needWallet")}</button>` : "";
+    $("kP2P").innerHTML = `<div class="k-mk-top"><span class="p2p-ico">🤝</span><div><b>${t("p2p.t")}</b><small>${t("p2p.sub", { f: Math.round(d.fee * 100) })}</small></div></div>
+      ${d.sold && d.sold.n ? `<small class="k-note">${t("p2p.stats", { n: d.sold.n, pi: num(d.sold.pi, 2) })}</small>` : ""}
+      <div class="p2p-list">${offers}</div>
+      ${noWallet}
+      <details class="p2p-box"${d.wallet ? "" : " hidden"}><summary>📤 ${t("p2p.sellT")}</summary>
+        <label>${t("p2p.amount")}<input id="p2pSellJry" type="number" min="1" step="any" inputmode="decimal" dir="ltr"></label>
+        <label>${t("p2p.price")}<input id="p2pSellPi" type="number" min="${KL.P2P.MIN_PI}" step="any" inputmode="decimal" dir="ltr"></label>
+        <small id="p2pSellHint" class="k-note"></small>
+        <button class="btn gold" data-p2psell="1">${t("p2p.list")}</button></details>
+      <details class="p2p-box"${d.wallet ? "" : " hidden"}><summary>🔄 ${t("p2p.swapT")}</summary>
+        <small class="k-note">${t("p2p.swapD", { b: Math.round(d.bonus * 100) })}</small>
+        <label>${t("p2p.amount")}<input id="p2pSwapJry" type="number" min="1" step="any" inputmode="decimal" dir="ltr"></label>
+        <div class="p2p-pick"><label><input type="radio" name="p2pRw" value="dates" checked> ${t("p2p.dates")}</label><label><input type="radio" name="p2pRw" value="coins"> ${t("p2p.coins")}</label></div>
+        <small id="p2pSwapHint" class="k-note"></small>
+        <button class="btn gold" data-p2pswap="1">${t("p2p.swap")}</button></details>
+      ${mine}`;
+  }
+  function p2pHints() {
+    if (!p2p) return;
+    const sj = Number(($("p2pSellJry") || {}).value), sp = Number(($("p2pSellPi") || {}).value);
+    if ($("p2pSellHint")) $("p2pSellHint").textContent = sj > 0 && sp > 0
+      ? `${unitTxt(sp / sj)} · ${t("p2p.sellHint", { n: num(sp * (1 - p2p.fee), 4) })}` + (p2p.price > 0 ? ` · ${t("p2p.poolIs", { p: unitTxt(p2p.price) })}` : "") : "";
+    const wj = Number(($("p2pSwapJry") || {}).value), rw = (document.querySelector("input[name=p2pRw]:checked") || {}).value;
+    if ($("p2pSwapHint")) {
+      const perPi = rw === "coins" ? KL.COINS_PER_PI : L.PACKS[1].dates / L.PACKS[1].price;
+      $("p2pSwapHint").textContent = wj > 0 && p2p.price > 0 ? t("p2p.est", { n: big(Math.floor(wj * p2p.price * perPi * (1 + p2p.bonus))) }) : "";
+    }
+  }
+  $("kP2P").addEventListener("input", p2pHints);
+  $("kP2P").addEventListener("change", p2pHints);
+  $("kP2P").addEventListener("click", async (e) => {
+    const el = e.target.closest("[data-p2pbuy],[data-p2psell],[data-p2pswap],[data-p2pcheck],[data-p2pcancel],[data-p2pcopy],[data-cjwallet]");
+    if (!el) return;
+    if (el.dataset.cjwallet) { $("kJry").scrollIntoView({ behavior: "smooth", block: "center" }); return setTimeout(() => $("kJryAddr").focus(), 400); }
+    if (el.dataset.p2pcopy) return navigator.clipboard?.writeText(el.dataset.p2pcopy).then(() => G.toast(t("t.copied")), () => {});
+    if (!G.account) return G.toast(t("t.loginFirst"));
+    el.disabled = true;
+    try {
+      if (el.dataset.p2pbuy) {
+        const o = p2p.offers.find((x) => x.id === Number(el.dataset.p2pbuy));
+        if (!G.account.jryWallet) throw { code: "k.needWallet" };
+        const res = await Pi.buyOffer(o);
+        if (res.account) G.setAccount(res.account);
+        G.toast(t("p2p.ok.bought")); sfx.chest(); coinRain(30);
+      } else if (el.dataset.p2psell) {
+        await Pi.p2pOffer({ kind: "sell", jry: Number($("p2pSellJry").value), pi: Number($("p2pSellPi").value) });
+        G.toast(t("p2p.ok.created"));
+      } else if (el.dataset.p2pswap) {
+        const rw = (document.querySelector("input[name=p2pRw]:checked") || {}).value;
+        await Pi.p2pOffer({ kind: "redeem", jry: Number($("p2pSwapJry").value), reward: rw });
+        G.toast(t("p2p.ok.created"));
+      } else if (el.dataset.p2pcheck) {
+        await flush();
+        const r = await Pi.p2pCheck(Number(el.dataset.p2pcheck));
+        if (r.state) { G.S = r.state; renderAll(); }
+        G.toast(r.status === "done" ? t("p2p.ok.swap", { n: big(r.got) }) : t("p2p.ok.listed")); sfx.chest();
+      } else if (el.dataset.p2pcancel) {
+        await Pi.p2pCancel(Number(el.dataset.p2pcancel));
+        G.toast(t("p2p.ok.back"));
+      }
+    } catch (err) { G.toast(errMsg(err)); }
+    el.disabled = false;
+    renderP2P();
+  });
   async function claimWeek() {
     try {
       await flush();
@@ -693,7 +805,7 @@
     if (!open) return;
     paint();
     if (page === "cards") renderCards();
-    if (page === "boost") { renderBoosts(); renderSkins(); }
+    if (page === "boost") { renderBoosts(); renderSkins(); renderCoinShop(); }
     if (page === "daily") renderDaily();
   }
   function go(p) {

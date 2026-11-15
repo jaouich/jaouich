@@ -162,6 +162,11 @@ const SCHEMA = [
   "CREATE INDEX IF NOT EXISTS nft_owner ON nft_items(owner)",
   "CREATE TABLE IF NOT EXISTS nft_moves ( item_id INTEGER NOT NULL, from_uid TEXT, to_uid TEXT NOT NULL, price INTEGER NOT NULL, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS nft_credits ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, amount INTEGER NOT NULL, at INTEGER NOT NULL )",
+  // Players' testJRY market. kind 'sell': a lot offered for Pi; kind 'redeem': testJRY swapped
+  // for dates / Kombat coins. status: deposit (waiting for the tokens) → open → reserved → sold,
+  // or → returning → cancelled; redeem: deposit → done.
+  "CREATE TABLE IF NOT EXISTS p2p_offers ( id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, uid TEXT NOT NULL, wallet TEXT NOT NULL, jry TEXT NOT NULL, pi REAL NOT NULL, reward TEXT, got INTEGER, status TEXT NOT NULL, deposit_tx TEXT UNIQUE, buyer TEXT, pay_id TEXT, reserved_at INTEGER, return_tx TEXT, error TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
+  "CREATE INDEX IF NOT EXISTS p2p_open ON p2p_offers(status, kind)",
   "CREATE TABLE IF NOT EXISTS jry_buys ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, address TEXT NOT NULL, pi REAL NOT NULL, jry TEXT NOT NULL, status TEXT NOT NULL, txid TEXT, error TEXT, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_keys ( id INTEGER PRIMARY KEY, seed TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_sends ( uid TEXT PRIMARY KEY, address TEXT NOT NULL, amount TEXT NOT NULL, txid TEXT, status TEXT NOT NULL, error TEXT, at INTEGER NOT NULL )",
@@ -181,6 +186,7 @@ const ensureSchema = (env) =>
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_wallet TEXT").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_bal REAL").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_at INTEGER").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE nft_credits ADD COLUMN src TEXT").run().catch(() => {}))
     .catch((e) => { schemaReady = null; throw e; }));
 
 const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
@@ -217,11 +223,13 @@ async function stateFor(env, u, now, tier) {
   const st = await loadState(env, u.uid, now);
   let changed = L.tickCity(st, now, secureRandom); // new city orders appear on their own
   // Kombat coins from collectibles sold while away (taken once, then added)
-  const credits = await all(env, "DELETE FROM nft_credits WHERE uid = ? RETURNING amount", u.uid);
+  const credits = await all(env, "DELETE FROM nft_credits WHERE uid = ? RETURNING amount, src", u.uid);
   if (credits.length) {
     st.kombat = KL.norm(st.kombat, now);
-    const n = credits.reduce((a, c) => a + c.amount, 0);
-    st.kombat.coins += n; st.kombat.earn.trade = (st.kombat.earn.trade || 0) + n;
+    for (const c of credits) {
+      const src = c.src || "trade";
+      st.kombat.coins += c.amount; st.kombat.earn[src] = (st.kombat.earn[src] || 0) + c.amount;
+    }
     changed = true;
   }
   if (tier === PARTNER && !st.partnerGift) {
@@ -491,6 +499,7 @@ const routes = {
       if (!u.jry_wallet) bad("k.needWallet");
       if (!(await jryStatusOf(env, u.jry_wallet)).trust) bad("k.noTrust");
     }
+    if (item.p2p) await reserveOffer(env, u, item, id, nowT);
     // Persist the payment id before approving (irreversible on Pi's side)
     await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'pending', ?)", id, u.uid, item.price, nowT);
     const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
@@ -1011,6 +1020,115 @@ const routes = {
   },
 
   // Community market: testJRY price from the Test-Pi pool, pool size, holders (cached 1 min)
+  // ---------- Players' testJRY market ----------
+  "GET /api/p2p": async (req, env) => {
+    const u = await auth(req, env);
+    const m = await jryMarket(env);
+    if (!m.on) return { on: false };
+    const t = await jryConfig(env);
+    const open = await all(env, "SELECT * FROM p2p_offers WHERE kind = 'sell' AND status IN ('open', 'reserved') ORDER BY pi / CAST(jry AS REAL) ASC, id ASC LIMIT 40");
+    const mine = await all(env, "SELECT * FROM p2p_offers WHERE uid = ? ORDER BY id DESC LIMIT 20", u.uid);
+    const ids = [...new Set(open.map((o) => o.uid))];
+    const names = {};
+    for (const id of ids) { const x = await one(env, "SELECT username FROM users WHERE uid = ?", id); names[id] = x ? x.username : "?"; }
+    const sold = await one(env, "SELECT COUNT(*) AS n, COALESCE(SUM(pi), 0) AS pi FROM p2p_offers WHERE kind = 'sell' AND status = 'sold'");
+    return { on: true, app: t.dist, price: m.price, fee: P2P.FEE, bonus: P2P.REDEEM_BONUS, wallet: u.jry_wallet || null, me: u.uid,
+      offers: open.map((o) => ({ ...offerView(o, names), mine: o.uid === u.uid })), mine: mine.map((o) => offerView(o)), sold };
+  },
+  // Create a sell offer (lot of testJRY for a Pi price) or a swap for dates / Kombat coins.
+  // Nothing moves yet: the player then sends the exact amount to the app wallet.
+  "POST /api/p2p/offer": async (req, env, body) => {
+    const u = await auth(req, env);
+    await p2pNeedWallet(env, u);
+    const jry = jryAmount(body.jry);
+    if (!jry) bad("p2p.amount");
+    const kind = body.kind === "redeem" ? "redeem" : "sell";
+    let pi = 0, reward = null;
+    if (kind === "sell") {
+      pi = round(Number(body.pi));
+      if (!(pi >= P2P.MIN_PI && pi <= P2P.MAX_PI)) bad("p2p.price", { min: P2P.MIN_PI });
+    } else {
+      reward = body.reward === "coins" ? "coins" : "dates";
+      const m = await jryMarket(env);
+      if (!(m.price > 0)) bad("p2p.noPrice");
+      pi = redeemValue(jry, m.price, reward).pi;
+      if (pi < P2P.MIN_REDEEM_PI) bad("p2p.amount");
+    }
+    const n = await one(env, "SELECT COUNT(*) AS n FROM p2p_offers WHERE uid = ? AND status IN ('deposit', 'open', 'reserved', 'returning')", u.uid);
+    if (n.n >= P2P.MAX_OPEN) bad("p2p.tooMany", { n: P2P.MAX_OPEN });
+    const now = Date.now();
+    const r = await one(env, "INSERT INTO p2p_offers (kind, uid, wallet, jry, pi, reward, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'deposit', ?, ?) RETURNING id",
+      kind, u.uid, u.jry_wallet, jry, round(pi), reward, now, now);
+    return { ok: true, id: r.id, jry, app: (await jryConfig(env)).dist };
+  },
+  // "I've sent it": look for the deposit on the Pi Testnet
+  "POST /api/p2p/check": async (req, env, body) => {
+    const u = await auth(req, env);
+    await p2pNeedWallet(env, u);
+    const o = await one(env, "SELECT * FROM p2p_offers WHERE id = ? AND uid = ?", Number(body.id), u.uid);
+    if (!o) bad("p2p.gone");
+    if (o.status !== "deposit") return { ok: true, status: o.status };
+    const t = await jryConfig(env);
+    const tx = await findJryPayment(env, t, o.wallet, t.dist, o.jry, o.created_at);
+    if (!tx) bad("p2p.notYet", { n: o.jry, to: t.dist });
+    const now = Date.now();
+    if (o.kind === "sell") {
+      const r = await run(env, "UPDATE p2p_offers SET status = 'open', deposit_tx = ?, updated_at = ? WHERE id = ? AND status = 'deposit'", tx, now, o.id);
+      return { ok: true, status: r.meta.changes ? "open" : "deposit" };
+    }
+    // Swap: value at today's pool price, credited once
+    const m = await jryMarket(env);
+    const v = redeemValue(o.jry, m.price, o.reward);
+    const r = await run(env, "UPDATE p2p_offers SET status = 'done', deposit_tx = ?, pi = ?, got = ?, updated_at = ? WHERE id = ? AND status = 'deposit'", tx, round(v.pi), v.got, now, o.id);
+    if (r.meta.changes) {
+      if (o.reward === "coins") await run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'jry')", u.uid, v.got, now);
+      else {
+        if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
+        await run(env, "UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?", v.got, v.got, u.uid);
+      }
+    }
+    const tier = tierOf(u, now, await isPartner(env, u.username));
+    return { ok: true, status: "done", got: v.got, reward: o.reward, state: await stateFor(env, u, now, tier) };
+  },
+  // Take an offer back: before the deposit nothing moves; after, the tokens go back to the seller
+  "POST /api/p2p/cancel": async (req, env, body) => {
+    const u = await auth(req, env);
+    await p2pNeedWallet(env, u);
+    const o = await one(env, "SELECT * FROM p2p_offers WHERE id = ? AND uid = ?", Number(body.id), u.uid);
+    if (!o) bad("p2p.gone");
+    const now = Date.now();
+    if (o.status === "deposit") {
+      await run(env, "UPDATE p2p_offers SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = 'deposit'", now, o.id);
+      return { ok: true, status: "cancelled" };
+    }
+    if (o.status === "reserved") {
+      // A buyer is paying right now; only a hold whose payment never got its Pi can be dropped
+      let stale = now - o.reserved_at > P2P.HOLD_MS;
+      if (stale) { try { const { p } = await findPayment(env, o.pay_id); stale = !p.transaction; } catch (e) {} }
+      if (!stale) bad("p2p.busy");
+      const r = await run(env, "UPDATE p2p_offers SET status = 'open', buyer = NULL, pay_id = NULL, updated_at = ? WHERE id = ? AND status = 'reserved' AND pay_id = ?", now, o.id, o.pay_id);
+      if (!r.meta.changes) bad("p2p.busy");
+      o.status = "open";
+    }
+    if (o.status !== "open" && o.status !== "returning") return { ok: true, status: o.status };
+    if (o.status === "open") {
+      const r = await run(env, "UPDATE p2p_offers SET status = 'returning', updated_at = ? WHERE id = ? AND status = 'open'", now, o.id);
+      if (!r.meta.changes) bad("p2p.busy");
+    }
+    const t = await jryConfig(env);
+    const cur = await one(env, "SELECT * FROM p2p_offers WHERE id = ?", o.id);
+    try {
+      // Already sent back on an earlier try whose answer was lost? Then don't send twice.
+      let tx = await findJryPayment(env, t, t.dist, cur.wallet, cur.jry, cur.updated_at);
+      if (!tx) tx = await jrySend(env, t, cur.wallet, cur.jry);
+      await run(env, "UPDATE p2p_offers SET status = 'cancelled', return_tx = ?, error = NULL, updated_at = ? WHERE id = ? AND status = 'returning'", tx, Date.now(), o.id);
+      return { ok: true, status: "cancelled" };
+    } catch (e) {
+      await run(env, "UPDATE p2p_offers SET error = ? WHERE id = ?", String(e.code || e.message).slice(0, 200), o.id);
+      throw e;
+    }
+  },
+
   "GET /api/jry/market": async (req, env) => {
     const m = await jryMarket(env);
     let mine = null;
@@ -1185,6 +1303,17 @@ function checkPayment(p, uid) {
     if (!KL.JRY_PACKS.includes(Number(p.amount)) || Number(p.metadata.pi) !== Number(p.amount)) bad("badPayment");
     return { price: Number(p.amount), jry: true };
   }
+  if (p.metadata?.type === "kcoins") {
+    const pack = KL.COIN_PACKS.find((x) => x.id === p.metadata.pack);
+    if (!pack || Number(p.amount) !== pack.price) bad("badPayment");
+    return { price: pack.price, coins: pack };
+  }
+  if (p.metadata?.type === "p2p") {
+    // Players' testJRY market: the price is checked against the offer when approving
+    const offer = Number(p.metadata.offer);
+    if (!Number.isInteger(offer) || offer <= 0 || !(Number(p.amount) > 0)) bad("badPayment");
+    return { price: Number(p.amount), p2p: offer };
+  }
   if (p.metadata?.type === "dates") {
     const pack = L.PACKS.find((x) => x.id === p.metadata.pack);
     if (!pack || Number(p.amount) !== pack.price) bad("badPayment");
@@ -1214,10 +1343,13 @@ async function completePayment(env, id, txid, uid) {
   if (!r.meta.changes) return;
   const u = await one(env, "SELECT * FROM users WHERE uid = ?", p.user_uid);
   const wid = L.weekId(now);
+  if (item.p2p) return settleOffer(env, item, id, p.user_uid, now);
   const stmts = [
     env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(wid, round(net(item.price) * PRIZE_RATE)),
   ];
   if (u) {
+    // Bought Kombat coins: credited on the next load (never lost to a game save running at the same time)
+    if (item.coins) stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, item.coins.coins, now));
     if (item.tier) stmts.push(await applyMembership(env, u, item.tier, now));
     if (item.pack) {
       // Bought dates go to the balance only: they never count toward the weekly ranking
@@ -1238,6 +1370,87 @@ async function completePayment(env, id, txid, uid) {
     await run(env, "INSERT OR IGNORE INTO jry_buys (id, uid, address, pi, jry, status, at) VALUES (?, ?, ?, ?, ?, 'owed', ?)", id, u.uid, u.jry_wallet || "", item.price, jry, now);
     await deliverJry(env, id);
   }
+}
+
+// ---------- Players' testJRY market ----------
+const P2P = KL.P2P;
+const jryAmount = (x) => {
+  // testJRY amount as a 7-decimal string, or null
+  const n = Number(x);
+  if (!Number.isFinite(n) || n < P2P.MIN_JRY || n > P2P.MAX_JRY) return null;
+  return (Math.floor(n * 1e7) / 1e7).toFixed(7);
+};
+async function p2pNeedWallet(env, u) {
+  if (!isTestnet(env)) bad("k.tokenOff");
+  if (!u.jry_wallet) bad("k.needWallet");
+}
+// A testJRY payment on the Pi Testnet between `from` and `to` of exactly `jry`, made after `since`
+// and not used yet by another offer (the transaction hash is stored once).
+async function findJryPayment(env, t, from, to, jry, since) {
+  const want = toStroops(jry);
+  const page = await horizonGet(`/accounts/${t.dist}/payments?order=desc&limit=200`);
+  const recs = (page && page._embedded && page._embedded.records) || [];
+  for (const r of recs) {
+    if (r.type !== "payment" || r.from !== from || r.to !== to) continue;
+    if (r.asset_code !== t.code || r.asset_issuer !== t.issuer) continue;
+    if (r.transaction_successful === false) continue;
+    if (Date.parse(r.created_at) < since - 5 * 60000) continue;
+    try { if (toStroops(r.amount) !== want) continue; } catch (e) { continue; }
+    const used = await one(env, "SELECT id FROM p2p_offers WHERE deposit_tx = ? OR return_tx = ?", r.transaction_hash, r.transaction_hash);
+    if (used) continue;
+    return r.transaction_hash;
+  }
+  return null;
+}
+// What testJRY is worth in dates / Kombat coins (paying with testJRY gives REDEEM_BONUS more)
+function redeemValue(jry, price, reward) {
+  const pi = Number(jry) * price;
+  const perPi = reward === "coins" ? KL.COINS_PER_PI : L.PACKS[1].dates / L.PACKS[1].price;
+  return { pi, got: Math.floor(pi * perPi * (1 + P2P.REDEEM_BONUS)) };
+}
+const offerView = (o, names) => ({
+  id: o.id, kind: o.kind, jry: o.jry, pi: o.pi, unit: Number(o.jry) > 0 ? o.pi / Number(o.jry) : 0, reward: o.reward, got: o.got,
+  status: o.status === "reserved" ? "reserved" : o.status, seller: names ? names[o.uid] : undefined, error: o.error || undefined, at: o.created_at,
+});
+// Approving a buyer's payment: hold the offer for this payment (one buyer at a time)
+async function reserveOffer(env, u, item, payId, now) {
+  if (!isTestnet(env)) bad("badPayment");
+  if (!u.jry_wallet) bad("k.needWallet");
+  if (!(await jryStatusOf(env, u.jry_wallet)).trust) bad("k.noTrust");
+  const o = await one(env, "SELECT * FROM p2p_offers WHERE id = ? AND kind = 'sell'", item.p2p);
+  if (!o) bad("p2p.gone");
+  if (o.uid === u.uid) bad("p2p.own");
+  if (Math.abs(o.pi - item.price) > 1e-7) bad("badPayment");
+  let r = await run(env, "UPDATE p2p_offers SET status = 'reserved', buyer = ?, pay_id = ?, reserved_at = ?, updated_at = ? WHERE id = ? AND (status = 'open' OR (status = 'reserved' AND pay_id = ?))",
+    u.uid, payId, now, now, o.id, payId);
+  if (r.meta.changes) return;
+  // Held by another buyer who never sent the Pi: free it after HOLD_MS
+  if (o.status === "reserved" && now - o.reserved_at > P2P.HOLD_MS) {
+    let stale = true;
+    try { const { p } = await findPayment(env, o.pay_id); stale = !p.transaction; } catch (e) {}
+    if (stale) {
+      r = await run(env, "UPDATE p2p_offers SET buyer = ?, pay_id = ?, reserved_at = ?, updated_at = ? WHERE id = ? AND status = 'reserved' AND pay_id = ?", u.uid, payId, now, now, o.id, o.pay_id);
+      if (r.meta.changes) return;
+    }
+  }
+  bad("p2p.taken");
+}
+// The buyer's Pi arrived: tokens to the buyer, Pi (minus the fee) to the seller.
+// If the offer went to someone else meanwhile, the buyer gets the Pi back.
+async function settleOffer(env, item, payId, buyerUid, now) {
+  const o = await one(env, "SELECT * FROM p2p_offers WHERE id = ?", item.p2p);
+  const buyer = await one(env, "SELECT * FROM users WHERE uid = ?", buyerUid);
+  const won = o && buyer ? await run(env, "UPDATE p2p_offers SET status = 'sold', updated_at = ? WHERE id = ? AND status = 'reserved' AND pay_id = ?", now, o.id, payId) : { meta: { changes: 0 } };
+  if (!won.meta.changes) {
+    await run(env, "INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'refund', ?, ?, ?, 'Pi Oasis testJRY market refund', 'new', ?, ?)",
+      crypto.randomUUID(), payId, buyerUid, item.price, now, now);
+  } else {
+    await run(env, "INSERT OR IGNORE INTO jry_buys (id, uid, address, pi, jry, status, at) VALUES (?, ?, ?, ?, ?, 'owed', ?)", payId, buyerUid, buyer.jry_wallet || "", item.price, o.jry, now);
+    await run(env, "INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'p2p', ?, ?, ?, ?, 'new', ?, ?)",
+      crypto.randomUUID(), String(o.id), o.uid, round(o.pi * (1 - P2P.FEE)), `Pi Oasis testJRY sale #${o.id}`, now, now);
+    await deliverJry(env, payId);
+  }
+  await runPayouts(env).catch((e) => logError(env, "p2p payout", 0, e.message));
 }
 
 // testJRY market numbers from the Test-Pi pool (cached for a minute)

@@ -861,3 +861,33 @@ body.k-open { overflow: hidden; }
 #piGate .pg-open { display: block; text-decoration: none; font-size: 1.1em; padding: 14px; }
 #piGate .pg-get { color: var(--emerald); font-size: .92em; }
 #piGate .pg-stay { background: none; border: 0; color: var(--muted); text-decoration: underline; font: inherit; font-size: .88em; cursor: pointer; }
+
+/* Kombat coin shop (4 packs) */
+.k-shop-4 { grid-template-columns: repeat(4, 1fr); }
+.k-shop-4 .k-buy small { display: flex; align-items: center; gap: 3px; }
+/* Players' testJRY market */
+.k-p2p .p2p-ico { font-size: 30px; }
+.p2p-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.p2p-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; border-radius: 14px; background: rgba(255, 255, 255, .08); }
+.p2p-row > span { display: flex; flex-direction: column; min-width: 0; }
+.p2p-row small { font-size: 11px; opacity: .85; overflow-wrap: anywhere; }
+.p2p-row em { font-style: normal; font-weight: 700; padding: 0 4px; border-radius: 6px; }
+.p2p-row em.cheap { color: #7dffb5; }
+.p2p-row em.dear { color: #ffb37d; }
+.p2p-buy { flex: 0 0 auto; min-width: 84px; }
+.p2p-tag { flex: 0 0 auto; font-size: 11px; opacity: .8; }
+.p2p-box { margin-top: 8px; padding: 8px 10px; border-radius: 14px; background: rgba(0, 0, 0, .18); }
+.p2p-box summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+.p2p-box label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; margin: 8px 0; }
+.p2p-box input[type=number] { border-radius: 12px; border: 1px solid rgba(255, 215, 106, .5); padding: 9px 10px; font: inherit; background: #fff; color: #2a1162; }
+.p2p-box .btn { width: 100%; margin-top: 6px; }
+.p2p-pick { display: flex; gap: 14px; }
+.p2p-pick label { flex-direction: row; align-items: center; margin: 4px 0; }
+.k-p2p h4 { margin: 14px 0 6px; }
+.p2p-mine { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; margin-bottom: 8px; border-radius: 14px; background: rgba(255, 255, 255, .06); font-size: 13px; }
+.p2p-st { margin-inline-start: 6px; padding: 1px 7px; border-radius: 8px; background: rgba(255, 255, 255, .14); font-size: 11px; }
+.p2p-st.sold, .p2p-st.done { background: rgba(47, 174, 120, .45); }
+.p2p-st.deposit { background: rgba(226, 169, 24, .45); }
+.p2p-addr { align-self: flex-start; border: 1px dashed rgba(255, 215, 106, .7); background: transparent; color: inherit; border-radius: 10px; padding: 6px 10px; font: inherit; font-family: monospace; cursor: pointer; }
+.p2p-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.p2p-err { color: #ffb37d; }

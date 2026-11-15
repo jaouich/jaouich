@@ -638,7 +638,7 @@
   // Shared links are https (so they can be tapped in chats); this page opens them in Pi Browser.
   (function piBrowserGate() {
     const ua = navigator.userAgent || "";
-    if (/PiBrowser/i.test(ua)) return;
+    if (/PiBrowser/i.test(ua) || window.PI_SANDBOX) return; // Pi Browser, or the Pi Sandbox on a computer
     try { if (sessionStorage.getItem("oasis.stay")) return; } catch (e) {}
     const piUrl = "pi://" + location.host + location.pathname + location.search;
     const android = /Android/i.test(ua);

@@ -32,11 +32,15 @@
     ]);
   }
 
-  // Pi.init must finish before Pi.authenticate. Sandbox is detected automatically.
+  // Pi.init must finish before Pi.authenticate. The Pi Sandbox (developer testing on a computer,
+  // sandbox.minepi.com) shows the app inside a frame: tell the SDK, or sign-in never answers.
+  const inFrame = (() => { try { return window.top !== window.self; } catch (e) { return true; } })();
+  const sandbox = /[?&]sandbox=1\b/.test(location.search) || (inFrame && /sandbox\.minepi\.com/.test(document.referrer || ""));
+  window.PI_SANDBOX = sandbox;
   const initDone = (async () => {
     if (!window.Pi) return false;
     try {
-      await window.Pi.init({ version: "2.0" });
+      await window.Pi.init({ version: "2.0", sandbox });
       piReady = true;
       return true;
     } catch (e) {

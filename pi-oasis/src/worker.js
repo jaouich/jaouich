@@ -167,6 +167,9 @@ const SCHEMA = [
   // or → returning → cancelled; redeem: deposit → done.
   "CREATE TABLE IF NOT EXISTS p2p_offers ( id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, uid TEXT NOT NULL, wallet TEXT NOT NULL, jry TEXT NOT NULL, pi REAL NOT NULL, reward TEXT, got INTEGER, status TEXT NOT NULL, deposit_tx TEXT UNIQUE, buyer TEXT, pay_id TEXT, reserved_at INTEGER, return_tx TEXT, error TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
   "CREATE INDEX IF NOT EXISTS p2p_open ON p2p_offers(status, kind)",
+  // Points market (dates / Kombat coins for Pi). status: open → reserved → sold, or cancelled
+  "CREATE TABLE IF NOT EXISTS mk_offers ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, kind TEXT NOT NULL, amount INTEGER NOT NULL, pi REAL NOT NULL, status TEXT NOT NULL, buyer TEXT, pay_id TEXT, reserved_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
+  "CREATE INDEX IF NOT EXISTS mk_open ON mk_offers(status, kind)",
   "CREATE TABLE IF NOT EXISTS jry_buys ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, address TEXT NOT NULL, pi REAL NOT NULL, jry TEXT NOT NULL, status TEXT NOT NULL, txid TEXT, error TEXT, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_keys ( id INTEGER PRIMARY KEY, seed TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_sends ( uid TEXT PRIMARY KEY, address TEXT NOT NULL, amount TEXT NOT NULL, txid TEXT, status TEXT NOT NULL, error TEXT, at INTEGER NOT NULL )",
@@ -188,6 +191,10 @@ const ensureSchema = (env) =>
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_at INTEGER").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE nft_credits ADD COLUMN src TEXT").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_pts INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN mk_balance REAL NOT NULL DEFAULT 0").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN wheel_day INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN wheel_spins INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE withdrawals ADD COLUMN src TEXT").run().catch(() => {}))
     .catch((e) => { schemaReady = null; throw e; }));
 
 const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
@@ -280,6 +287,9 @@ async function account(env, u) {
     partnerReq: tier === PARTNER ? "approved" : ((await one(env, "SELECT status FROM partner_requests WHERE uid = ?", u.uid)) || {}).status || null,
     jryHeld: held,
     jryPts: Number(u.jry_pts) || 0,
+    mkBalance: Number(u.mk_balance) || 0,
+    wheelFree: (u.wheel_day ?? -1) !== L.dayId(now),
+    wheelSpins: Number(u.wheel_spins) || 0,
     holdBoost: holdBoost(held) + (await nftBoost(env, u.uid)),
     nftBoost: await nftBoost(env, u.uid),
     jryOn: !!env.JRY_ISSUER_SEED || isTestnet(env),
@@ -514,6 +524,7 @@ const routes = {
       if (!(await jryStatusOf(env, u.jry_wallet)).trust) bad("k.noTrust");
     }
     if (item.p2p) await reserveOffer(env, u, item, id, nowT);
+    if (item.mk) await mkReserve(env, u, item, id, nowT);
     // Persist the payment id before approving (irreversible on Pi's side)
     await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'pending', ?)", id, u.uid, item.price, nowT);
     const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
@@ -1034,6 +1045,100 @@ const routes = {
   },
 
   // Community market: testJRY price from the Test-Pi pool, pool size, holders (cached 1 min)
+  // ---------- Points market ----------
+  "GET /api/mk": async (req, env) => {
+    const u = await auth(req, env);
+    const open = await all(env, `SELECT o.*, s.username AS seller FROM mk_offers o JOIN users s ON s.uid = o.uid
+      WHERE o.status IN ('open', 'reserved') ORDER BY o.pi / o.amount ASC, o.id ASC LIMIT 60`);
+    const mine = await all(env, "SELECT * FROM mk_offers WHERE uid = ? ORDER BY id DESC LIMIT 15", u.uid);
+    const view = (o) => ({ id: o.id, kind: o.kind, amount: o.amount, pi: o.pi, status: o.status, seller: o.seller, mine: o.uid === u.uid });
+    const pend = await one(env, "SELECT amount FROM withdrawals WHERE uid = ? AND src = 'mk' AND status IN ('pending', 'processing')", u.uid);
+    return { offers: open.map(view), mine: mine.map(view), balance: Number(u.mk_balance) || 0, pending: pend ? pend.amount : 0,
+      tax: MK.TAX, minWithdraw: MK.MIN_WITHDRAW };
+  },
+  // Sell points: they leave the seller's game now and wait in the offer until sold or cancelled
+  "POST /api/mk/offer": async (req, env, body) => {
+    const u = await auth(req, env);
+    const kind = body.kind === "coins" ? "coins" : "dates";
+    const amount = Math.floor(Number(body.amount)), pi = round(Number(body.pi));
+    if (!(amount >= MK.MIN[kind])) bad(kind === "coins" ? "mk.minCoins" : "mk.minDates");
+    if (!(pi >= MK.MIN_PI && pi <= MK.MAX_PI)) bad("mk.price");
+    const n = await one(env, "SELECT COUNT(*) AS n FROM mk_offers WHERE uid = ? AND status IN ('open', 'reserved')", u.uid);
+    if (n.n >= MK.MAX_OPEN) bad("mk.tooMany");
+    const now = Date.now();
+    const tier = tierOf(u, now, await isPartner(env, u.username));
+    const st = await stateFor(env, u, now, tier);
+    if (kind === "coins") {
+      st.kombat = KL.norm(st.kombat, now);
+      if (st.kombat.coins < amount) bad("mk.notEnough");
+      st.kombat.coins -= amount;
+    } else {
+      if (st.dates < amount) bad("mk.notEnough");
+      st.dates -= amount;
+    }
+    await saveState(env, u.uid, st, now);
+    await run(env, "INSERT INTO mk_offers (uid, kind, amount, pi, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'open', ?, ?)", u.uid, kind, amount, pi, now, now);
+    return { ok: true, state: st };
+  },
+  "POST /api/mk/cancel": async (req, env, body) => {
+    const u = await auth(req, env);
+    const o = await one(env, "SELECT * FROM mk_offers WHERE id = ? AND uid = ?", Number(body.id), u.uid);
+    if (!o) bad("mk.gone");
+    const now = Date.now();
+    if (o.status === "reserved") {
+      let stale = now - o.reserved_at > MK.HOLD_MS;
+      if (stale) { try { const { p } = await findPayment(env, o.pay_id); stale = !p.transaction; } catch (e) {} }
+      if (!stale) bad("mk.busy");
+    }
+    const r = await run(env, "UPDATE mk_offers SET status = 'cancelled', updated_at = ? WHERE id = ? AND status IN ('open', 'reserved') AND COALESCE(pay_id, '') = ?", now, o.id, o.pay_id || "");
+    if (!r.meta.changes) bad("mk.busy");
+    await creditPoints(env, u.uid, o.kind, o.amount, now, "market");
+    const tier = tierOf(u, now, await isPartner(env, u.username));
+    return { ok: true, state: await stateFor(env, u, now, tier) };
+  },
+  // Withdraw the sales balance (from MIN_WITHDRAW Pi): paid to the player's Pi wallet by the hourly run
+  "POST /api/mk/withdraw": async (req, env) => {
+    const u = await auth(req, env);
+    const bal = Number(u.mk_balance) || 0;
+    if (bal < MK.MIN_WITHDRAW) bad("mk.minWithdraw");
+    if (await one(env, "SELECT id FROM withdrawals WHERE uid = ? AND status = 'pending'", u.uid)) bad("pendingWithdraw");
+    const amount = round(bal);
+    const r = await run(env, "UPDATE users SET mk_balance = 0 WHERE uid = ? AND mk_balance = ?", u.uid, u.mk_balance);
+    if (!r.meta.changes) bad("server");
+    await run(env, "INSERT INTO withdrawals (id, uid, username, amount, status, created_at, src) VALUES (?, ?, ?, ?, 'pending', ?, 'mk')", crypto.randomUUID(), u.uid, u.username, amount, Date.now());
+    await runPayouts(env).catch((e) => logError(env, "mk withdraw", 0, e.message));
+    return { ok: true, amount, account: await account(env, await one(env, "SELECT * FROM users WHERE uid = ?", u.uid)) };
+  },
+
+  // ---------- Lucky wheel ----------
+  "POST /api/wheel/spin": async (req, env) => {
+    const u = await auth(req, env);
+    const now = Date.now(), day = L.dayId(now);
+    let free = false;
+    let r = await run(env, "UPDATE users SET wheel_day = ? WHERE uid = ? AND COALESCE(wheel_day, -1) != ?", day, u.uid, day);
+    if (r.meta.changes) free = true;
+    else {
+      r = await run(env, "UPDATE users SET wheel_spins = wheel_spins - 1 WHERE uid = ? AND wheel_spins > 0", u.uid);
+      if (!r.meta.changes) bad("wh.none");
+    }
+    const P = L.WHEEL.PRIZES, total = P.reduce((a, x) => a + x.w, 0);
+    let x = secureRandom() * total, i = 0;
+    while (i < P.length - 1 && x >= P[i].w) { x -= P[i].w; i++; }
+    const prize = P[i];
+    if (prize.t === "dates" || prize.t === "coins") await creditPoints(env, u.uid, prize.t, prize.n, now, "wheel");
+    else if (prize.t === "jry") await run(env, "UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?", prize.n, u.uid);
+    else if (prize.t === "respin") await run(env, "UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + 1 WHERE uid = ?", u.uid);
+    const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
+    const acc = await account(env, fresh);
+    const st = await stateFor(env, fresh, now, acc.tier);
+    if (prize.t === "energy" || prize.t === "camel") {
+      if (prize.t === "camel") L.addAnimal(st, 1, now, "wheel"); // a rare camel
+      else { st.kombat = KL.norm(st.kombat, now); st.kombat.energy = KL.maxEnergy(st.kombat); st.kombat.eAt = now; }
+      await saveState(env, u.uid, st, now);
+    }
+    return { ok: true, i, prize, free, account: acc, state: st };
+  },
+
   // ---------- JRY (in-game currency): spend for Kombat coins or dates ----------
   "POST /api/jrypts/swap": async (req, env, body) => {
     const u = await auth(req, env);
@@ -1337,6 +1442,16 @@ function checkPayment(p, uid) {
     if (!KL.JRY_PACKS.includes(Number(p.amount)) || Number(p.metadata.pi) !== Number(p.amount)) bad("badPayment");
     return { price: Number(p.amount), jry: true };
   }
+  if (p.metadata?.type === "spins") {
+    if (Number(p.amount) !== L.WHEEL.PRICE) bad("badPayment");
+    return { price: L.WHEEL.PRICE, spins: L.WHEEL.SPINS };
+  }
+  if (p.metadata?.type === "mk") {
+    // Points market: the price is checked against the offer when approving
+    const offer = Number(p.metadata.offer);
+    if (!Number.isInteger(offer) || offer <= 0 || !(Number(p.amount) > 0)) bad("badPayment");
+    return { price: Number(p.amount), mk: offer };
+  }
   if (p.metadata?.type === "jrypts") {
     const pack = KL.JRYP.PACKS.find((x) => x.id === p.metadata.pack);
     if (!pack || Number(p.amount) !== pack.price) bad("badPayment");
@@ -1383,11 +1498,13 @@ async function completePayment(env, id, txid, uid) {
   const u = await one(env, "SELECT * FROM users WHERE uid = ?", p.user_uid);
   const wid = L.weekId(now);
   if (item.p2p) return settleOffer(env, item, id, p.user_uid, now);
+  if (item.mk) return mkSettle(env, item, id, p.user_uid, now);
   const stmts = [
     env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(wid, round(net(item.price) * PRIZE_RATE)),
   ];
   if (u) {
     // Bought Kombat coins: credited on the next load (never lost to a game save running at the same time)
+    if (item.spins) stmts.push(env.DB.prepare("UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?").bind(item.spins, u.uid));
     if (item.jryPts) stmts.push(env.DB.prepare("UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(item.jryPts.jry, u.uid));
     if (item.coins) stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, item.coins.coins, now));
     if (item.tier) stmts.push(await applyMembership(env, u, item.tier, now));
@@ -1410,6 +1527,53 @@ async function completePayment(env, id, txid, uid) {
     await run(env, "INSERT OR IGNORE INTO jry_buys (id, uid, address, pi, jry, status, at) VALUES (?, ?, ?, ?, ?, 'owed', ?)", id, u.uid, u.jry_wallet || "", item.price, jry, now);
     await deliverJry(env, id);
   }
+}
+
+// ---------- Points market (dates / Kombat coins for Pi) ----------
+const MK = L.MARKET;
+// Adds points to a player without touching a game save that may be running at the same time.
+// Bought / returned / won points never count toward weekly rankings.
+async function creditPoints(env, uid, kind, n, now, src) {
+  if (kind === "coins") return run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, ?)", uid, n, now, src);
+  if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", uid))) await saveState(env, uid, L.fresh(now), now);
+  return run(env, "UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?) WHERE uid = ?", n, uid);
+}
+async function mkReserve(env, u, item, payId, now) {
+  const o = await one(env, "SELECT * FROM mk_offers WHERE id = ?", item.mk);
+  if (!o || o.status === "sold" || o.status === "cancelled") bad("mk.gone");
+  if (o.uid === u.uid) bad("mk.own");
+  if (Math.abs(o.pi - item.price) > 1e-7) bad("badPayment");
+  let r = await run(env, "UPDATE mk_offers SET status = 'reserved', buyer = ?, pay_id = ?, reserved_at = ?, updated_at = ? WHERE id = ? AND (status = 'open' OR (status = 'reserved' AND pay_id = ?))",
+    u.uid, payId, now, now, o.id, payId);
+  if (r.meta.changes) return;
+  // Held by a buyer who never sent the Pi: free it after HOLD_MS
+  if (o.status === "reserved" && now - o.reserved_at > MK.HOLD_MS) {
+    let stale = true;
+    try { const { p } = await findPayment(env, o.pay_id); stale = !p.transaction; } catch (e) {}
+    if (stale) {
+      r = await run(env, "UPDATE mk_offers SET buyer = ?, pay_id = ?, reserved_at = ?, updated_at = ? WHERE id = ? AND status = 'reserved' AND pay_id = ?", u.uid, payId, now, now, o.id, o.pay_id);
+      if (r.meta.changes) return;
+    }
+  }
+  bad("mk.taken");
+}
+// The buyer's Pi arrived in the app wallet: points to the buyer, Pi minus the tax to the seller's
+// sales balance. If the offer went to someone else meanwhile, the buyer gets the Pi back.
+async function mkSettle(env, item, payId, buyerUid, now) {
+  const o = await one(env, "SELECT * FROM mk_offers WHERE id = ?", item.mk);
+  const won = o ? await run(env, "UPDATE mk_offers SET status = 'sold', updated_at = ? WHERE id = ? AND status = 'reserved' AND pay_id = ?", now, o.id, payId) : { meta: { changes: 0 } };
+  if (!won.meta.changes) {
+    await run(env, "INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'refund', ?, ?, ?, 'Pi Oasis market refund', 'new', ?, ?)",
+      crypto.randomUUID(), payId, buyerUid, item.price, now, now);
+    return runPayouts(env).catch((e) => logError(env, "mk refund", 0, e.message));
+  }
+  await creditPoints(env, buyerUid, o.kind, o.amount, now, "market");
+  const tax = round(o.pi * MK.TAX);
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET mk_balance = ROUND(COALESCE(mk_balance, 0) + ?, 7) WHERE uid = ?").bind(round(o.pi - tax), o.uid),
+    // part of the tax feeds the weekly prize pool
+    env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(L.weekId(now), round(tax * PRIZE_RATE)),
+  ]);
 }
 
 // ---------- Players' testJRY market ----------

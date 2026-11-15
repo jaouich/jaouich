@@ -101,6 +101,15 @@
     if (!pack) return Promise.reject(new Error(I18N.t("e.payment")));
     return pay({ amount: pack.price, memo: `Jerry Kombat – ${pack.coins} coins`, metadata: { type: "kcoins", pack: pack.id } });
   }
+  // Lucky wheel: 10 spins for 0.5 Pi
+  function buySpins() {
+    const W = window.OasisLogic.WHEEL;
+    return pay({ amount: W.PRICE, memo: `Pi Oasis – ${W.SPINS} wheel spins`, metadata: { type: "spins" } });
+  }
+  // Points market: pay the seller's price for one offer
+  function buyMk(o) {
+    return pay({ amount: o.pi, memo: `Pi Oasis market #${o.id}`, metadata: { type: "mk", offer: o.id } });
+  }
   // JRY, the in-game currency
   function buyJryPts(packId) {
     const pack = window.KombatLogic.JRYP.PACKS.find((x) => x.id === packId);
@@ -159,6 +168,13 @@
     buyJry,
     buyCoins,
     buyJryPts,
+    buySpins,
+    buyMk,
+    wheelSpin: () => api("/api/wheel/spin", {}),
+    mk: () => api("/api/mk"),
+    mkOffer: (o) => api("/api/mk/offer", o),
+    mkCancel: (id) => api("/api/mk/cancel", { id }),
+    mkWithdraw: () => api("/api/mk/withdraw", {}),
     jryPtsSwap: (n, to) => api("/api/jrypts/swap", { n, to }),
     buyOffer,
     p2p: () => api("/api/p2p"),

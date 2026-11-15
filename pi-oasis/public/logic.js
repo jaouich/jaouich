@@ -470,6 +470,17 @@
     { id: "d10k", price: 2, dates: 10000 },
     { id: "d25k", price: 5, dates: 25000 },
   ];
-  const api = { EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  // Points market: players sell dates / Kombat coins to each other for Pi at their own price.
+  // The buyer's Pi goes to the app wallet; the seller's share shows in their sales balance and
+  // can be withdrawn from MIN_WITHDRAW Pi. TAX is kept by the app on every sale.
+  const MARKET = { TAX: 0.25, MIN_WITHDRAW: 5, MIN_PI: 0.1, MAX_PI: 1000, MIN: { dates: 1000, coins: 20000 }, MAX_OPEN: 5, HOLD_MS: 10 * 60000 };
+  // Lucky wheel: one free spin a day; SPINS more for PRICE Pi. Prizes are in-game only (never Pi).
+  // t: dates | coins | jry | respin | energy | camel ; w: chance in %
+  const WHEEL = { PRICE: 0.5, SPINS: 10, PRIZES: [
+    { t: "dates", n: 100, w: 18 }, { t: "coins", n: 40000, w: 6 }, { t: "jry", n: 10, w: 8 }, { t: "dates", n: 300, w: 12 },
+    { t: "coins", n: 3000, w: 18 }, { t: "camel", n: 1, w: 1 }, { t: "respin", n: 1, w: 10 }, { t: "dates", n: 1000, w: 7 },
+    { t: "coins", n: 10000, w: 12 }, { t: "jry", n: 50, w: 2.5 }, { t: "energy", n: 1, w: 5 }, { t: "coins", n: 250000, w: 0.5 },
+  ] };
+  const api = { MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

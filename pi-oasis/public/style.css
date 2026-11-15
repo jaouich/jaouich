@@ -908,3 +908,33 @@ body.k-open { overflow: hidden; }
 @keyframes kAdPulse { 50% { box-shadow: 0 0 14px rgba(62, 242, 255, .7); } }
 .k-adrow { margin-top: 8px; border-color: rgba(62, 242, 255, .45); }
 .k-adbtn { margin-top: 8px; color: #fff; background: linear-gradient(135deg, #3ef2ff, #7c5cff); }
+
+/* Lucky wheel & points market */
+.fun-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+.fun-btn { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 0; border-radius: var(--radius); cursor: pointer; font: inherit; color: var(--ink); background: linear-gradient(#fffaf0, #fbeecd); box-shadow: 0 4px 0 #e3cf9e; text-align: start; min-width: 0; }
+.fun-btn i { font-style: normal; font-size: 28px; }
+.fun-btn span { display: flex; flex-direction: column; min-width: 0; }
+.fun-btn b { font-size: .95rem; }
+.fun-btn small { font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fun-btn small.hot { color: #c0392b; font-weight: 800; }
+.wh-wrap { position: relative; width: 280px; height: 280px; margin: 14px auto 10px; }
+.wh { position: absolute; inset: 0; border-radius: 50%; border: 8px solid #ffd34d; box-shadow: 0 0 0 4px #a87708, 0 10px 24px rgba(0, 0, 0, .3); direction: ltr; }
+.wh-l { position: absolute; left: 50%; top: 50%; width: 64px; margin: -9px 0 0 -32px; text-align: center; font-size: 11.5px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .6); white-space: nowrap; }
+.wh-hub { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: radial-gradient(#fff6c2, #ffc21a); display: grid; place-items: center; font-size: 28px; box-shadow: 0 0 0 4px #a87708; }
+.wh-pointer { position: absolute; left: 50%; top: -14px; margin-left: -12px; width: 24px; z-index: 2; font-size: 26px; line-height: 1; color: #c0392b; text-shadow: 0 2px 2px rgba(0, 0, 0, .35); text-align: center; }
+.wh-msg { min-height: 26px; text-align: center; font-weight: 800; color: var(--emerald-d); margin-bottom: 8px; }
+#funCard .btn { width: 100%; }
+#funCard .btn.small { width: auto; }
+#funCard h4 { margin: 14px 0 6px; }
+.mk-bal { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border-radius: 16px; background: linear-gradient(135deg, #0f6b4a, #2fae78); color: #fff; margin: 10px 0; }
+.mk-bal span { display: flex; flex-direction: column; }
+.mk-bal b { font-size: 1.5rem; }
+.mk-bal small { opacity: .9; font-size: .78rem; }
+.mk-sell { padding: 8px 12px; border-radius: 16px; background: #fff; border: 1px solid var(--line); }
+.mk-sell summary { cursor: pointer; font-weight: 800; padding: 4px 0; }
+.mk-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 8px 0; }
+.mk-form select, .mk-form input { min-width: 0; border-radius: 12px; border: 1px solid #e3cf9e; padding: 9px 8px; font: inherit; background: #fff; }
+.mk-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; margin-bottom: 6px; border-radius: 14px; background: #fff; border: 1px solid var(--line); }
+.mk-row > span { display: flex; flex-direction: column; min-width: 0; }
+.mk-row small { color: var(--muted); font-size: .78rem; }
+.mk-tag { flex: 0 0 auto; }

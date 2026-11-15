@@ -160,9 +160,11 @@ async function failPayout(env, d, po, e) {
   const giveUp = !po.pi_payment_id && tries >= 3;
   await d.run(env, "UPDATE payouts SET tries = ?, error = ?, status = ?, updated_at = ? WHERE id = ?", tries, msg, giveUp ? "failed" : po.status, Date.now(), po.id);
   if (giveUp && po.kind === "withdraw") {
-    // Give the referral balance back so the player can try again later
+    // Give the balance back (referral or market sales) so the player can try again later
+    const wd = await d.one(env, "SELECT src FROM withdrawals WHERE id = ?", po.ref);
+    const col = wd && wd.src === "mk" ? "mk_balance" : "ref_balance";
     await env.DB.batch([
-      env.DB.prepare("UPDATE users SET ref_balance = ROUND(ref_balance + ?, 7) WHERE uid = ?").bind(po.amount, po.uid),
+      env.DB.prepare(`UPDATE users SET ${col} = ROUND(${col} + ?, 7) WHERE uid = ?`).bind(po.amount, po.uid),
       env.DB.prepare("UPDATE withdrawals SET status = 'failed' WHERE id = ?").bind(po.ref),
     ]);
   }

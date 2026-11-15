@@ -603,6 +603,112 @@
   }
   $("sendGifts").addEventListener("click", () => testGifts("send"));
 
+  // ---------- 🎡 Lucky wheel & 🏪 points market ----------
+  const fmtN = (n) => Number(n).toLocaleString("en-US");
+  const shortN = (n) => (n >= 1e6 ? n / 1e6 + "M" : n >= 1000 ? n / 1000 + "K" : String(n));
+  const W = L.WHEEL, MKT = L.MARKET;
+  const prizeLabel = (p) => (p.t === "dates" ? "🌴 " + shortN(p.n) : p.t === "coins" ? "🪙 " + shortN(p.n) : p.t === "jry" ? "JRY " + p.n : p.t === "respin" ? "🔄" : p.t === "energy" ? "⚡" : "🐪");
+  let funPage = "", whRot = 0, whBusy = false, mkData = null;
+  const closeFun = () => { if (!whBusy) { $("fun").classList.add("hidden"); funPage = ""; } };
+  $("funBg").addEventListener("click", closeFun);
+  function renderFunBadges() {
+    $("whBadge").textContent = !account ? "" : account.wheelFree ? t("wh.freeNow") : account.wheelSpins ? t("wh.left", { n: account.wheelSpins }) : t("wh.tomorrow");
+    $("whBadge").classList.toggle("hot", !!(account && (account.wheelFree || account.wheelSpins)));
+    $("mkBadge").textContent = account && account.mkBalance > 0 ? fmtN(+account.mkBalance.toFixed(2)) + " π" : t("mk.badge");
+  }
+  function renderWheel() {
+    const seg = 360 / W.PRIZES.length;
+    const cols = ["#0f6b4a", "#e2a918", "#c0392b", "#2d6cdf"];
+    const grad = W.PRIZES.map((_, i) => `${cols[i % cols.length]} ${i * seg}deg ${(i + 1) * seg}deg`).join(",");
+    const can = account && (account.wheelFree || account.wheelSpins > 0);
+    $("funCard").innerHTML = `<div class="grab"></div><h3>🎡 ${t("wh.t")}</h3>
+      <p class="hint">${t("wh.d", { n: W.SPINS, p: W.PRICE })}</p>
+      <div class="wh-wrap"><div class="wh-pointer">▼</div>
+        <div class="wh" id="whDisc" style="background:conic-gradient(from ${-seg / 2}deg, ${grad});transform:rotate(${whRot}deg)">
+          ${W.PRIZES.map((p, i) => `<span class="wh-l" style="transform:rotate(${i * seg}deg) translateY(-104px)">${prizeLabel(p)}</span>`).join("")}
+          <b class="wh-hub">🦊</b></div></div>
+      <div id="whMsg" class="wh-msg"></div>
+      <button class="btn gold" id="whSpin" ${can ? "" : "disabled"}>${!account ? t("t.loginFirst") : account.wheelFree ? t("wh.spinFree") : account.wheelSpins > 0 ? t("wh.spin", { n: account.wheelSpins }) : t("wh.noSpins")}</button>
+      <button class="btn" id="whBuy">${t("wh.buy", { n: W.SPINS, p: W.PRICE })}</button>
+      <p class="hint">${t("wh.note")}</p>`;
+  }
+  function renderMk() {
+    const d = mkData;
+    if (!d) { $("funCard").innerHTML = `<div class="grab"></div><h3>🏪 ${t("mk.t")}</h3><p class="hint">…</p>`; return; }
+    const ico = (k) => (k === "coins" ? "🪙" : "🌴");
+    const unit = (o) => fmtN(+(o.pi / o.amount * (o.kind === "coins" ? 100000 : 1000)).toFixed(3)) + " π / " + (o.kind === "coins" ? "100K" : "1K");
+    const row = (o) => `<div class="mk-row"><span><b dir="ltr">${ico(o.kind)} ${fmtN(o.amount)}</b><small>👤 ${esc(o.seller || "")} · <span dir="ltr">${unit(o)}</span></small></span>
+      ${o.mine ? `<small class="mk-tag">${t("mk.yours")}</small>` : o.status === "reserved" ? `<small class="mk-tag">⏳</small>` : `<button class="btn small gold" data-mkbuy="${o.id}"><span dir="ltr">${fmtN(o.pi)} π</span></button>`}</div>`;
+    const list = (k) => { const x = d.offers.filter((o) => o.kind === k); return x.length ? x.map(row).join("") : `<p class="hint">${t("mk.empty")}</p>`; };
+    const mine = d.mine.filter((o) => o.status === "open" || o.status === "reserved");
+    const canW = d.balance >= d.minWithdraw;
+    $("funCard").innerHTML = `<div class="grab"></div><h3>🏪 ${t("mk.t")}</h3>
+      <p class="hint">${t("mk.d", { tax: Math.round(d.tax * 100) })}</p>
+      <div class="mk-bal"><span><small>${t("mk.bal")}</small><b dir="ltr">${fmtN(+d.balance.toFixed(4))} π</b>${d.pending ? `<small>⏳ ${t("mk.pending", { n: d.pending })}</small>` : ""}</span>
+        <button class="btn small ${canW ? "gold" : "secondary"}" id="mkWd" ${canW ? "" : "disabled"}>${canW ? t("mk.withdraw") : t("mk.wdMin", { n: d.minWithdraw })}</button></div>
+      <details class="mk-sell"><summary>📤 ${t("mk.sellT")}</summary>
+        <div class="mk-form"><select id="mkKind"><option value="dates">🌴 ${t("mk.dates")}</option><option value="coins">🪙 ${t("mk.coins")}</option></select>
+          <input id="mkAmt" type="number" inputmode="numeric" min="1" placeholder="${t("mk.amount")}" dir="ltr">
+          <input id="mkPi" type="number" inputmode="decimal" min="${MKT.MIN_PI}" step="any" placeholder="${t("mk.price")}" dir="ltr"></div>
+        <small class="hint" id="mkHint">${t("mk.have", { d: fmtN(S.dates), c: fmtN(Math.floor((S.kombat && S.kombat.coins) || 0)) })}</small>
+        <button class="btn gold" id="mkSell">${t("mk.list")}</button></details>
+      ${mine.length ? `<h4>${t("mk.mineT")}</h4>` + mine.map((o) => `<div class="mk-row"><span><b dir="ltr">${ico(o.kind)} ${fmtN(o.amount)} → ${fmtN(o.pi)} π</b><small>${o.status === "reserved" ? "⏳ " + t("mk.held") : t("mk.onSale")}</small></span><button class="btn small secondary" data-mkcancel="${o.id}">${t("mk.cancel")}</button></div>`).join("") : ""}
+      <h4>🌴 ${t("mk.dates")}</h4>${list("dates")}
+      <h4>🪙 ${t("mk.coins")}</h4>${list("coins")}`;
+  }
+  async function loadMk() { try { mkData = await Pi.mk(); } catch (e) { mkData = null; toast(e.message); } if (funPage === "mk") renderMk(); }
+  $("wheelOpen").addEventListener("click", () => { funPage = "wheel"; renderWheel(); $("fun").classList.remove("hidden"); });
+  $("mkOpen").addEventListener("click", () => {
+    if (!account) return toast(t("t.loginFirst"));
+    funPage = "mk"; mkData = null; renderMk(); $("fun").classList.remove("hidden"); loadMk();
+  });
+  $("funCard").addEventListener("input", () => {
+    if (funPage !== "mk" || !mkData || !$("mkPi")) return;
+    const pi = Number($("mkPi").value);
+    $("mkHint").textContent = pi > 0 ? t("mk.youGet", { n: fmtN(+(pi * (1 - mkData.tax)).toFixed(4)), tax: Math.round(mkData.tax * 100) })
+      : t("mk.have", { d: fmtN(S.dates), c: fmtN(Math.floor((S.kombat && S.kombat.coins) || 0)) });
+  });
+  $("funCard").addEventListener("click", async (e) => {
+    const b = e.target.closest("button");
+    if (!b || whBusy) return;
+    if (!account) return toast(t("t.loginFirst"));
+    try {
+      if (b.id === "whSpin") {
+        whBusy = true; b.disabled = true;
+        const r = await Pi.wheelSpin();
+        const seg = 360 / W.PRIZES.length;
+        whRot = Math.ceil(whRot / 360) * 360 + 360 * 5 + ((360 - r.i * seg) % 360);
+        const disc = $("whDisc"); disc.style.transition = "transform 4.2s cubic-bezier(.12,.72,.1,1)"; disc.style.transform = `rotate(${whRot}deg)`;
+        await new Promise((res) => setTimeout(res, 4400));
+        whBusy = false; account = r.account; S = r.state; render();
+        if (funPage === "wheel") { renderWheel(); $("whMsg").textContent = t("wh.won." + r.prize.t, { n: fmtN(r.prize.n) }); }
+      } else if (b.id === "whBuy") {
+        b.disabled = true;
+        const r = await Pi.buySpins();
+        if (r.account) account = r.account; if (r.state) S = r.state;
+        toast(t("wh.bought", { n: W.SPINS })); render(); renderWheel();
+      } else if (b.id === "mkSell") {
+        b.disabled = true;
+        const r = await Pi.mkOffer({ kind: $("mkKind").value, amount: Number($("mkAmt").value), pi: Number($("mkPi").value) });
+        S = r.state; render(); toast(t("mk.listed")); await loadMk();
+      } else if (b.dataset.mkcancel) {
+        b.disabled = true;
+        const r = await Pi.mkCancel(Number(b.dataset.mkcancel));
+        S = r.state; render(); toast(t("mk.cancelled")); await loadMk();
+      } else if (b.dataset.mkbuy) {
+        b.disabled = true;
+        const o = mkData.offers.find((x) => x.id === Number(b.dataset.mkbuy));
+        const r = await Pi.buyMk(o);
+        if (r.account) account = r.account; if (r.state) S = r.state;
+        render(); toast(t("mk.bought")); await loadMk();
+      } else if (b.id === "mkWd") {
+        b.disabled = true;
+        const r = await Pi.mkWithdraw();
+        account = r.account; render(); toast(t("mk.wdOk", { n: r.amount })); await loadMk();
+      }
+    } catch (err) { whBusy = false; toast(err.message); if (funPage === "mk") loadMk(); else if (funPage === "wheel") renderWheel(); }
+  });
+
   // ---------- Sign in ----------
   async function signIn(silent) {
     if (!silent) $("loginBtn").disabled = true;
@@ -741,7 +847,7 @@
   // ---------- Guide: first-time tour + help center ----------
   const TOUR = [null, "farm", "camels", "city", "stake", "rank", "vip", null];
   const HELP = ["basics", "farm", "camels", "city", "granary", "events", "shop", "ranking", "club", "referral", "missions",
-    "kombat", "kfun", "kboss", "kleague", "kcollect", "ktribes", "kjry", "kp2p", "kvote", "kairdrop", "safety", "faq"];
+    "kombat", "kfun", "kboss", "kleague", "kcollect", "ktribes", "kjry", "kp2p", "pmarket", "wheel", "kvote", "kairdrop", "safety", "faq"];
   const KOMBAT_HELP = HELP.filter((k) => k[0] === "k");
   let tourI = -1;
   const goTab = (tab) => document.querySelector(`.tabs [data-tab="${tab}"]`).click();
@@ -965,7 +1071,7 @@
   function render() {
     S = L.normalize(S, now());
     $("dates").textContent = S.dates.toLocaleString("en-US");
-    renderFarm(); renderStakes(); renderClub(); renderCamels(); renderCity(); renderMissions(); renderBadges();
+    renderFarm(); renderStakes(); renderClub(); renderCamels(); renderCity(); renderMissions(); renderBadges(); renderFunBadges();
     if (selTile >= 0 && !$("sheet").classList.contains("hidden")) renderSheet();
     if (!document.activeElement || document.activeElement.id !== "stakeAmt") renderStakeOptions();
   }

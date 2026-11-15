@@ -195,6 +195,10 @@ const ensureSchema = (env) =>
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN wheel_day INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN wheel_spins INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE withdrawals ADD COLUMN src TEXT").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_day INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_n INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_at INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_total INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .catch((e) => { schemaReady = null; throw e; }));
 
 const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
@@ -290,6 +294,9 @@ async function account(env, u) {
     mkBalance: Number(u.mk_balance) || 0,
     wheelFree: (u.wheel_day ?? -1) !== L.dayId(now),
     wheelSpins: Number(u.wheel_spins) || 0,
+    earnN: (u.earn_day ?? -1) === L.dayId(now) ? Number(u.earn_n) || 0 : 0,
+    earnAt: Number(u.earn_at) || 0,
+    earnTotal: Number(u.earn_total) || 0,
     holdBoost: holdBoost(held) + (await nftBoost(env, u.uid)),
     nftBoost: await nftBoost(env, u.uid),
     jryOn: !!env.JRY_ISSUER_SEED || isTestnet(env),
@@ -1108,6 +1115,30 @@ const routes = {
     await run(env, "INSERT INTO withdrawals (id, uid, username, amount, status, created_at, src) VALUES (?, ?, ?, ?, 'pending', ?, 'mk')", crypto.randomUUID(), u.uid, u.username, amount, Date.now());
     await runPayouts(env).catch((e) => logError(env, "mk withdraw", 0, e.message));
     return { ok: true, amount, account: await account(env, await one(env, "SELECT * FROM users WHERE uid = ?", u.uid)) };
+  },
+
+  // ---------- Earn page: a rewarded Pi ad (checked with Pi) gives points ----------
+  "POST /api/earn/ad": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now(), day = L.dayId(now), E = L.EARN;
+    const n = (u.earn_day ?? -1) === day ? Number(u.earn_n) || 0 : 0;
+    if (n >= E.DATES.length) bad("earn.done");
+    if (now - (Number(u.earn_at) || 0) < E.GAP) bad("earn.wait");
+    if (!(await verifyAd(env, u.uid, body.adId, now))) bad("k.adFail");
+    const dates = E.DATES[n], bonus = E.BONUS[n + 1] || null;
+    // count it once, even if two requests arrive together
+    const r = await run(env, "UPDATE users SET earn_day = ?, earn_n = ?, earn_at = ?, earn_total = COALESCE(earn_total, 0) + ? WHERE uid = ? AND COALESCE(earn_at, 0) = ?",
+      day, n + 1, now, dates, u.uid, Number(u.earn_at) || 0);
+    if (!r.meta.changes) bad("earn.wait");
+    await creditPoints(env, u.uid, "dates", dates, now, "ad");
+    if (bonus) {
+      if (bonus.spins) await run(env, "UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?", bonus.spins, u.uid);
+      if (bonus.coins) await creditPoints(env, u.uid, "coins", bonus.coins, now, "ad");
+      if (bonus.jry) await run(env, "UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?", bonus.jry, u.uid);
+    }
+    const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
+    const acc = await account(env, fresh);
+    return { ok: true, dates, bonus, n: n + 1, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
   },
 
   // ---------- Lucky wheel ----------

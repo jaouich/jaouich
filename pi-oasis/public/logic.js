@@ -481,6 +481,9 @@
     { t: "coins", n: 3000, w: 18 }, { t: "camel", n: 1, w: 1 }, { t: "respin", n: 1, w: 10 }, { t: "dates", n: 1000, w: 7 },
     { t: "coins", n: 10000, w: 12 }, { t: "jry", n: 50, w: 2.5 }, { t: "energy", n: 1, w: 5 }, { t: "coins", n: 250000, w: 0.5 },
   ] };
-  const api = { MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  // Earn page: watch rewarded Pi ads for points (which can be sold on the points market).
+  // DATES[i] = reward of the (i+1)th ad of the day; BONUS at the 5th and 10th ad; GAP between ads.
+  const EARN = { GAP: 45000, DATES: [50, 60, 70, 80, 100, 100, 120, 120, 150, 200], BONUS: { 5: { spins: 1 }, 10: { coins: 20000, jry: 5 } } };
+  const api = { EARN, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

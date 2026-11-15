@@ -171,6 +171,7 @@
     buySpins,
     buyMk,
     wheelSpin: () => api("/api/wheel/spin", {}),
+    earnAd: (adId) => api("/api/earn/ad", { adId }),
     mk: () => api("/api/mk"),
     mkOffer: (o) => api("/api/mk/offer", o),
     mkCancel: (id) => api("/api/mk/cancel", { id }),

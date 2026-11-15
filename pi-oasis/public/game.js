@@ -614,6 +614,7 @@
   function renderFunBadges() {
     $("whBadge").textContent = !account ? "" : account.wheelFree ? t("wh.freeNow") : account.wheelSpins ? t("wh.left", { n: account.wheelSpins }) : t("wh.tomorrow");
     $("whBadge").classList.toggle("hot", !!(account && (account.wheelFree || account.wheelSpins)));
+    $("earnBadge").textContent = !account ? t("earn.badge") : account.earnN >= L.EARN.DATES.length ? t("earn.doneToday") : t("earn.badgeN", { n: account.earnN, max: L.EARN.DATES.length });
     $("mkBadge").textContent = account && account.mkBalance > 0 ? fmtN(+account.mkBalance.toFixed(2)) + " π" : t("mk.badge");
   }
   function renderWheel() {
@@ -656,6 +657,22 @@
       <h4>🌴 ${t("mk.dates")}</h4>${list("dates")}
       <h4>🪙 ${t("mk.coins")}</h4>${list("coins")}`;
   }
+  // ---------- 📺 Earn page: watch ads → points → sell them for Pi on the market ----------
+  const E = L.EARN;
+  function renderEarn() {
+    const n = account ? account.earnN : 0, max = E.DATES.length, done = n >= max;
+    const wait = account ? Math.max(0, E.GAP - (now() - account.earnAt)) : 0;
+    const bonusTxt = (b) => [b.spins ? `🎡 +${b.spins}` : "", b.coins ? `🪙 +${shortN(b.coins)}` : "", b.jry ? `JRY +${b.jry}` : ""].filter(Boolean).join(" · ");
+    $("funCard").innerHTML = `<div class="grab"></div><h3>📺 ${t("earn.t")}</h3>
+      <p class="hint">${t("earn.d")}</p>
+      <div class="earn-top"><span><small>${t("earn.today")}</small><b dir="ltr">${n} / ${max}</b></span><span><small>${t("earn.total")}</small><b dir="ltr">🌴 ${fmtN(account ? account.earnTotal : 0)}</b></span></div>
+      <div class="earn-steps">${E.DATES.map((d, i) => `<div class="${i < n ? "done" : i === n ? "next" : ""}"><small>${i + 1}</small><b>🌴 ${d}</b>${E.BONUS[i + 1] ? `<em>${bonusTxt(E.BONUS[i + 1])}</em>` : ""}</div>`).join("")}</div>
+      <button class="btn gold" id="earnWatch" ${!account || done || wait > 0 ? "disabled" : ""}>${!account ? t("t.loginFirst") : done ? t("earn.doneToday") : wait > 0 ? t("earn.waitS", { s: Math.ceil(wait / 1000) }) : "📺 " + t("earn.watch", { n: E.DATES[n] })}</button>
+      <button class="btn" id="earnSell">🏪 ${t("earn.sell")}</button>
+      <p class="hint">${t("earn.note")}</p>`;
+    if (account && !done && wait > 0) setTimeout(() => { if (funPage === "earn") renderEarn(); }, Math.min(wait, 1000));
+  }
+  $("earnOpen").addEventListener("click", () => { funPage = "earn"; renderEarn(); $("fun").classList.remove("hidden"); });
   async function loadMk() { try { mkData = await Pi.mk(); } catch (e) { mkData = null; toast(e.message); } if (funPage === "mk") renderMk(); }
   $("wheelOpen").addEventListener("click", () => { funPage = "wheel"; renderWheel(); $("fun").classList.remove("hidden"); });
   $("mkOpen").addEventListener("click", () => {
@@ -682,6 +699,16 @@
         await new Promise((res) => setTimeout(res, 4400));
         whBusy = false; account = r.account; S = r.state; render();
         if (funPage === "wheel") { renderWheel(); $("whMsg").textContent = t("wh.won." + r.prize.t, { n: fmtN(r.prize.n) }); }
+      } else if (b.id === "earnWatch") {
+        if (!Pi.piAvailable) return toast(t("k.ad.noPi"));
+        b.disabled = true;
+        const adId = await Pi.showRewardedAd();
+        if (!adId) { toast(t("t.adFail")); return renderEarn(); }
+        const r = await Pi.earnAd(adId);
+        account = r.account; S = r.state; render(); renderEarn();
+        toast(t("earn.got", { n: r.dates }) + (r.bonus ? " 🎁" : ""));
+      } else if (b.id === "earnSell") {
+        funPage = "mk"; mkData = null; renderMk(); loadMk();
       } else if (b.id === "whBuy") {
         b.disabled = true;
         const r = await Pi.buySpins();
@@ -706,7 +733,7 @@
         const r = await Pi.mkWithdraw();
         account = r.account; render(); toast(t("mk.wdOk", { n: r.amount })); await loadMk();
       }
-    } catch (err) { whBusy = false; toast(err.message); if (funPage === "mk") loadMk(); else if (funPage === "wheel") renderWheel(); }
+    } catch (err) { whBusy = false; toast(err.message); if (funPage === "mk") loadMk(); else if (funPage === "wheel") renderWheel(); else if (funPage === "earn") renderEarn(); }
   });
 
   // ---------- Sign in ----------
@@ -847,7 +874,7 @@
   // ---------- Guide: first-time tour + help center ----------
   const TOUR = [null, "farm", "camels", "city", "stake", "rank", "vip", null];
   const HELP = ["basics", "farm", "camels", "city", "granary", "events", "shop", "ranking", "club", "referral", "missions",
-    "kombat", "kfun", "kboss", "kleague", "kcollect", "ktribes", "kjry", "kp2p", "pmarket", "wheel", "kvote", "kairdrop", "safety", "faq"];
+    "kombat", "kfun", "kboss", "kleague", "kcollect", "ktribes", "kjry", "kp2p", "earn", "pmarket", "wheel", "kvote", "kairdrop", "safety", "faq"];
   const KOMBAT_HELP = HELP.filter((k) => k[0] === "k");
   let tourI = -1;
   const goTab = (tab) => document.querySelector(`.tabs [data-tab="${tab}"]`).click();

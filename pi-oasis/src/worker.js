@@ -199,6 +199,9 @@ const ensureSchema = (env) =>
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_n INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_at INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_total INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_ads INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_streak INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_sday INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
     .catch((e) => { schemaReady = null; throw e; }));
 
 const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
@@ -297,6 +300,10 @@ async function account(env, u) {
     earnN: (u.earn_day ?? -1) === L.dayId(now) ? Number(u.earn_n) || 0 : 0,
     earnAt: Number(u.earn_at) || 0,
     earnTotal: Number(u.earn_total) || 0,
+    earnAds: Number(u.earn_ads) || 0,
+    // the streak is alive if it was extended today or yesterday
+    earnStreak: (u.earn_sday ?? -1) >= L.dayId(now) - 1 ? Number(u.earn_streak) || 0 : 0,
+    earnStreakToday: (u.earn_sday ?? -1) === L.dayId(now),
     holdBoost: holdBoost(held) + (await nftBoost(env, u.uid)),
     nftBoost: await nftBoost(env, u.uid),
     jryOn: !!env.JRY_ISSUER_SEED || isTestnet(env),
@@ -1125,11 +1132,21 @@ const routes = {
     if (n >= E.DATES.length) bad("earn.done");
     if (now - (Number(u.earn_at) || 0) < E.GAP) bad("earn.wait");
     if (!(await verifyAd(env, u.uid, body.adId, now))) bad("k.adFail");
-    const dates = E.DATES[n], bonus = E.BONUS[n + 1] || null;
+    const ads = Number(u.earn_ads) || 0, lvl = L.earnLevel(ads);
+    let dates = Math.round(E.DATES[n] * (1 + E.LEVELS[lvl].x));
+    const bonus = E.BONUS[n + 1] ? { ...E.BONUS[n + 1] } : n + 1 === E.STREAK_ADS ? {} : null;
+    // the 5th ad of the day keeps the daily streak going
+    let streak = null;
+    if (n + 1 === E.STREAK_ADS) {
+      streak = (u.earn_sday ?? -1) === day - 1 ? (Number(u.earn_streak) || 0) + 1 : 1;
+      bonus.streak = streak; bonus.streakDates = E.STREAK_DATES * Math.min(streak, E.STREAK_MAX);
+      dates += bonus.streakDates;
+    }
     // count it once, even if two requests arrive together
-    const r = await run(env, "UPDATE users SET earn_day = ?, earn_n = ?, earn_at = ?, earn_total = COALESCE(earn_total, 0) + ? WHERE uid = ? AND COALESCE(earn_at, 0) = ?",
+    const r = await run(env, "UPDATE users SET earn_day = ?, earn_n = ?, earn_at = ?, earn_total = COALESCE(earn_total, 0) + ?, earn_ads = COALESCE(earn_ads, 0) + 1 WHERE uid = ? AND COALESCE(earn_at, 0) = ?",
       day, n + 1, now, dates, u.uid, Number(u.earn_at) || 0);
     if (!r.meta.changes) bad("earn.wait");
+    if (streak) await run(env, "UPDATE users SET earn_streak = ?, earn_sday = ? WHERE uid = ?", streak, day, u.uid);
     await creditPoints(env, u.uid, "dates", dates, now, "ad");
     if (bonus) {
       if (bonus.spins) await run(env, "UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?", bonus.spins, u.uid);
@@ -1138,7 +1155,13 @@ const routes = {
     }
     const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
     const acc = await account(env, fresh);
-    return { ok: true, dates, bonus, n: n + 1, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
+    return { ok: true, dates, bonus, n: n + 1, levelUp: L.earnLevel(ads + 1) > lvl, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
+  },
+  // Top viewers (ads watched, all time)
+  "GET /api/earn/top": async (req, env) => {
+    const top = await all(env, "SELECT username, earn_ads AS ads, earn_total AS dates FROM users WHERE earn_ads > 0 ORDER BY earn_ads DESC, earn_total DESC LIMIT 10");
+    const tot = await one(env, "SELECT COALESCE(SUM(earn_ads), 0) AS ads, COUNT(*) AS viewers FROM users WHERE earn_ads > 0");
+    return { top, ads: tot.ads, viewers: tot.viewers };
   },
 
   // ---------- Lucky wheel ----------

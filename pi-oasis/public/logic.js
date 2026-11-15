@@ -483,7 +483,12 @@
   ] };
   // Earn page: watch rewarded Pi ads for points (which can be sold on the points market).
   // DATES[i] = reward of the (i+1)th ad of the day; BONUS at the 5th and 10th ad; GAP between ads.
-  const EARN = { GAP: 45000, DATES: [50, 60, 70, 80, 100, 100, 120, 120, 150, 200], BONUS: { 5: { spins: 1 }, 10: { coins: 20000, jry: 5 } } };
-  const api = { EARN, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  // LEVELS: viewer level by lifetime ads watched (x = extra dates per ad). STREAK: days in a row
+  // with STREAK_ADS ads; the streak bonus is STREAK_DATES × days (up to STREAK_MAX days).
+  const EARN = { GAP: 45000, DATES: [50, 60, 70, 80, 100, 100, 120, 120, 150, 200], BONUS: { 5: { spins: 1 }, 10: { coins: 20000, jry: 5 } },
+    LEVELS: [{ id: "bronze", n: 0, x: 0 }, { id: "silver", n: 25, x: 0.1 }, { id: "gold", n: 100, x: 0.2 }, { id: "diamond", n: 300, x: 0.35 }, { id: "legend", n: 1000, x: 0.5 }],
+    STREAK_ADS: 5, STREAK_DATES: 100, STREAK_MAX: 7 };
+  const earnLevel = (ads) => { let i = 0; EARN.LEVELS.forEach((l, j) => { if (ads >= l.n) i = j; }); return i; };
+  const api = { EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

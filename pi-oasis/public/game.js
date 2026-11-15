@@ -657,22 +657,87 @@
       <h4>🌴 ${t("mk.dates")}</h4>${list("dates")}
       <h4>🪙 ${t("mk.coins")}</h4>${list("coins")}`;
   }
-  // ---------- 📺 Earn page: watch ads → points → sell them for Pi on the market ----------
+  // ---------- 📺 Jerry Media Earnings: its own page for ads and earnings ----------
   const E = L.EARN;
-  function renderEarn() {
-    const n = account ? account.earnN : 0, max = E.DATES.length, done = n >= max;
-    const wait = account ? Math.max(0, E.GAP - (now() - account.earnAt)) : 0;
-    const bonusTxt = (b) => [b.spins ? `🎡 +${b.spins}` : "", b.coins ? `🪙 +${shortN(b.coins)}` : "", b.jry ? `JRY +${b.jry}` : ""].filter(Boolean).join(" · ");
-    $("funCard").innerHTML = `<div class="grab"></div><h3>📺 ${t("earn.t")}</h3>
-      <p class="hint">${t("earn.d")}</p>
-      <div class="earn-top"><span><small>${t("earn.today")}</small><b dir="ltr">${n} / ${max}</b></span><span><small>${t("earn.total")}</small><b dir="ltr">🌴 ${fmtN(account ? account.earnTotal : 0)}</b></span></div>
-      <div class="earn-steps">${E.DATES.map((d, i) => `<div class="${i < n ? "done" : i === n ? "next" : ""}"><small>${i + 1}</small><b>🌴 ${d}</b>${E.BONUS[i + 1] ? `<em>${bonusTxt(E.BONUS[i + 1])}</em>` : ""}</div>`).join("")}</div>
-      <button class="btn gold" id="earnWatch" ${!account || done || wait > 0 ? "disabled" : ""}>${!account ? t("t.loginFirst") : done ? t("earn.doneToday") : wait > 0 ? t("earn.waitS", { s: Math.ceil(wait / 1000) }) : "📺 " + t("earn.watch", { n: E.DATES[n] })}</button>
-      <button class="btn" id="earnSell">🏪 ${t("earn.sell")}</button>
-      <p class="hint">${t("earn.note")}</p>`;
-    if (account && !done && wait > 0) setTimeout(() => { if (funPage === "earn") renderEarn(); }, Math.min(wait, 1000));
+  const JM_ICON = { bronze: "🥉", silver: "🥈", gold: "🥇", diamond: "💎", legend: "👑" };
+  let jmOpen = false, jmAds = null, jmTop = null, jmBusy = false, jmTimer = 0;
+  function renderMedia() {
+    if (!jmOpen) return;
+    const acc = account, n = acc ? acc.earnN : 0, max = E.DATES.length, done = n >= max;
+    const wait = acc ? Math.max(0, E.GAP - (now() - acc.earnAt)) : 0;
+    const ads = acc ? acc.earnAds : 0, li = L.earnLevel(ads), lv = E.LEVELS[li], nx = E.LEVELS[li + 1];
+    const mult = 1 + lv.x, next = done ? 0 : Math.round(E.DATES[n] * mult);
+    const streak = acc ? acc.earnStreak : 0, sToday = acc && acc.earnStreakToday;
+    const bonusTxt = (bn) => [bn.spins ? `🎡+${bn.spins}` : "", bn.coins ? `🪙+${shortN(bn.coins)}` : "", bn.jry ? `JRY+${bn.jry}` : ""].filter(Boolean).join(" ");
+    const st = jmAds ? jmAds.s : "check";
+    const stTxt = { check: "⏳ " + t("jm.st.check"), ok: "✅ " + t("jm.st.ok"), nopi: "📲 " + t("jm.st.nopi"), old: "⬆️ " + t("jm.st.old"), pending: "🕓 " + t("jm.st.pending") }[st];
+    const can = acc && !done && wait <= 0 && !jmBusy;
+    $("media").innerHTML = `
+      <header class="jm-head"><button class="jm-back" data-jm="close">‹ ${t("jm.back")}</button><b>📺 Jerry Media <span>Earnings</span></b><button class="jm-back" data-jm="help">?</button></header>
+      <div class="jm-body">
+        <div class="jm-hero">
+          <div><small>${t("jm.earned")}</small><b dir="ltr">🌴 ${fmtN(acc ? acc.earnTotal : 0)}</b></div>
+          <div><small>${t("jm.watched")}</small><b dir="ltr">${fmtN(ads)}</b></div>
+          <div><small>${t("jm.balance")}</small><b dir="ltr">${fmtN(+((acc ? acc.mkBalance : 0)).toFixed(2))} π</b></div>
+        </div>
+        <div class="jm-status ${st}">${stTxt}${jmAds && jmAds.code ? ` <small dir="ltr">(${esc(jmAds.code)})</small>` : ""}${st !== "ok" && st !== "check" ? `<button data-jm="recheck">${t("jm.recheck")}</button>` : ""}</div>
+        <div class="jm-play">
+          <button class="jm-ring" data-jm="watch" style="--p:${(100 * n) / max}%" ${can ? "" : "disabled"}>
+            <span><i>${done ? "✅" : "▶"}</i><b>${!acc ? t("t.loginFirst") : done ? t("jm.doneToday") : wait > 0 ? t("jm.waitS", { s: Math.ceil(wait / 1000) }) : t("jm.watch")}</b>${!done && acc ? `<small dir="ltr">+${next} 🌴</small>` : ""}</span>
+          </button>
+          <div class="jm-count" dir="ltr">${n} / ${max}</div>
+        </div>
+        <div class="jm-steps">${E.DATES.map((d, i) => `<div class="${i < n ? "done" : i === n ? "next" : ""}"><small>${i + 1}</small><b>${Math.round(d * mult)}</b>${E.BONUS[i + 1] ? `<em>${bonusTxt(E.BONUS[i + 1])}</em>` : ""}${i + 1 === E.STREAK_ADS ? `<em>🔥</em>` : ""}</div>`).join("")}</div>
+        <div class="jm-cards">
+          <div class="jm-card"><div class="jm-ct">${JM_ICON[lv.id]} ${t("jm.lv." + lv.id)} <em>+${Math.round(lv.x * 100)}%</em></div>
+            <div class="jm-bar"><i style="width:${nx ? Math.min(100, (100 * (ads - lv.n)) / (nx.n - lv.n)) : 100}%"></i></div>
+            <small>${nx ? t("jm.lvNext", { n: nx.n - ads, lv: t("jm.lv." + nx.id), x: Math.round(nx.x * 100) }) : t("jm.lvMax")}</small></div>
+          <div class="jm-card"><div class="jm-ct">🔥 ${t("jm.streak", { n: streak })}</div>
+            <div class="jm-dots">${[...Array(E.STREAK_MAX)].map((_, i) => `<i class="${i < Math.min(streak, E.STREAK_MAX) ? "on" : ""}"></i>`).join("")}</div>
+            <small>${sToday ? t("jm.streakDone") : t("jm.streakDo", { n: E.STREAK_ADS, d: E.STREAK_DATES * Math.min((streak || 0) + 1, E.STREAK_MAX) })}</small></div>
+        </div>
+        <button class="jm-cash" data-jm="sell">💰 ${t("jm.sell")}</button>
+        <div class="jm-how"><b>${t("jm.howT")}</b>
+          <div><i>1</i><span>${t("jm.how1")}</span></div><div><i>2</i><span>${t("jm.how2")}</span></div><div><i>3</i><span>${t("jm.how3", { n: MKT.MIN_WITHDRAW })}</span></div></div>
+        <div class="jm-top"><b>🏆 ${t("jm.topT")}</b>${jmTop ? `<small>${t("jm.topStats", { v: fmtN(jmTop.viewers), a: fmtN(jmTop.ads) })}</small>` +
+          (jmTop.top.length ? jmTop.top.map((x, i) => `<div><span>${["🥇", "🥈", "🥉"][i] || i + 1} ${esc(x.username)}</span><span dir="ltr">📺 ${fmtN(x.ads)}</span></div>`).join("") : `<small>${t("jm.topEmpty")}</small>`) : ""}</div>
+        <p class="jm-note">${t("jm.note")}</p>
+      </div>`;
+    clearTimeout(jmTimer);
+    if (acc && !done && wait > 0) jmTimer = setTimeout(renderMedia, Math.min(wait, 1000));
   }
-  $("earnOpen").addEventListener("click", () => { funPage = "earn"; renderEarn(); $("fun").classList.remove("hidden"); });
+  async function jmCheckAds() { jmAds = null; renderMedia(); jmAds = await Pi.adsStatus(); renderMedia(); }
+  function openMedia() {
+    jmOpen = true; $("media").classList.remove("hidden"); renderMedia();
+    jmCheckAds();
+    if (account) Pi.earnTop().then((x) => { jmTop = x; renderMedia(); }, () => {});
+  }
+  $("earnOpen").addEventListener("click", openMedia);
+  if (/[?&]media=1\b/.test(location.search)) setTimeout(openMedia, 600); // direct link to the page
+  $("media").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-jm]");
+    if (!b) return;
+    const a = b.dataset.jm;
+    if (a === "close") { jmOpen = false; clearTimeout(jmTimer); return $("media").classList.add("hidden"); }
+    if (a === "help") return toast(t("jm.note"));
+    if (a === "recheck") return jmCheckAds();
+    if (!account) return toast(t("t.loginFirst"));
+    if (a === "sell") { funPage = "mk"; mkData = null; renderMk(); $("fun").classList.remove("hidden"); return loadMk(); }
+    if (a === "watch" && !jmBusy) {
+      jmBusy = true; renderMedia();
+      try {
+        const adId = await Pi.showRewardedAd();
+        if (!adId) { toast(t(jmAds && jmAds.s === "ok" ? "t.adFail" : "jm.st." + ((jmAds && jmAds.s) || "pending"))); if (!jmAds || jmAds.s !== "ok") jmCheckAds(); }
+        else {
+          const r = await Pi.earnAd(adId);
+          account = r.account; S = r.state; render();
+          toast(t("earn.got", { n: r.dates }) + (r.bonus && r.bonus.streak ? " 🔥" : "") + (r.bonus && (r.bonus.spins || r.bonus.coins) ? " 🎁" : "") + (r.levelUp ? " ⬆️" : ""));
+          Pi.earnTop().then((x) => { jmTop = x; renderMedia(); }, () => {});
+        }
+      } catch (err) { toast(err.message); }
+      jmBusy = false; renderMedia();
+    }
+  });
   async function loadMk() { try { mkData = await Pi.mk(); } catch (e) { mkData = null; toast(e.message); } if (funPage === "mk") renderMk(); }
   $("wheelOpen").addEventListener("click", () => { funPage = "wheel"; renderWheel(); $("fun").classList.remove("hidden"); });
   $("mkOpen").addEventListener("click", () => {
@@ -699,16 +764,6 @@
         await new Promise((res) => setTimeout(res, 4400));
         whBusy = false; account = r.account; S = r.state; render();
         if (funPage === "wheel") { renderWheel(); $("whMsg").textContent = t("wh.won." + r.prize.t, { n: fmtN(r.prize.n) }); }
-      } else if (b.id === "earnWatch") {
-        if (!Pi.piAvailable) return toast(t("k.ad.noPi"));
-        b.disabled = true;
-        const adId = await Pi.showRewardedAd();
-        if (!adId) { toast(t("t.adFail")); return renderEarn(); }
-        const r = await Pi.earnAd(adId);
-        account = r.account; S = r.state; render(); renderEarn();
-        toast(t("earn.got", { n: r.dates }) + (r.bonus ? " 🎁" : ""));
-      } else if (b.id === "earnSell") {
-        funPage = "mk"; mkData = null; renderMk(); loadMk();
       } else if (b.id === "whBuy") {
         b.disabled = true;
         const r = await Pi.buySpins();
@@ -733,7 +788,7 @@
         const r = await Pi.mkWithdraw();
         account = r.account; render(); toast(t("mk.wdOk", { n: r.amount })); await loadMk();
       }
-    } catch (err) { whBusy = false; toast(err.message); if (funPage === "mk") loadMk(); else if (funPage === "wheel") renderWheel(); else if (funPage === "earn") renderEarn(); }
+    } catch (err) { whBusy = false; toast(err.message); if (funPage === "mk") loadMk(); else if (funPage === "wheel") renderWheel(); }
   });
 
   // ---------- Sign in ----------
@@ -1099,6 +1154,7 @@
     S = L.normalize(S, now());
     $("dates").textContent = S.dates.toLocaleString("en-US");
     renderFarm(); renderStakes(); renderClub(); renderCamels(); renderCity(); renderMissions(); renderBadges(); renderFunBadges();
+    if (jmOpen && !jmBusy) renderMedia();
     if (selTile >= 0 && !$("sheet").classList.contains("hidden")) renderSheet();
     if (!document.activeElement || document.activeElement.id !== "stakeAmt") renderStakeOptions();
   }

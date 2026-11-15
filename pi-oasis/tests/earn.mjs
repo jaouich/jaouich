@@ -16,13 +16,19 @@ ok((await post("/api/earn/ad", { adId: "goodE1" }, H)).error === "earn.wait", "t
 const skip = () => exec("UPDATE users SET earn_at = earn_at - 60000 WHERE uid='uB'");
 let spins0 = (await me()).account.wheelSpins;
 for (let i = 2; i <= 5; i++) { await skip(); r = await post("/api/earn/ad", { adId: "goodE" + i }, H); }
-ok(r.ok && r.dates === 100 && r.bonus && r.bonus.spins === 1 && r.account.wheelSpins === spins0 + 1, "5th ad: +100 dates and a free wheel spin");
+ok(r.ok && r.dates === 200 && r.bonus && r.bonus.spins === 1 && r.bonus.streak === 1 && r.account.wheelSpins === spins0 + 1 && r.account.earnStreak === 1, "5th ad: +100 dates, +100 streak bonus (day 1) and a free wheel spin");
 for (let i = 6; i <= 10; i++) { await skip(); r = await post("/api/earn/ad", { adId: "goodE" + i }, H); }
 ok(r.ok && r.dates === 200 && r.account.jryPts === 5 && r.state.kombat.coins >= 20000, "10th ad: +200 dates, 20,000 coins and 5 JRY");
-ok(r.state.dates === d0 + 1050 && r.account.earnTotal === 1050, "10 ads = 1,050 dates in total");
+ok(r.state.dates === d0 + 1150 && r.account.earnTotal === 1150 && r.account.earnAds === 10, "10 ads = 1,150 dates in total (with the streak bonus)");
 await skip();
 ok((await post("/api/earn/ad", { adId: "goodE11" }, H)).error === "earn.done", "10 ads a day at most");
 await exec("UPDATE users SET earn_day = earn_day - 1 WHERE uid='uB'");
 ok((await me()).account.earnN === 0, "the counter starts again the next day");
+await exec("UPDATE users SET earn_sday = earn_sday - 1, earn_ads = 30 WHERE uid='uB'");
+for (let i = 21; i <= 25; i++) { await skip(); r = await post("/api/earn/ad", { adId: "goodE" + i }, H); }
+ok(r.bonus.streak === 2 && r.bonus.streakDates === 200, "next day: streak 2 → +200 dates");
+ok(r.dates === Math.round(100 * 1.1) + 200, "silver viewer (25+ ads): +10% on every ad");
+const top = await fetch(B + "/api/earn/top", { headers: H }).then((x) => x.json());
+ok(top.top[0].username === "bob" && top.top[0].ads === 35 && top.viewers === 1, "top viewers list");
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

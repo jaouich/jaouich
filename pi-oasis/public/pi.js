@@ -142,6 +142,21 @@
 
   // Rewarded ad (Pi Ad Network). Returns the adId when fully watched, otherwise null.
   // The server double-checks the adId with Pi before giving the reward.
+  // Why ads can or can't play right now (shown on the Jerry Media Earnings page)
+  // ok | nopi (not in Pi Browser) | old (Pi Browser too old) | pending (Pi hasn't enabled ads for this app yet)
+  async function adsStatus() {
+    if (!(await initDone) || !window.Pi || !window.Pi.Ads) return { s: "nopi" };
+    try {
+      if (window.Pi.nativeFeaturesList) {
+        const f = await withTimeout(window.Pi.nativeFeaturesList(), 6000);
+        if (Array.isArray(f) && !f.includes("ad_network")) return { s: "old" };
+      }
+      const ready = await withTimeout(window.Pi.Ads.isAdReady("rewarded"), 8000);
+      if (ready && ready.ready) return { s: "ok" };
+      const req = await withTimeout(window.Pi.Ads.requestAd("rewarded"), 12000);
+      return req && req.result === "AD_LOADED" ? { s: "ok" } : { s: "pending", code: (req && req.result) || "" };
+    } catch (e) { return { s: "pending", code: String((e && e.message) || e).slice(0, 60) }; }
+  }
   async function showRewardedAd() {
     try {
       if (!piReady || !window.Pi.Ads) return null;
@@ -172,6 +187,8 @@
     buyMk,
     wheelSpin: () => api("/api/wheel/spin", {}),
     earnAd: (adId) => api("/api/earn/ad", { adId }),
+    earnTop: () => api("/api/earn/top"),
+    adsStatus,
     mk: () => api("/api/mk"),
     mkOffer: (o) => api("/api/mk/offer", o),
     mkCancel: (id) => api("/api/mk/cancel", { id }),

@@ -12,8 +12,10 @@ binding = "ASSETS"
 # automatically on first deploy. The Worker creates its own tables (src/worker.js).
 [[d1_databases]]
 binding = "DB"
-# The Testnet players' progress lives in this database (it was used by the Testnet Worker).
-database_name = "pi-oasis-main-db"
+# The Testnet players' progress lives in this database. (Despite its name, the Testnet game has
+# used it since the two Workers were briefly deployed with the same settings; it keeps everyone's
+# latest progress, so the Testnet game stays on it.)
+database_name = "pi-oasis-mainnet-db"
 
 # Per-app settings (not secret). Each Pi app has its own domain validation key and link.
 [vars]
@@ -44,8 +46,9 @@ crons = ["23 * * * *"]
 # ---------------------------------------------------------------------------
 # Mainnet copy of the game (real Pi). Pi links each domain to one app, so the
 # Mainnet app gets its own address, database and secrets:
-#   https://pi-oasis-main.jaouich.workers.dev
-# Deploy: npx wrangler deploy --env main
+#   https://jaouich.jaouich.workers.dev
+# Deploy: npx wrangler deploy --env main   (only on the "jaouich" Worker's build;
+# the "pi-oasis" Worker's build must run plain "npx wrangler deploy")
 # Secrets to set on the "jaouich" (Mainnet) Worker: PI_NETWORK_API_KEY, PI_WALLET_SEED
 [env.main]
 # Must match the Worker name in the Cloudflare dashboard (Workers Builds checks this)
@@ -57,14 +60,21 @@ VALIDATION_KEY = "cfb33204e47b668bdf431d538a789aee8d5c9ad41e8776add3badba1495897
 PUBLIC_URL = "https://jaouich.jaouich.workers.dev"
 ADMIN_USERNAMES = "jaouich"
 
+# Mainnet (real Pi) has its own clean database: no Test-Pi balances, prize pools or payouts.
 [[env.main.d1_databases]]
 binding = "DB"
-database_name = "pi-oasis-mainnet-db"
+database_name = "pi-oasis-live-db"
 
 # Read only by the Mainnet game: a player's first Mainnet sign-in copies their Testnet
 # game progress (farm, camels, city, dates, Kombat) from here. Nothing paid in Test-Pi is copied.
+# TESTNET_DB = the Testnet game's database now; TESTNET_DB_OLD = the older one (progress from
+# before), used when it is further along.
 [[env.main.d1_databases]]
 binding = "TESTNET_DB"
+database_name = "pi-oasis-mainnet-db"
+
+[[env.main.d1_databases]]
+binding = "TESTNET_DB_OLD"
 database_name = "pi-oasis-main-db"
 
 [env.main.triggers]

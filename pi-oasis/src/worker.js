@@ -292,14 +292,18 @@ const progressOf = (s) => (s.dates || 0) + ((s.kombat && s.kombat.total) || 0) +
 async function carryFromTestnet(env, me, now, mine) {
   if (!env.TESTNET_DB || isTestnet(env)) return false;
   try {
-    const row = await env.TESTNET_DB.prepare(
-      "SELECT s.json FROM users u JOIN state s ON s.uid = u.uid WHERE u.username = ? COLLATE NOCASE"
-    ).bind(me.username).first();
+    // The furthest-along Testnet game among the Testnet databases
     let st = null;
-    if (row) {
-      st = L.normalize(JSON.parse(row.json), now);
-      if (mine && progressOf(mine) >= progressOf(st)) st = null;
+    for (const db of [env.TESTNET_DB, env.TESTNET_DB_OLD]) {
+      if (!db) continue;
+      const row = await db.prepare(
+        "SELECT s.json FROM users u JOIN state s ON s.uid = u.uid WHERE u.username = ? COLLATE NOCASE"
+      ).bind(me.username).first().catch(() => null);
+      if (!row) continue;
+      const cand = L.normalize(JSON.parse(row.json), now);
+      if (!st || progressOf(cand) > progressOf(st)) st = cand;
     }
+    if (st && mine && progressOf(mine) >= progressOf(st)) st = null;
     if (st) {
       st.week = { id: L.weekId(now), score: 0 };
       if (st.kombat) delete st.kombat.wk;
@@ -310,7 +314,10 @@ async function carryFromTestnet(env, me, now, mine) {
       mine.carryChecked = 1;
       await saveState(env, me.uid, mine, now);
     }
-    const p = await env.TESTNET_DB.prepare("SELECT granted_by FROM partners WHERE username = ? COLLATE NOCASE").bind(me.username).first();
+    let p = null;
+    for (const db of [env.TESTNET_DB, env.TESTNET_DB_OLD]) {
+      if (!p && db) p = await db.prepare("SELECT granted_by FROM partners WHERE username = ? COLLATE NOCASE").bind(me.username).first().catch(() => null);
+    }
     if (p) await run(env, "INSERT OR IGNORE INTO partners (username, granted_by, granted_at) VALUES (?, ?, ?)", me.username, p.granted_by || "testnet", now);
     return !!st;
   } catch (e) {

@@ -106,6 +106,10 @@
     const W = window.OasisLogic.WHEEL;
     return pay({ amount: W.PRICE, memo: `Pi Oasis – ${W.SPINS} wheel spins`, metadata: { type: "spins" } });
   }
+  // Business showcase: pay for a listing (the owner reviews it before it is shown)
+  function buySponsor(id, plan) {
+    return pay({ amount: plan.price, memo: `Pi Oasis showcase – ${plan.days} days`, metadata: { type: "sponsor", ad: id, plan: plan.id } });
+  }
   // Points market: pay the seller's price for one offer
   function buyMk(o) {
     return pay({ amount: o.pi, memo: `Pi Oasis market #${o.id}`, metadata: { type: "mk", offer: o.id } });
@@ -188,6 +192,13 @@
     wheelSpin: () => api("/api/wheel/spin", {}),
     earnAd: (adId) => api("/api/earn/ad", { adId }),
     earnTop: () => api("/api/earn/top"),
+    arcade: () => api("/api/arcade"),
+    arcadeClaim: (game, score, ms) => api("/api/arcade/claim", { game, score, ms }),
+    sponsors: () => api("/api/sponsors"),
+    sponsorClick: (id) => api("/api/sponsors/click", { id }).catch(() => {}),
+    sponsorDraft: (o) => api("/api/sponsors/draft", o),
+    sponsorAdmin: (action, id, note) => api("/api/admin/sponsors", { action, id, note }),
+    buySponsor,
     adsStatus,
     mk: () => api("/api/mk"),
     mkOffer: (o) => api("/api/mk/offer", o),

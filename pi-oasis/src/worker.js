@@ -170,6 +170,10 @@ const SCHEMA = [
   // Points market (dates / Kombat coins for Pi). status: open → reserved → sold, or cancelled
   "CREATE TABLE IF NOT EXISTS mk_offers ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, kind TEXT NOT NULL, amount INTEGER NOT NULL, pi REAL NOT NULL, status TEXT NOT NULL, buyer TEXT, pay_id TEXT, reserved_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
   "CREATE INDEX IF NOT EXISTS mk_open ON mk_offers(status, kind)",
+  // Jerry Arcade: rewarded plays per day and best scores
+  "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
+  // Business showcase. status: paying → review → live (until ends_at) | rejected (refunded)
+  "CREATE TABLE IF NOT EXISTS sponsors ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, name TEXT NOT NULL, descr TEXT NOT NULL, link TEXT, cat TEXT NOT NULL, emoji TEXT NOT NULL, plan TEXT NOT NULL, days INTEGER NOT NULL, pi REAL NOT NULL, status TEXT NOT NULL, pay_id TEXT, created_at INTEGER NOT NULL, starts_at INTEGER, ends_at INTEGER, views INTEGER NOT NULL DEFAULT 0, clicks INTEGER NOT NULL DEFAULT 0, note TEXT )",
   "CREATE TABLE IF NOT EXISTS jry_buys ( id TEXT PRIMARY KEY, uid TEXT NOT NULL, address TEXT NOT NULL, pi REAL NOT NULL, jry TEXT NOT NULL, status TEXT NOT NULL, txid TEXT, error TEXT, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_keys ( id INTEGER PRIMARY KEY, seed TEXT NOT NULL, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS jry_sends ( uid TEXT PRIMARY KEY, address TEXT NOT NULL, amount TEXT NOT NULL, txid TEXT, status TEXT NOT NULL, error TEXT, at INTEGER NOT NULL )",
@@ -539,6 +543,10 @@ const routes = {
     }
     if (item.p2p) await reserveOffer(env, u, item, id, nowT);
     if (item.mk) await mkReserve(env, u, item, id, nowT);
+    if (item.sponsor) {
+      const ad = await one(env, "SELECT * FROM sponsors WHERE id = ? AND uid = ?", item.sponsor, u.uid);
+      if (!ad || (ad.status !== "paying" && ad.pay_id !== id) || ad.plan !== item.plan.id) bad("sp.gone");
+    }
     // Persist the payment id before approving (irreversible on Pi's side)
     await run(env, "INSERT OR IGNORE INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'pending', ?)", id, u.uid, item.price, nowT);
     const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
@@ -1164,6 +1172,101 @@ const routes = {
     return { top, ads: tot.ads, viewers: tot.viewers };
   },
 
+  // ---------- 🕹️ Jerry Arcade ----------
+  "GET /api/arcade": async (req, env) => {
+    const u = await auth(req, env);
+    const day = L.dayId(Date.now());
+    const mine = await all(env, "SELECT game, plays, best FROM arcade WHERE uid = ? AND day = ?", u.uid, day);
+    const top = {};
+    for (const g of ["memory", "catcher"]) {
+      // memory: fewer moves is better; catcher: higher score is better
+      top[g] = await all(env, `SELECT u.username, a.best FROM arcade a JOIN users u ON u.uid = a.uid WHERE a.day = ? AND a.game = ? AND a.best IS NOT NULL ORDER BY a.best ${g === "memory" ? "ASC" : "DESC"} LIMIT 5`, day, g);
+    }
+    return { plays: Object.fromEntries(mine.map((x) => [x.game, x.plays])), best: Object.fromEntries(mine.map((x) => [x.game, x.best])), top, max: L.ARCADE.PLAYS };
+  },
+  "POST /api/arcade/claim": async (req, env, body) => {
+    const u = await auth(req, env);
+    const A = L.ARCADE, game = body.game, ms = Number(body.ms), score = Math.floor(Number(body.score));
+    if (game !== "memory" && game !== "catcher") bad("badAction");
+    let reward;
+    if (game === "memory") {
+      if (!(ms >= A.memory.minMs) || !(score >= A.memory.pairs) || score > 200) bad("ar.bad");
+      reward = A.memory.reward(score);
+    } else {
+      if (!(ms >= A.catcher.ms - 1500) || !(score >= 0 && score <= A.catcher.maxScore)) bad("ar.bad");
+      reward = A.catcher.reward(score);
+    }
+    const now = Date.now(), day = L.dayId(now);
+    await run(env, "INSERT OR IGNORE INTO arcade (uid, day, game, plays) VALUES (?, ?, ?, 0)", u.uid, day, game);
+    const better = game === "memory" ? "MIN" : "MAX";
+    const r = await run(env, `UPDATE arcade SET plays = plays + 1, best = CASE WHEN best IS NULL THEN ? ELSE ${better}(best, ?) END WHERE uid = ? AND day = ? AND game = ? AND plays < ?`,
+      score, score, u.uid, day, game, A.PLAYS);
+    if (!r.meta.changes) bad("ar.limit", { n: A.PLAYS });
+    if (reward > 0) await creditPoints(env, u.uid, "dates", reward, now, "arcade");
+    const row = await one(env, "SELECT plays, best FROM arcade WHERE uid = ? AND day = ? AND game = ?", u.uid, day, game);
+    const tier = tierOf(u, now, await isPartner(env, u.username));
+    return { ok: true, reward, plays: row.plays, best: row.best, state: await stateFor(env, u, now, tier) };
+  },
+
+  // ---------- 📣 Business showcase (sponsored listings, reviewed by the owner) ----------
+  "GET /api/sponsors": async (req, env) => {
+    const u = await auth(req, env).catch(() => null);
+    const now = Date.now();
+    await run(env, "UPDATE sponsors SET status = 'ended' WHERE status = 'live' AND ends_at < ?", now);
+    const live = await all(env, "SELECT id, name, descr, link, cat, emoji, ends_at FROM sponsors WHERE status = 'live' AND ends_at >= ? ORDER BY id DESC LIMIT 50", now);
+    for (let i = live.length - 1; i > 0; i--) { const j = Math.floor(secureRandom() * (i + 1)); [live[i], live[j]] = [live[j], live[i]]; } // fair rotation
+    if (live.length) await run(env, `UPDATE sponsors SET views = views + 1 WHERE id IN (${live.map(() => "?").join(",")})`, ...live.map((x) => x.id));
+    const mine = u ? await all(env, "SELECT id, name, descr, link, cat, emoji, plan, days, pi, status, starts_at, ends_at, views, clicks, note FROM sponsors WHERE uid = ? AND status != 'paying' ORDER BY id DESC LIMIT 10", u.uid) : [];
+    return { live, mine, plans: L.SPONSOR.PLANS, cats: L.SPONSOR.CATS };
+  },
+  "POST /api/sponsors/click": async (req, env, body) => {
+    await run(env, "UPDATE sponsors SET clicks = clicks + 1 WHERE id = ? AND status = 'live'", Number(body.id));
+    return { ok: true };
+  },
+  // Step 1: the business fills the form (nothing is shown until it is paid and approved)
+  "POST /api/sponsors/draft": async (req, env, body) => {
+    const u = await auth(req, env);
+    const S = L.SPONSOR, clean = (x, n) => String(x || "").replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+    const name = clean(body.name, S.NAME), descr = clean(body.descr, S.DESC), link = clean(body.link, 200);
+    const plan = S.PLANS.find((x) => x.id === body.plan), cat = S.CATS.includes(body.cat) ? body.cat : "other";
+    const emoji = [...clean(body.emoji, 8)].slice(0, 2).join("") || "🏪";
+    if (name.length < 2 || descr.length < 10) bad("sp.short");
+    if (link && !/^(https:\/\/|pi:\/\/)[^\s]+$/i.test(link)) bad("sp.link");
+    if (!plan) bad("badAction");
+    if (/(casino|bet|gambl|poker|porn|xxx|forex|double your|guaranteed profit|قمار|رهان|كازينو)/i.test(name + " " + descr + " " + link)) bad("sp.rules");
+    const n = await one(env, "SELECT COUNT(*) AS n FROM sponsors WHERE uid = ? AND status IN ('paying', 'review')", u.uid);
+    if (n.n >= 3) bad("sp.tooMany");
+    await run(env, "DELETE FROM sponsors WHERE uid = ? AND status = 'paying' AND created_at < ?", u.uid, Date.now() - 3600e3);
+    const r = await one(env, "INSERT INTO sponsors (uid, name, descr, link, cat, emoji, plan, days, pi, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'paying', ?) RETURNING id",
+      u.uid, name, descr, link || null, cat, emoji, plan.id, plan.days, plan.price, Date.now());
+    return { ok: true, id: r.id, plan };
+  },
+  // Owner: review paid listings
+  "POST /api/admin/sponsors": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const now = Date.now(), id = Number(body.id);
+    if (body.action === "approve") {
+      const ad = await one(env, "SELECT * FROM sponsors WHERE id = ? AND status = 'review'", id);
+      if (ad) await run(env, "UPDATE sponsors SET status = 'live', starts_at = ?, ends_at = ?, note = NULL WHERE id = ? AND status = 'review'", now, now + ad.days * 86400000, id);
+    } else if (body.action === "reject") {
+      const ad = await one(env, "SELECT * FROM sponsors WHERE id = ? AND status = 'review'", id);
+      if (ad) {
+        const r = await run(env, "UPDATE sponsors SET status = 'rejected', note = ? WHERE id = ? AND status = 'review'", String(body.note || "").slice(0, 140), id);
+        if (r.meta.changes) {
+          await run(env, "INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'refund', ?, ?, ?, 'Pi Oasis ad refund', 'new', ?, ?)",
+            crypto.randomUUID(), "sp" + id, ad.uid, ad.pi, now, now);
+          await runPayouts(env).catch((e) => logError(env, "sponsor refund", 0, e.message));
+        }
+      }
+    } else if (body.action === "stop") {
+      await run(env, "UPDATE sponsors SET status = 'ended', ends_at = ? WHERE id = ? AND status = 'live'", now, id);
+    }
+    const list = await all(env, `SELECT s.*, u.username FROM sponsors s LEFT JOIN users u ON u.uid = s.uid
+      WHERE s.status IN ('review', 'live') ORDER BY CASE s.status WHEN 'review' THEN 0 ELSE 1 END, s.id DESC LIMIT 50`);
+    return { list };
+  },
+
   // ---------- Lucky wheel ----------
   "POST /api/wheel/spin": async (req, env) => {
     const u = await auth(req, env);
@@ -1496,6 +1599,12 @@ function checkPayment(p, uid) {
     if (!KL.JRY_PACKS.includes(Number(p.amount)) || Number(p.metadata.pi) !== Number(p.amount)) bad("badPayment");
     return { price: Number(p.amount), jry: true };
   }
+  if (p.metadata?.type === "sponsor") {
+    const plan = L.SPONSOR.PLANS.find((x) => x.id === p.metadata.plan);
+    const id = Number(p.metadata.ad);
+    if (!plan || !Number.isInteger(id) || Number(p.amount) !== plan.price) bad("badPayment");
+    return { price: plan.price, sponsor: id, plan };
+  }
   if (p.metadata?.type === "spins") {
     if (Number(p.amount) !== L.WHEEL.PRICE) bad("badPayment");
     return { price: L.WHEEL.PRICE, spins: L.WHEEL.SPINS };
@@ -1558,6 +1667,7 @@ async function completePayment(env, id, txid, uid) {
   ];
   if (u) {
     // Bought Kombat coins: credited on the next load (never lost to a game save running at the same time)
+    if (item.sponsor) stmts.push(env.DB.prepare("UPDATE sponsors SET status = 'review', pay_id = ? WHERE id = ? AND uid = ? AND status = 'paying'").bind(id, item.sponsor, u.uid));
     if (item.spins) stmts.push(env.DB.prepare("UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?").bind(item.spins, u.uid));
     if (item.jryPts) stmts.push(env.DB.prepare("UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(item.jryPts.jry, u.uid));
     if (item.coins) stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, item.coins.coins, now));

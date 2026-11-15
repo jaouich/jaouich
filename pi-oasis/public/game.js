@@ -738,6 +738,177 @@
       jmBusy = false; renderMedia();
     }
   });
+
+  // ---------- 🕹️ Jerry Arcade: free skill games that give dates ----------
+  const AR = L.ARCADE;
+  let arcInfo = null, arcGame = "", arcStop = null;
+  const arcPlays = (g) => (arcInfo && arcInfo.plays[g]) || 0;
+  function arcHome() {
+    arcGame = ""; if (arcStop) { arcStop(); arcStop = null; }
+    const card = (g, ico, best) => `<button class="arc-card" data-arc="${g}"><i>${ico}</i><span><b>${t("ar." + g + ".t")}</b><small>${t("ar." + g + ".d")}</small>
+      <small class="arc-meta">${t("ar.plays", { n: Math.max(0, AR.PLAYS - arcPlays(g)), max: AR.PLAYS })}${best != null ? " · " + t("ar.best", { n: best }) : ""}</small></span><em>▶</em></button>`;
+    const top = (g, unit) => arcInfo && arcInfo.top[g].length ? arcInfo.top[g].map((x, i) => `<div><span>${["🥇", "🥈", "🥉"][i] || i + 1} ${esc(x.username)}</span><b dir="ltr">${x.best} ${unit}</b></div>`).join("") : `<small>${t("jm.topEmpty")}</small>`;
+    $("arcade").innerHTML = `<header class="jm-head"><button class="jm-back" data-arc="close">‹ ${t("jm.back")}</button><b>🕹️ Jerry <span>Arcade</span></b><span></span></header>
+      <div class="jm-body"><p class="arc-intro">${t("ar.intro", { n: AR.PLAYS })}</p>
+        ${card("memory", "🧠", arcInfo && arcInfo.best.memory)}${card("catcher", "🧺", arcInfo && arcInfo.best.catcher)}
+        <div class="jm-top"><b>🧠 ${t("ar.memory.t")} · ${t("ar.today")}</b>${top("memory", t("ar.moves"))}</div>
+        <div class="jm-top"><b>🧺 ${t("ar.catcher.t")} · ${t("ar.today")}</b>${top("catcher", "🌴")}</div>
+        <p class="jm-note">${t("ar.note")}</p></div>`;
+  }
+  async function arcLoad() { if (!account) return; try { arcInfo = await Pi.arcade(); } catch (e) {} if (!arcGame) arcHome(); }
+  async function arcClaim(game, score, ms) {
+    if (!account) return { txt: t("t.loginFirst") };
+    try {
+      const r = await Pi.arcadeClaim(game, score, ms);
+      S = r.state; render(); arcLoad();
+      return { txt: r.reward > 0 ? t("ar.won", { n: r.reward }) : t("ar.noReward"), ok: true };
+    } catch (e) { return { txt: e.message }; }
+  }
+  function arcEnd(title, sub, game) {
+    const box = document.createElement("div");
+    box.className = "arc-end"; box.innerHTML = `<b>${title}</b><small>${sub}</small><div><button class="btn gold" data-arc="${game}">🔁 ${t("ar.again")}</button><button class="btn" data-arc="home">${t("ar.menu")}</button></div>`;
+    $("arcStage").appendChild(box);
+  }
+  // 🧠 Oasis memory: find the 8 pairs in as few moves as possible
+  function arcMemory() {
+    arcGame = "memory";
+    const icons = ["🐪", "🌴", "🦊", "🏺", "🌙", "⭐", "💎", "🍉"];
+    const deck = [...icons, ...icons].map((x) => ({ x, r: Math.random() })).sort((a, b) => a.r - b.r).map((o) => o.x);
+    let open = [], found = 0, moves = 0, lock = false; const t0 = Date.now();
+    $("arcade").innerHTML = `<header class="jm-head"><button class="jm-back" data-arc="home">‹ ${t("ar.menu")}</button><b>🧠 ${t("ar.memory.t")}</b><span class="arc-score" id="arcScore">0</span></header>
+      <div class="jm-body"><div id="arcStage" class="arc-stage"><div class="mem-grid">${deck.map((x, i) => `<button class="mem" data-mem="${i}"><span>${x}</span></button>`).join("")}</div>
+      <p class="arc-tip">${t("ar.memory.tip")}</p></div></div>`;
+    $("arcade").querySelector(".mem-grid").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-mem]");
+      if (!b || lock || b.classList.contains("up") || b.classList.contains("ok")) return;
+      b.classList.add("up"); open.push(b);
+      if (open.length < 2) return;
+      moves++; $("arcScore").textContent = t("ar.movesN", { n: moves });
+      const [a, c] = open; open = [];
+      if (deck[a.dataset.mem] === deck[c.dataset.mem]) {
+        a.classList.add("ok"); c.classList.add("ok"); found++;
+        if (found === AR.memory.pairs) {
+          const ms = Date.now() - t0;
+          arcClaim("memory", moves, ms).then((r) => arcEnd("🎉 " + t("ar.memory.done", { n: moves }), r.txt, "memory"));
+        }
+      } else { lock = true; setTimeout(() => { a.classList.remove("up"); c.classList.remove("up"); lock = false; }, 700); }
+    });
+  }
+  // 🧺 Date catcher: move the basket, catch dates (+1) and gold coins (+5), avoid scorpions (−3)
+  function arcCatcher() {
+    arcGame = "catcher";
+    $("arcade").innerHTML = `<header class="jm-head"><button class="jm-back" data-arc="home">‹ ${t("ar.menu")}</button><b>🧺 ${t("ar.catcher.t")}</b><span class="arc-score" id="arcScore">0</span></header>
+      <div class="jm-body"><div id="arcStage" class="arc-stage"><canvas id="arcCv" width="340" height="460"></canvas>
+      <div class="arc-bar"><i id="arcTime"></i></div><p class="arc-tip">${t("ar.catcher.tip")}</p></div></div>`;
+    const cv = $("arcCv"), cx = cv.getContext("2d"), W = cv.width, H = cv.height;
+    let bx = W / 2, score = 0, items = [], last = performance.now(), spawn = 0, live = true; const t0 = Date.now();
+    const move = (clientX) => { const r = cv.getBoundingClientRect(); bx = Math.max(30, Math.min(W - 30, ((clientX - r.left) / r.width) * W)); };
+    cv.addEventListener("pointerdown", (e) => move(e.clientX)); cv.addEventListener("pointermove", (e) => move(e.clientX));
+    cv.addEventListener("touchmove", (e) => { e.preventDefault(); move(e.touches[0].clientX); }, { passive: false });
+    const KINDS = [{ e: "🌴", v: 1, p: 0.7 }, { e: "🪙", v: 5, p: 0.12 }, { e: "🦂", v: -3, p: 0.18 }];
+    function frame(now) {
+      if (!live) return;
+      const dt = Math.min(50, now - last); last = now; const el = Date.now() - t0, left = AR.catcher.ms - el;
+      spawn -= dt;
+      if (spawn <= 0) { let r = Math.random(), k = KINDS[0]; for (const x of KINDS) { if (r < x.p) { k = x; break; } r -= x.p; } items.push({ k, x: 20 + Math.random() * (W - 40), y: -20, s: 0.12 + Math.random() * 0.08 + el / 300000 }); spawn = 520 - Math.min(300, el / 100); }
+      cx.clearRect(0, 0, W, H);
+      const g = cx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#7fd0f0"); g.addColorStop(1, "#f3d28f"); cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+      cx.font = "30px serif"; cx.textAlign = "center"; cx.textBaseline = "middle";
+      items = items.filter((it) => {
+        it.y += it.s * dt;
+        if (it.y > H - 52 && it.y < H - 20 && Math.abs(it.x - bx) < 36) { score = Math.max(0, score + it.k.v); $("arcScore").textContent = score; return false; }
+        if (it.y > H + 20) return false;
+        cx.fillText(it.k.e, it.x, it.y); return true;
+      });
+      cx.font = "44px serif"; cx.fillText("🧺", bx, H - 34);
+      $("arcTime").style.width = Math.max(0, (100 * left) / AR.catcher.ms) + "%";
+      if (left <= 0) {
+        live = false;
+        arcClaim("catcher", Math.min(score, AR.catcher.maxScore), Date.now() - t0).then((r) => arcEnd("⏱️ " + t("ar.catcher.done", { n: score }), r.txt, "catcher"));
+        return;
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    arcStop = () => { live = false; };
+  }
+  $("arcOpen").addEventListener("click", () => { $("arcade").classList.remove("hidden"); arcHome(); arcLoad(); });
+  $("arcade").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-arc]");
+    if (!b) return;
+    const a = b.dataset.arc;
+    if (a === "close") { if (arcStop) arcStop(); return $("arcade").classList.add("hidden"); }
+    if (a === "home") return arcHome();
+    if (arcStop) { arcStop(); arcStop = null; }
+    if (a === "memory") arcMemory(); else if (a === "catcher") arcCatcher();
+  });
+
+  // ---------- 📣 Business showcase: Pi businesses pay to be shown (reviewed by the owner) ----------
+  const SP = L.SPONSOR;
+  let bizData = null, bizAdmin = null;
+  const spCard = (x, small) => `<div class="sp-card${small ? " sp-small" : ""}"><span class="sp-ico">${esc(x.emoji)}</span><span class="sp-txt"><small class="sp-tag">${t("biz.sponsored")} · ${t("biz.cat." + x.cat)}</small><b>${esc(x.name)}</b><small>${esc(x.descr)}</small></span>
+    ${x.link ? `<button class="btn small gold" data-sp="${x.id}" data-link="${esc(x.link)}">${t("biz.visit")}</button>` : ""}</div>`;
+  function renderStrip() {
+    const live = bizData && bizData.live;
+    $("spStrip").classList.toggle("hidden", !live || !live.length);
+    if (live && live.length) $("spStrip").innerHTML = spCard(live[Math.floor(Date.now() / 20000) % live.length], true);
+  }
+  async function bizLoad() { try { bizData = await Pi.sponsors(); } catch (e) {} renderStrip(); if (!$("biz").classList.contains("hidden")) renderBiz(); }
+  function renderBiz() {
+    const d = bizData || { live: [], mine: [], plans: SP.PLANS, cats: SP.CATS };
+    const st = (x) => t("biz.st." + x.status) + (x.status === "live" ? " · " + t("biz.until", { d: new Date(x.ends_at).toLocaleDateString() }) : "") + (x.note ? " · " + esc(x.note) : "");
+    $("biz").innerHTML = `<header class="jm-head"><button class="jm-back" data-biz="close">‹ ${t("jm.back")}</button><b>📣 ${t("biz.t")}</b><span></span></header>
+      <div class="jm-body">
+        <p class="arc-intro">${t("biz.intro")}</p>
+        ${d.live.length ? d.live.map((x) => spCard(x)).join("") : `<p class="jm-note">${t("biz.empty")}</p>`}
+        <details class="biz-form" ${d.live.length ? "" : "open"}><summary>➕ ${t("biz.add")}</summary>
+          <label>${t("biz.f.name")}<input id="bzName" maxlength="${SP.NAME}"></label>
+          <label>${t("biz.f.desc")}<textarea id="bzDesc" maxlength="${SP.DESC}" rows="3"></textarea></label>
+          <label>${t("biz.f.link")}<input id="bzLink" dir="ltr" placeholder="https://… / pi://…"></label>
+          <div class="biz-row"><label>${t("biz.f.emoji")}<input id="bzEmoji" maxlength="4" value="🏪"></label>
+            <label>${t("biz.f.cat")}<select id="bzCat">${d.cats.map((c) => `<option value="${c}">${t("biz.cat." + c)}</option>`).join("")}</select></label></div>
+          <div class="biz-plans">${d.plans.map((p, i) => `<label class="biz-plan"><input type="radio" name="bzPlan" value="${p.id}" ${i === 1 ? "checked" : ""}><b dir="ltr">${p.price} π</b><small>${t("biz.days", { n: p.days })}</small></label>`).join("")}</div>
+          <small class="biz-rules">${t("biz.rules")}</small>
+          <button class="btn gold" data-biz="pay">${t("biz.pay")}</button></details>
+        ${d.mine.length ? `<h4>${t("biz.mine")}</h4>` + d.mine.map((x) => `<div class="biz-mine"><b>${esc(x.emoji)} ${esc(x.name)}</b><small>${st(x)}</small><small dir="ltr">👁 ${x.views} · 👆 ${x.clicks}</small></div>`).join("") : ""}
+        ${account && account.isAdmin ? `<div class="jm-top"><b>🛡️ ${t("biz.review")}</b><button class="jm-back" data-biz="adm">${t("jm.recheck")}</button>${bizAdmin ? bizAdmin.list.map((x) => `<div class="biz-adm"><span><b>${esc(x.emoji)} ${esc(x.name)}</b> <small>@${esc(x.username || "?")} · ${x.pi} π · ${t("biz.days", { n: x.days })} · ${t("biz.st." + x.status)}</small><small>${esc(x.descr)}</small><small dir="ltr">${esc(x.link || "")}</small></span>
+          ${x.status === "review" ? `<button class="btn small gold" data-biz="ok" data-id="${x.id}">✅</button><button class="btn small secondary" data-biz="no" data-id="${x.id}">❌</button>` : `<button class="btn small secondary" data-biz="stop" data-id="${x.id}">⏹</button>`}</div>`).join("") || `<small>—</small>` : ""}</div>` : ""}
+      </div>`;
+  }
+  async function openLink(id, link) {
+    Pi.sponsorClick(id);
+    if (!/^(https:\/\/|pi:\/\/)/i.test(link)) return;
+    if (confirm(t("biz.leave", { u: link }))) window.open(link, "_blank", "noopener");
+  }
+  $("spStrip").addEventListener("click", (e) => { const b = e.target.closest("[data-sp]"); if (b) openLink(Number(b.dataset.sp), b.dataset.link); });
+  $("bizOpen").addEventListener("click", () => { $("biz").classList.remove("hidden"); renderBiz(); bizLoad(); });
+  $("biz").addEventListener("click", async (e) => {
+    const sp = e.target.closest("[data-sp]");
+    if (sp) return openLink(Number(sp.dataset.sp), sp.dataset.link);
+    const b = e.target.closest("[data-biz]");
+    if (!b) return;
+    const a = b.dataset.biz;
+    if (a === "close") return $("biz").classList.add("hidden");
+    if (!account) return toast(t("t.loginFirst"));
+    try {
+      if (a === "pay") {
+        b.disabled = true;
+        const plan = (document.querySelector("input[name=bzPlan]:checked") || {}).value;
+        const dr = await Pi.sponsorDraft({ name: $("bzName").value, descr: $("bzDesc").value, link: $("bzLink").value.trim(), emoji: $("bzEmoji").value, cat: $("bzCat").value, plan });
+        await Pi.buySponsor(dr.id, dr.plan);
+        toast(t("biz.paid"));
+      } else if (a === "adm") {
+        bizAdmin = await Pi.sponsorAdmin("list");
+      } else if (a === "ok" || a === "no" || a === "stop") {
+        const note = a === "no" ? prompt(t("biz.why")) || "" : "";
+        bizAdmin = await Pi.sponsorAdmin(a === "ok" ? "approve" : a === "no" ? "reject" : "stop", Number(b.dataset.id), note);
+      }
+    } catch (err) { toast(err.message); }
+    b.disabled = false;
+    await bizLoad();
+  });
+  bizLoad();
+
   async function loadMk() { try { mkData = await Pi.mk(); } catch (e) { mkData = null; toast(e.message); } if (funPage === "mk") renderMk(); }
   $("wheelOpen").addEventListener("click", () => { funPage = "wheel"; renderWheel(); $("fun").classList.remove("hidden"); });
   $("mkOpen").addEventListener("click", () => {
@@ -929,7 +1100,7 @@
   // ---------- Guide: first-time tour + help center ----------
   const TOUR = [null, "farm", "camels", "city", "stake", "rank", "vip", null];
   const HELP = ["basics", "farm", "camels", "city", "granary", "events", "shop", "ranking", "club", "referral", "missions",
-    "kombat", "kfun", "kboss", "kleague", "kcollect", "ktribes", "kjry", "kp2p", "earn", "pmarket", "wheel", "kvote", "kairdrop", "safety", "faq"];
+    "kombat", "kfun", "kboss", "kleague", "kcollect", "ktribes", "kjry", "kp2p", "earn", "arcade", "showcase", "pmarket", "wheel", "kvote", "kairdrop", "safety", "faq"];
   const KOMBAT_HELP = HELP.filter((k) => k[0] === "k");
   let tourI = -1;
   const goTab = (tab) => document.querySelector(`.tabs [data-tab="${tab}"]`).click();

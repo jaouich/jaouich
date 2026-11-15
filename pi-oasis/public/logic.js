@@ -489,6 +489,13 @@
     LEVELS: [{ id: "bronze", n: 0, x: 0 }, { id: "silver", n: 25, x: 0.1 }, { id: "gold", n: 100, x: 0.2 }, { id: "diamond", n: 300, x: 0.35 }, { id: "legend", n: 1000, x: 0.5 }],
     STREAK_ADS: 5, STREAK_DATES: 100, STREAK_MAX: 7 };
   const earnLevel = (ads) => { let i = 0; EARN.LEVELS.forEach((l, j) => { if (ads >= l.n) i = j; }); return i; };
-  const api = { EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  // Jerry Arcade: free skill games. Dates for each game, PLAYS rewarded games per game a day.
+  const ARCADE = { PLAYS: 5,
+    memory: { pairs: 8, minMs: 8000, reward: (moves) => Math.max(40, 200 - Math.max(0, moves - 8) * 10) },
+    catcher: { ms: 30000, maxScore: 150, reward: (score) => Math.min(300, Math.max(0, score) * 3) } };
+  // Business showcase: Pi businesses pay Pi to be shown (reviewed by the owner first).
+  const SPONSOR = { PLANS: [{ id: "d1", days: 1, price: 1 }, { id: "d7", days: 7, price: 5 }, { id: "d30", days: 30, price: 15 }],
+    CATS: ["shop", "food", "services", "apps", "education", "travel", "other"], NAME: 40, DESC: 160 };
+  const api = { ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

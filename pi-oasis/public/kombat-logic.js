@@ -11,6 +11,7 @@
     MAX_BATCH: 600,     // taps per request
     OFFLINE_H: 3,       // passive income stored while away, in hours
     REFILLS: 6,         // free full-energy refills per day
+    AD_REFILLS: 5,      // extra full-energy refills per day, each after a rewarded Pi ad
     REFILL_GAP: 3600e3, // between two refills
     MAX_CARD: 25,
     MAX_BOOST: 15,
@@ -310,6 +311,25 @@
         k.refill.at = now;
         k.energy = maxEnergy(k); k.eAt = now;
         return { s, msg: { key: "k.refilled" } };
+      }
+      // Rewarded Pi ads (verified with Pi by the server before the action runs)
+      case "kAdRefill": {
+        if (!ctx.adVerified) fail("k.adFail");
+        if (!k.adRefill || k.adRefill.day !== day(now)) k.adRefill = { day: day(now), used: 0 };
+        if (k.adRefill.used >= K.AD_REFILLS) fail("k.noAdRefills");
+        k.adRefill.used++;
+        k.energy = maxEnergy(k); k.eAt = now;
+        return { s, msg: { key: "k.refilled" } };
+      }
+      case "kAdDaily": {
+        if (!ctx.adVerified) fail("k.adFail");
+        const d = day(now);
+        if (k.daily.day !== d) fail("k.dailyFirst");
+        if (k.daily.ad === d) fail("k.dailyAdDone");
+        const n = DAILY[(k.daily.streak - 1) % DAILY.length];
+        gain(k, n, "ad");
+        k.daily.ad = d;
+        return { s, msg: { key: "k.dailyGot", vars: { n } } };
       }
       case "kChest": {
         if (now < k.chestAt) fail("k.noChest");

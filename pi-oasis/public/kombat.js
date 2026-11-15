@@ -88,6 +88,16 @@
       paint();
     }
   }
+  // Rewarded Pi ad, then the action (the server checks the ad with Pi before rewarding)
+  async function adAct(type, sound) {
+    if (!G.account) return G.toast(t("t.loginFirst"));
+    if (!Pi.piAvailable) return G.toast(t("k.ad.noPi"));
+    if (busy) return;
+    const adId = await Pi.showRewardedAd();
+    if (!adId) return G.toast(t("t.adFail"));
+    return act({ type, adId }, sound);
+  }
+  const adRefillsLeft = (kk) => K.AD_REFILLS - (kk.adRefill && kk.adRefill.day === KL.day(G.now()) ? kk.adRefill.used : 0);
   async function act(action, sound) {
     if (busy) return;
     busy = true;
@@ -129,6 +139,7 @@
     $("kEnergy").textContent = x.energy;
     $("kEnergyMax").textContent = x.max;
     $("kEBar").style.width = (100 * x.energy) / x.max + "%";
+    $("kAdEnergy").classList.toggle("hidden", !(G.account && x.energy < x.max * 0.15 && adRefillsLeft(k()) > 0));
     $("kFBar").style.width = x.furyFill * 100 + "%";
     const lg = x.league, next = KL.LEAGUES[lg + 1];
     $("kLeagueBtn").textContent = KL.LEAGUE_ICON[lg]; // icon only: the name is on the League tab
@@ -376,6 +387,9 @@
     const left = K.REFILLS - kk.refill.used, wait = K.REFILL_GAP - (nowT - kk.refill.at);
     $("kRefill").innerHTML = `<span class="k-be">⚡</span><span><b>${t("k.refill.t")}</b><small>${t("k.refill.d", { n: left, max: K.REFILLS })}</small></span>
       <button class="btn small gold" data-kact="refill" ${left > 0 && wait <= 0 ? "" : "disabled"}>${left <= 0 ? "—" : wait > 0 ? t("k.refill.in", { m: Math.ceil(wait / 60000) }) : t("k.go")}</button>`;
+    const adLeft = adRefillsLeft(kk);
+    $("kAdRefill").innerHTML = `<span class="k-be">📺</span><span><b>${t("k.ad.refillT")}</b><small>${t("k.ad.refillD", { n: adLeft, max: K.AD_REFILLS })}</small></span>
+      <button class="btn small gold" data-kact="adrefill" ${adLeft > 0 ? "" : "disabled"}>${adLeft > 0 ? "📺 " + t("k.go") : "—"}</button>`;
     const coins = v().coins;
     $("kBoosts").innerHTML = KL.BOOSTS.map((b) => {
       const lvl = kk[b.id] || 0, max = lvl >= K.MAX_BOOST, cost = KL.boostCost(b, lvl);
@@ -435,6 +449,9 @@
     b.disabled = false;
   });
   $("kRefill").addEventListener("click", (e) => { if (e.target.closest("[data-kact=refill]")) act({ type: "kRefill" }, sfx.fury); });
+  $("kAdRefill").addEventListener("click", (e) => { if (e.target.closest("[data-kact=adrefill]")) adAct("kAdRefill", sfx.fury); });
+  $("kAdEnergy").addEventListener("click", () => adAct("kAdRefill", sfx.fury));
+  $("kDailyAd").addEventListener("click", () => adAct("kAdDaily", sfx.chest).then(() => coinRain(16)));
   $("kBoosts").addEventListener("click", (e) => { const b = e.target.closest("[data-kboost]"); if (b) act({ type: "kBoost", id: b.dataset.kboost }); });
 
   // ---------- Earn: daily reward + tasks ----------
@@ -450,6 +467,9 @@
       <small>${t("k.daily.day", { n: i + 1 })}</small><i class="kcoin s"></i><b>${big(n)}</b></div>`).join("");
     $("kDailyBtn").textContent = doneToday ? t("k.daily.done") : t("k.daily.claim");
     $("kDailyBtn").disabled = doneToday;
+    const adDone = kk.daily.ad === d;
+    $("kDailyAd").classList.toggle("hidden", !doneToday || adDone);
+    if (doneToday && !adDone) $("kDailyAd").innerHTML = `📺 ${t("k.ad.daily", { n: big(KL.DAILY[(kk.daily.streak - 1) % KL.DAILY.length]) })}`;
     // tasks: ready first, then in progress, done last
     const rows = KL.TASKS.map((x) => {
       const have = Math.min(x.need, x.have(G.S, kk, taskCtx())), done = !!kk.done[x.id];

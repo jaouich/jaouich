@@ -480,7 +480,7 @@ const routes = {
     const now = Date.now();
     const a = body.action || {};
     let adVerified = false;
-    if (a.type === "speedup") adVerified = await verifyAd(env, u.uid, a.adId, now);
+    if (a.type === "speedup" || a.type === "kAdRefill" || a.type === "kAdDaily") adVerified = await verifyAd(env, u.uid, a.adId, now);
     const tier = tierOf(u, now, await isPartner(env, u.username));
     const state = await stateFor(env, u, now, tier);
     let res;

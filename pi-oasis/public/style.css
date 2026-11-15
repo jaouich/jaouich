@@ -901,3 +901,10 @@ body.k-open { overflow: hidden; }
 .jp-swap { display: flex; gap: 6px; align-items: center; margin: 8px 0; }
 .jp-swap input { flex: 1; min-width: 0; border-radius: 12px; border: 1px solid rgba(255, 215, 106, .5); padding: 9px 10px; font: inherit; background: #fff; color: #2a1162; }
 .jp-swap .btn { white-space: nowrap; display: flex; align-items: center; gap: 3px; }
+
+/* Rewarded ads in Kombat */
+.k-erow-btns { display: flex; gap: 6px; }
+.k-mini.k-ad { background: linear-gradient(135deg, #3ef2ff, #7c5cff); color: #fff; animation: kAdPulse 1.6s ease-in-out infinite; }
+@keyframes kAdPulse { 50% { box-shadow: 0 0 14px rgba(62, 242, 255, .7); } }
+.k-adrow { margin-top: 8px; border-color: rgba(62, 242, 255, .45); }
+.k-adbtn { margin-top: 8px; color: #fff; background: linear-gradient(135deg, #3ef2ff, #7c5cff); }

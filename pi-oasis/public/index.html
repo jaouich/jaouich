@@ -155,7 +155,7 @@
         </div>
         <div class="k-energy-row">
           <span>⚡ <b id="kEnergy">0</b> / <span id="kEnergyMax">0</span> <small id="kEFull" class="k-efull"></small></span>
-          <button class="k-mini" data-kgo="boost" type="button">🚀 <span data-i18n="k.nav.boost"></span></button>
+          <span class="k-erow-btns"><button id="kAdEnergy" class="k-mini k-ad hidden" type="button">📺 <span data-i18n="k.ad.energyShort"></span></button><button class="k-mini" data-kgo="boost" type="button">🚀 <span data-i18n="k.nav.boost"></span></button></span>
         </div>
         <div class="k-ebar"><i id="kEBar"></i></div>
         <div class="k-fury-row"><span>🔥 <span data-i18n="k.fury"></span></span><div class="k-fbar"><i id="kFBar"></i></div></div>
@@ -168,6 +168,7 @@
       <section class="k-page" data-kp="boost">
         <h3 data-i18n="k.boost.free"></h3>
         <div id="kRefill" class="k-boost"></div>
+        <div id="kAdRefill" class="k-boost k-adrow"></div>
         <h3 data-i18n="k.boost.title"></h3>
         <div id="kBoosts"></div>
         <h3 data-i18n="k.skins"></h3>
@@ -185,6 +186,7 @@
         <p class="k-note" data-i18n="k.daily.d"></p>
         <div id="kDaily" class="k-daily"></div>
         <button id="kDailyBtn" class="btn gold k-wide" type="button"></button>
+        <button id="kDailyAd" class="btn k-wide k-adbtn hidden" type="button"></button>
         <h3 data-i18n="k.tasks"></h3>
         <div id="kTasks" class="k-tasks"></div>
       </section>

@@ -130,6 +130,20 @@
   // Kombat coins bought with Pi (200,000 coins per Pi). They raise the league (current coins)
   // but never count toward the weekly tournament or lifetime total (airdrop).
   const COINS_PER_PI = 200000;
+  // JRY: the in-game currency of Jerry Development (not a blockchain token, can't be withdrawn).
+  // Bought with Pi; holding it gives the holder perks (HOLD_TIERS) and vote weight; it can be
+  // spent for Kombat coins or dates (10% better than buying those with Pi).
+  const JRYP = {
+    PACKS: [
+      { id: "j500", price: 0.5, jry: 500 },
+      { id: "j1k", price: 1, jry: 1000 },
+      { id: "j5k", price: 5, jry: 5500 },
+      { id: "j10k", price: 10, jry: 12000 },
+    ],
+    COINS: 220, // Kombat coins per JRY
+    DATES: 5.5, // dates per JRY
+    MIN_SWAP: 10,
+  };
   const COIN_PACKS = [
     { id: "c40k", price: 0.2, coins: 40000 },
     { id: "c200k", price: 1, coins: 200000 },
@@ -341,5 +355,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { COINS_PER_PI, COIN_PACKS, P2P, TRIBE, tribeNameOk, COLLECTIBLES, NFT_FEE, NFT_MAX, nftById, nftBoostOf, JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { JRYP, COINS_PER_PI, COIN_PACKS, P2P, TRIBE, tribeNameOk, COLLECTIBLES, NFT_FEE, NFT_MAX, nftById, nftBoostOf, JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -387,6 +387,38 @@
   function renderCoinShop() {
     $("kCoinShop").innerHTML = KL.COIN_PACKS.map((p) => `<button class="k-buy" data-kpack="${p.id}"><b>${p.price} π</b><small><i class="kcoin s"></i>${big(p.coins)}</small></button>`).join("");
   }
+  // JRY: the in-game currency of Jerry Development (bought with Pi)
+  function renderJryPts() {
+    const acc = G.account, pts = (acc && acc.jryPts) || 0, held = (acc && acc.jryHeld) || 0, ti = KL.holdTier(held);
+    const J = KL.JRYP;
+    $("kJryPts").innerHTML = `<div class="k-mk-top"><span class="jp-ico">JRY</span><div><b>JRY</b><small>${t("jp.sub")}</small></div></div>
+      <div class="jp-bal"><b>${big(pts)}</b> JRY${ti >= 0 ? ` · ${KL.HOLD_TIERS[ti].e} +${Math.round(KL.HOLD_TIERS[ti].boost * 100)}% ${t("jp.perk")}` : ""}</div>
+      <div class="k-mk-tiers">${KL.HOLD_TIERS.map((x, i) => `<span class="${i === ti ? "on" : ""}">${x.e} ${big(x.min)}+ → +${Math.round(x.boost * 100)}%</span>`).join("")}</div>
+      <div class="k-shop-row k-shop-4">${J.PACKS.map((p) => `<button class="k-buy" data-jpack="${p.id}"><b>${p.price} π</b><small>${big(p.jry)} JRY</small></button>`).join("")}</div>
+      <div class="jp-swap"><input id="jpN" type="number" min="${J.MIN_SWAP}" step="1" inputmode="numeric" dir="ltr" placeholder="JRY">
+        <button class="btn small gold" data-jswap="coins">→ <i class="kcoin s"></i><span id="jpC">${big(J.COINS)}</span></button>
+        <button class="btn small gold" data-jswap="dates">→ 🌴 <span id="jpD">${big(Math.floor(J.DATES))}</span></button></div>
+      <small class="k-note">${t("jp.note", { c: big(J.COINS), d: J.DATES })}</small>`;
+  }
+  $("kJryPts").addEventListener("input", () => {
+    const n = Math.max(1, Math.floor(Number($("jpN").value) || 1));
+    $("jpC").textContent = big(Math.floor(n * KL.JRYP.COINS)); $("jpD").textContent = big(Math.floor(n * KL.JRYP.DATES));
+  });
+  $("kJryPts").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-jpack],[data-jswap]");
+    if (!b) return;
+    if (!G.account) return G.toast(t("t.loginFirst"));
+    b.disabled = true;
+    try {
+      await flush();
+      const res = b.dataset.jpack ? await Pi.buyJryPts(b.dataset.jpack) : await Pi.jryPtsSwap(Math.floor(Number($("jpN").value)), b.dataset.jswap);
+      if (res.account) G.setAccount(res.account);
+      if (res.state) G.S = res.state;
+      G.toast(b.dataset.jpack ? t("jp.ok") : t("jp.swapped", { n: big(res.got) })); sfx.chest(); coinRain(30);
+      renderAll();
+    } catch (err) { G.toast(errMsg(err)); }
+    b.disabled = false;
+  });
   $("kCoinShop").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-kpack]");
     if (!b) return;
@@ -805,7 +837,7 @@
     if (!open) return;
     paint();
     if (page === "cards") renderCards();
-    if (page === "boost") { renderBoosts(); renderSkins(); renderCoinShop(); }
+    if (page === "boost") { renderBoosts(); renderSkins(); renderCoinShop(); renderJryPts(); }
     if (page === "daily") renderDaily();
   }
   function go(p) {

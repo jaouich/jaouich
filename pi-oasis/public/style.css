@@ -891,3 +891,13 @@ body.k-open { overflow: hidden; }
 .p2p-addr { align-self: flex-start; border: 1px dashed rgba(255, 215, 106, .7); background: transparent; color: inherit; border-radius: 10px; padding: 6px 10px; font: inherit; font-family: monospace; cursor: pointer; }
 .p2p-acts { display: flex; gap: 8px; flex-wrap: wrap; }
 .p2p-err { color: #ffb37d; }
+
+/* JRY in-game currency */
+.k-jp { margin-top: 16px; }
+.k-jp .jp-ico { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-weight: 900; font-size: 13px; letter-spacing: .5px; color: #fff; background: linear-gradient(135deg, #3ef2ff, #7c5cff); border: 2px solid #ffd34d; box-shadow: 0 0 14px rgba(62, 242, 255, .55); flex: 0 0 auto; direction: ltr; }
+.jp-bal { margin: 10px 0 6px; font-size: 15px; }
+.jp-bal b { font-size: 26px; color: #ffd34d; }
+.k-jp .k-shop-row { margin: 10px 0; }
+.jp-swap { display: flex; gap: 6px; align-items: center; margin: 8px 0; }
+.jp-swap input { flex: 1; min-width: 0; border-radius: 12px; border: 1px solid rgba(255, 215, 106, .5); padding: 9px 10px; font: inherit; background: #fff; color: #2a1162; }
+.jp-swap .btn { white-space: nowrap; display: flex; align-items: center; gap: 3px; }

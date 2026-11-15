@@ -187,6 +187,7 @@ const ensureSchema = (env) =>
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_bal REAL").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_at INTEGER").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE nft_credits ADD COLUMN src TEXT").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_pts INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .catch((e) => { schemaReady = null; throw e; }));
 
 const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
@@ -242,7 +243,12 @@ async function stateFor(env, u, now, tier) {
 }
 
 // testJRY held in the player's saved wallet, read from the Pi network (refreshed every 15 min)
+// JRY held for perks: the in-game JRY balance, plus (Testnet) testJRY in the saved wallet
 async function jryHeld(env, u, force) {
+  const pts = Number(u.jry_pts) || 0;
+  return pts + (await testJryHeld(env, u, force));
+}
+async function testJryHeld(env, u, force) {
   if (!u.jry_wallet || !isTestnet(env)) return 0;
   const now = Date.now();
   if (!force && u.jry_at && now - u.jry_at < 15 * 60e3) return u.jry_bal || 0;
@@ -273,6 +279,7 @@ async function account(env, u) {
     jryWallet: u.jry_wallet || null,
     partnerReq: tier === PARTNER ? "approved" : ((await one(env, "SELECT status FROM partner_requests WHERE uid = ?", u.uid)) || {}).status || null,
     jryHeld: held,
+    jryPts: Number(u.jry_pts) || 0,
     holdBoost: holdBoost(held) + (await nftBoost(env, u.uid)),
     nftBoost: await nftBoost(env, u.uid),
     jryOn: !!env.JRY_ISSUER_SEED || isTestnet(env),
@@ -1027,6 +1034,26 @@ const routes = {
   },
 
   // Community market: testJRY price from the Test-Pi pool, pool size, holders (cached 1 min)
+  // ---------- JRY (in-game currency): spend for Kombat coins or dates ----------
+  "POST /api/jrypts/swap": async (req, env, body) => {
+    const u = await auth(req, env);
+    const n = Math.floor(Number(body.n));
+    if (!(n >= KL.JRYP.MIN_SWAP)) bad("jp.min", { n: KL.JRYP.MIN_SWAP });
+    const to = body.to === "dates" ? "dates" : "coins";
+    const now = Date.now();
+    const r = await run(env, "UPDATE users SET jry_pts = jry_pts - ? WHERE uid = ? AND jry_pts >= ?", n, u.uid, n);
+    if (!r.meta.changes) bad("jp.notEnough");
+    const got = Math.floor(n * (to === "coins" ? KL.JRYP.COINS : KL.JRYP.DATES));
+    if (to === "coins") await run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'jry')", u.uid, got, now);
+    else {
+      if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
+      await run(env, "UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?", got, got, u.uid);
+    }
+    const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
+    const acc = await account(env, fresh);
+    return { ok: true, got, to, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
+  },
+
   // ---------- Players' testJRY market ----------
   "GET /api/p2p": async (req, env) => {
     const u = await auth(req, env);
@@ -1310,6 +1337,11 @@ function checkPayment(p, uid) {
     if (!KL.JRY_PACKS.includes(Number(p.amount)) || Number(p.metadata.pi) !== Number(p.amount)) bad("badPayment");
     return { price: Number(p.amount), jry: true };
   }
+  if (p.metadata?.type === "jrypts") {
+    const pack = KL.JRYP.PACKS.find((x) => x.id === p.metadata.pack);
+    if (!pack || Number(p.amount) !== pack.price) bad("badPayment");
+    return { price: pack.price, jryPts: pack };
+  }
   if (p.metadata?.type === "kcoins") {
     const pack = KL.COIN_PACKS.find((x) => x.id === p.metadata.pack);
     if (!pack || Number(p.amount) !== pack.price) bad("badPayment");
@@ -1356,6 +1388,7 @@ async function completePayment(env, id, txid, uid) {
   ];
   if (u) {
     // Bought Kombat coins: credited on the next load (never lost to a game save running at the same time)
+    if (item.jryPts) stmts.push(env.DB.prepare("UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(item.jryPts.jry, u.uid));
     if (item.coins) stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, item.coins.coins, now));
     if (item.tier) stmts.push(await applyMembership(env, u, item.tier, now));
     if (item.pack) {

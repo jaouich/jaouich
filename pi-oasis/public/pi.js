@@ -101,6 +101,12 @@
     if (!pack) return Promise.reject(new Error(I18N.t("e.payment")));
     return pay({ amount: pack.price, memo: `Jerry Kombat – ${pack.coins} coins`, metadata: { type: "kcoins", pack: pack.id } });
   }
+  // JRY, the in-game currency
+  function buyJryPts(packId) {
+    const pack = window.KombatLogic.JRYP.PACKS.find((x) => x.id === packId);
+    if (!pack) return Promise.reject(new Error(I18N.t("e.payment")));
+    return pay({ amount: pack.price, memo: `Jerry Development – ${pack.jry} JRY`, metadata: { type: "jrypts", pack: pack.id } });
+  }
   // Players' testJRY market: pay the seller's price for one offer
   function buyOffer(o) {
     return pay({ amount: o.pi, memo: `testJRY market #${o.id}`, metadata: { type: "p2p", offer: o.id } });
@@ -152,6 +158,8 @@
     buyDates,
     buyJry,
     buyCoins,
+    buyJryPts,
+    jryPtsSwap: (n, to) => api("/api/jrypts/swap", { n, to }),
     buyOffer,
     p2p: () => api("/api/p2p"),
     p2pOffer: (o) => api("/api/p2p/offer", o),

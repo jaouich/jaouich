@@ -1,0 +1,16 @@
+name = "magiscom-tech-desk"
+main = "dist/worker.js"
+compatibility_date = "2025-06-01"
+
+# Nettoyage chaque nuit des fichiers envoyés mais jamais joints à un message
+[triggers]
+crons = ["30 3 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "magisdesk"
+database_id = "ea4e91e5-967d-4446-8204-aa32376e9c13"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "magisdesk-media"

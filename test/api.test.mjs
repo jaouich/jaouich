@@ -1,0 +1,151 @@
+import assert from "node:assert/strict";
+import worker from "../dist/worker.js";
+import { start } from "./server.mjs";
+
+const PORT = 8790;
+const { server, env } = await start(PORT);
+const B = `http://localhost:${PORT}`;
+let pass = 0;
+const ok = (name) => { pass++; console.log("  ✓ " + name); };
+
+function client() {
+  let cookie = "";
+  const call = async (path, { method = "GET", body, headers = {}, raw, csrf = true } = {}) => {
+    const h = { ...headers };
+    if (cookie) h.Cookie = cookie;
+    if (method !== "GET" && method !== "HEAD" && csrf) h["X-Requested-With"] = "magisdesk";
+    if (body !== undefined) { h["Content-Type"] = "application/json"; }
+    const r = await fetch(B + path, { method, headers: h, body: body !== undefined ? JSON.stringify(body) : raw });
+    const sc = r.headers.getSetCookie()[0];
+    if (sc) cookie = sc.split(";")[0].endsWith("=") ? "" : sc.split(";")[0];
+    const ct = r.headers.get("content-type") || "";
+    const data = ct.includes("json") ? await r.json() : Buffer.from(await r.arrayBuffer());
+    return { status: r.status, data, headers: r.headers };
+  };
+  call.upload = (buf, type, name = "f") => call("/api/uploads", { method: "PUT", raw: buf, headers: { "Content-Type": type, "X-File-Name": encodeURIComponent(name), "Content-Length": String(buf.length) } });
+  return call;
+}
+const png = Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.alloc(200, 7)]);
+const mp4 = Buffer.concat([Buffer.from("000000186674797069736f6d", "hex"), Buffer.alloc(5000, 3)]);
+
+const A = client(), Bc = client(), ADM = client(), anon = client();
+
+console.log("Comptes");
+assert.equal((await A("/api/auth/register", { method: "POST", body: { email: "a@client.ma", password: "motdepasse1", name: "Amina", company: "Atlas SARL" } })).status, 201);
+assert.equal((await Bc("/api/auth/register", { method: "POST", body: { email: "b@client.ma", password: "motdepasse2", name: "Brahim" } })).status, 201);
+assert.equal((await ADM("/api/auth/register", { method: "POST", body: { email: "admin@magiscom.ma", password: "adminpass99", name: "Support" } })).status, 201);
+env.DB.db.prepare("UPDATE users SET role='admin' WHERE email='admin@magiscom.ma'").run();
+ok("inscription de 3 comptes");
+assert.equal((await A("/api/auth/register", { method: "POST", body: { email: "A@client.ma", password: "xxxxxxxx", name: "Dup" } })).status, 409);
+ok("e-mail en double refusé (casse ignorée)");
+assert.equal((await anon("/api/auth/register", { method: "POST", body: { email: "c@c.ma", password: "court", name: "Cc" } })).status, 400);
+ok("mot de passe trop court refusé");
+assert.equal((await anon("/api/tickets")).status, 401);
+ok("API fermée sans connexion");
+assert.equal((await A("/api/tickets", { method: "POST", body: { subject: "x" }, csrf: false })).status, 403);
+ok("écriture sans en-tête anti-CSRF refusée");
+const pw = env.DB.db.prepare("SELECT password_hash FROM users WHERE email='a@client.ma'").get().password_hash;
+assert.ok(!pw.includes("motdepasse1") && pw.length > 20);
+ok("mot de passe stocké haché (PBKDF2)");
+
+console.log("Demande avec photo");
+const up = await A.upload(png, "image/png", "erreur ébp.png");
+assert.equal(up.status, 201);
+const imgId = up.data.attachment.id;
+const created = await A("/api/tickets", { method: "POST", body: { subject: "Impression facture impossible", category: "ebp", body: "Message d'erreur à l'impression", attachments: [imgId] } });
+assert.equal(created.status, 201);
+const tid = created.data.ticket.id;
+let t = await A("/api/tickets/" + tid);
+assert.equal(t.data.messages.length, 1);
+assert.equal(t.data.messages[0].attachments[0].name, "erreur ébp.png");
+ok("création de demande avec photo jointe");
+const img = await A("/api/media/" + imgId);
+assert.equal(img.status, 200); assert.equal(img.headers.get("content-type"), "image/png"); assert.ok(img.data.equals(png));
+assert.match(img.headers.get("content-security-policy"), /sandbox/);
+ok("le client voit sa photo (type correct, sandbox)");
+
+console.log("Isolation entre clients");
+assert.equal((await Bc("/api/tickets")).data.tickets.length, 0);
+assert.equal((await Bc("/api/tickets/" + tid)).status, 404);
+assert.equal((await Bc("/api/media/" + imgId)).status, 404);
+assert.equal((await Bc(`/api/tickets/${tid}/messages`, { method: "POST", body: { body: "intrusion" } })).status, 404);
+ok("B ne voit ni la demande, ni la photo de A, et ne peut pas y écrire");
+const upA2 = await A.upload(png, "image/png");
+assert.equal((await Bc("/api/tickets", { method: "POST", body: { subject: "Vol de fichier", body: "x", attachments: [upA2.data.attachment.id] } })).status, 400);
+assert.equal((await Bc("/api/media/" + upA2.data.attachment.id)).status, 404);
+ok("B ne peut pas s'approprier un fichier envoyé par A");
+assert.equal((await Bc(`/api/tickets/${tid}/status`, { method: "PATCH", body: { status: "resolved" } })).status, 403);
+assert.equal((await Bc("/api/admin/users")).status, 403);
+assert.equal((await A(`/api/tickets/${tid}/status`, { method: "PATCH", body: { status: "resolved" } })).status, 403);
+ok("seul l'admin change le statut et voit les comptes");
+
+console.log("Fichiers refusés");
+assert.equal((await A.upload(Buffer.from("<html><script>alert(1)</script>"), "text/html")).status, 415);
+const big = await A("/api/uploads", { method: "PUT", raw: Buffer.alloc(10), headers: { "Content-Type": "image/png", "Content-Length": String(16 * 1024 * 1024) } }).catch(() => ({ status: 413 }));
+assert.ok([413, 400].includes(big.status));
+ok("type non autorisé et taille excessive refusés");
+
+console.log("Côté administrateur");
+const list = await ADM("/api/tickets");
+assert.equal(list.data.tickets.length, 1); assert.equal(list.data.tickets[0].user_name, "Amina");
+assert.equal((await ADM("/api/tickets?waiting=1")).data.tickets.length, 1);
+assert.equal((await ADM("/api/tickets?q=Atlas")).data.tickets.length, 1);
+ok("l'admin voit toutes les demandes, filtre et recherche");
+const vid = await ADM.upload(mp4, "video/mp4", "tuto.mp4");
+assert.equal(vid.status, 201);
+assert.equal((await ADM(`/api/tickets/${tid}/messages`, { method: "POST", body: { body: "Voici la marche à suivre en vidéo.", attachments: [vid.data.attachment.id] } })).status, 201);
+assert.equal((await ADM(`/api/tickets/${tid}/status`, { method: "PATCH", body: { status: "in_review" } })).status, 200);
+assert.equal((await ADM(`/api/tickets/${tid}/status`, { method: "PATCH", body: { status: "resolved" } })).status, 200);
+assert.equal((await ADM("/api/tickets?waiting=1")).data.tickets.length, 0);
+ok("réponse admin avec vidéo, changement de statut");
+const users = await ADM("/api/admin/users");
+assert.equal(users.data.users.find((u) => u.name === "Amina").tickets, 1);
+const st = await ADM("/api/admin/stats");
+assert.equal(st.data.stats.resolved, 1); assert.equal(st.data.users, 2);
+ok("liste des clients et statistiques");
+
+console.log("Retour côté client");
+t = await A("/api/tickets/" + tid);
+assert.equal(t.data.ticket.status, "resolved");
+assert.equal(t.data.messages.length, 2);
+assert.equal(t.data.history.length, 3);
+const vidId = t.data.messages[1].attachments[0].id;
+const part = await A("/api/media/" + vidId, { headers: { Range: "bytes=0-9" } });
+assert.equal(part.status, 206); assert.equal(part.data.length, 10); assert.equal(part.headers.get("content-range"), `bytes 0-9/${mp4.length}`);
+const tail = await A("/api/media/" + vidId, { headers: { Range: "bytes=-100" } });
+assert.equal(tail.status, 206); assert.ok(tail.data.equals(mp4.subarray(mp4.length - 100)));
+assert.equal((await A("/api/media/" + vidId, { headers: { Range: "bytes=999999-" } })).status, 416);
+ok("le client lit la vidéo de l'admin (lecture par morceaux pour mobile)");
+assert.equal((await Bc("/api/media/" + vidId)).status, 404);
+ok("la vidéo reste invisible pour B");
+await A(`/api/tickets/${tid}/messages`, { method: "POST", body: { body: "Le problème revient." } });
+t = await A("/api/tickets/" + tid);
+assert.equal(t.data.ticket.status, "open");
+ok("une réponse du client rouvre la demande résolue");
+
+console.log("Connexion");
+const L = client();
+assert.equal((await L("/api/auth/login", { method: "POST", body: { email: "a@client.ma", password: "faux" } })).status, 401);
+assert.equal((await L("/api/auth/login", { method: "POST", body: { email: "A@Client.ma", password: "motdepasse1" } })).status, 200);
+assert.equal((await L("/api/me")).data.user.name, "Amina");
+await L("/api/auth/logout", { method: "POST" });
+assert.equal((await L("/api/me")).status, 401);
+ok("connexion, puis déconnexion qui ferme la session");
+const X = client();
+for (let i = 0; i < 10; i++) await X("/api/auth/login", { method: "POST", body: { email: "b@client.ma", password: "nope" + i } });
+assert.equal((await X("/api/auth/login", { method: "POST", body: { email: "b@client.ma", password: "motdepasse2" } })).status, 429);
+ok("blocage après 10 essais ratés");
+
+console.log("Nettoyage");
+const pend = await A.upload(png, "image/png");
+env.DB.db.prepare("UPDATE attachments SET created_at = 0 WHERE message_id IS NULL").run();
+const before = env.MEDIA.m.size;
+let waits = [];
+await worker.scheduled({}, env, { waitUntil: (p) => waits.push(p) });
+await Promise.all(waits);
+assert.equal(env.DB.db.prepare("SELECT COUNT(*) n FROM attachments WHERE message_id IS NULL").get().n, 0);
+assert.ok(env.MEDIA.m.size < before);
+ok("les fichiers jamais joints sont supprimés la nuit");
+
+server.close();
+console.log(`\n${pass} vérifications réussies`);

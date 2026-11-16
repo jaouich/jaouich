@@ -6,7 +6,12 @@
 <meta name="theme-color" content="#0a2a6b">
 <title>Magiscom Tech Desk · Support clients</title>
 <link rel="icon" href="/icon.png" type="image/png">
-<link rel="apple-touch-icon" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Magiscom Desk">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
@@ -15,6 +20,12 @@
   <nav class="nav" id="nav"></nav>
   <div class="who"><span id="whoName"></span><button class="btn ghost sm" id="logout">Déconnexion</button></div>
 </header>
+<div class="install" id="install" hidden>
+  <img src="/icon-192.png" alt="" width="40" height="40">
+  <div class="install-txt"><b>Installer Magiscom Tech Desk</b><span id="installHint">Accédez à votre support en un geste, comme une application.</span></div>
+  <button class="btn primary sm" id="installBtn" type="button">Installer</button>
+  <button class="install-x" id="installX" type="button" aria-label="Fermer">×</button>
+</div>
 <main id="app" class="wrap"><p class="muted center">Chargement…</p></main>
 <footer class="foot">© Magiscom Tech · Intégrateur EBP et Sage · Technopark, Casablanca</footer>
 <div class="toast" id="toast" role="status" hidden></div>

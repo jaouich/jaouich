@@ -88,7 +88,7 @@ function json(data, status = 200, extra = {}) {
   });
 }
 const SEC_HEADERS = {
-  "Content-Security-Policy": "default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+  "Content-Security-Policy": "default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; style-src 'self'; script-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "same-origin",
   "X-Frame-Options": "DENY",

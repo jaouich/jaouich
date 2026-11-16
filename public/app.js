@@ -522,3 +522,37 @@ $("#logout").addEventListener("click", async () => {
 });
 window.addEventListener("hashchange", router);
 router();
+
+// ---------- Installation comme une application ----------
+(function setupInstall() {
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if (standalone) return;
+  let dismissed = false;
+  try { dismissed = Number(localStorage.getItem("mtd_install_x") || 0) > Date.now(); } catch {}
+  if (dismissed) return;
+  const bar = $("#install"), btn = $("#installBtn"), hint = $("#installHint");
+  $("#installX").addEventListener("click", () => {
+    bar.hidden = true;
+    try { localStorage.setItem("mtd_install_x", String(Date.now() + 7 * 86400000)); } catch {}
+  });
+  let deferred = null;
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault(); deferred = e;
+    btn.hidden = false; bar.hidden = false;
+  });
+  btn.addEventListener("click", async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    const { outcome } = await deferred.userChoice.catch(() => ({}));
+    deferred = null;
+    if (outcome === "accepted") bar.hidden = true;
+  });
+  window.addEventListener("appinstalled", () => { bar.hidden = true; toast("Application installée"); });
+  // iPhone / iPad : pas de bouton automatique, on explique le geste
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (ios) {
+    hint.textContent = "Touchez Partager (carré avec une flèche), puis « Sur l'écran d'accueil ».";
+    btn.hidden = true; bar.hidden = false;
+  }
+})();

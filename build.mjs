@@ -8,6 +8,10 @@ const assets = {
   "/app.css": { type: "text/css; charset=utf-8", body: read("./public/app.css") },
   "/icon.svg": { type: "image/svg+xml", body: read("./public/icon.svg") },
   "/icon.png": { type: "image/png", b64: readFileSync(new URL("./public/icon.png", import.meta.url)).toString("base64") },
+  "/manifest.webmanifest": { type: "application/manifest+json", body: read("./public/manifest.webmanifest") },
+  "/sw.js": { type: "text/javascript; charset=utf-8", body: read("./public/sw.js") },
+  "/icon-192.png": { type: "image/png", b64: readFileSync(new URL("./public/icon-192.png", import.meta.url)).toString("base64") },
+  "/icon-512.png": { type: "image/png", b64: readFileSync(new URL("./public/icon-512.png", import.meta.url)).toString("base64") },
   "/logo.png": { type: "image/png", b64: readFileSync(new URL("./public/logo.png", import.meta.url)).toString("base64") },
 };
 const src = read("./src/worker.js");

@@ -1,6 +1,12 @@
 name = "magiscom-tech-desk"
 main = "dist/worker.js"
 compatibility_date = "2025-06-01"
+workers_dev = true
+
+# Adresse publique de l'application
+routes = [
+  { pattern = "support.integrateurebp.com", custom_domain = true }
+]
 
 # Nettoyage chaque nuit des fichiers envoyés mais jamais joints à un message
 [triggers]

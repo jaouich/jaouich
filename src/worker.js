@@ -125,7 +125,7 @@ async function readJson(req, max = 20000) {
   try { return JSON.parse(text || "{}"); } catch { fail(400, "Données invalides"); }
 }
 const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
-const pub = (u) => ({ id: u.id, email: u.email, name: u.name, company: u.company, phone: u.phone, role: u.role, created_at: u.created_at });
+const pub = (u) => ({ id: u.id, email: u.email, name: u.name, company: u.company, phone: u.phone, role: u.role, title: u.title || null, created_at: u.created_at });
 function cookie(token, maxAge) {
   return `md_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
@@ -387,12 +387,12 @@ async function getTicket(id, env, me) {
   const t = await loadTicket(env, id, me);
   const owner = await env.DB.prepare("SELECT id,name,email,company,phone,created_at FROM users WHERE id = ?").bind(t.user_id).first();
   const { results: msgs } = await env.DB.prepare(
-    `SELECT m.id, m.body, m.created_at, m.sender_id, u.name AS sender_name, u.role AS sender_role
+    `SELECT m.id, m.body, m.created_at, m.sender_id, u.name AS sender_name, u.role AS sender_role, u.title AS sender_title
      FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.ticket_id = ? ORDER BY m.created_at, m.rowid`).bind(id).all();
   const { results: atts } = await env.DB.prepare(
     "SELECT id, message_id, mime, size, original_name AS name FROM attachments WHERE ticket_id = ? ORDER BY created_at").bind(id).all();
   const { results: hist } = await env.DB.prepare(
-    `SELECT h.old_status, h.new_status, h.created_at, u.name AS by_name, u.role AS by_role
+    `SELECT h.old_status, h.new_status, h.created_at, u.name AS by_name, u.role AS by_role, u.title AS by_title
      FROM status_history h JOIN users u ON u.id = h.changed_by WHERE h.ticket_id = ? ORDER BY h.created_at, h.rowid`).bind(id).all();
   const byMsg = {};
   for (const a of atts) (byMsg[a.message_id] ||= []).push(a);
@@ -439,7 +439,7 @@ async function setStatus(id, req, env, me) {
 // ---------- Administration ----------
 async function adminUsers(env) {
   const { results } = await env.DB.prepare(
-    `SELECT u.id, u.name, u.email, u.company, u.phone, u.role, u.created_at,
+    `SELECT u.id, u.name, u.email, u.company, u.phone, u.role, u.title, u.created_at,
        COUNT(t.id) AS tickets,
        COALESCE(SUM(CASE WHEN t.status IN ('open','in_review') THEN 1 ELSE 0 END),0) AS active,
        MAX(t.updated_at) AS last_activity

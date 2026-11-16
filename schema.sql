@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   password_salt TEXT NOT NULL,
   role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin')),
+  title         TEXT,                          -- fonction affichée pour l'équipe (ex. Consultant)
   created_at    INTEGER NOT NULL
 );
 

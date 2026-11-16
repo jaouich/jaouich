@@ -156,7 +156,7 @@ function viewAuth(mode) {
 // ---------- Barre du haut ----------
 function showBar(active) {
   $("#bar").hidden = false;
-  $("#whoName").textContent = ME.name + (ME.role === "admin" ? " · Admin" : "");
+  $("#whoName").textContent = ME.name + (ME.role === "admin" ? " · " + (ME.title || "Admin") : "");
   const links = ME.role === "admin"
     ? [["/", "Demandes"], ["/clients", "Clients"], ["/profil", "Mon profil"]]
     : [["/", "Mes demandes"], ["/new", "Nouvelle demande"], ["/profil", "Mon profil"]];
@@ -247,7 +247,7 @@ function threadNodes(d) {
     }
     const mine = m.sender_id === ME.id;
     return h("div", { class: "msg" + (mine ? " mine" : "") },
-      h("span", { class: "who" }, (mine ? "Vous" : m.sender_name + (m.sender_role === "admin" ? " · Magiscom Tech" : "")) + " · " + fmtDate(m.created_at)),
+      h("span", { class: "who" }, (mine ? "Vous" : m.sender_name + (m.sender_role === "admin" ? (m.sender_title ? " · " + m.sender_title : "") + " · Magiscom Tech" : "")) + " · " + fmtDate(m.created_at)),
       m.body ? h("div", { class: "body" }, m.body) : null,
       mediaGrid(m.attachments));
   });
@@ -412,7 +412,7 @@ async function viewClients() {
     const q = search.value.trim().toLowerCase();
     const rows = users.filter((u) => !q || [u.name, u.email, u.company, u.phone].join(" ").toLowerCase().includes(q));
     body.replaceChildren(...rows.map((u) => h("tr", null,
-      h("td", null, h("b", null, u.name), u.role === "admin" ? " (admin)" : "", h("br"), h("span", { class: "muted small" }, u.company || "")),
+      h("td", null, h("b", null, u.name), u.role === "admin" ? ` (${u.title || "admin"})` : "", h("br"), h("span", { class: "muted small" }, u.company || "")),
       h("td", null, u.email, h("br"), h("span", { class: "muted small" }, u.phone || "")),
       h("td", null, String(u.tickets), u.active ? h("span", { class: "muted small" }, ` (${u.active} en cours)`) : ""),
       h("td", null, u.last_activity ? fmtDay(u.last_activity) : "—"),

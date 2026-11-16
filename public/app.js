@@ -162,7 +162,7 @@ function viewAuth(mode) {
   const feat = (ic, title, text) => h("li", null, icon(ic), h("div", null, h("b", null, title), h("span", null, text)));
   mount(h("div", { class: "auth" },
     h("section", { class: "hero" },
-      h("div", { class: "row" }, h("div", { class: "logo" }, "M"), h("div", null, h("b", null, "Magiscom Tech Desk"), h("div", { class: "small" }, "Support clients EBP & Sage"))),
+      h("div", { class: "row" }, h("div", { class: "logo" }, h("img", { src: "/icon.png", alt: "Magiscom Tech", width: 40, height: 38 })), h("div", null, h("b", null, "Magiscom Tech Desk"), h("div", { class: "small" }, "Support clients EBP & Sage"))),
       h("div", { class: "stack" }, h("h1", null, "Votre support, simple et suivi."),
         h("p", null, "Décrivez votre problème, montrez-le en photo ou en vidéo, et suivez la réponse de nos consultants ici.")),
       h("ul", { class: "feats" },
@@ -274,7 +274,7 @@ function threadNodes(d) {
     const label = mine ? "Vous" : m.sender_name;
     const role = staff ? (m.sender_title ? m.sender_title + " · " : "") + "Magiscom Tech" : "";
     return h("div", { class: "mrow" + (mine ? " mine" : "") },
-      h("div", { class: "av" + (staff ? " staff" : ""), "aria-hidden": "true" }, staff && !mine ? "M" : initials(m.sender_name)),
+      h("div", { class: "av" + (staff && !mine ? " staff" : ""), "aria-hidden": "true" }, staff && !mine ? h("img", { src: "/icon.png", alt: "" }) : initials(m.sender_name)),
       h("div", { class: "msg" },
         h("span", { class: "who" }, h("b", null, label), role ? " · " + role : "", " · " + fmtDate(m.created_at)),
         m.body ? h("div", { class: "body" }, m.body) : null,

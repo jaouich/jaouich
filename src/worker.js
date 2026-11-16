@@ -96,6 +96,7 @@ const SEC_HEADERS = {
 };
 function asset(p) {
   const a = ASSETS[p] || ASSETS["/"];               // application monopage
+  if (a.b64) return new Response(fromB64(a.b64), { headers: { "Content-Type": a.type, "Cache-Control": "public, max-age=86400", "X-Content-Type-Options": "nosniff" } });
   return new Response(a.body, { headers: { "Content-Type": a.type, "Cache-Control": "no-cache", ...SEC_HEADERS } });
 }
 
@@ -482,8 +483,9 @@ function mailBody(env, n) {
   const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5fa;font-family:Arial,Helvetica,sans-serif;color:#0e1a33">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f5fa;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #dde3f0">
-<tr><td style="background:#0a2a6b;background:linear-gradient(135deg,#0a1f4d,#0b4fd6);padding:20px 24px;color:#fff">
-<div style="font-size:18px;font-weight:bold">Magiscom Tech Desk</div><div style="font-size:12px;opacity:.85;letter-spacing:.06em;text-transform:uppercase">Support clients</div></td></tr>
+<tr><td style="padding:18px 24px;border-bottom:4px solid #0b4fd6"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="padding-right:12px"><img src="${esc((env.APP_URL || "https://support.integrateurebp.com") + "/icon.png")}" width="44" height="42" alt="Magiscom Tech" style="display:block;border:0"></td>
+<td><div style="font-size:18px;font-weight:bold;color:#0a2a6b">Magiscom Tech Desk</div><div style="font-size:12px;color:#5a6784;letter-spacing:.06em;text-transform:uppercase">Support clients</div></td></tr></table></td></tr>
 <tr><td style="padding:24px">
 <h1 style="font-size:20px;margin:0 0 10px">${esc(n.heading)}</h1>
 <p style="margin:0 0 14px;color:#33415c;line-height:1.5">${esc(n.intro)}</p>

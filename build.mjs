@@ -7,6 +7,8 @@ const assets = {
   "/app.js": { type: "text/javascript; charset=utf-8", body: read("./public/app.js") },
   "/app.css": { type: "text/css; charset=utf-8", body: read("./public/app.css") },
   "/icon.svg": { type: "image/svg+xml", body: read("./public/icon.svg") },
+  "/icon.png": { type: "image/png", b64: readFileSync(new URL("./public/icon.png", import.meta.url)).toString("base64") },
+  "/logo.png": { type: "image/png", b64: readFileSync(new URL("./public/logo.png", import.meta.url)).toString("base64") },
 };
 const src = read("./src/worker.js");
 if (!src.includes("__ASSETS__")) throw new Error("marqueur __ASSETS__ absent");

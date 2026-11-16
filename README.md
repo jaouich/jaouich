@@ -38,6 +38,8 @@ login_attempts   (anti-force brute)
 - Un fichier n'est lisible que par : la personne qui l'a envoyé, le client propriétaire de la demande, ou l'admin.
 - Un client ne peut pas joindre un fichier envoyé par quelqu'un d'autre.
 - Seul l'admin change un statut, voit la liste des clients et les statistiques.
+- « Mon profil » : chacun change son nom, son entreprise, son téléphone, son e-mail (mot de passe exigé) et son mot de passe (les autres appareils sont déconnectés).
+- Mot de passe oublié : l'admin attribue un mot de passe provisoire depuis la page Clients (le client est déconnecté partout).
 - Si un client répond à une demande résolue ou non résolue, elle redevient « ouverte ».
 - Protections : en-tête anti-CSRF obligatoire, blocage 15 min après 10 mots de passe faux, CSP stricte, fichiers servis en `nosniff` + `sandbox`, types acceptés limités (JPG, PNG, WEBP, GIF, HEIC, MP4, MOV, WEBM, 3GP).
 - Limites : 6 fichiers par message, photos 15 Mo, vidéos 95 Mo (limite des requêtes Cloudflare : 100 Mo).
@@ -72,7 +74,7 @@ npm run deploy
 
 ## Développement et tests
 
-- `npm test` : 21 vérifications de l'API (isolation entre clients, fichiers, admin, sessions…), avec SQLite et un faux R2 en mémoire.
+- `npm test` : 25 vérifications de l'API (isolation entre clients, fichiers, admin, sessions…), avec SQLite et un faux R2 en mémoire.
 - `npm run dev` : version locale sur http://localhost:8787.
 - Le code de la page est dans `public/`, le serveur dans `src/worker.js`. `node build.mjs` les rassemble dans `dist/worker.js`.
 

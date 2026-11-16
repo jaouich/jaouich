@@ -136,6 +136,33 @@ for (let i = 0; i < 10; i++) await X("/api/auth/login", { method: "POST", body: 
 assert.equal((await X("/api/auth/login", { method: "POST", body: { email: "b@client.ma", password: "motdepasse2" } })).status, 429);
 ok("blocage après 10 essais ratés");
 
+console.log("Profil");
+env.DB.db.exec("DELETE FROM login_attempts");
+const P = client();
+await P("/api/auth/register", { method: "POST", body: { email: "p@client.ma", password: "ancienpass1", name: "Pa" } });
+const P2 = client();
+await P2("/api/auth/login", { method: "POST", body: { email: "p@client.ma", password: "ancienpass1" } });
+assert.equal((await P("/api/me", { method: "PATCH", body: { name: "Patricia", company: "Sud Négoce", phone: "0600" } })).data.user.company, "Sud Négoce");
+ok("modifier nom, entreprise, téléphone");
+assert.equal((await P("/api/me/email", { method: "POST", body: { email: "new@client.ma", password: "faux" } })).status, 403);
+assert.equal((await P("/api/me/email", { method: "POST", body: { email: "a@client.ma", password: "ancienpass1" } })).status, 409);
+assert.equal((await P("/api/me/email", { method: "POST", body: { email: "New@Client.ma", password: "ancienpass1" } })).data.user.email, "new@client.ma");
+ok("changer l'e-mail : mot de passe exigé, doublon refusé");
+assert.equal((await P("/api/me/password", { method: "POST", body: { current: "faux", next: "nouveaupass1" } })).status, 403);
+assert.equal((await P("/api/me/password", { method: "POST", body: { current: "ancienpass1", next: "court" } })).status, 400);
+assert.equal((await P("/api/me/password", { method: "POST", body: { current: "ancienpass1", next: "nouveaupass1" } })).status, 200);
+assert.equal((await P("/api/me")).status, 200);
+assert.equal((await P2("/api/me")).status, 401);
+assert.equal((await client()("/api/auth/login", { method: "POST", body: { email: "new@client.ma", password: "nouveaupass1" } })).status, 200);
+ok("changer le mot de passe : les autres appareils sont déconnectés");
+const pid = (await P("/api/me")).data.user.id;
+assert.equal((await Bc(`/api/admin/users/${pid}/reset-password`, { method: "POST" })).status, 403);
+const rp = await ADM(`/api/admin/users/${pid}/reset-password`, { method: "POST" });
+assert.equal(rp.status, 200); assert.equal(rp.data.password.length, 12);
+assert.equal((await P("/api/me")).status, 401);
+assert.equal((await client()("/api/auth/login", { method: "POST", body: { email: "new@client.ma", password: rp.data.password } })).status, 200);
+ok("l'admin attribue un mot de passe provisoire (le client est déconnecté)");
+
 console.log("Nettoyage");
 const pend = await A.upload(png, "image/png");
 env.DB.db.prepare("UPDATE attachments SET created_at = 0 WHERE message_id IS NULL").run();

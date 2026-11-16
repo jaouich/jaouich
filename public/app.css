@@ -86,3 +86,4 @@ textarea{min-height:110px;resize:vertical}
 .empty{text-align:center;color:var(--mut);padding:36px 12px}
 @media (max-width:760px){.side{grid-template-columns:1fr}.side>aside{order:-1}.who span{display:none}.nav{order:3;width:100%}}
 .new{color:var(--brand)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em;user-select:all}

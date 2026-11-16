@@ -57,6 +57,9 @@ async function route(req, env) {
   if (!me) return json({ error: "Non connecté" }, 401);
 
   if (p === "/api/me" && m === "GET") return json({ user: pub(me) });
+  if (p === "/api/me" && m === "PATCH") return updateProfile(req, env, me);
+  if (p === "/api/me/email" && m === "POST") return changeEmail(req, env, me);
+  if (p === "/api/me/password" && m === "POST") return changePassword(req, env, me);
   if (p === "/api/uploads" && m === "PUT") return upload(req, env, me);
   if (p === "/api/tickets" && m === "GET") return listTickets(url, env, me);
   if (p === "/api/tickets" && m === "POST") return createTicket(req, env, me);
@@ -71,6 +74,8 @@ async function route(req, env) {
     if (me.role !== "admin") return json({ error: "Accès réservé à l'administrateur" }, 403);
     if (p === "/api/admin/users" && m === "GET") return adminUsers(env);
     if (p === "/api/admin/stats" && m === "GET") return adminStats(env);
+    const rr = p.match(/^\/api\/admin\/users\/([0-9a-f-]{36})\/reset-password$/);
+    if (rr && m === "POST") return adminResetPassword(rr[1], env, me);
   }
   return json({ error: "Introuvable" }, 404);
 }
@@ -163,9 +168,9 @@ async function register(req, env) {
   const user = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(id).first();
   return json({ user: pub(user) }, 201, { "Set-Cookie": await createSession(env, id) });
 }
-async function tooMany(env, key) {
+async function tooMany(env, key, limit) {
   const r = await env.DB.prepare("SELECT count, window_end FROM login_attempts WHERE key = ?").bind(key).first();
-  return r && r.window_end > now() && r.count >= 10;
+  return r && r.window_end > now() && r.count >= limit;
 }
 async function noteFailure(env, key) {
   await env.DB.prepare(`INSERT INTO login_attempts (key, count, window_end) VALUES (?, 1, ?)
@@ -180,7 +185,8 @@ async function login(req, env) {
   const password = typeof b.password === "string" ? b.password.slice(0, 200) : "";
   const ip = req.headers.get("CF-Connecting-IP") || "local";
   const kEmail = "e:" + email, kIp = "i:" + ip;
-  if ((await tooMany(env, kEmail)) || (await tooMany(env, kIp)))
+  // 10 essais par compte, 30 par adresse IP (un bureau partage souvent la même IP)
+  if ((await tooMany(env, kEmail, 10)) || (await tooMany(env, kIp, 30)))
     fail(429, "Trop de tentatives. Réessayez dans 15 minutes.");
   const user = await env.DB.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
   const { hash } = await hashPassword(password, user ? user.password_salt : toB64(new Uint8Array(16)));
@@ -197,6 +203,60 @@ async function logout(req, env) {
   if (token && /^[0-9a-f]{64}$/.test(token))
     await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha256(token)).run();
   return json({ ok: true }, 200, { "Set-Cookie": cookie("", 0) });
+}
+
+// ---------- Profil ----------
+async function checkPassword(user, password) {
+  if (typeof password !== "string" || !password) return false;
+  const { hash } = await hashPassword(password.slice(0, 200), user.password_salt);
+  return safeEqual(hash, user.password_hash);
+}
+async function updateProfile(req, env, me) {
+  const b = await readJson(req);
+  const name = str(b.name, 80), company = str(b.company, 120), phone = str(b.phone, 30);
+  if (name.length < 2) fail(400, "Indiquez votre nom");
+  await env.DB.prepare("UPDATE users SET name = ?, company = ?, phone = ? WHERE id = ?").bind(name, company || null, phone || null, me.id).run();
+  const u = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(me.id).first();
+  return json({ user: pub(u) });
+}
+async function changeEmail(req, env, me) {
+  const b = await readJson(req);
+  const email = str(b.email, 160).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, "Adresse e-mail invalide");
+  if (!(await checkPassword(me, b.password))) fail(403, "Mot de passe actuel incorrect");
+  if (email === me.email.toLowerCase()) return json({ user: pub(me) });
+  const exists = await env.DB.prepare("SELECT 1 FROM users WHERE email = ? AND id <> ?").bind(email, me.id).first();
+  if (exists) fail(409, "Un compte existe déjà avec cet e-mail");
+  await env.DB.prepare("UPDATE users SET email = ? WHERE id = ?").bind(email, me.id).run();
+  const u = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(me.id).first();
+  return json({ user: pub(u) });
+}
+async function changePassword(req, env, me) {
+  const b = await readJson(req);
+  const next = typeof b.next === "string" ? b.next : "";
+  if (!(await checkPassword(me, b.current))) fail(403, "Mot de passe actuel incorrect");
+  if (next.length < 8 || next.length > 200) fail(400, "Le nouveau mot de passe doit faire au moins 8 caractères");
+  const { hash, salt } = await hashPassword(next);
+  const token = readCookie(req, "md_session");
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?").bind(hash, salt, me.id),
+    // Déconnecte les autres appareils, garde la session actuelle
+    env.DB.prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?").bind(me.id, await sha256(token || "")),
+  ]);
+  return json({ ok: true });
+}
+async function adminResetPassword(userId, env, me) {
+  const u = await env.DB.prepare("SELECT id, role FROM users WHERE id = ?").bind(userId).first();
+  if (!u) fail(404, "Client introuvable");
+  if (u.id === me.id) fail(400, "Changez votre propre mot de passe depuis « Mon profil »");
+  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const temp = [...crypto.getRandomValues(new Uint8Array(12))].map((x) => alphabet[x % alphabet.length]).join("");
+  const { hash, salt } = await hashPassword(temp);
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?").bind(hash, salt, u.id),
+    env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(u.id),
+  ]);
+  return json({ password: temp });
 }
 
 // ---------- Fichiers (photos et vidéos) ----------

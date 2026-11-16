@@ -158,8 +158,8 @@ function showBar(active) {
   $("#bar").hidden = false;
   $("#whoName").textContent = ME.name + (ME.role === "admin" ? " · Admin" : "");
   const links = ME.role === "admin"
-    ? [["/", "Demandes"], ["/clients", "Clients"]]
-    : [["/", "Mes demandes"], ["/new", "Nouvelle demande"]];
+    ? [["/", "Demandes"], ["/clients", "Clients"], ["/profil", "Mon profil"]]
+    : [["/", "Mes demandes"], ["/new", "Nouvelle demande"], ["/profil", "Mon profil"]];
   $("#nav").replaceChildren(...links.map(([p, l]) => h("a", { href: "#" + p, class: active === p ? "on" : null }, l)));
 }
 
@@ -381,6 +381,28 @@ async function viewAdmin(opts = {}) {
     } catch {}
   }
 }
+function resetBtn(u) {
+  const box = h("span", { class: "row" });
+  const start = h("button", { class: "btn sm", type: "button" }, "Nouveau mot de passe");
+  start.addEventListener("click", () => {
+    const yes = h("button", { class: "btn sm primary", type: "button" }, "Confirmer");
+    const no = h("button", { class: "btn sm", type: "button" }, "Annuler");
+    no.onclick = () => box.replaceChildren(start);
+    yes.onclick = async () => {
+      yes.disabled = true;
+      try {
+        const { password } = await api(`/api/admin/users/${u.id}/reset-password`, { method: "POST" });
+        const copy = h("button", { class: "btn sm", type: "button" }, "Copier");
+        copy.onclick = async () => { try { await navigator.clipboard.writeText(password); copy.textContent = "Copié"; } catch { copy.textContent = "Copie impossible"; } };
+        box.replaceChildren(h("span", { class: "small" }, "Mot de passe provisoire : ", h("b", { class: "mono" }, password)), copy,
+          h("span", { class: "muted small" }, "Donnez-le au client : il pourra le changer dans « Mon profil »."));
+      } catch (e) { toast(e.message); box.replaceChildren(start); }
+    };
+    box.replaceChildren(h("span", { class: "small" }, "Remplacer le mot de passe de " + u.name + " ?"), yes, no);
+  });
+  box.append(start);
+  return box;
+}
 async function viewClients() {
   showBar("/clients");
   const body = h("tbody");
@@ -394,7 +416,7 @@ async function viewClients() {
       h("td", null, u.email, h("br"), h("span", { class: "muted small" }, u.phone || "")),
       h("td", null, String(u.tickets), u.active ? h("span", { class: "muted small" }, ` (${u.active} en cours)`) : ""),
       h("td", null, u.last_activity ? fmtDay(u.last_activity) : "—"),
-      h("td", null, h("a", { class: "btn sm", href: "#/client/" + u.id }, "Demandes")))));
+      h("td", null, h("div", { class: "row" }, h("a", { class: "btn sm", href: "#/client/" + u.id }, "Demandes"), u.id !== ME.id ? resetBtn(u) : null)))));
     if (!rows.length) body.replaceChildren(h("tr", null, h("td", { colspan: 5, class: "muted" }, "Aucun client.")));
   };
   search.addEventListener("input", draw);
@@ -403,6 +425,45 @@ async function viewClients() {
       h("thead", null, h("tr", null, ["Client", "Contact", "Demandes", "Dernière activité", ""].map((x) => h("th", null, x)))), body))));
   try { users = (await api("/api/admin/users")).users; draw(); }
   catch (e) { body.replaceChildren(h("tr", null, h("td", { colspan: 5 }, e.message))); }
+}
+
+// ---------- Mon profil ----------
+function viewProfile() {
+  showBar("/profil");
+  const field = (label, name, type, value, extra = {}) => h("label", { class: "f" }, label, h("input", { name, type, value: value || "", ...extra }));
+  const section = (title, help, fields, btnLabel, onSubmit) => {
+    const err = errBox();
+    const ok = h("p", { class: "new small", role: "status", hidden: true });
+    const btn = h("button", { class: "btn primary", type: "submit" }, btnLabel);
+    const form = h("form", { class: "card stack", novalidate: true }, h("h2", null, title), help ? h("p", { class: "muted small" }, help) : null, ...fields, err, ok, h("div", { class: "row" }, btn));
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault(); err.hidden = true; ok.hidden = true; btn.disabled = true;
+      try { ok.textContent = await onSubmit(Object.fromEntries(new FormData(form)), form); ok.hidden = false; }
+      catch (ex) { showErr(err, ex); }
+      btn.disabled = false;
+    });
+    return form;
+  };
+  const info = section("Mes informations", null, [
+    field("Nom complet", "name", "text", ME.name, { autocomplete: "name" }),
+    field("Entreprise", "company", "text", ME.company, { autocomplete: "organization" }),
+    field("Téléphone", "phone", "tel", ME.phone, { autocomplete: "tel" }),
+  ], "Enregistrer", async (d) => { ME = (await api("/api/me", { method: "PATCH", body: d })).user; showBar("/profil"); return "Informations enregistrées."; });
+  const mail = section("Adresse e-mail", "C'est l'adresse qui sert à vous connecter. Pour la changer, confirmez avec votre mot de passe actuel.", [
+    field("Nouvelle adresse e-mail", "email", "email", ME.email, { autocomplete: "email" }),
+    field("Mot de passe actuel", "password", "password", "", { autocomplete: "current-password" }),
+  ], "Changer l'e-mail", async (d, f) => { ME = (await api("/api/me/email", { method: "POST", body: d })).user; f.password.value = ""; return "E-mail modifié. Utilisez-le à votre prochaine connexion."; });
+  const pass = section("Mot de passe", "Vos autres appareils seront déconnectés.", [
+    field("Mot de passe actuel", "current", "password", "", { autocomplete: "current-password" }),
+    field("Nouveau mot de passe (8 caractères minimum)", "next", "password", "", { autocomplete: "new-password", minlength: 8 }),
+    field("Confirmez le nouveau mot de passe", "confirm", "password", "", { autocomplete: "new-password" }),
+  ], "Changer le mot de passe", async (d, f) => {
+    if (d.next !== d.confirm) throw new Error("Les deux nouveaux mots de passe ne sont pas identiques");
+    await api("/api/me/password", { method: "POST", body: { current: d.current, next: d.next } });
+    f.reset(); return "Mot de passe modifié.";
+  });
+  mount(h("div", { class: "stack" }, h("h1", null, "Mon profil"), info, mail, pass,
+    !ME || ME.role !== "admin" ? h("p", { class: "muted small" }, "Mot de passe oublié ? Contactez Magiscom Tech : l'équipe peut vous attribuer un mot de passe provisoire.") : null));
 }
 
 // ---------- Routeur ----------
@@ -419,6 +480,7 @@ async function router() {
   const admin = ME.role === "admin";
   let m;
   if (path === "/new" && !admin) return viewNew();
+  if (path === "/profil") return viewProfile();
   if ((m = path.match(/^\/t\/([0-9a-f-]{36})$/))) return viewTicket(m[1]);
   if (admin && path === "/clients") return viewClients();
   if (admin && (m = path.match(/^\/client\/([0-9a-f-]{36})$/))) return viewAdmin({ user: m[1] });

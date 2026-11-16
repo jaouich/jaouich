@@ -8,6 +8,10 @@ routes = [
   { pattern = "support.integrateurebp.com", custom_domain = true }
 ]
 
+[vars]
+APP_URL = "https://support.integrateurebp.com"
+MAIL_FROM = "support@integrateurebp.com"
+
 # Nettoyage chaque nuit des fichiers envoyés mais jamais joints à un message
 [triggers]
 crons = ["30 3 * * *"]

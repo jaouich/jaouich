@@ -44,6 +44,13 @@ login_attempts   (anti-force brute)
 - Protections : en-tête anti-CSRF obligatoire, blocage 15 min après 10 mots de passe faux, CSP stricte, fichiers servis en `nosniff` + `sandbox`, types acceptés limités (JPG, PNG, WEBP, GIF, HEIC, MP4, MOV, WEBM, 3GP).
 - Limites : 6 fichiers par message, photos 15 Mo, vidéos 95 Mo (limite des requêtes Cloudflare : 100 Mo).
 
+## E-mails de notification
+
+- Nouvelle demande ou nouveau message d'un client → e-mail à tous les admins.
+- Réponse d'un admin ou changement de statut → e-mail au client concerné.
+- Envoi par **Cloudflare Email Service** (binding `EMAIL`, plan Workers Paid, domaine intégré dans Email Service) ou par **Resend** (secret `RESEND_API_KEY`). Sans l'un des deux, l'application marche sans e-mail.
+- Expéditeur : `MAIL_FROM` (par défaut `support@integrateurebp.com`), liens vers `APP_URL`.
+
 ## Mise en ligne depuis le tableau de bord Cloudflare (sans ordinateur)
 
 1. **R2** → *Create bucket* → nom : `magisdesk-media`.
@@ -74,7 +81,7 @@ npm run deploy
 
 ## Développement et tests
 
-- `npm test` : 25 vérifications de l'API (isolation entre clients, fichiers, admin, sessions…), avec SQLite et un faux R2 en mémoire.
+- `npm test` : 27 vérifications de l'API (isolation entre clients, fichiers, admin, sessions…), avec SQLite et un faux R2 en mémoire.
 - `npm run dev` : version locale sur http://localhost:8787.
 - Le code de la page est dans `public/`, le serveur dans `src/worker.js`. `node build.mjs` les rassemble dans `dist/worker.js`.
 

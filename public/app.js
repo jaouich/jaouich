@@ -34,6 +34,22 @@ const fmtDate = (ts) => new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", 
 const fmtDay = (ts) => new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(new Date(ts));
 const fmtSize = (n) => (n >= MB ? (n / MB).toFixed(1).replace(".", ",") + " Mo" : Math.max(1, Math.round(n / 1024)) + " Ko");
 const badge = (s) => h("span", { class: "badge st-" + s }, STATUS[s] || s);
+const ICONS = {
+  camera: "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+  clock: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",
+  mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M22 6l-10 7L2 6",
+  lock: "M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 10 0v4",
+  inbox: "M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z",
+};
+function icon(name) {
+  const NS = "http://www.w3.org/2000/svg";
+  const s = document.createElementNS(NS, "svg"); s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("aria-hidden", "true");
+  for (const d of ICONS[name].split(" M").map((x, i) => (i ? "M" + x : x))) { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); s.append(p); }
+  return h("span", { class: "ic" }, s);
+}
+const firstName = (n) => { const w = (n || "").split(/\s+/).filter((x) => x && !/^(m|mr|mme|mlle|m\.|mr\.|mme\.)$/i.test(x)); const f = w[0] || ""; return f.charAt(0).toUpperCase() + f.slice(1); };
+const initials = (n) => (n || "?").split(/\s+/).filter((x) => x && !/^(m|mr|mme|mlle|m\.|mr\.|mme\.)$/i.test(x)).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?";
+const emptyState = (ic, text, ...extra) => h("div", { class: "empty card" }, icon(ic), h("p", null, text), ...extra);
 let toastT;
 function toast(text) {
   const t = $("#toast"); t.textContent = text; t.hidden = false;
@@ -143,10 +159,19 @@ function viewAuth(mode) {
       go("/");
     } catch (ex) { showErr(err, ex); btn.disabled = false; }
   });
-  mount(h("div", { class: "auth stack" },
-    h("div", { class: "center" }, h("div", { class: "logo" }, "M"), h("h1", null, "Magiscom Tech Desk"),
-      h("p", { class: "muted" }, "L'espace support des clients Magiscom Tech. Décrivez votre problème, joignez une photo ou une vidéo, et suivez la réponse ici.")),
-    h("div", { class: "card stack" },
+  const feat = (ic, title, text) => h("li", null, icon(ic), h("div", null, h("b", null, title), h("span", null, text)));
+  mount(h("div", { class: "auth" },
+    h("section", { class: "hero" },
+      h("div", { class: "row" }, h("div", { class: "logo" }, "M"), h("div", null, h("b", null, "Magiscom Tech Desk"), h("div", { class: "small" }, "Support clients EBP & Sage"))),
+      h("div", { class: "stack" }, h("h1", null, "Votre support, simple et suivi."),
+        h("p", null, "Décrivez votre problème, montrez-le en photo ou en vidéo, et suivez la réponse de nos consultants ici.")),
+      h("ul", { class: "feats" },
+        feat("camera", "Photos et vidéos", "Montrez l'écran ou l'erreur, directement depuis votre téléphone."),
+        feat("clock", "Suivi clair", "Ouvert, en cours, résolu : vous savez où en est chaque demande."),
+        feat("mail", "Alerte par e-mail", "Vous êtes prévenu dès que nous répondons."),
+        feat("lock", "Espace privé", "Vos demandes ne sont visibles que par vous et notre équipe."))),
+    h("section", { class: "auth-form" },
+      h("div", null, h("h2", null, isReg ? "Créer votre compte" : "Bon retour 👋"), h("p", { class: "sub small" }, isReg ? "Quelques secondes, puis envoyez votre première demande." : "Connectez-vous pour suivre vos demandes.")),
       h("div", { class: "tabs" },
         h("button", { type: "button", "aria-pressed": String(!isReg), onclick: () => go("/login") }, "Connexion"),
         h("button", { type: "button", "aria-pressed": String(isReg), onclick: () => go("/register") }, "Créer un compte")),
@@ -166,8 +191,8 @@ function showBar(active) {
 // ---------- Liste des demandes ----------
 function ticketCard(t, admin) {
   const waiting = admin && t.last_sender === "user" && (t.status === "open" || t.status === "in_review");
-  return h("a", { class: "tk", href: "#/t/" + t.id },
-    h("div", { class: "row between" }, h("h3", null, waiting ? h("span", { class: "dot", title: "En attente de votre réponse" }) : null, waiting ? " " : null, t.subject), badge(t.status)),
+  return h("a", { class: "tk k-" + t.status, href: "#/t/" + t.id },
+    h("div", { class: "row between" }, h("h3", null, waiting ? h("span", { class: "dot", title: "En attente de votre réponse" }) : null, t.subject), badge(t.status)),
     h("div", { class: "meta" },
       admin && h("b", null, t.user_name + (t.user_company ? " · " + t.user_company : "")),
       h("span", null, CATS[t.category] || t.category),
@@ -186,9 +211,9 @@ async function viewMyTickets() {
       h("button", { class: "chip", "aria-pressed": String(filter === k), onclick: () => { filter = k; draw(); } }, l)));
     const shown = tickets.filter((t) => filter === "all" || t.status === filter);
     list.replaceChildren(...(shown.length ? shown.map((t) => ticketCard(t, false))
-      : [h("div", { class: "empty card" }, tickets.length ? "Aucune demande avec ce statut." : "Vous n'avez encore envoyé aucune demande.", h("br"), h("br"), h("a", { class: "btn primary", href: "#/new" }, "Créer une demande"))]));
+      : [tickets.length ? emptyState("inbox", "Aucune demande avec ce statut.") : emptyState("inbox", "Vous n'avez encore envoyé aucune demande.", h("a", { class: "btn primary", href: "#/new" }, "Créer ma première demande"))]));
   };
-  mount(h("div", { class: "stack" }, h("div", { class: "row between" }, h("h1", null, "Mes demandes"), h("a", { class: "btn primary", href: "#/new" }, "+ Nouvelle demande")), chips, list));
+  mount(h("div", { class: "stack" }, h("div", { class: "head" }, h("div", null, h("h1", null, "Bonjour " + firstName(ME.name)), h("p", { class: "sub" }, "Suivez vos demandes et les réponses de l'équipe Magiscom Tech.")), h("a", { class: "btn primary", href: "#/new" }, "+ Nouvelle demande")), chips, list));
   list.replaceChildren(h("p", { class: "muted" }, "Chargement…"));
   try { tickets = (await api("/api/tickets")).tickets; draw(); }
   catch (e) { list.replaceChildren(h("div", { class: "err" }, e.message)); }
@@ -218,7 +243,7 @@ function viewNew() {
       picker.clear(); toast("Demande envoyée"); go("/t/" + r.ticket.id);
     } catch (ex) { showErr(err, ex); btn.disabled = false; btn.textContent = "Envoyer la demande"; }
   });
-  mount(h("div", { class: "stack" }, h("a", { href: "#/" }, "← Retour"), h("h1", null, "Nouvelle demande"), form));
+  mount(h("div", { class: "stack" }, h("a", { href: "#/" }, "← Retour"), h("div", null, h("h1", null, "Nouvelle demande"), h("p", { class: "sub" }, "Plus votre description est précise, plus notre réponse sera rapide. Une photo de l'écran aide beaucoup.")), form));
 }
 
 // ---------- Fil d'une demande ----------
@@ -245,11 +270,15 @@ function threadNodes(d) {
         ? `${STATUS[x.old_status]} → ${STATUS[x.new_status]} · ${by} · ${fmtDate(x.created_at)}`
         : `Demande créée · ${fmtDate(x.created_at)}`);
     }
-    const mine = m.sender_id === ME.id;
-    return h("div", { class: "msg" + (mine ? " mine" : "") },
-      h("span", { class: "who" }, (mine ? "Vous" : m.sender_name + (m.sender_role === "admin" ? (m.sender_title ? " · " + m.sender_title : "") + " · Magiscom Tech" : "")) + " · " + fmtDate(m.created_at)),
-      m.body ? h("div", { class: "body" }, m.body) : null,
-      mediaGrid(m.attachments));
+    const mine = m.sender_id === ME.id, staff = m.sender_role === "admin";
+    const label = mine ? "Vous" : m.sender_name;
+    const role = staff ? (m.sender_title ? m.sender_title + " · " : "") + "Magiscom Tech" : "";
+    return h("div", { class: "mrow" + (mine ? " mine" : "") },
+      h("div", { class: "av" + (staff ? " staff" : ""), "aria-hidden": "true" }, staff && !mine ? "M" : initials(m.sender_name)),
+      h("div", { class: "msg" },
+        h("span", { class: "who" }, h("b", null, label), role ? " · " + role : "", " · " + fmtDate(m.created_at)),
+        m.body ? h("div", { class: "body" }, m.body) : null,
+        mediaGrid(m.attachments)));
   });
 }
 async function viewTicket(id) {
@@ -343,7 +372,7 @@ async function viewAdmin(opts = {}) {
   const list = h("div", { class: "list" });
   const chips = h("div", { class: "chips" });
   const search = h("input", { type: "search", placeholder: "Chercher : sujet, client, entreprise, e-mail…", "aria-label": "Rechercher" });
-  let title = h("h1", null, "Demandes des clients");
+  let title = h("h1", null, state.user ? "Demandes du client" : "Bonjour " + firstName(ME.name));
   const load = async () => {
     const qs = new URLSearchParams();
     if (state.status) qs.set("status", state.status);
@@ -354,7 +383,7 @@ async function viewAdmin(opts = {}) {
     try {
       const { tickets } = await api("/api/tickets?" + qs);
       if (state.user && tickets[0]) title.textContent = "Demandes de " + tickets[0].user_name;
-      list.replaceChildren(...(tickets.length ? tickets.map((t) => ticketCard(t, true)) : [h("div", { class: "empty card" }, "Aucune demande ne correspond.")]));
+      list.replaceChildren(...(tickets.length ? tickets.map((t) => ticketCard(t, true)) : [emptyState("inbox", "Aucune demande ne correspond.")]));
     } catch (e) { list.replaceChildren(h("div", { class: "err" }, e.message)); }
   };
   const drawChips = () => chips.replaceChildren(
@@ -365,18 +394,18 @@ async function viewAdmin(opts = {}) {
   search.addEventListener("input", () => { clearTimeout(tm); tm = setTimeout(() => { state.q = search.value.trim(); load(); }, 300); });
   mount(h("div", { class: "stack" },
     state.user ? h("a", { href: "#/clients" }, "← Tous les clients") : null,
-    title, state.user ? null : statsBox, search, chips, list));
+    h("div", null, title, state.user ? null : h("p", { class: "sub" }, "Voici les demandes de vos clients. Les points orange attendent votre réponse.")), state.user ? null : statsBox, search, chips, list));
   drawChips(); load();
   if (!state.user) {
     try {
       const s = await api("/api/admin/stats");
-      const tile = (n, label, onclick) => h("button", { class: "stat", type: "button", onclick }, h("b", null, n), h("span", null, label));
+      const tile = (n, label, onclick, cls = "") => h("button", { class: "stat " + cls, type: "button", onclick }, h("b", null, n), h("span", null, label));
       statsBox.replaceChildren(
-        tile(s.waiting, "En attente de réponse", () => { state.waiting = true; state.status = ""; drawChips(); load(); }),
-        tile(s.stats.open, "Ouvertes", () => { state.status = "open"; state.waiting = false; drawChips(); load(); }),
-        tile(s.stats.in_review, "En cours", () => { state.status = "in_review"; state.waiting = false; drawChips(); load(); }),
-        tile(s.stats.resolved, "Résolues", () => { state.status = "resolved"; state.waiting = false; drawChips(); load(); }),
-        tile(s.stats.unresolved, "Non résolues", () => { state.status = "unresolved"; state.waiting = false; drawChips(); load(); }),
+        tile(s.waiting, "En attente de réponse", () => { state.waiting = true; state.status = ""; drawChips(); load(); }, "hot"),
+        tile(s.stats.open, "Ouvertes", () => { state.status = "open"; state.waiting = false; drawChips(); load(); }, "c-open"),
+        tile(s.stats.in_review, "En cours", () => { state.status = "in_review"; state.waiting = false; drawChips(); load(); }, "c-in_review"),
+        tile(s.stats.resolved, "Résolues", () => { state.status = "resolved"; state.waiting = false; drawChips(); load(); }, "c-resolved"),
+        tile(s.stats.unresolved, "Non résolues", () => { state.status = "unresolved"; state.waiting = false; drawChips(); load(); }, "c-unresolved"),
         tile(s.users, "Clients inscrits", () => go("/clients")));
     } catch {}
   }

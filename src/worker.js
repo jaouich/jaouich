@@ -20,9 +20,9 @@ const STATUSES = ["open", "in_review", "resolved", "unresolved"];
 const CATEGORIES = ["ebp", "sage", "installation", "formation", "facturation", "autre"];
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     try {
-      return await route(req, env);
+      return await route(req, env, ctx);
     } catch (e) {
       if (e instanceof HttpError) return json({ error: e.message }, e.status);
       console.error(e);
@@ -40,7 +40,7 @@ class HttpError extends Error {
 const fail = (status, message) => { throw new HttpError(status, message); };
 
 // ---------- Routage ----------
-async function route(req, env) {
+async function route(req, env, ctx) {
   const url = new URL(req.url);
   const p = url.pathname, m = req.method;
   if (!p.startsWith("/api/")) return asset(p);
@@ -62,12 +62,12 @@ async function route(req, env) {
   if (p === "/api/me/password" && m === "POST") return changePassword(req, env, me);
   if (p === "/api/uploads" && m === "PUT") return upload(req, env, me);
   if (p === "/api/tickets" && m === "GET") return listTickets(url, env, me);
-  if (p === "/api/tickets" && m === "POST") return createTicket(req, env, me);
+  if (p === "/api/tickets" && m === "POST") return createTicket(req, env, me, ctx);
 
   let r;
   if ((r = p.match(/^\/api\/tickets\/([0-9a-f-]{36})$/)) && m === "GET") return getTicket(r[1], env, me);
-  if ((r = p.match(/^\/api\/tickets\/([0-9a-f-]{36})\/messages$/)) && m === "POST") return addMessage(r[1], req, env, me);
-  if ((r = p.match(/^\/api\/tickets\/([0-9a-f-]{36})\/status$/)) && m === "PATCH") return setStatus(r[1], req, env, me);
+  if ((r = p.match(/^\/api\/tickets\/([0-9a-f-]{36})\/messages$/)) && m === "POST") return addMessage(r[1], req, env, me, ctx);
+  if ((r = p.match(/^\/api\/tickets\/([0-9a-f-]{36})\/status$/)) && m === "PATCH") return setStatus(r[1], req, env, me, ctx);
   if ((r = p.match(/^\/api\/media\/([0-9a-f-]{36})$/)) && (m === "GET" || m === "HEAD")) return media(r[1], req, url, env, me);
 
   if (p.startsWith("/api/admin/")) {
@@ -365,7 +365,7 @@ async function listTickets(url, env, me) {
   const { results } = await env.DB.prepare(sql).bind(...args).all();
   return json({ tickets: results });
 }
-async function createTicket(req, env, me) {
+async function createTicket(req, env, me, ctx) {
   const b = await readJson(req);
   const subject = str(b.subject, 150), body = str(b.body, 5000);
   const category = CATEGORIES.includes(b.category) ? b.category : "autre";
@@ -381,6 +381,12 @@ async function createTicket(req, env, me) {
     ...claims,
     env.DB.prepare("INSERT INTO status_history (id,ticket_id,old_status,new_status,changed_by,created_at) VALUES (?,?,NULL,'open',?,?)").bind(uid(), tid, me.id, t),
   ]);
+  if (me.role !== "admin") later(ctx, notifyAdmins(env, me, {
+    subject: `Nouvelle demande : ${subject}`,
+    heading: "Nouvelle demande d'un client",
+    intro: `${me.name}${me.company ? " (" + me.company + ")" : ""} a envoyé une nouvelle demande.`,
+    title: subject, excerpt: body, files: ids.length, path: "/#/t/" + tid,
+  }));
   return json({ ticket: { id: tid } }, 201);
 }
 async function getTicket(id, env, me) {
@@ -399,7 +405,7 @@ async function getTicket(id, env, me) {
   for (const m of msgs) m.attachments = byMsg[m.id] || [];
   return json({ ticket: t, owner: me.role === "admin" || owner.id === me.id ? owner : null, messages: msgs, history: hist });
 }
-async function addMessage(id, req, env, me) {
+async function addMessage(id, req, env, me, ctx) {
   const t = await loadTicket(env, id, me);
   const b = await readJson(req);
   const body = str(b.body, 5000);
@@ -420,9 +426,21 @@ async function addMessage(id, req, env, me) {
     stmts.push(env.DB.prepare("UPDATE tickets SET updated_at=?, last_sender=? WHERE id=?").bind(ts, sender, id));
   }
   await env.DB.batch(stmts);
+  if (sender === "admin") later(ctx, notifyOwner(env, t, {
+    subject: `Réponse à votre demande : ${t.subject}`,
+    heading: "Magiscom Tech vous a répondu",
+    intro: `${me.name}${me.title ? " · " + me.title : ""} a répondu à votre demande.`,
+    title: t.subject, excerpt: body, files: ids.length, path: "/#/t/" + id,
+  }));
+  else later(ctx, notifyAdmins(env, me, {
+    subject: `Nouveau message : ${t.subject}`,
+    heading: "Nouveau message d'un client",
+    intro: `${me.name}${me.company ? " (" + me.company + ")" : ""} a écrit dans sa demande.`,
+    title: t.subject, excerpt: body, files: ids.length, path: "/#/t/" + id,
+  }));
   return json({ message: { id: mid } }, 201);
 }
-async function setStatus(id, req, env, me) {
+async function setStatus(id, req, env, me, ctx) {
   if (me.role !== "admin") fail(403, "Seul l'administrateur peut changer le statut");
   const t = await loadTicket(env, id, me);
   const b = await readJson(req);
@@ -433,7 +451,77 @@ async function setStatus(id, req, env, me) {
     env.DB.prepare("UPDATE tickets SET status=?, updated_at=? WHERE id=?").bind(b.status, ts, id),
     env.DB.prepare("INSERT INTO status_history (id,ticket_id,old_status,new_status,changed_by,created_at) VALUES (?,?,?,?,?,?)").bind(uid(), id, t.status, b.status, me.id, ts),
   ]);
+  later(ctx, notifyOwner(env, t, {
+    subject: `Votre demande est maintenant « ${STATUS_FR[b.status]} »`,
+    heading: `Statut : ${STATUS_FR[b.status]}`,
+    intro: STATUS_MSG[b.status],
+    title: t.subject, excerpt: "", files: 0, path: "/#/t/" + id,
+  }));
   return json({ ok: true });
+}
+
+// ---------- Notifications par e-mail ----------
+// Fonctionne avec Cloudflare Email Service (binding EMAIL) ou Resend (secret RESEND_API_KEY).
+// Sans l'un des deux, l'application marche normalement, sans e-mail.
+const STATUS_FR = { open: "Ouvert", in_review: "En cours de traitement", resolved: "Résolu", unresolved: "Non résolu" };
+const STATUS_MSG = {
+  open: "Votre demande est ouverte. Notre équipe va la prendre en charge.",
+  in_review: "Notre équipe travaille sur votre demande.",
+  resolved: "Votre demande est résolue. Si le problème revient, répondez simplement dans la demande.",
+  unresolved: "Nous n'avons pas pu régler ce problème. Écrivez-nous dans la demande pour en reparler.",
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+function later(ctx, promise) {
+  const p = promise.catch((e) => console.error("notification", e));
+  if (ctx && ctx.waitUntil) ctx.waitUntil(p);
+}
+function mailBody(env, n) {
+  const url = (env.APP_URL || "https://support.integrateurebp.com") + n.path;
+  const excerpt = n.excerpt ? (n.excerpt.length > 600 ? n.excerpt.slice(0, 600) + "…" : n.excerpt) : "";
+  const files = n.files ? `${n.files} fichier${n.files > 1 ? "s" : ""} joint${n.files > 1 ? "s" : ""} (photo ou vidéo).` : "";
+  const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f3f5fa;font-family:Arial,Helvetica,sans-serif;color:#0e1a33">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f5fa;padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #dde3f0">
+<tr><td style="background:#0a2a6b;background:linear-gradient(135deg,#0a1f4d,#0b4fd6);padding:20px 24px;color:#fff">
+<div style="font-size:18px;font-weight:bold">Magiscom Tech Desk</div><div style="font-size:12px;opacity:.85;letter-spacing:.06em;text-transform:uppercase">Support clients</div></td></tr>
+<tr><td style="padding:24px">
+<h1 style="font-size:20px;margin:0 0 10px">${esc(n.heading)}</h1>
+<p style="margin:0 0 14px;color:#33415c;line-height:1.5">${esc(n.intro)}</p>
+<p style="margin:0 0 6px;font-size:12px;color:#5a6784;text-transform:uppercase;letter-spacing:.05em">Demande</p>
+<p style="margin:0 0 14px;font-weight:bold">${esc(n.title)}</p>
+${excerpt ? `<div style="background:#f3f5fa;border-left:4px solid #0b4fd6;border-radius:8px;padding:12px 14px;margin:0 0 14px;white-space:pre-wrap;line-height:1.5">${esc(excerpt)}</div>` : ""}
+${files ? `<p style="margin:0 0 14px;color:#5a6784">📎 ${esc(files)}</p>` : ""}
+<a href="${esc(url)}" style="display:inline-block;background:#0b4fd6;color:#fff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:10px">Ouvrir la demande</a>
+</td></tr>
+<tr><td style="padding:14px 24px;border-top:1px solid #dde3f0;font-size:12px;color:#5a6784">Magiscom Tech · Technopark Casablanca<br>Vous recevez cet e-mail car vous avez un compte sur Magiscom Tech Desk. Ne répondez pas à cet e-mail : utilisez la demande en ligne.</td></tr>
+</table></td></tr></table></body></html>`;
+  const text = `${n.heading}\n\n${n.intro}\n\nDemande : ${n.title}\n${excerpt ? "\n" + excerpt + "\n" : ""}${files ? "\n" + files + "\n" : ""}\nOuvrir la demande : ${url}\n\n— Magiscom Tech Desk`;
+  return { html, text };
+}
+async function sendMail(env, to, n) {
+  if (!to) return;
+  const from = env.MAIL_FROM || "support@integrateurebp.com";
+  const { html, text } = mailBody(env, n);
+  if (env.EMAIL && typeof env.EMAIL.send === "function") {
+    await env.EMAIL.send({ from: { email: from, name: "Magiscom Tech Desk" }, to, subject: n.subject, html, text });
+  } else if (env.RESEND_API_KEY) {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: `Magiscom Tech Desk <${from}>`, to: [to], subject: n.subject, html, text }),
+    });
+    if (!r.ok) console.error("resend", r.status, await r.text());
+  }
+}
+async function notifyAdmins(env, actor, n) {
+  const { results } = await env.DB.prepare("SELECT email FROM users WHERE role = 'admin' AND id <> ?").bind(actor.id).all();
+  for (const a of results) {
+    try { await sendMail(env, a.email, n); } catch (e) { console.error("mail admin", e); }
+  }
+}
+async function notifyOwner(env, ticket, n) {
+  const o = await env.DB.prepare("SELECT email FROM users WHERE id = ?").bind(ticket.user_id).first();
+  if (o) await sendMail(env, o.email, n);
 }
 
 // ---------- Administration ----------

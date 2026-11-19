@@ -101,3 +101,5 @@ npm run deploy
   La durée, les appels manqués et refusés sont notés dans la demande. Table D1 : `calls`.
   Réseaux mobiles stricts : ajouter un relais TURN Cloudflare (Realtime → TURN) puis les secrets `TURN_KEY_ID` et `TURN_KEY_API_TOKEN`.
 - **Assistant vocal (admin)** : bouton micro rond en bas à droite. Exemples : « demandes en attente », « chercher Atlas », « ouvre la première », « lis le message », « réponds … », « envoie », « statut résolu », « appel vidéo », « combien ». En darija : « اللي كيتسناو », « قلب على … », « حل اللولة », « اقرا », « جاوب … », « صيفط », « دير محلول », « عيط ».
+- **Parler au support (clients)** : bouton micro vert en bas à droite. Le client parle ; sa voix est enregistrée et transcrite en même temps. Il relit le texte puis envoie : l'équipe reçoit le texte ET le message vocal (réponse sur la demande ouverte, sinon nouvelle demande).
+- **🔊 Écouter** sous chaque message : lecture à voix haute (français ou arabe).

@@ -192,3 +192,15 @@ textarea{min-height:120px;resize:vertical}
 .va-help{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px;font-size:.84rem}
 .va-help li{display:flex;flex-direction:column}
 .va-help span{color:var(--mut)}
+/* Parler au support (clients) */
+.say{border:0;background:transparent;color:var(--brand);font:600 .78rem inherit;font-family:inherit;cursor:pointer;padding:2px 0;align-self:flex-start}
+.say:hover{text-decoration:underline}
+.vc-btn{background:linear-gradient(135deg,#16a34a,#0b4fd6)}
+.vc-tip{position:fixed;z-index:44;right:calc(max(18px,env(safe-area-inset-right,0px)) + 66px);bottom:calc(98px + env(safe-area-inset-bottom,0px));background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:99px;padding:6px 14px;font-size:.82rem;font-weight:700;box-shadow:var(--shadow)}
+.vc .f input,.vc .f select,.vc textarea{width:100%}
+.vc textarea{min-height:110px}
+.vc-live{margin:0;font-size:1.05rem;min-height:3em;max-height:30vh;overflow:auto;line-height:1.5}
+@media (max-width:560px){.vc-tip{display:none}}
+.va-panel.vc{max-height:calc(100vh - 190px);max-height:calc(100dvh - 190px);width:min(420px,calc(100% - 32px))}
+.vc textarea,.vc input,.vc select{font-weight:400}
+.vc textarea{min-height:90px}

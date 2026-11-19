@@ -364,6 +364,7 @@ function threadNodes(d) {
       h("div", { class: "msg" },
         h("span", { class: "who" }, h("b", null, label), role ? " · " + role : "", " · " + fmtDate(m.created_at)),
         m.body ? h("div", { class: "body" }, m.body) : null,
+        m.body && !m.body.startsWith("📞") && !m.body.startsWith("⏺") && window.speechSynthesis ? h("button", { class: "say", type: "button", title: "Écouter ce message", onclick: () => readAloud(m.body) }, "🔊 Écouter") : null,
         mediaGrid(m.attachments)));
   });
 }
@@ -445,6 +446,7 @@ async function viewTicket(id) {
     admin && d.owner ? h("p", { class: "muted small" }, d.owner.name + (d.owner.company ? " · " + d.owner.company : "") + " · " + (CATS[d.ticket.category] || "")) : null,
     h("div", { class: "side" }, h("div", { class: "stack" }, thread, form), aside)));
   paint(d);
+  VC.ticketId = id;
   VA.ctx = {
     kind: "ticket",
     async setStatus(st) { await api(`/api/tickets/${id}/status`, { method: "PATCH", body: { status: st } }); paint(await api("/api/tickets/" + id)); },
@@ -999,10 +1001,130 @@ const VA = {
   },
 };
 
+
+// ---------- Lecture à voix haute ----------
+function readAloud(text) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = /[؀-ۿ]/.test(text) ? "ar-MA" : "fr-FR"; u.rate = 1;
+    speechSynthesis.speak(u);
+  } catch { toast("La lecture à voix haute n'est pas disponible sur ce navigateur"); }
+}
+
+// ---------- « Parler au support » (clients) ----------
+// Le client parle : sa voix est enregistrée ET transcrite en texte. Il relit, puis envoie :
+// l'équipe reçoit le texte et le message vocal. Sur une demande ouverte, c'est une réponse ;
+// ailleurs, une nouvelle demande est créée.
+const VC = {
+  el: null, panel: null, ticketId: null, st: null,
+  ensure() {
+    if (this.el) return true;
+    if (!navigator.mediaDevices?.getUserMedia || pickMime(AUDIO_MIMES) === null) return false;
+    this.panel = h("div", { class: "va-panel vc", hidden: true });
+    this.el = h("button", { class: "va-btn vc-btn", type: "button", "aria-label": "Parler au support", title: "Parler au support : votre voix et le texte sont envoyés à Magiscom Tech", onclick: () => (this.st && this.st.rec ? this.stop() : this.start()) }, icon("mic"));
+    this.tip = h("span", { class: "vc-tip" }, "Parler au support");
+    document.body.append(this.panel, this.tip, this.el);
+    return true;
+  },
+  show() { if (this.ensure()) { this.el.hidden = false; this.tip.hidden = false; } },
+  hide() { if (this.el) { this.cancel(); this.el.hidden = true; this.tip.hidden = true; } },
+  cancel() {
+    const st = this.st; this.st = null;
+    if (st) { clearInterval(st.timer); try { st.sr && st.sr.abort(); } catch {} if (st.rec && st.rec.state !== "inactive") { st.rec.onstop = null; st.rec.stop(); } st.stream && st.stream.getTracks().forEach((t) => t.stop()); st.url && URL.revokeObjectURL(st.url); }
+    if (this.panel) this.panel.hidden = true;
+    if (this.el) this.el.classList.remove("on");
+  },
+  async start() {
+    this.cancel();
+    const st = (this.st = { text: "", interim: "", chunks: [], t0: Date.now() });
+    const live = h("p", { class: "vc-live" }, "…");
+    const clk = h("span", { class: "muted small" }, "0:00");
+    const note = h("p", { class: "muted small", hidden: true });
+    this.panel.replaceChildren(
+      h("div", { class: "row between" }, h("b", null, "Parlez, je vous écoute"), h("div", { class: "row tight" }, langBtn(), h("button", { class: "install-x", type: "button", "aria-label": "Annuler", onclick: () => this.cancel() }, "×"))),
+      h("p", { class: "row tight small" }, h("span", { class: "rec-dot" }), "Enregistrement ", clk),
+      live, note,
+      h("div", { class: "row" }, h("button", { class: "btn primary", type: "button", onclick: () => this.stop() }, "Terminer"), h("button", { class: "btn", type: "button", onclick: () => this.cancel() }, "Annuler")));
+    this.panel.hidden = false;
+    try { st.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+    catch (e) { this.cancel(); return toast(mediaError(e)); }
+    if (this.st !== st) return st.stream.getTracks().forEach((t) => t.stop());
+    const mime = pickMime(AUDIO_MIMES);
+    st.rec = new MediaRecorder(st.stream, mime ? { mimeType: mime, audioBitsPerSecond: 48000 } : undefined);
+    st.rec.ondataavailable = (e) => e.data.size && st.chunks.push(e.data);
+    st.rec.start(1000);
+    this.el.classList.add("on");
+    st.timer = setInterval(() => { const sec = (Date.now() - st.t0) / 1000; clk.textContent = clock(sec); if (sec >= MAX_VOICE_SEC) this.stop(); }, 500);
+    // Transcription en direct (si le navigateur la propose)
+    const noText = (why) => { note.textContent = why; note.hidden = false; live.textContent = "Votre message vocal sera envoyé tel quel."; };
+    if (!SR) noText("La transcription n'est pas disponible sur ce navigateur.");
+    else {
+      const startSR = () => {
+        const r = new SR(); r.lang = VLANG; r.continuous = true; r.interimResults = true;
+        r.onresult = (e) => {
+          st.interim = "";
+          for (let i = e.resultIndex; i < e.results.length; i++) (e.results[i].isFinal ? (st.text += e.results[i][0].transcript.trim() + " ") : (st.interim += e.results[i][0].transcript));
+          live.textContent = (st.text + st.interim).trim() || "…";
+        };
+        r.onerror = (e) => { if (e.error === "audio-capture" || e.error === "not-allowed" || e.error === "service-not-allowed") { st.srDead = true; noText("Transcription indisponible sur cet appareil."); } };
+        r.onend = () => { if (this.st === st && st.rec && st.rec.state === "recording" && !st.srDead) { try { startSR(); } catch {} } };
+        st.sr = r; try { r.start(); } catch { st.srDead = true; }
+      };
+      startSR();
+    }
+  },
+  stop() {
+    const st = this.st; if (!st || !st.rec) return;
+    clearInterval(st.timer);
+    st.srDead = true; try { st.sr && st.sr.stop(); } catch {}
+    st.rec.onstop = () => { st.stream.getTracks().forEach((t) => t.stop()); setTimeout(() => this.review(st), 350); };
+    if (st.rec.state !== "inactive") st.rec.stop();
+    this.el.classList.remove("on");
+  },
+  review(st) {
+    if (this.st !== st) return;
+    const type = (st.rec.mimeType || "audio/webm").split(";")[0];
+    st.file = st.chunks.length ? new File(st.chunks, `message-vocal-${new Date().toISOString().slice(11, 16).replace(":", "h")}.${extOf(type)}`, { type }) : null;
+    st.type = type;
+    st.url = st.file ? URL.createObjectURL(st.file) : null;
+    const text = (st.text + st.interim).trim();
+    const ta = h("textarea", { maxlength: 5000, "aria-label": "Texte de votre message" }); ta.value = text;
+    const onTicket = !!this.ticketId;
+    const subj = h("input", { maxlength: 150, "aria-label": "Titre", placeholder: "Titre de la demande" });
+    subj.value = text ? text.split(/\s+/).slice(0, 9).join(" ").replace(/[,.;:!?]+$/, "") : "Message vocal";
+    const cat = h("select", { "aria-label": "Catégorie" }, Object.entries(CATS).map(([k, l]) => h("option", { value: k, selected: k === "autre" }, l)));
+    const err = errBox();
+    const send = h("button", { class: "btn primary", type: "button" }, onTicket ? "Envoyer à Magiscom Tech" : "Créer la demande");
+    send.addEventListener("click", async () => {
+      err.hidden = true;
+      if (!ta.value.trim() && !st.file) return showErr(err, new Error("Message vide"));
+      if (!onTicket && subj.value.trim().length < 3) return showErr(err, new Error("Donnez un titre à votre demande"));
+      send.disabled = true; send.textContent = "Envoi…";
+      try {
+        const attachments = st.file ? [(await uploadFile(st.file, st.type, () => {})).id] : [];
+        let tid = this.ticketId;
+        if (onTicket) await api(`/api/tickets/${tid}/messages`, { method: "POST", body: { body: ta.value, attachments } });
+        else tid = (await api("/api/tickets", { method: "POST", body: { subject: subj.value, category: cat.value, body: ta.value, attachments } })).ticket.id;
+        this.cancel(); toast("Message envoyé à Magiscom Tech");
+        if (location.hash === "#/t/" + tid) router(); else go("/t/" + tid);
+      } catch (e) { showErr(err, e); send.disabled = false; send.textContent = onTicket ? "Envoyer à Magiscom Tech" : "Créer la demande"; }
+    });
+    this.panel.replaceChildren(
+      h("div", { class: "row between" }, h("b", null, onTicket ? "Votre réponse" : "Nouvelle demande"), h("button", { class: "install-x", type: "button", "aria-label": "Annuler", onclick: () => this.cancel() }, "×")),
+      h("p", { class: "muted small" }, "Relisez et corrigez le texte si besoin. Votre voix est envoyée avec."),
+      onTicket ? null : h("label", { class: "f" }, "Titre", subj),
+      onTicket ? null : h("label", { class: "f" }, "Catégorie", cat),
+      h("label", { class: "f" }, "Texte", ta),
+      st.url ? h("div", { class: "aud" }, h("span", { class: "small muted" }, "🎤 Votre message vocal"), h("audio", { src: st.url, controls: true, preload: "metadata" })) : null,
+      err,
+      h("div", { class: "row" }, send, h("button", { class: "btn", type: "button", onclick: () => this.start() }, "Recommencer")));
+  },
+};
 // ---------- Routeur ----------
 async function router() {
   clearInterval(pollTimer); pollTimer = null;
-  VA.ctx = null;
+  VA.ctx = null; VC.ticketId = null;
   const path = location.hash.slice(1) || "/";
   if (!ME) {
     try {
@@ -1010,9 +1132,9 @@ async function router() {
       if (r.ok) ME = (await r.json()).user;
     } catch {}
   }
-  if (!ME) { VA.hide(); return viewAuth(path === "/register" ? "register" : "login"); }
+  if (!ME) { VA.hide(); VC.hide(); return viewAuth(path === "/register" ? "register" : "login"); }
   startIncomingPoll();
-  if (ME.role === "admin") VA.show(); else VA.hide();
+  if (ME.role === "admin") { VA.show(); VC.hide(); } else { VA.hide(); VC.show(); }
   const admin = ME.role === "admin";
   let m;
   if (path === "/new" && !admin) return viewNew();

@@ -1,0 +1,40 @@
+name: voiceover
+on:
+  push:
+    branches: [voiceover]
+    paths: [narration.json, .github/workflows/voiceover.yml]
+permissions:
+  contents: write
+jobs:
+  tts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Install Piper (open-source TTS)
+        run: |
+          pip install "piper-tts==1.2.0"
+          mkdir -p voice && cd voice
+          base=https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/fr/fr_FR/siwis/medium
+          curl -sSL -o fr.onnx $base/fr_FR-siwis-medium.onnx
+          curl -sSL -o fr.onnx.json $base/fr_FR-siwis-medium.onnx.json
+          ls -la
+      - name: Synthesize
+        run: |
+          mkdir -p audio
+          python - <<'PY'
+          import json, subprocess
+          for s in json.load(open("narration.json")):
+              out = f"audio/{s['id']}.wav"
+              subprocess.run(["piper", "-m", "voice/fr.onnx", "-f", out, "--length_scale", "1.04", "--sentence_silence", "0.25"], input=s["text"].encode(), check=True)
+              print("ok", out)
+          PY
+          ls -la audio
+      - name: Commit audio
+        run: |
+          git config user.name "voiceover-bot"
+          git config user.email "voiceover-bot@users.noreply.github.com"
+          git add audio
+          git commit -m "Voix off générée (Piper, fr_FR-siwis)"
+          git push

@@ -25,70 +25,74 @@
  },
  {
   "id": "06",
-  "text": "Dans Mes demandes, vous suivez chaque demande : ouverte, en cours de traitement, ou résolue."
+  "text": "Sur ordinateur, touchez Enregistrer l'écran : votre écran et votre voix sont filmés, même pendant plus d'une heure, et la vidéo part au fur et à mesure. Sur téléphone, utilisez l'enregistreur d'écran du téléphone, puis ajoutez la vidéo : jusqu'à cinq gigaoctets."
  },
  {
   "id": "07",
-  "text": "Toute la conversation reste au même endroit : vos messages, nos réponses, les photos, les messages vocaux, et les appels. Touchez Écouter, pour entendre une réponse à voix haute."
+  "text": "Dans Mes demandes, vous suivez chaque demande : ouverte, en cours de traitement, ou résolue."
  },
  {
   "id": "08",
-  "text": "Pour écrire une réponse, touchez Dicter, et parlez : le texte s'écrit tout seul, en français ou en arabe."
+  "text": "Toute la conversation reste au même endroit : vos messages, nos réponses, les photos, les messages vocaux, et les appels. Touchez Écouter, pour entendre une réponse à voix haute."
  },
  {
   "id": "09",
-  "text": "Un consultant peut aussi vous appeler depuis la demande. Répondez en vidéo, ou en audio seulement."
+  "text": "Pour écrire une réponse, touchez Dicter, et parlez : le texte s'écrit tout seul, en français ou en arabe."
  },
  {
   "id": "10",
-  "text": "Pendant l'appel, vous pouvez couper le micro ou la caméra, et partager votre écran, pour nous montrer le problème."
+  "text": "Un consultant peut aussi vous appeler depuis la demande. Répondez en vidéo, ou en audio seulement."
  },
  {
   "id": "11",
-  "text": "Voyons maintenant l'espace de l'équipe Magiscom Tèk."
+  "text": "Pendant l'appel, vous pouvez couper le micro ou la caméra, et partager votre écran, pour nous montrer le problème."
  },
  {
   "id": "12",
-  "text": "Le tableau de bord montre toutes les demandes. Le point orange signale un client qui attend une réponse."
+  "text": "Voyons maintenant l'espace de l'équipe Magiscom Tèk."
  },
  {
   "id": "13",
-  "text": "Dans une demande, le consultant change le statut, répond, et voit la fiche du client. Le client est prévenu par e-mail."
+  "text": "Le tableau de bord montre toutes les demandes. Le point orange signale un client qui attend une réponse."
  },
  {
   "id": "14",
-  "text": "Un clic sur Appel vidéo, et le téléphone du client sonne."
+  "text": "Dans une demande, le consultant change le statut, répond, et voit la fiche du client. Le client est prévenu par e-mail."
  },
  {
   "id": "15",
-  "text": "Le client partage son écran : le consultant voit le logiciel en direct, et le guide pas à pas."
+  "text": "Un clic sur Appel vidéo, et le téléphone du client sonne."
  },
  {
   "id": "16",
-  "text": "L'appel peut être enregistré. Les deux personnes voient l'indicateur, et l'enregistrement est ajouté à la demande."
+  "text": "Le client partage son écran : le consultant voit le logiciel en direct, et le guide pas à pas."
  },
  {
   "id": "17",
-  "text": "À la fin, la durée de l'appel et l'enregistrement restent dans l'historique."
+  "text": "L'appel peut être enregistré. Les deux personnes voient l'indicateur, et l'enregistrement est ajouté à la demande."
  },
  {
   "id": "18",
-  "text": "L'assistant vocal permet de travailler sans clavier. Touchez le micro, et dites par exemple : demandes en attente."
+  "text": "À la fin, la durée de l'appel et l'enregistrement restent dans l'historique."
  },
  {
   "id": "19",
-  "text": "Il ouvre une demande, lit le message du client, écrit votre réponse, l'envoie, et change le statut."
+  "text": "L'assistant vocal permet de travailler sans clavier. Touchez le micro, et dites par exemple : demandes en attente."
  },
  {
   "id": "20",
-  "text": "Et il comprend aussi la darija."
+  "text": "Il ouvre une demande, lit le message du client, écrit votre réponse, l'envoie, et change le statut."
  },
  {
   "id": "21",
-  "text": "Enfin, la page Clients liste tous les comptes, et permet de donner un mot de passe provisoire en cas d'oubli."
+  "text": "Et il comprend aussi la darija."
  },
  {
   "id": "22",
+  "text": "Enfin, la page Clients liste tous les comptes, et permet de donner un mot de passe provisoire en cas d'oubli."
+ },
+ {
+  "id": "23",
   "text": "Rendez-vous sur support point intégrateur, E B P, point com. Installez l'application, et envoyez votre première demande. Magiscom Tèk, à votre service."
  }
 ]

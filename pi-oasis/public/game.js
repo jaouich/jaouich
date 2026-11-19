@@ -1324,6 +1324,8 @@
   function render() {
     S = L.normalize(S, now());
     $("dates").textContent = S.dates.toLocaleString("en-US");
+    if (account) Pi.setPayOpen(account.payOpen);
+    $("payBanner").classList.toggle("hidden", !account || account.payOpen !== false);
     renderFarm(); renderStakes(); renderClub(); renderCamels(); renderCity(); renderMissions(); renderBadges(); renderFunBadges();
     if (jmOpen && !jmBusy) renderMedia();
     if (selTile >= 0 && !$("sheet").classList.contains("hidden")) renderSheet();

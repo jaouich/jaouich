@@ -58,6 +58,8 @@ workers_dev = true
 [env.main.vars]
 VALIDATION_KEY = "cfb33204e47b668bdf431d538a789aee8d5c9ad41e8776add3badba149589757ed2624b7483fcfa080e4a303b76e13805a954244fb95e966be6fa5d9049c21f3"
 PUBLIC_URL = "https://jerryoasis9559.pinet.com"
+# Purchases with real Pi: "1" once Pi has approved and connected the app wallet (GAW5E…KPAT3)
+PAYMENTS_LIVE = "0"
 ADMIN_USERNAMES = "jaouich"
 
 # Mainnet (real Pi) has its own clean database: no Test-Pi balances, prize pools or payouts.

@@ -289,6 +289,8 @@ async function account(env, u) {
     tier,
     tierId: L.TIERS[tier].id,
     isAdmin: isAdmin(env, u),
+    // Mainnet purchases open once the app wallet is approved by Pi (PAYMENTS_LIVE = "1")
+    payOpen: isTestnet(env) || env.PAYMENTS_LIVE === "1",
     testGifts: isAdmin(env, u) && isTestnet(env),
     vipUntil: u.vip_until,
     referralBalance: u.ref_balance,
@@ -541,6 +543,7 @@ const routes = {
       if (!u.jry_wallet) bad("k.needWallet");
       if (!(await jryStatusOf(env, u.jry_wallet)).trust) bad("k.noTrust");
     }
+    if (!isTestnet(env) && env.PAYMENTS_LIVE !== "1") bad("payClosed");
     if (item.p2p) await reserveOffer(env, u, item, id, nowT);
     if (item.mk) await mkReserve(env, u, item, id, nowT);
     if (item.sponsor) {

@@ -124,9 +124,11 @@
   function buyOffer(o) {
     return pay({ amount: o.pi, memo: `testJRY market #${o.id}`, metadata: { type: "p2p", offer: o.id } });
   }
+  let payOpen = true; // false on Mainnet until the app wallet is approved (set from the account)
   function pay(paymentData) {
     return new Promise((resolve, reject) => {
       if (!piReady || !session) return reject(new Error(I18N.t("t.loginFirst")));
+      if (!payOpen) return reject(new Error(I18N.t("e.payClosed")));
       window.Pi.createPayment(
         paymentData,
         {
@@ -188,6 +190,7 @@
     buyCoins,
     buyJryPts,
     buySpins,
+    setPayOpen: (v) => { payOpen = v !== false; },
     buyMk,
     wheelSpin: () => api("/api/wheel/spin", {}),
     earnAd: (adId) => api("/api/earn/ad", { adId }),

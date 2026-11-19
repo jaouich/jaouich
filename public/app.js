@@ -2,7 +2,8 @@
 // Magiscom Tech Desk — application monopage (aucune dépendance)
 
 const MB = 1024 * 1024;
-const MAX_IMG = 15 * MB, MAX_VID = 95 * MB, MAX_FILES = 6;
+const MAX_IMG = 15 * MB, MAX_VID = 95 * MB, MAX_AUD = 25 * MB, MAX_FILES = 6;
+const MAX_VOICE_SEC = 300;   // message vocal : 5 minutes maximum
 const STATUS = { open: "Ouvert", in_review: "En cours de traitement", resolved: "Résolu", unresolved: "Non résolu" };
 const STATUS_HELP = {
   open: "Votre demande est bien reçue. Notre équipe va la prendre en charge.",
@@ -11,7 +12,8 @@ const STATUS_HELP = {
   unresolved: "Nous n'avons pas pu régler ce problème. Écrivez-nous pour en reparler.",
 };
 const CATS = { ebp: "Logiciel EBP", sage: "Logiciel Sage", installation: "Installation", formation: "Formation", facturation: "Facturation / devis", autre: "Autre" };
-const EXT = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif", heic: "image/heic", heif: "image/heif", mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", webm: "video/webm", "3gp": "video/3gpp" };
+const EXT = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif", heic: "image/heic", heif: "image/heif", mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", webm: "video/webm", "3gp": "video/3gpp",
+  mp3: "audio/mpeg", m4a: "audio/mp4", aac: "audio/aac", ogg: "audio/ogg", opus: "audio/ogg", weba: "audio/webm", wav: "audio/wav" };
 const ALLOWED = new Set(Object.values(EXT));
 
 let ME = null;
@@ -40,6 +42,12 @@ const ICONS = {
   mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M22 6l-10 7L2 6",
   lock: "M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 10 0v4",
   inbox: "M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z",
+  mic: "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v3",
+  video: "M23 7l-7 5 7 5V7z M3 5h11a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z",
+  phone: "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z",
+  screen: "M2 4h20v12H2z M8 20h8 M12 16v4",
+  hang: "M10.7 13.3a16 16 0 0 0 3.3 2.5l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 4.2 2 2 0 0 1 5 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.4 2.1L9 9.9 M23 1L1 23",
+  rec: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
 };
 function icon(name) {
   const NS = "http://www.w3.org/2000/svg";
@@ -92,37 +100,79 @@ function uploadFile(file, type, onProgress) {
   });
 }
 
-// ---------- Sélecteur de photos et vidéos ----------
+// ---------- Sélecteur de photos, vidéos et messages vocaux ----------
+const AUDIO_MIMES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+const pickMime = (list) => { if (!window.MediaRecorder) return null; for (const t of list) { try { if (MediaRecorder.isTypeSupported(t)) return t; } catch {} } return ""; };
+const extOf = (type) => ({ "audio/webm": "weba", "audio/ogg": "ogg", "audio/mp4": "m4a", "video/webm": "webm", "video/mp4": "mp4" })[type] || "bin";
+const clock = (sec) => Math.floor(sec / 60) + ":" + String(Math.floor(sec % 60)).padStart(2, "0");
+function mediaError(e) {
+  if (e && (e.name === "NotAllowedError" || e.name === "SecurityError")) return "Accès refusé. Autorisez le micro ou la caméra dans les réglages du navigateur (icône 🔒 à côté de l'adresse).";
+  if (e && e.name === "NotFoundError") return "Aucun micro ou caméra trouvé sur cet appareil.";
+  if (e && e.name === "NotReadableError") return "Le micro ou la caméra est déjà utilisé par une autre application.";
+  return "Micro ou caméra indisponible sur ce navigateur.";
+}
 function makePicker() {
   const items = []; // { file, type, url, tile, prog, att }
   const grid = h("div", { class: "picker", hidden: true });
-  const input = h("input", { type: "file", accept: "image/*,video/*", multiple: true, "aria-label": "Ajouter une photo ou une vidéo" });
+  const input = h("input", { type: "file", accept: "image/*,video/*,audio/*", multiple: true, "aria-label": "Ajouter une photo, une vidéo ou un audio" });
   const err = errBox();
   const addBtn = h("label", { class: "btn filebtn sm" }, "📎 Photo ou vidéo", input);
-  input.addEventListener("change", () => {
+  const addFile = (file) => {
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    const type = ALLOWED.has(file.type) ? file.type : EXT[ext];
+    if (!type) { showErr(err, `« ${file.name} » : format non accepté (photos JPG, PNG, HEIC…, vidéos MP4, MOV… ou audio)`); return; }
+    const isVid = type.startsWith("video/"), isAud = type.startsWith("audio/");
+    const max = isVid ? MAX_VID : isAud ? MAX_AUD : MAX_IMG;
+    if (file.size > max) { showErr(err, `« ${file.name} » est trop lourd (maximum ${max / MB} Mo).${isVid ? " Raccourcissez ou compressez la vidéo." : ""}`); return; }
+    if (items.length >= MAX_FILES) { showErr(err, `Maximum ${MAX_FILES} fichiers par message.`); return; }
+    const url = URL.createObjectURL(file);
+    const prog = h("div", { class: "prog" });
+    const it = { file, type, url, prog, att: null };
+    const media = isAud ? h("div", { class: "pv-aud" }, h("span", null, "🎤 Message vocal"), h("audio", { src: url, controls: true, preload: "metadata" }))
+      : isVid ? h("video", { src: url, muted: true, playsinline: true, preload: "metadata" }) : h("img", { src: url, alt: file.name });
+    it.tile = h("div", { class: "pv" + (isAud ? " aud" : "") }, media,
+      h("span", { class: "tag" }, (isVid ? "Vidéo · " : isAud ? "Audio · " : "") + fmtSize(file.size)),
+      h("button", { type: "button", "aria-label": "Retirer", onclick: () => { URL.revokeObjectURL(url); it.tile.remove(); items.splice(items.indexOf(it), 1); grid.hidden = !items.length; } }, "×"),
+      prog);
+    items.push(it); grid.append(it.tile); grid.hidden = false;
+  };
+  input.addEventListener("change", () => { err.hidden = true; for (const file of input.files) addFile(file); input.value = ""; });
+
+  // Message vocal enregistré directement dans le navigateur
+  const recMime = pickMime(AUDIO_MIMES);
+  let rec = null, recStream = null, recTimer = null, recStart = 0;
+  const recBtn = h("button", { class: "btn sm", type: "button", hidden: recMime === null || !navigator.mediaDevices?.getUserMedia }, icon("mic"), "Message vocal");
+  const stopRec = () => { if (rec && rec.state !== "inactive") rec.stop(); };
+  recBtn.addEventListener("click", async () => {
     err.hidden = true;
-    for (const file of input.files) {
-      const ext = (file.name.split(".").pop() || "").toLowerCase();
-      const type = ALLOWED.has(file.type) ? file.type : EXT[ext];
-      if (!type) { showErr(err, `« ${file.name} » : format non accepté (photos JPG, PNG, HEIC… ou vidéos MP4, MOV…)`); continue; }
-      const isVid = type.startsWith("video/");
-      if (file.size > (isVid ? MAX_VID : MAX_IMG)) { showErr(err, `« ${file.name} » est trop lourd (maximum ${isVid ? 95 : 15} Mo). Raccourcissez ou compressez la vidéo.`); continue; }
-      if (items.length >= MAX_FILES) { showErr(err, `Maximum ${MAX_FILES} fichiers par message.`); break; }
-      const url = URL.createObjectURL(file);
-      const prog = h("div", { class: "prog" });
-      const it = { file, type, url, prog, att: null };
-      const media = isVid ? h("video", { src: url, muted: true, playsinline: true, preload: "metadata" }) : h("img", { src: url, alt: file.name });
-      it.tile = h("div", { class: "pv" }, media,
-        h("span", { class: "tag" }, (isVid ? "Vidéo · " : "") + fmtSize(file.size)),
-        h("button", { type: "button", "aria-label": "Retirer", onclick: () => { URL.revokeObjectURL(url); it.tile.remove(); items.splice(items.indexOf(it), 1); grid.hidden = !items.length; } }, "×"),
-        prog);
-      items.push(it); grid.append(it.tile); grid.hidden = false;
-    }
-    input.value = "";
+    if (rec) return stopRec();
+    try { recStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+    catch (e) { return showErr(err, new Error(mediaError(e))); }
+    const chunks = [];
+    rec = new MediaRecorder(recStream, recMime ? { mimeType: recMime, audioBitsPerSecond: 48000 } : undefined);
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    rec.onstop = () => {
+      clearInterval(recTimer); recStream.getTracks().forEach((t) => t.stop());
+      const type = (rec.mimeType || recMime || "audio/webm").split(";")[0];
+      rec = null; recBtn.classList.remove("rec-on"); recBtn.replaceChildren(icon("mic"), "Message vocal");
+      if (!chunks.length || Date.now() - recStart < 700) return;
+      const d = new Date(), stamp = String(d.getHours()).padStart(2, "0") + "h" + String(d.getMinutes()).padStart(2, "0");
+      addFile(new File(chunks, `message-vocal-${stamp}.${extOf(type)}`, { type }));
+    };
+    rec.start(1000); recStart = Date.now();
+    recBtn.classList.add("rec-on");
+    const tick = () => {
+      const sec = (Date.now() - recStart) / 1000;
+      recBtn.replaceChildren(h("span", { class: "rec-dot" }), `${clock(sec)} · Arrêter`);
+      if (sec >= MAX_VOICE_SEC) stopRec();
+    };
+    tick(); recTimer = setInterval(tick, 500);
   });
   return {
-    el: h("div", { class: "stack" }, h("div", { class: "row" }, addBtn, h("span", { class: "muted small" }, `Jusqu'à ${MAX_FILES} fichiers · photos 15 Mo · vidéos 95 Mo`)), grid, err),
+    el: h("div", { class: "stack" }, h("div", { class: "row" }, addBtn, recBtn, h("span", { class: "muted small" }, `Jusqu'à ${MAX_FILES} fichiers · photos 15 Mo · vidéos 95 Mo · vocal 5 min`)), grid, err),
     count: () => items.length,
+    busy: () => !!rec,
+    stop: stopRec,
     async uploadAll() {
       const ids = [];
       for (const it of items) {
@@ -134,6 +184,38 @@ function makePicker() {
     },
     clear() { for (const it of items) URL.revokeObjectURL(it.url); items.length = 0; grid.replaceChildren(); grid.hidden = true; },
   };
+}
+
+// ---------- Dictée vocale (texte parlé → texte écrit) ----------
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const LANGS = { "fr-FR": "FR", "ar-MA": "ع" };
+let VLANG = "fr-FR";
+try { VLANG = localStorage.getItem("mtd_vlang") || "fr-FR"; } catch {}
+const setVlang = (l) => { VLANG = l; try { localStorage.setItem("mtd_vlang", l); } catch {} document.querySelectorAll("[data-vlang]").forEach((b) => (b.textContent = LANGS[VLANG])); };
+function langBtn() {
+  return h("button", { class: "btn sm lang", type: "button", "data-vlang": "", title: "Langue de la voix : français / arabe", onclick: () => setVlang(VLANG === "fr-FR" ? "ar-MA" : "fr-FR") }, LANGS[VLANG]);
+}
+function dictateBtn(target) {
+  if (!SR) return null;
+  let r = null, base = "";
+  const btn = h("button", { class: "btn sm", type: "button", title: "Parlez, le texte s'écrit tout seul" }, icon("mic"), "Dicter");
+  const stop = () => { if (r) { r.onend = null; r.stop(); r = null; } btn.classList.remove("rec-on"); btn.replaceChildren(icon("mic"), "Dicter"); };
+  btn.addEventListener("click", () => {
+    if (r) return stop();
+    r = new SR(); r.lang = VLANG; r.continuous = true; r.interimResults = true;
+    base = target.value ? target.value.replace(/\s*$/, " ") : "";
+    r.onresult = (e) => {
+      let fin = "", tmp = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) (e.results[i].isFinal ? (fin += e.results[i][0].transcript) : (tmp += e.results[i][0].transcript));
+      if (fin) base += fin.trim() + " ";
+      target.value = base + tmp;
+    };
+    r.onerror = (e) => { if (e.error === "not-allowed") toast("Autorisez le micro pour dicter"); stop(); };
+    r.onend = () => stop();
+    try { r.start(); } catch { return stop(); }
+    btn.classList.add("rec-on"); btn.replaceChildren(h("span", { class: "rec-dot" }), "Arrêter la dictée");
+  });
+  return h("span", { class: "row tight" }, btn, langBtn());
 }
 
 // ---------- Connexion / inscription ----------
@@ -236,13 +318,16 @@ function viewNew() {
     const data = Object.fromEntries(new FormData(form));
     try {
       if (data.subject.trim().length < 3) throw new Error("Donnez un titre à votre demande");
-      if (!data.body.trim() && !picker.count()) throw new Error("Décrivez le problème ou joignez une photo ou une vidéo");
+      if (picker.busy()) throw new Error("Arrêtez d'abord l'enregistrement vocal");
+      if (!data.body.trim() && !picker.count()) throw new Error("Décrivez le problème, joignez une photo, une vidéo ou un message vocal");
       btn.textContent = picker.count() ? "Envoi des fichiers…" : "Envoi…";
       const attachments = await picker.uploadAll();
       const r = await api("/api/tickets", { method: "POST", body: { ...data, attachments } });
       picker.clear(); toast("Demande envoyée"); go("/t/" + r.ticket.id);
     } catch (ex) { showErr(err, ex); btn.disabled = false; btn.textContent = "Envoyer la demande"; }
   });
+  const dz = dictateBtn(form.querySelector("textarea"));
+  if (dz) form.querySelector("textarea").after(dz);
   mount(h("div", { class: "stack" }, h("a", { href: "#/" }, "← Retour"), h("div", null, h("h1", null, "Nouvelle demande"), h("p", { class: "sub" }, "Plus votre description est précise, plus notre réponse sera rapide. Une photo de l'écran aide beaucoup.")), form));
 }
 
@@ -253,6 +338,7 @@ function mediaGrid(atts) {
     const hook = window.MagisDeskHooks?.mediaUrl;
     const src = hook ? hook(a.id) : "/api/media/" + a.id;
     if (a.mime.startsWith("video/")) return h("video", { src, controls: true, preload: "metadata", playsinline: true, title: a.name });
+    if (a.mime.startsWith("audio/")) return h("div", { class: "aud" }, h("span", { class: "small muted" }, "🎤 " + (a.name.startsWith("enregistrement-appel") ? "Enregistrement de l'appel" : "Message vocal")), h("audio", { src, controls: true, preload: "metadata" }));
     if (a.mime === "image/heic" || a.mime === "image/heif")
       return h("a", { class: "btn sm", href: hook ? src : src + "?download", download: a.name, target: "_blank", rel: "noopener" }, "📷 " + a.name + " (" + fmtSize(a.size) + ")");
     return h("a", { href: src, target: "_blank", rel: "noopener" }, h("img", { src, alt: a.name, loading: "lazy" }));
@@ -330,10 +416,11 @@ async function viewTicket(id) {
   const picker = makePicker();
   const ta = h("textarea", { maxlength: 5000, placeholder: admin ? "Votre réponse au client…" : "Votre message…", "aria-label": "Message" });
   const send = h("button", { class: "btn primary", type: "submit" }, "Envoyer");
-  const form = h("form", { class: "card stack" }, ta, picker.el, err, hint, h("div", { class: "row" }, send));
+  const form = h("form", { class: "card stack" }, ta, picker.el, err, hint, h("div", { class: "row" }, send, dictateBtn(ta)));
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     err.hidden = true;
+    if (picker.busy()) return showErr(err, new Error("Arrêtez d'abord l'enregistrement vocal"));
     if (!ta.value.trim() && !picker.count()) return showErr(err, new Error("Écrivez un message ou joignez un fichier"));
     send.disabled = true; send.textContent = picker.count() ? "Envoi des fichiers…" : "Envoi…";
     try {
@@ -346,16 +433,31 @@ async function viewTicket(id) {
     send.disabled = false; send.textContent = "Envoyer";
   });
 
+  const peer = admin ? (d.owner ? d.owner.name : "Client") : "Magiscom Tech";
+  const callBtns = h("div", { class: "row tight callbtns" },
+    h("button", { class: "btn sm call-v", type: "button", onclick: () => startCall(id, true, peer) }, icon("video"), "Appel vidéo"),
+    h("button", { class: "btn sm", type: "button", onclick: () => startCall(id, false, peer) }, icon("phone"), "Appel audio"));
+  if (!window.RTCPeerConnection || !navigator.mediaDevices?.getUserMedia) callBtns.hidden = true;
   mount(h("div", { class: "stack" },
     h("a", { href: admin ? "#/" : "#/" }, "← Retour"),
-    h("div", { class: "row between" }, h("h1", null, d.ticket.subject), titleBadge),
+    h("div", { class: "row between" }, h("h1", null, d.ticket.subject), h("div", { class: "row tight" }, titleBadge)),
+    callBtns,
     admin && d.owner ? h("p", { class: "muted small" }, d.owner.name + (d.owner.company ? " · " + d.owner.company : "") + " · " + (CATS[d.ticket.category] || "")) : null,
     h("div", { class: "side" }, h("div", { class: "stack" }, thread, form), aside)));
   paint(d);
+  VA.ctx = {
+    kind: "ticket",
+    async setStatus(st) { await api(`/api/tickets/${id}/status`, { method: "PATCH", body: { status: st } }); paint(await api("/api/tickets/" + id)); },
+    reply(text) { ta.value = (ta.value ? ta.value.replace(/\s*$/, " ") : "") + text; ta.focus(); },
+    send() { form.requestSubmit(); },
+    call(video) { startCall(id, video, peer); },
+    lastClientMessage() { const m = [...d.messages].reverse().find((x) => x.sender_role !== "admin" && x.body && !x.body.startsWith("📞")); return m ? m.sender_name + " a écrit : " + m.body : "Aucun message écrit du client."; },
+    summary() { return `Demande « ${d.ticket.subject} », statut ${STATUS[d.ticket.status]}, ${d.messages.length} message${d.messages.length > 1 ? "s" : ""}.`; },
+  };
 
   // Rafraîchissement automatique toutes les 20 s (sans toucher au message en cours d'écriture)
   pollTimer = setInterval(async () => {
-    if (document.hidden || send.disabled) return;
+    if (document.hidden || send.disabled || picker.busy()) return;
     try {
       const fresh = await api("/api/tickets/" + id);
       const s = fresh.messages.length + ":" + fresh.history.length + ":" + fresh.ticket.status;
@@ -396,6 +498,20 @@ async function viewAdmin(opts = {}) {
     state.user ? h("a", { href: "#/clients" }, "← Tous les clients") : null,
     h("div", null, title, state.user ? null : h("p", { class: "sub" }, "Voici les demandes de vos clients. Les points orange attendent votre réponse.")), state.user ? null : statsBox, search, chips, list));
   drawChips(); load();
+  VA.ctx = {
+    kind: "list",
+    setStatus(st) { state.status = st; state.waiting = false; drawChips(); load(); },
+    setWaiting() { state.waiting = true; state.status = ""; drawChips(); load(); },
+    search(q) { search.value = q; state.q = q; state.status = ""; state.waiting = false; drawChips(); load(); },
+    async open(n) {
+      for (let i = 0; i < 20 && list.querySelector("p.muted"); i++) await new Promise((r) => setTimeout(r, 150));
+      const cards = [...list.querySelectorAll("a.tk")];
+      const c = n === -1 ? cards[cards.length - 1] : cards[n - 1];
+      if (!c) return false;
+      location.hash = c.getAttribute("href"); return true;
+    },
+  };
+  if (VA.pending) { const f = VA.pending; VA.pending = null; setTimeout(f, 0); }
   if (!state.user) {
     try {
       const s = await api("/api/admin/stats");
@@ -495,9 +611,398 @@ function viewProfile() {
     !ME || ME.role !== "admin" ? h("p", { class: "muted small" }, "Mot de passe oublié ? Contactez Magiscom Tech : l'équipe peut vous attribuer un mot de passe provisoire.") : null));
 }
 
+// ---------- Appels audio / vidéo en direct (WebRTC) ----------
+const CALL = { cur: null, ice: null, ringing: null, dismissed: new Set(), poll: null };
+async function iceServers() {
+  if (!CALL.ice) { try { CALL.ice = (await api("/api/rtc-config")).iceServers; } catch { CALL.ice = [{ urls: "stun:stun.l.google.com:19302" }]; } }
+  return CALL.ice;
+}
+const waitIce = (pc) => new Promise((res) => {
+  if (pc.iceGatheringState === "complete") return res();
+  const t = setTimeout(res, 3500);
+  pc.addEventListener("icegatheringstatechange", () => { if (pc.iceGatheringState === "complete") { clearTimeout(t); res(); } });
+});
+// Petite sonnerie générée (aucun fichier son à charger)
+function tone(kind) {
+  let ctx, timer;
+  const beep = () => {
+    try {
+      ctx ||= new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = kind === "in" ? 880 : 440; g.gain.value = 0.0001;
+      o.connect(g).connect(ctx.destination); o.start();
+      g.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + (kind === "in" ? 0.9 : 1.2));
+      o.stop(ctx.currentTime + 1.3);
+    } catch {}
+    if (kind === "in" && navigator.vibrate) navigator.vibrate([300, 200, 300]);
+  };
+  beep(); timer = setInterval(beep, kind === "in" ? 1600 : 3000);
+  return () => { clearInterval(timer); if (ctx && ctx.state !== "closed") ctx.close().catch(() => {}); ctx = null; };
+}
+
+function callOverlay(s) {
+  const remoteV = h("video", { class: "remote", autoplay: true, playsinline: true });
+  const localV = h("video", { class: "local", autoplay: true, playsinline: true, muted: true, hidden: true });
+  const state = h("p", { class: "call-state" }, "Préparation…");
+  const timer = h("span", { class: "call-time" });
+  const recFlag = h("span", { class: "call-rec", hidden: true }, h("span", { class: "rec-dot" }), "Enregistrement en cours");
+  const ctl = (ic, label, onclick, cls = "") => h("button", { class: "cbtn " + cls, type: "button", "aria-label": label, title: label, onclick }, icon(ic), h("span", null, label));
+  const bMic = ctl("mic", "Micro", () => toggleMic(s));
+  const bCam = ctl("video", "Caméra", () => toggleCam(s));
+  const bScr = ctl("screen", "Écran", () => toggleScreen(s));
+  const bRec = ctl("rec", "Enregistrer", () => toggleRecord(s));
+  const bEnd = ctl("hang", "Raccrocher", () => hangup(s), "end");
+  if (!navigator.mediaDevices?.getDisplayMedia) bScr.hidden = true;
+  if (!window.MediaRecorder) bRec.hidden = true;
+  const el = h("div", { class: "call", role: "dialog", "aria-label": "Appel en cours" },
+    remoteV,
+    h("div", { class: "call-ph" }, h("div", { class: "call-av" }, s.peer === "Magiscom Tech" ? h("img", { src: "/icon.png", alt: "" }) : initials(s.peer)), h("b", null, s.peer), state),
+    localV,
+    h("div", { class: "call-top" }, h("b", null, (s.video ? "Appel vidéo" : "Appel audio") + " · " + s.peer), timer, recFlag),
+    h("div", { class: "call-ctl" }, bMic, bCam, bScr, bRec, bEnd));
+  document.body.append(el);
+  Object.assign(s, { el, remoteV, localV, state, timer, recFlag, bMic, bCam, bScr, bRec });
+  remoteV.srcObject = s.remote;
+}
+function setState(s, text) { s.state.textContent = text; s.state.hidden = !text; }
+function refreshLocal(s) {
+  const v = s.screenTrack || s.camTrack;
+  s.localV.hidden = !v;
+  s.localV.srcObject = v ? new MediaStream([v]) : null;
+  s.localV.classList.toggle("mirror", !!s.camTrack && !s.screenTrack);
+  s.bCam.classList.toggle("off", !s.camTrack);
+  s.bScr.classList.toggle("on", !!s.screenTrack);
+  s.bMic.classList.toggle("off", !s.micTrack || !s.micTrack.enabled);
+}
+function newPc(s, ice) {
+  const pc = new RTCPeerConnection({ iceServers: ice });
+  s.pc = pc;
+  pc.ontrack = (e) => {
+    s.remote.addTrack(e.track);
+    if (e.track.kind === "video") {
+      const upd = () => s.el.classList.toggle("has-video", !e.track.muted && e.track.readyState === "live");
+      e.track.onmute = upd; e.track.onunmute = upd; e.track.onended = upd; upd();
+    }
+    s.remoteV.play?.().catch(() => {});
+  };
+  pc.onconnectionstatechange = () => {
+    const st = pc.connectionState;
+    if (st === "connected") {
+      setState(s, "");
+      if (!s.startedAt) { s.startedAt = Date.now(); s.tick = setInterval(() => (s.timer.textContent = clock((Date.now() - s.startedAt) / 1000)), 1000); }
+    } else if (st === "disconnected") setState(s, "Connexion instable…");
+    else if (st === "failed") { setState(s, "Connexion impossible : le réseau bloque l'appel. Essayez en Wi-Fi."); setTimeout(() => hangup(s), 5000); }
+  };
+  return pc;
+}
+async function getMedia(video) {
+  return navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    video: video ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+  });
+}
+function session(ticketId, video, peer) {
+  return { ticketId, video, peer, remote: new MediaStream(), micTrack: null, camTrack: null, screenTrack: null, ended: false };
+}
+async function startCall(ticketId, video, peer) {
+  if (CALL.cur) return toast("Un appel est déjà en cours");
+  const s = session(ticketId, video, peer);
+  CALL.cur = s;
+  callOverlay(s);
+  try {
+    const media = await getMedia(video);
+    s.micTrack = media.getAudioTracks()[0]; s.camTrack = media.getVideoTracks()[0] || null;
+  } catch (e) { toast(mediaError(e)); return closeCall(s); }
+  refreshLocal(s);
+  setState(s, "Connexion…");
+  const pc = newPc(s, await iceServers());
+  s.aT = pc.addTransceiver("audio", { direction: "sendrecv" });
+  s.vT = pc.addTransceiver("video", { direction: "sendrecv" });   // toujours présent : permet d'activer la caméra ou de partager l'écran pendant l'appel
+  await s.aT.sender.replaceTrack(s.micTrack);
+  if (s.camTrack) await s.vT.sender.replaceTrack(s.camTrack);
+  await pc.setLocalDescription(await pc.createOffer());
+  await waitIce(pc);
+  if (s.ended) return;
+  try { s.id = (await api(`/api/tickets/${ticketId}/calls`, { method: "POST", body: { video, offer: pc.localDescription.sdp } })).call.id; }
+  catch (e) { toast(e.message); return closeCall(s); }
+  setState(s, "Ça sonne… En attente de réponse");
+  s.stopTone = tone("out");
+  s.poll = setInterval(() => pollCall(s), 1500);
+}
+async function pollCall(s) {
+  if (s.ended || s.polling) return;
+  s.polling = true;
+  try {
+    const { call } = await api("/api/calls/" + s.id);
+    if (call.answer && !s.answered) {
+      s.answered = true; s.stopTone && s.stopTone();
+      setState(s, "Connexion…");
+      await s.pc.setRemoteDescription({ type: "answer", sdp: call.answer });
+      clearInterval(s.poll); s.poll = setInterval(() => pollCall(s), 3000);
+    }
+    s.recFlag.hidden = !call.recording && !s.rec;
+    if (["ended", "missed", "declined"].includes(call.status)) {
+      toast(call.status === "declined" ? "Appel refusé" : call.status === "missed" ? "Pas de réponse" : "Appel terminé");
+      closeCall(s);
+    }
+  } catch (e) { if (e.status === 404) closeCall(s); }
+  s.polling = false;
+}
+async function acceptCall(c, video) {
+  dismissRing();
+  if (CALL.cur) return toast("Un appel est déjà en cours");
+  const s = session(c.ticket_id, video, ME.role === "admin" ? c.caller_name : "Magiscom Tech");
+  s.id = c.id; s.answered = true;
+  CALL.cur = s;
+  callOverlay(s);
+  try {
+    const media = await getMedia(video);
+    s.micTrack = media.getAudioTracks()[0]; s.camTrack = media.getVideoTracks()[0] || null;
+  } catch (e) { toast(mediaError(e)); api(`/api/calls/${c.id}/end`, { method: "POST", body: { reason: "declined" } }).catch(() => {}); return closeCall(s, true); }
+  refreshLocal(s);
+  setState(s, "Connexion…");
+  let offer;
+  try { offer = (await api("/api/calls/" + c.id)).call.offer; } catch {}
+  if (!offer) { toast("L'appel est terminé"); return closeCall(s, true); }
+  const pc = newPc(s, await iceServers());
+  await pc.setRemoteDescription({ type: "offer", sdp: offer });
+  for (const t of pc.getTransceivers()) {
+    t.direction = "sendrecv";
+    if (t.receiver.track.kind === "audio") { s.aT = t; await t.sender.replaceTrack(s.micTrack); }
+    else { s.vT = t; if (s.camTrack) await t.sender.replaceTrack(s.camTrack); }
+  }
+  await pc.setLocalDescription(await pc.createAnswer());
+  await waitIce(pc);
+  if (s.ended) return;
+  try { await api(`/api/calls/${c.id}/answer`, { method: "POST", body: { answer: pc.localDescription.sdp } }); }
+  catch (e) { toast(e.message); return closeCall(s, true); }
+  s.poll = setInterval(() => pollCall(s), 3000);
+  if (!location.hash.includes(c.ticket_id)) go("/t/" + c.ticket_id);
+}
+function toggleMic(s) { if (s.micTrack) { s.micTrack.enabled = !s.micTrack.enabled; refreshLocal(s); } }
+async function toggleCam(s) {
+  if (!s.vT) return;
+  if (s.camTrack) {
+    s.camTrack.stop(); s.camTrack = null;
+    if (!s.screenTrack) await s.vT.sender.replaceTrack(null);
+  } else {
+    try { s.camTrack = (await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 } } })).getVideoTracks()[0]; }
+    catch (e) { return toast(mediaError(e)); }
+    if (!s.screenTrack) await s.vT.sender.replaceTrack(s.camTrack);
+  }
+  refreshLocal(s);
+}
+async function toggleScreen(s) {
+  if (!s.vT) return;
+  if (s.screenTrack) { s.screenTrack.stop(); s.screenTrack = null; await s.vT.sender.replaceTrack(s.camTrack); return refreshLocal(s); }
+  try { s.screenTrack = (await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })).getVideoTracks()[0]; }
+  catch { return; }
+  s.screenTrack.onended = () => { if (s.screenTrack) toggleScreen(s); };
+  await s.vT.sender.replaceTrack(s.screenTrack);
+  refreshLocal(s);
+}
+// Enregistrement de l'appel : les deux voix (et l'image de l'autre personne), joint ensuite à la demande
+async function toggleRecord(s) {
+  if (s.rec) { s.rec.stop(); return; }
+  if (!s.startedAt) return toast("Attendez que l'appel soit connecté");
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ac = new AC(), dest = ac.createMediaStreamDestination();
+  for (const t of [s.micTrack, ...s.remote.getAudioTracks()]) if (t) ac.createMediaStreamSource(new MediaStream([t])).connect(dest);
+  const vid = s.remote.getVideoTracks().find((t) => t.readyState === "live" && !t.muted);
+  const mime = pickMime(vid ? ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"] : AUDIO_MIMES);
+  const rec = new MediaRecorder(new MediaStream([...dest.stream.getAudioTracks(), ...(vid ? [vid] : [])]),
+    { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 600000, audioBitsPerSecond: 64000 });
+  const chunks = []; let size = 0;
+  const limit = (vid ? MAX_VID : MAX_AUD) - 2 * MB;
+  rec.ondataavailable = (e) => { if (e.data.size) { chunks.push(e.data); size += e.data.size; if (size > limit && rec.state === "recording") { toast("Taille maximale atteinte : enregistrement arrêté"); rec.stop(); } } };
+  rec.onstop = async () => {
+    s.rec = null; ac.close().catch(() => {});
+    s.bRec.classList.remove("on"); s.recFlag.hidden = true;
+    if (s.id && !s.ended) api(`/api/calls/${s.id}/recording`, { method: "POST", body: { on: false } }).catch(() => {});
+    if (!chunks.length) return;
+    const type = (rec.mimeType || mime || "audio/webm").split(";")[0];
+    const d = new Date(), stamp = d.toISOString().slice(0, 16).replace(/[-:T]/g, "");
+    const file = new File(chunks, `enregistrement-appel-${stamp}.${extOf(type)}`, { type });
+    toast("Envoi de l'enregistrement dans la demande…");
+    try {
+      const att = await uploadFile(file, type, () => {});
+      await api(`/api/tickets/${s.ticketId}/messages`, { method: "POST", body: { body: "⏺ Enregistrement de l'appel", attachments: [att.id] } });
+      toast("Enregistrement ajouté à la demande");
+      if (location.hash.includes(s.ticketId) && !CALL.cur) router();
+    } catch (e) { toast("Enregistrement non envoyé : " + e.message); }
+  };
+  rec.start(1000);
+  s.rec = rec; s.bRec.classList.add("on"); s.recFlag.hidden = false;
+  api(`/api/calls/${s.id}/recording`, { method: "POST", body: { on: true } }).catch(() => {});
+  toast("Enregistrement démarré. Prévenez votre interlocuteur.");
+}
+function hangup(s) {
+  if (s.ended) return;
+  if (s.id) api(`/api/calls/${s.id}/end`, { method: "POST", body: {} }).catch(() => {});
+  closeCall(s);
+}
+function closeCall(s, silent) {
+  if (s.ended) return;
+  s.ended = true;
+  if (s.rec && s.rec.state === "recording") s.rec.stop();
+  clearInterval(s.poll); clearInterval(s.tick); s.stopTone && s.stopTone();
+  for (const t of [s.micTrack, s.camTrack, s.screenTrack]) t && t.stop();
+  try { s.pc && s.pc.close(); } catch {}
+  s.el && s.el.remove();
+  if (CALL.cur === s) CALL.cur = null;
+  if (!silent && location.hash.includes(s.ticketId) && !s.rec) setTimeout(() => !CALL.cur && router(), 600);
+}
+// Raccroche si on ferme la page pendant un appel
+window.addEventListener("pagehide", () => {
+  const s = CALL.cur;
+  if (s && s.id) fetch(`/api/calls/${s.id}/end`, { method: "POST", keepalive: true, credentials: "same-origin", headers: { "X-Requested-With": "magisdesk", "Content-Type": "application/json" }, body: "{}" });
+});
+
+// Appel entrant : vérifié toutes les 5 s quand l'application est ouverte
+function dismissRing() { if (CALL.ringing) { CALL.ringing.stop(); CALL.ringing.el.remove(); CALL.ringing = null; } }
+function showRing(c) {
+  dismissRing();
+  const staff = ME.role !== "admin";
+  const who = staff ? `${c.caller_name}${c.caller_title ? " · " + c.caller_title : ""} · Magiscom Tech` : c.caller_name + (c.caller_company ? " · " + c.caller_company : "");
+  const el = h("div", { class: "ring", role: "alertdialog", "aria-label": "Appel entrant" },
+    h("div", { class: "ring-av" }, staff ? h("img", { src: "/icon.png", alt: "" }) : initials(c.caller_name)),
+    h("div", { class: "ring-txt" }, h("b", null, who), h("span", null, (c.video ? "Appel vidéo" : "Appel audio") + " · " + c.subject)),
+    h("div", { class: "row tight" },
+      h("button", { class: "btn sm ring-no", type: "button", onclick: () => { CALL.dismissed.add(c.id); dismissRing(); api(`/api/calls/${c.id}/end`, { method: "POST", body: { reason: "declined" } }).catch(() => {}); } }, "Refuser"),
+      c.video ? h("button", { class: "btn sm", type: "button", onclick: () => acceptCall(c, false) }, icon("phone"), "Audio") : null,
+      h("button", { class: "btn sm ring-yes", type: "button", onclick: () => acceptCall(c, c.video) }, icon(c.video ? "video" : "phone"), "Répondre")));
+  document.body.append(el);
+  CALL.ringing = { id: c.id, el, stop: tone("in") };
+}
+async function checkIncoming() {
+  if (!ME || document.hidden || CALL.cur) return;
+  try {
+    const { calls } = await api("/api/calls/incoming");
+    const c = calls.find((x) => !CALL.dismissed.has(x.id));
+    if (!c) return dismissRing();
+    if (!CALL.ringing || CALL.ringing.id !== c.id) showRing(c);
+  } catch {}
+}
+function startIncomingPoll() {
+  if (CALL.poll || !window.RTCPeerConnection) return;
+  CALL.poll = setInterval(checkIncoming, 5000);
+  checkIncoming();
+}
+
+// ---------- Assistant vocal de l'administrateur ----------
+// Commandes à la voix (français ou darija) : filtrer, chercher, ouvrir une demande, changer le statut,
+// dicter et envoyer une réponse, lancer un appel, se faire lire le dernier message du client.
+const norm = (t) => t.toLowerCase().normalize("NFD").replace(/[̀-ًͯ-ٰٟ]/g, "").replace(/[ة]/g, "ه").replace(/[ى]/g, "ي").replace(/[’']/g, " ").replace(/\s+/g, " ").trim();
+function statusFrom(t) {
+  if (/non resolu|pas resolu|irresolu|ماتحلش|ما تحلش|ماتحلتش|غير محلول|مامحلول/.test(t)) return "unresolved";
+  if (/en cours|traitement|كنخدمو|خدامين|قيد المعالجه|في الطريق|كيتعالج/.test(t)) return "in_review";
+  if (/resolu|regle|termine|mahlou|mahlol|محلول|تحل|سالي|سالات/.test(t)) return "resolved";
+  if (/ouvert|rouvr|مفتوح|فتح/.test(t)) return "open";
+  return null;
+}
+const ORD = [[/premier|premiere|\b1\b|un\b|اللول|الاول|الاولي|لولي/, 1], [/deuxieme|second|\b2\b|التاني|الثاني|التانيه|الثانيه/, 2], [/troisieme|\b3\b|التالت|الثالث|التالته|الثالثه/, 3], [/derni|اللخر|الاخير|الاخيره|لخره/, -1]];
+const VA_HELP = [
+  ["« Demandes en attente » · « اللي كيتسناو »", "Affiche les demandes qui attendent votre réponse"],
+  ["« Ouvertes », « En cours », « Résolues »", "Filtre la liste"],
+  ["« Chercher Atlas » · « قلب على أطلس »", "Recherche un client ou un sujet"],
+  ["« Ouvre la première » · « حل اللولة »", "Ouvre une demande de la liste"],
+  ["« Combien ? » · « شحال؟ »", "Résumé des demandes"],
+  ["« Lis le message » · « اقرا »", "Lit le dernier message du client"],
+  ["« Réponds bonjour, … » · « جاوب … »", "Écrit la réponse dans le champ"],
+  ["« Envoie » · « صيفط »", "Envoie la réponse"],
+  ["« Statut résolu » · « دير محلول »", "Change le statut de la demande"],
+  ["« Appel vidéo » · « عيط »", "Appelle le client"],
+  ["« Clients », « Profil », « Accueil », « Retour »", "Navigation"],
+];
+const VA = {
+  ctx: null, pending: null, el: null, panel: null, rec: null,
+  ensure() {
+    if (this.el || !SR) return !!this.el;
+    const out = h("p", { class: "va-out" }, "Touchez le micro et parlez.");
+    const heard = h("p", { class: "va-heard" });
+    const help = h("ul", { class: "va-help", hidden: true }, VA_HELP.map(([a, b]) => h("li", null, h("b", null, a), h("span", null, b))));
+    this.panel = h("div", { class: "va-panel", hidden: true },
+      h("div", { class: "row between" }, h("b", null, "Assistant vocal"), h("div", { class: "row tight" }, langBtn(),
+        h("button", { class: "btn sm", type: "button", onclick: () => (help.hidden = !help.hidden) }, "Commandes"),
+        h("button", { class: "install-x", type: "button", "aria-label": "Fermer", onclick: () => { this.stop(); this.panel.hidden = true; } }, "×"))),
+      heard, out, help);
+    this.out = out; this.heard = heard; this.help = help;
+    this.el = h("button", { class: "va-btn", type: "button", "aria-label": "Assistant vocal", title: "Assistant vocal : donnez un ordre à la voix", onclick: () => this.listen() }, icon("mic"));
+    document.body.append(this.panel, this.el);
+    return true;
+  },
+  show() { if (this.ensure()) this.el.hidden = false; },
+  hide() { if (this.el) { this.stop(); this.el.hidden = true; this.panel.hidden = true; } },
+  stop() { if (this.rec) { try { this.rec.abort(); } catch {} this.rec = null; } this.el && this.el.classList.remove("on"); },
+  say(text) {
+    this.out.textContent = text;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text.replace(/[«»]/g, "")); u.lang = VLANG; u.rate = 1.05;
+      speechSynthesis.speak(u);
+    } catch {}
+  },
+  listen() {
+    if (this.rec) return this.stop();
+    this.panel.hidden = false;
+    try { speechSynthesis.cancel(); } catch {}
+    const r = new SR(); r.lang = VLANG; r.interimResults = true; r.maxAlternatives = 1;
+    this.rec = r; this.el.classList.add("on");
+    this.heard.textContent = ""; this.out.textContent = VLANG === "ar-MA" ? "كنسمعك…" : "Je vous écoute…";
+    let finalText = "";
+    r.onresult = (e) => { const t = [...e.results].map((x) => x[0].transcript).join(" "); this.heard.textContent = "« " + t + " »"; if (e.results[e.results.length - 1].isFinal) finalText = t; };
+    r.onerror = (e) => { this.out.textContent = e.error === "not-allowed" ? "Autorisez le micro pour utiliser l'assistant." : e.error === "no-speech" ? "Je n'ai rien entendu. Réessayez." : "Micro indisponible, réessayez."; };
+    r.onend = () => { this.rec = null; this.el.classList.remove("on"); if (finalText) this.run(finalText).catch((e) => this.say(e.message || "Erreur")); };
+    try { r.start(); } catch { this.stop(); }
+  },
+  async run(raw) {
+    const t = norm(raw), c = this.ctx || {};
+    const orig = raw.trim();
+    if (/\b(aide|commandes|help)\b|مساعده|عاوني|شنو نقدر/.test(t)) { this.help.hidden = false; return this.say("Voici les commandes possibles."); }
+    if (/combien|resume|statisti|شحال|احصائ|ملخص/.test(t)) {
+      if (c.kind === "ticket") return this.say(c.summary());
+      const s = await api("/api/admin/stats");
+      return this.say(`${s.waiting} demande${s.waiting > 1 ? "s" : ""} en attente de réponse, ${s.stats.open} ouverte${s.stats.open > 1 ? "s" : ""}, ${s.stats.in_review} en cours, ${s.stats.resolved} résolue${s.stats.resolved > 1 ? "s" : ""}.`);
+    }
+    if (c.kind === "ticket") {
+      let m;
+      if ((m = orig.match(/^(?:r[ée]pon[ds]\w*|r[ée]ponse|[ée]cri\w*|message|tape)\s*:?\s+(.+)$/i)) || (m = orig.match(/^(?:جاوب\S*|رد|كتب|اكتب|أكتب)\s+(.+)$/))) { c.reply(m[1]); return this.say("Réponse écrite. Dites « envoie » pour l'envoyer."); }
+      if (/^(envoi|envoy|valide|expedie)|^(صيفط|سيفط|ارسل|رسل)/.test(t)) { c.send(); return this.say("Envoi de la réponse."); }
+      if (/^(lis|lire|lecture|relis)|اقرا|قرا|اقرأ/.test(t)) return this.say(c.lastClientMessage());
+      if (/visio|video|فيديو|فيدو/.test(t) && /appel|appelle|lance|visio|عيط|اتصل|فيديو/.test(t)) { c.call(true); return this.say("Appel vidéo lancé."); }
+      if (/^(appel|appelle|telephone|sonne)|عيط|اتصل|كلم/.test(t)) { c.call(false); return this.say("Appel audio lancé."); }
+      const st = statusFrom(t);
+      if (st) { await c.setStatus(st); return this.say("Statut changé : " + STATUS[st] + "."); }
+      if (/retour|precedent|رجع/.test(t)) { history.back(); return this.say("Retour."); }
+    }
+    if (/clients?\b|الكليان|العملاء|الزبناء|الزبائن/.test(t)) { go("/clients"); return this.say("Liste des clients."); }
+    if (/profil|البروفيل|الحساب ديالي/.test(t)) { go("/profil"); return this.say("Votre profil."); }
+    // Commandes de liste : si on n'est pas sur la liste, on y va d'abord
+    const listCmd = (f) => { if (c.kind === "list") return f(c); this.pending = () => f(this.ctx); go("/"); };
+    let m;
+    if ((m = orig.match(/^(?:cherche\w*|recherche\w*|trouve\w*)\s+(?:le client |la demande |le |la |les )?(.+)$/i)) || (m = orig.match(/^(?:قلب|ابحث|بحث|لقا)\s+(?:على|عن|علي)?\s*(.+)$/))) {
+      const q = m[1].replace(/[.?!]+$/, "");
+      listCmd((x) => x.search(q)); return this.say("Recherche : " + q);
+    }
+    if (/ouvr|affiche|montre|حل|فتح|وريني/.test(t)) {
+      const o = ORD.find(([re]) => re.test(t));
+      if (o) { listCmd(async (x) => { if (!(await x.open(o[1]))) this.say("Aucune demande à cette position."); }); return this.say("J'ouvre la demande."); }
+    }
+    if (/attente|sans reponse|pas repondu|repondre|كيتسناو|تسناو|انتظار|ماتجاوب|ماجاوبت/.test(t)) { listCmd((x) => x.setWaiting()); return this.say("Demandes en attente de votre réponse."); }
+    const st = statusFrom(t);
+    if (st) { listCmd((x) => x.setStatus(st)); return this.say("Demandes : " + STATUS[st] + "."); }
+    if (/toutes|tout|كلشي|جميع|كاملين/.test(t)) { listCmd((x) => x.setStatus("")); return this.say("Toutes les demandes."); }
+    if (/accueil|demandes|tableau|الرئيسيه|الطلبات|الديمونض/.test(t)) { go("/"); return this.say("Tableau de bord."); }
+    this.help.hidden = false;
+    return this.say(VLANG === "ar-MA" ? "مافهمتش. شوف لائحة الأوامر." : "Je n'ai pas compris. Voici les commandes possibles.");
+  },
+};
+
 // ---------- Routeur ----------
 async function router() {
   clearInterval(pollTimer); pollTimer = null;
+  VA.ctx = null;
   const path = location.hash.slice(1) || "/";
   if (!ME) {
     try {
@@ -505,7 +1010,9 @@ async function router() {
       if (r.ok) ME = (await r.json()).user;
     } catch {}
   }
-  if (!ME) return viewAuth(path === "/register" ? "register" : "login");
+  if (!ME) { VA.hide(); return viewAuth(path === "/register" ? "register" : "login"); }
+  startIncomingPoll();
+  if (ME.role === "admin") VA.show(); else VA.hide();
   const admin = ME.role === "admin";
   let m;
   if (path === "/new" && !admin) return viewNew();

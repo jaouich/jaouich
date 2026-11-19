@@ -74,3 +74,22 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   count      INTEGER NOT NULL,
   window_end INTEGER NOT NULL
 );
+
+-- Appels audio / vidéo en direct (WebRTC). Le serveur ne fait que transmettre l'offre et la réponse.
+CREATE TABLE IF NOT EXISTS calls (
+  id          TEXT PRIMARY KEY,
+  ticket_id   TEXT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  caller_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  caller_role TEXT NOT NULL CHECK (caller_role IN ('user','admin')),
+  callee_id   TEXT REFERENCES users(id) ON DELETE SET NULL,
+  video       INTEGER NOT NULL DEFAULT 1,
+  status      TEXT NOT NULL DEFAULT 'ringing' CHECK (status IN ('ringing','active','ended','missed','declined')),
+  offer       TEXT,
+  answer      TEXT,
+  recording   INTEGER NOT NULL DEFAULT 0,
+  created_at  INTEGER NOT NULL,
+  answered_at INTEGER,
+  ended_at    INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_calls_status ON calls(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_calls_ticket ON calls(ticket_id, created_at);

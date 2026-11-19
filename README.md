@@ -91,3 +91,13 @@ npm run deploy
 - Mot de passe oublié (nécessite un service d'envoi d'e-mails).
 - Vidéos de plus de 95 Mo : envoi en plusieurs morceaux (R2 multipart).
 - Interface en arabe en plus du français.
+
+## Voix, appels et assistant vocal
+
+- **Message vocal** : bouton « Message vocal » sous chaque message (5 min max, audio WEBM/M4A/OGG, 25 Mo).
+- **Dictée** : bouton « Dicter » (français ou arabe, bouton FR/ع). Fonctionne sur Chrome, Edge et Safari.
+- **Appel vidéo / audio en direct** (WebRTC, pair à pair) depuis une demande, dans les deux sens.
+  Pendant l'appel : micro, caméra, partage d'écran (ordinateur), enregistrement (joint ensuite à la demande, l'autre personne voit « Enregistrement en cours »), raccrocher.
+  La durée, les appels manqués et refusés sont notés dans la demande. Table D1 : `calls`.
+  Réseaux mobiles stricts : ajouter un relais TURN Cloudflare (Realtime → TURN) puis les secrets `TURN_KEY_ID` et `TURN_KEY_API_TOKEN`.
+- **Assistant vocal (admin)** : bouton micro rond en bas à droite. Exemples : « demandes en attente », « chercher Atlas », « ouvre la première », « lis le message », « réponds … », « envoie », « statut résolu », « appel vidéo », « combien ». En darija : « اللي كيتسناو », « قلب على … », « حل اللولة », « اقرا », « جاوب … », « صيفط », « دير محلول », « عيط ».

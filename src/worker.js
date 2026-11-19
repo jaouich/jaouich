@@ -8,6 +8,7 @@ const PBKDF2_ITER = 100000;               // maximum accepté par Workers
 const MB = 1024 * 1024;
 const MAX_IMAGE = 15 * MB;
 const MAX_VIDEO = 95 * MB;                // limite de corps de requête Workers : 100 Mo (Free/Pro)
+const MAX_AUDIO = 25 * MB;
 const MAX_FILES = 6;                      // fichiers par message
 const MAX_PENDING = 30;                   // fichiers envoyés mais pas encore joints
 const PENDING_TTL = 24 * 3600 * 1000;
@@ -15,7 +16,10 @@ const MIME = {
   "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
   "image/heic": "heic", "image/heif": "heif",
   "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm", "video/3gpp": "3gp",
+  "audio/webm": "weba", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac", "audio/mpeg": "mp3", "audio/wav": "wav",
 };
+const RING_MS = 45000;                    // durée de sonnerie avant « appel manqué »
+const MAX_SDP = 30000;
 const STATUSES = ["open", "in_review", "resolved", "unresolved"];
 const CATEGORIES = ["ebp", "sage", "installation", "formation", "facturation", "autre"];
 
@@ -70,6 +74,15 @@ async function route(req, env, ctx) {
   if ((r = p.match(/^\/api\/tickets\/([0-9a-f-]{36})\/status$/)) && m === "PATCH") return setStatus(r[1], req, env, me, ctx);
   if ((r = p.match(/^\/api\/media\/([0-9a-f-]{36})$/)) && (m === "GET" || m === "HEAD")) return media(r[1], req, url, env, me);
 
+  // Appels audio / vidéo
+  if (p === "/api/rtc-config" && m === "GET") return rtcConfig(env);
+  if (p === "/api/calls/incoming" && m === "GET") return incomingCalls(env, me);
+  if ((r = p.match(/^\/api\/tickets\/([0-9a-f-]{36})\/calls$/)) && m === "POST") return startCall(r[1], req, env, me);
+  if ((r = p.match(/^\/api\/calls\/([0-9a-f-]{36})$/)) && m === "GET") return getCall(r[1], env, me);
+  if ((r = p.match(/^\/api\/calls\/([0-9a-f-]{36})\/answer$/)) && m === "POST") return answerCall(r[1], req, env, me);
+  if ((r = p.match(/^\/api\/calls\/([0-9a-f-]{36})\/end$/)) && m === "POST") return endCall(r[1], req, env, me);
+  if ((r = p.match(/^\/api\/calls\/([0-9a-f-]{36})\/recording$/)) && m === "POST") return setRecording(r[1], req, env, me);
+
   if (p.startsWith("/api/admin/")) {
     if (me.role !== "admin") return json({ error: "Accès réservé à l'administrateur" }, 403);
     if (p === "/api/admin/users" && m === "GET") return adminUsers(env);
@@ -92,7 +105,7 @@ const SEC_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "same-origin",
   "X-Frame-Options": "DENY",
-  "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+  "Permissions-Policy": "geolocation=(), microphone=(self), camera=(self), display-capture=(self)",
 };
 function asset(p) {
   const a = ASSETS[p] || ASSETS["/"];               // application monopage
@@ -264,10 +277,10 @@ async function adminResetPassword(userId, env, me) {
 async function upload(req, env, me) {
   const type = (req.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
   const ext = MIME[type];
-  if (!ext) fail(415, "Format non accepté. Photos : JPG, PNG, WEBP, GIF, HEIC. Vidéos : MP4, MOV, WEBM, 3GP.");
+  if (!ext) fail(415, "Format non accepté. Photos : JPG, PNG, WEBP, GIF, HEIC. Vidéos : MP4, MOV, WEBM, 3GP. Audio : WEBM, OGG, M4A, MP3.");
   const size = Number(req.headers.get("Content-Length") || 0);
   if (!size || !req.body) fail(411, "Fichier vide");
-  const max = type.startsWith("video/") ? MAX_VIDEO : MAX_IMAGE;
+  const max = type.startsWith("video/") ? MAX_VIDEO : type.startsWith("audio/") ? MAX_AUDIO : MAX_IMAGE;
   if (size > max) fail(413, `Fichier trop lourd (maximum ${max / MB} Mo)`);
   const pending = await env.DB.prepare("SELECT COUNT(*) AS n FROM attachments WHERE owner_id = ? AND message_id IS NULL").bind(me.id).first();
   if (pending.n >= MAX_PENDING) fail(429, "Trop de fichiers en attente. Envoyez d'abord votre message.");
@@ -332,6 +345,9 @@ async function media(id, req, url, env, me) {
 async function cleanupPending(env) {
   const { results } = await env.DB.prepare("SELECT id, r2_key FROM attachments WHERE message_id IS NULL AND created_at < ? LIMIT 500")
     .bind(now() - PENDING_TTL).all();
+  // Appels oubliés (onglet fermé sans raccrocher)
+  await env.DB.prepare("UPDATE calls SET status = CASE WHEN status='ringing' THEN 'missed' ELSE 'ended' END, ended_at=?, offer=NULL, answer=NULL WHERE status IN ('ringing','active') AND created_at < ?")
+    .bind(now(), now() - 6 * 3600000).run();
   if (!results.length) return;
   await env.MEDIA.delete(results.map((r) => r.r2_key));
   await env.DB.batch(results.map((r) => env.DB.prepare("DELETE FROM attachments WHERE id = ?").bind(r.id)));
@@ -458,6 +474,107 @@ async function setStatus(id, req, env, me, ctx) {
     intro: STATUS_MSG[b.status],
     title: t.subject, excerpt: "", files: 0, path: "/#/t/" + id,
   }));
+  return json({ ok: true });
+}
+
+
+// ---------- Appels audio / vidéo (WebRTC) ----------
+// Les deux navigateurs se parlent directement. Le Worker garde seulement l'offre et la réponse
+// (signalisation). Avec un relais TURN Cloudflare (secrets TURN_KEY_ID et TURN_KEY_API_TOKEN),
+// les appels passent aussi derrière les réseaux mobiles stricts.
+async function rtcConfig(env) {
+  const stun = [{ urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] }];
+  if (env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN) {
+    try {
+      const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${env.TURN_KEY_API_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ttl: 7200 }),
+      });
+      if (r.ok) { const d = await r.json(); if (d.iceServers) return json({ iceServers: [].concat(d.iceServers), turn: true }); }
+    } catch (e) { console.error("turn", e); }
+  }
+  return json({ iceServers: stun, turn: false });
+}
+const sdp = (v) => (typeof v === "string" && v.length > 20 && v.length <= MAX_SDP && v.startsWith("v=0") ? v : fail(400, "Signal d'appel invalide"));
+async function loadCall(env, id, me) {
+  const c = await env.DB.prepare("SELECT c.*, t.user_id AS ticket_owner, t.subject FROM calls c JOIN tickets t ON t.id = c.ticket_id WHERE c.id = ?").bind(id).first();
+  if (!c) fail(404, "Appel introuvable");
+  const callerSide = c.caller_id === me.id;
+  // L'autre côté : le client de la demande si un admin appelle, un admin si le client appelle
+  const calleeSide = !callerSide && (c.callee_id ? c.callee_id === me.id : c.caller_role === "admin" ? me.id === c.ticket_owner : me.role === "admin");
+  if (!callerSide && !calleeSide) fail(404, "Appel introuvable");
+  if (c.status === "ringing" && c.created_at < now() - RING_MS) {
+    await env.DB.prepare("UPDATE calls SET status='missed', ended_at=? WHERE id=? AND status='ringing'").bind(now(), c.id).run();
+    c.status = "missed";
+  }
+  c.callerSide = callerSide;
+  return c;
+}
+const callPub = (c) => ({ id: c.id, ticket_id: c.ticket_id, video: !!c.video, status: c.status, recording: !!c.recording, answered_at: c.answered_at });
+async function startCall(ticketId, req, env, me) {
+  const t = await loadTicket(env, ticketId, me);
+  const b = await readJson(req, MAX_SDP + 2000);
+  const offer = sdp(b.offer), id = uid(), ts = now();
+  await env.DB.batch([
+    // Un seul appel à la fois par demande
+    env.DB.prepare("UPDATE calls SET status = CASE WHEN status='ringing' THEN 'missed' ELSE 'ended' END, ended_at=? WHERE ticket_id=? AND status IN ('ringing','active')").bind(ts, t.id),
+    env.DB.prepare("INSERT INTO calls (id,ticket_id,caller_id,caller_role,video,status,offer,created_at) VALUES (?,?,?,?,?,'ringing',?,?)")
+      .bind(id, t.id, me.id, me.role === "admin" ? "admin" : "user", b.video ? 1 : 0, offer, ts),
+  ]);
+  return json({ call: { id } }, 201);
+}
+async function incomingCalls(env, me) {
+  const since = now() - RING_MS;
+  const sql = me.role === "admin"
+    ? `SELECT c.id, c.ticket_id, c.video, c.created_at, t.subject, u.name AS caller_name, u.company AS caller_company
+       FROM calls c JOIN tickets t ON t.id=c.ticket_id JOIN users u ON u.id=c.caller_id
+       WHERE c.status='ringing' AND c.created_at > ? AND c.caller_role='user' ORDER BY c.created_at DESC LIMIT 5`
+    : `SELECT c.id, c.ticket_id, c.video, c.created_at, t.subject, u.name AS caller_name, u.title AS caller_title
+       FROM calls c JOIN tickets t ON t.id=c.ticket_id JOIN users u ON u.id=c.caller_id
+       WHERE c.status='ringing' AND c.created_at > ? AND c.caller_role='admin' AND t.user_id = ? ORDER BY c.created_at DESC LIMIT 5`;
+  const st = env.DB.prepare(sql);
+  const { results } = await (me.role === "admin" ? st.bind(since) : st.bind(since, me.id)).all();
+  return json({ calls: results.map((c) => ({ ...c, video: !!c.video })) });
+}
+async function getCall(id, env, me) {
+  const c = await loadCall(env, id, me);
+  const out = callPub(c);
+  if (c.callerSide) out.answer = c.answer || null;
+  else if (c.status === "ringing") out.offer = c.offer;
+  return json({ call: out });
+}
+async function answerCall(id, req, env, me) {
+  const c = await loadCall(env, id, me);
+  if (c.callerSide) fail(400, "Vous ne pouvez pas répondre à votre propre appel");
+  if (c.status !== "ringing") fail(409, c.status === "active" ? "Quelqu'un a déjà répondu" : "L'appel est terminé");
+  const b = await readJson(req, MAX_SDP + 2000);
+  const r = await env.DB.prepare("UPDATE calls SET status='active', answer=?, callee_id=?, answered_at=? WHERE id=? AND status='ringing'")
+    .bind(sdp(b.answer), me.id, now(), id).run();
+  if (!r.meta.changes) fail(409, "Quelqu'un a déjà répondu");
+  return json({ ok: true });
+}
+const dur = (ms) => { const s = Math.max(1, Math.round(ms / 1000)); return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`; };
+async function endCall(id, req, env, me) {
+  const c = await loadCall(env, id, me);
+  if (!["ringing", "active"].includes(c.status)) return json({ ok: true, status: c.status });
+  const b = await readJson(req);
+  const ts = now();
+  const status = c.status === "active" ? "ended" : c.callerSide ? "missed" : b.reason === "declined" ? "declined" : "missed";
+  const r = await env.DB.prepare("UPDATE calls SET status=?, ended_at=?, offer=NULL, answer=NULL WHERE id=? AND status IN ('ringing','active')").bind(status, ts, id).run();
+  if (r.meta.changes) {
+    // Trace dans l'historique de la demande
+    const kind = c.video ? "Appel vidéo" : "Appel audio";
+    const body = status === "ended" ? `📞 ${kind} · durée ${dur(ts - c.answered_at)}` : status === "declined" ? `📞 ${kind} refusé` : `📞 ${kind} manqué`;
+    await env.DB.prepare("INSERT INTO messages (id,ticket_id,sender_id,body,created_at) VALUES (?,?,?,?,?)").bind(uid(), c.ticket_id, c.caller_id, body, ts).run();
+  }
+  return json({ ok: true, status });
+}
+async function setRecording(id, req, env, me) {
+  const c = await loadCall(env, id, me);
+  if (c.status !== "active") fail(409, "L'appel n'est pas en cours");
+  const b = await readJson(req);
+  await env.DB.prepare("UPDATE calls SET recording=? WHERE id=?").bind(b.on ? 1 : 0, id).run();
   return json({ ok: true });
 }
 

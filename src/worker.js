@@ -89,6 +89,8 @@ async function route(req, env, ctx) {
   if ((r = p.match(/^\/api\/calls\/([0-9a-f-]{36})\/answer$/)) && m === "POST") return answerCall(r[1], req, env, me);
   if ((r = p.match(/^\/api\/calls\/([0-9a-f-]{36})\/end$/)) && m === "POST") return endCall(r[1], req, env, me);
   if ((r = p.match(/^\/api\/calls\/([0-9a-f-]{36})\/recording$/)) && m === "POST") return setRecording(r[1], req, env, me);
+  if ((r = p.match(/^\/api\/calls\/([0-9a-f-]{36})\/ask-screen$/)) && m === "POST") return askScreen(r[1], env, me);
+  if (p === "/api/recordings" && m === "GET") return listRecordings(env, me);
 
   if (p.startsWith("/api/admin/")) {
     if (me.role !== "admin") return json({ error: "Accès réservé à l'administrateur" }, 403);
@@ -582,7 +584,25 @@ async function loadCall(env, id, me) {
   c.callerSide = callerSide;
   return c;
 }
-const callPub = (c) => ({ id: c.id, ticket_id: c.ticket_id, video: !!c.video, status: c.status, recording: !!c.recording, answered_at: c.answered_at });
+const callPub = (c) => ({ id: c.id, ticket_id: c.ticket_id, video: !!c.video, status: c.status, recording: !!c.recording, answered_at: c.answered_at, ask_screen: c.ask_screen || 0 });
+// Le consultant demande au client de partager son écran (réparation en direct)
+async function askScreen(id, env, me) {
+  const c = await loadCall(env, id, me);
+  if (me.role !== "admin") fail(403, "Réservé à l'équipe");
+  if (c.status !== "active") fail(409, "L'appel n'est pas en cours");
+  await env.DB.prepare("UPDATE calls SET ask_screen=? WHERE id=?").bind(now(), id).run();
+  return json({ ok: true });
+}
+// Toutes les vidéos et enregistrements (écran, appels, vidéos envoyées)
+async function listRecordings(env, me) {
+  const where = "a.message_id IS NOT NULL AND (a.mime LIKE 'video/%' OR a.original_name LIKE 'enregistrement-%')";
+  const sql = `SELECT a.id, a.mime, a.size, a.original_name AS name, a.created_at, a.ticket_id, t.subject, u.name AS user_name, u.company AS user_company, o.name AS by_name, o.role AS by_role
+    FROM attachments a JOIN tickets t ON t.id = a.ticket_id JOIN users u ON u.id = t.user_id JOIN users o ON o.id = a.owner_id
+    WHERE ${where} ${me.role === "admin" ? "" : "AND t.user_id = ?"} ORDER BY a.created_at DESC LIMIT 200`;
+  const st = env.DB.prepare(sql);
+  const { results } = await (me.role === "admin" ? st : st.bind(me.id)).all();
+  return json({ recordings: results });
+}
 async function startCall(ticketId, req, env, me) {
   const t = await loadTicket(env, ticketId, me);
   const b = await readJson(req, MAX_SDP + 2000);

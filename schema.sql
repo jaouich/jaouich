@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS calls (
   offer       TEXT,
   answer      TEXT,
   recording   INTEGER NOT NULL DEFAULT 0,
+  ask_screen  INTEGER NOT NULL DEFAULT 0,   -- le consultant demande l'écran du client (horodatage)
   created_at  INTEGER NOT NULL,
   answered_at INTEGER,
   ended_at    INTEGER

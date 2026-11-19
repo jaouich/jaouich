@@ -258,6 +258,19 @@ const mpold = (await A("/api/uploads/mp", { method: "POST", body: { type: "video
 env.DB.db.prepare("UPDATE multipart_uploads SET created_at = 0").run();
 ok("envoi annulé proprement");
 
+console.log("Écran & appel");
+const cs = (await ADM(`/api/tickets/${tid}/calls`, { method: "POST", body: { video: true, offer: SDP } })).data.call.id;
+assert.equal((await ADM(`/api/calls/${cs}/ask-screen`, { method: "POST" })).status, 409);
+await A(`/api/calls/${cs}/answer`, { method: "POST", body: { answer: SDP } });
+assert.equal((await A(`/api/calls/${cs}/ask-screen`, { method: "POST" })).status, 403);
+assert.equal((await ADM(`/api/calls/${cs}/ask-screen`, { method: "POST" })).status, 200);
+assert.ok((await A("/api/calls/" + cs)).data.call.ask_screen > 0);
+await ADM(`/api/calls/${cs}/end`, { method: "POST", body: {} });
+ok("le consultant demande l'écran du client pendant l'appel");
+const recA = (await A("/api/recordings")).data.recordings, recB = (await Bc("/api/recordings")).data.recordings, recAdm = (await ADM("/api/recordings")).data.recordings;
+assert.ok(recA.some((r) => r.id === mpid)); assert.equal(recB.length, 0); assert.ok(recAdm.length >= recA.length);
+ok("galerie des vidéos : chacun ne voit que les siennes, l'admin voit tout");
+
 console.log("Nettoyage");
 const pend = await A.upload(png, "image/png");
 env.DB.db.prepare("UPDATE attachments SET created_at = 0 WHERE message_id IS NULL").run();

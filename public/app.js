@@ -19,6 +19,7 @@ const EXT = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "im
 const ALLOWED = new Set(Object.values(EXT));
 
 let ME = null;
+let RENDER = 0;   // évite qu'un ancien affichage (encore en chargement) remplace le nouveau
 let pollTimer = null;
 
 // ---------- Outils ----------
@@ -50,6 +51,8 @@ const ICONS = {
   screen: "M2 4h20v12H2z M8 20h8 M12 16v4",
   hang: "M10.7 13.3a16 16 0 0 0 3.3 2.5l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 4.2 2 2 0 0 1 5 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.4 2.1L9 9.9 M23 1L1 23",
   rec: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+  flip: "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 0 0 5.64 5.64L1 10 M3.51 15A9 9 0 0 0 18.36 18.36L23 14",
+  full: "M8 3H5a2 2 0 0 0-2 2v3 M21 8V5a2 2 0 0 0-2-2h-3 M3 16v3a2 2 0 0 0 2 2h3 M16 21h3a2 2 0 0 0 2-2v-3",
 };
 function icon(name) {
   const NS = "http://www.w3.org/2000/svg";
@@ -394,8 +397,8 @@ function showBar(active) {
   $("#bar").hidden = false;
   $("#whoName").textContent = ME.name + (ME.role === "admin" ? " · " + (ME.title || "Admin") : "");
   const links = ME.role === "admin"
-    ? [["/", "Demandes"], ["/clients", "Clients"], ["/profil", "Mon profil"]]
-    : [["/", "Mes demandes"], ["/new", "Nouvelle demande"], ["/profil", "Mon profil"]];
+    ? [["/", "Demandes"], ["/live", "Écran & appel"], ["/clients", "Clients"], ["/profil", "Mon profil"]]
+    : [["/", "Mes demandes"], ["/new", "Nouvelle demande"], ["/live", "Écran & appel"], ["/profil", "Mon profil"]];
   $("#nav").replaceChildren(...links.map(([p, l]) => h("a", { href: "#" + p, class: active === p ? "on" : null }, l)));
 }
 
@@ -501,8 +504,10 @@ async function viewTicket(id) {
   showBar(null);
   const admin = ME.role === "admin";
   let d;
+  const tok = RENDER;
   try { d = await api("/api/tickets/" + id); }
-  catch (e) { mount(h("div", { class: "stack" }, h("a", { href: "#/" }, "← Retour"), h("div", { class: "err" }, e.message))); return; }
+  catch (e) { if (tok === RENDER) mount(h("div", { class: "stack" }, h("a", { href: "#/" }, "← Retour"), h("div", { class: "err" }, e.message))); return; }
+  if (tok !== RENDER) return;
 
   const thread = h("div", { class: "thread" });
   const aside = h("aside", { class: "stack" });
@@ -566,7 +571,12 @@ async function viewTicket(id) {
   const peer = admin ? (d.owner ? d.owner.name : "Client") : "Magiscom Tech";
   const callBtns = h("div", { class: "row tight callbtns" },
     h("button", { class: "btn sm call-v", type: "button", onclick: () => startCall(id, true, peer) }, icon("video"), "Appel vidéo"),
-    h("button", { class: "btn sm", type: "button", onclick: () => startCall(id, false, peer) }, icon("phone"), "Appel audio"));
+    h("button", { class: "btn sm", type: "button", onclick: () => startCall(id, false, peer) }, icon("phone"), "Appel audio"),
+    admin ? h("button", { class: "btn sm", type: "button", title: "Appel vidéo, puis le client est invité à partager son écran", onclick: () => startCall(id, true, peer, { askScreen: true }) }, icon("screen"), "Appel + écran du client")
+      : !IS_MOBILE && navigator.mediaDevices?.getDisplayMedia ? h("button", { class: "btn sm", type: "button", title: "Appeler le support en montrant votre écran", onclick: async () => {
+        let t; try { t = (await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15 }, width: { max: 1920 } }, audio: false })).getVideoTracks()[0]; } catch { return; }
+        startCall(id, true, peer, { screenTrack: t });
+      } }, icon("screen"), "Appeler en montrant mon écran") : null);
   if (!window.RTCPeerConnection || !navigator.mediaDevices?.getUserMedia) callBtns.hidden = true;
   mount(h("div", { class: "stack" },
     h("a", { href: admin ? "#/" : "#/" }, "← Retour"),
@@ -784,19 +794,41 @@ function callOverlay(s) {
   const bScr = ctl("screen", "Écran", () => toggleScreen(s));
   const bRec = ctl("rec", "Enregistrer", () => toggleRecord(s));
   const bEnd = ctl("hang", "Raccrocher", () => hangup(s), "end");
-  if (!navigator.mediaDevices?.getDisplayMedia) bScr.hidden = true;
+  const bAsk = ctl("screen", "Demander l'écran", () => askClientScreen(s), "ask");
+  const bFlip = ctl("flip", "Retourner", () => flipCam(s));
+  const bFull = ctl("full", "Plein écran", () => { const d = document; if (d.fullscreenElement) d.exitFullscreen?.(); else s.el.requestFullscreen?.().catch(() => {}); });
+  bAsk.hidden = !ME || ME.role !== "admin";
+  bFlip.hidden = !IS_MOBILE;
+  bFull.hidden = IS_MOBILE || !document.documentElement.requestFullscreen;
+  const ask = h("div", { class: "call-ask", hidden: true });
+  if (!navigator.mediaDevices?.getDisplayMedia || IS_MOBILE) bScr.hidden = true;
   if (!window.MediaRecorder) bRec.hidden = true;
   const el = h("div", { class: "call", role: "dialog", "aria-label": "Appel en cours" },
     remoteV,
     h("div", { class: "call-ph" }, h("div", { class: "call-av" }, s.peer === "Magiscom Tech" ? h("img", { src: "/icon.png", alt: "" }) : initials(s.peer)), h("b", null, s.peer), state),
     localV,
     h("div", { class: "call-top" }, h("b", null, (s.video ? "Appel vidéo" : "Appel audio") + " · " + s.peer), timer, recFlag),
-    h("div", { class: "call-ctl" }, bMic, bCam, bScr, bRec, bEnd));
+    ask,
+    h("div", { class: "call-ctl" }, bMic, bCam, bFlip, bScr, bAsk, bRec, bFull, bEnd));
   document.body.append(el);
-  Object.assign(s, { el, remoteV, localV, state, timer, recFlag, bMic, bCam, bScr, bRec });
+  Object.assign(s, { el, remoteV, localV, state, timer, recFlag, bMic, bCam, bScr, bRec, ask, bAsk });
   remoteV.srcObject = s.remote;
 }
 function setState(s, text) { s.state.textContent = text; s.state.hidden = !text; }
+// Partage d'écran net et lisible (texte d'EBP / Sage) plutôt que fluide
+async function tuneVideo(s) {
+  if (!s.vT) return;
+  try {
+    const t = s.screenTrack || s.camTrack;
+    if (s.screenTrack) s.screenTrack.contentHint = "detail";
+    const p = s.vT.sender.getParameters();
+    if (!p.encodings || !p.encodings.length) return;
+    p.degradationPreference = s.screenTrack ? "maintain-resolution" : "balanced";
+    p.encodings[0].maxBitrate = s.screenTrack ? 2500000 : 1200000;
+    if (s.screenTrack) p.encodings[0].maxFramerate = 15;
+    await s.vT.sender.setParameters(p);
+  } catch {}
+}
 function refreshLocal(s) {
   const v = s.screenTrack || s.camTrack;
   s.localV.hidden = !v;
@@ -820,7 +852,7 @@ function newPc(s, ice) {
   pc.onconnectionstatechange = () => {
     const st = pc.connectionState;
     if (st === "connected") {
-      setState(s, "");
+      setState(s, ""); tuneVideo(s);
       if (!s.startedAt) { s.startedAt = Date.now(); s.tick = setInterval(() => (s.timer.textContent = clock((Date.now() - s.startedAt) / 1000)), 1000); }
     } else if (st === "disconnected") setState(s, "Connexion instable…");
     else if (st === "failed") { setState(s, "Connexion impossible : le réseau bloque l'appel. Essayez en Wi-Fi."); setTimeout(() => hangup(s), 5000); }
@@ -836,22 +868,27 @@ async function getMedia(video) {
 function session(ticketId, video, peer) {
   return { ticketId, video, peer, remote: new MediaStream(), micTrack: null, camTrack: null, screenTrack: null, ended: false };
 }
-async function startCall(ticketId, video, peer) {
-  if (CALL.cur) return toast("Un appel est déjà en cours");
+async function startCall(ticketId, video, peer, opts = {}) {
+  if (CALL.cur) { opts.screenTrack && opts.screenTrack.stop(); return toast("Un appel est déjà en cours"); }
   const s = session(ticketId, video, peer);
+  s.askScreenAfter = !!opts.askScreen;
   CALL.cur = s;
   callOverlay(s);
   try {
-    const media = await getMedia(video);
+    const media = await getMedia(video && !opts.screenTrack);
     s.micTrack = media.getAudioTracks()[0]; s.camTrack = media.getVideoTracks()[0] || null;
-  } catch (e) { toast(mediaError(e)); return closeCall(s); }
+  } catch (e) { opts.screenTrack && opts.screenTrack.stop(); toast(mediaError(e)); return closeCall(s); }
+  if (opts.screenTrack) {
+    s.screenTrack = opts.screenTrack; s.screenTrack.contentHint = "detail";
+    s.screenTrack.onended = () => { if (s.screenTrack) toggleScreen(s); };
+  }
   refreshLocal(s);
   setState(s, "Connexion…");
   const pc = newPc(s, await iceServers());
   s.aT = pc.addTransceiver("audio", { direction: "sendrecv" });
   s.vT = pc.addTransceiver("video", { direction: "sendrecv" });   // toujours présent : permet d'activer la caméra ou de partager l'écran pendant l'appel
   await s.aT.sender.replaceTrack(s.micTrack);
-  if (s.camTrack) await s.vT.sender.replaceTrack(s.camTrack);
+  if (s.screenTrack || s.camTrack) await s.vT.sender.replaceTrack(s.screenTrack || s.camTrack);
   await pc.setLocalDescription(await pc.createOffer());
   await waitIce(pc);
   if (s.ended) return;
@@ -873,6 +910,8 @@ async function pollCall(s) {
       clearInterval(s.poll); s.poll = setInterval(() => pollCall(s), 3000);
     }
     s.recFlag.hidden = !call.recording && !s.rec;
+    if (ME.role !== "admin" && call.ask_screen && call.ask_screen !== s.askSeen) { s.askSeen = call.ask_screen; showAskScreen(s); }
+    if (s.askScreenAfter && call.status === "active" && s.startedAt) { s.askScreenAfter = false; askClientScreen(s, true); }
     if (["ended", "missed", "declined"].includes(call.status)) {
       toast(call.status === "declined" ? "Appel refusé" : call.status === "missed" ? "Pas de réponse" : "Appel terminé");
       closeCall(s);
@@ -926,12 +965,13 @@ async function toggleCam(s) {
 }
 async function toggleScreen(s) {
   if (!s.vT) return;
-  if (s.screenTrack) { s.screenTrack.stop(); s.screenTrack = null; await s.vT.sender.replaceTrack(s.camTrack); return refreshLocal(s); }
+  if (s.screenTrack) { s.screenTrack.stop(); s.screenTrack = null; await s.vT.sender.replaceTrack(s.camTrack); refreshLocal(s); return tuneVideo(s); }
   try { s.screenTrack = (await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })).getVideoTracks()[0]; }
   catch { return; }
   s.screenTrack.onended = () => { if (s.screenTrack) toggleScreen(s); };
+  s.screenTrack.contentHint = "detail";
   await s.vT.sender.replaceTrack(s.screenTrack);
-  refreshLocal(s);
+  refreshLocal(s); tuneVideo(s);
 }
 // Enregistrement de l'appel : les deux voix (et l'image de l'autre personne), joint ensuite à la demande
 async function toggleRecord(s) {
@@ -1252,9 +1292,171 @@ const VC = {
       h("div", { class: "row" }, send, h("button", { class: "btn", type: "button", onclick: () => this.start() }, "Recommencer")));
   },
 };
+
+// ---------- Réparation en direct : écran du client ----------
+const IS_MOBILE = /android|iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+async function askClientScreen(s, auto) {
+  if (!s.id) return;
+  try { await api(`/api/calls/${s.id}/ask-screen`, { method: "POST" }); toast(auto ? "Le client est invité à partager son écran" : "Demande envoyée au client"); }
+  catch (e) { if (!auto) toast(e.message); }
+}
+function showAskScreen(s) {
+  const close = () => { s.ask.hidden = true; s.ask.replaceChildren(); };
+  if (s.screenTrack) return;
+  if (IS_MOBILE || !navigator.mediaDevices?.getDisplayMedia) {
+    s.ask.replaceChildren(h("b", null, "Le consultant voudrait voir votre écran."),
+      h("span", null, "Sur téléphone, le partage d'écran n'est pas possible : filmez l'écran de l'ordinateur avec la caméra arrière."),
+      h("div", { class: "row tight" }, h("button", { class: "btn sm ring-yes", type: "button", onclick: async () => { close(); if (!s.camTrack) await toggleCam(s); if (s.facing !== "environment") await flipCam(s); } }, "Caméra arrière"), h("button", { class: "btn sm", type: "button", onclick: close }, "Plus tard")));
+  } else {
+    s.ask.replaceChildren(h("b", null, "Le consultant demande à voir votre écran pour vous aider."),
+      h("span", null, "Choisissez tout l'écran ou la fenêtre du logiciel (EBP, Sage…)."),
+      h("div", { class: "row tight" }, h("button", { class: "btn sm ring-yes", type: "button", onclick: () => { close(); toggleScreen(s); } }, "Partager mon écran"), h("button", { class: "btn sm", type: "button", onclick: close }, "Non merci")));
+  }
+  s.ask.hidden = false;
+  try { navigator.vibrate && navigator.vibrate(200); } catch {}
+}
+async function flipCam(s) {
+  if (!s.vT) return;
+  const facing = s.facing === "environment" ? "user" : "environment";
+  let t;
+  try { t = (await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1280 } } })).getVideoTracks()[0]; }
+  catch (e) { return toast(mediaError(e)); }
+  s.camTrack && s.camTrack.stop();
+  s.camTrack = t; s.facing = facing;
+  if (!s.screenTrack) await s.vT.sender.replaceTrack(t);
+  refreshLocal(s);
+  s.localV.classList.toggle("mirror", facing === "user");
+}
+
+// ---------- Onglet « Écran & appel » ----------
+async function ticketChooser(admin) {
+  let tickets = [];
+  try { tickets = (await api("/api/tickets")).tickets; } catch {}
+  const openFirst = [...tickets].sort((a, b) => (a.status === "resolved") - (b.status === "resolved") || b.updated_at - a.updated_at);
+  const sel = h("select", { "aria-label": "Demande concernée" },
+    admin ? null : h("option", { value: "new" }, "➕ Nouveau problème"),
+    openFirst.map((t) => h("option", { value: t.id }, (admin ? t.user_name + (t.user_company ? " (" + t.user_company + ")" : "") + " · " : "") + t.subject + " — " + STATUS[t.status])));
+  const title = h("input", { maxlength: 150, placeholder: "En deux mots : quel est le problème ?", "aria-label": "Problème" });
+  const titleBox = h("label", { class: "f" }, "Problème", title);
+  const sync = () => (titleBox.hidden = sel.value !== "new");
+  sel.addEventListener("change", sync); sync();
+  if (!admin && tickets.length && location.hash.includes("?t=")) { sel.value = location.hash.split("?t=")[1]; sync(); }
+  const peerOf = (id) => { const t = tickets.find((x) => x.id === id); return admin ? (t ? t.user_name : "Client") : "Magiscom Tech"; };
+  return {
+    el: h("div", { class: "stack" }, h("label", { class: "f" }, admin ? "Client et demande" : "Pour quelle demande ?", sel), admin ? null : titleBox),
+    count: () => tickets.length,
+    peer: () => peerOf(sel.value),
+    async id() {
+      if (sel.value !== "new") return sel.value;
+      const subject = title.value.trim() || "Assistance en direct";
+      const r = await api("/api/tickets", { method: "POST", body: { subject: subject.length < 3 ? "Assistance en direct" : subject, category: "autre", body: "Demande d'assistance en direct (écran / appel vidéo)." } });
+      tickets.unshift({ id: r.ticket.id, subject, status: "open" });
+      sel.prepend(h("option", { value: r.ticket.id }, subject + " — Ouvert")); sel.value = r.ticket.id; sync();
+      return r.ticket.id;
+    },
+  };
+}
+function recCard(r, admin) {
+  const src = (window.MagisDeskHooks?.mediaUrl ? window.MagisDeskHooks.mediaUrl(r.id) : "/api/media/" + r.id);
+  const kind = r.name.startsWith("enregistrement-ecran") ? "🖥 Écran" : r.name.startsWith("enregistrement-appel") ? "⏺ Appel" : "🎬 Vidéo";
+  const media = r.mime.startsWith("audio/") ? h("div", { class: "aud" }, h("audio", { src, controls: true, preload: "none" })) : h("video", { src: src + "#t=0.5", controls: true, preload: "metadata", playsinline: true });
+  return h("div", { class: "rc card" }, media,
+    h("div", { class: "rc-meta" }, h("span", { class: "rc-kind" }, kind), h("a", { href: "#/t/" + r.ticket_id }, r.subject),
+      h("span", { class: "muted small" }, (admin ? r.user_name + (r.user_company ? " · " + r.user_company : "") + " · " : "") + fmtDate(r.created_at) + " · " + fmtSize(r.size)),
+      h("a", { class: "small", href: src + "?download", download: r.name }, "Télécharger")));
+}
+async function viewLive() {
+  showBar("/live");
+  const admin = ME.role === "admin";
+  const tok = RENDER;
+  const chooser = await ticketChooser(admin);
+  if (tok !== RENDER) return;
+  const err = errBox();
+  const busy = (b, on, txt) => { b.disabled = on; if (txt) b.lastChild.textContent = txt; };
+  const big = (ic, label, cls = "") => h("button", { class: "btn bigbtn " + cls, type: "button" }, icon(ic), h("span", null, label));
+
+  // 1. Appel + écran
+  const bShareCall = big("screen", admin ? "Appel vidéo + demander son écran" : "Appeler et montrer mon écran", "primary");
+  const bVideo = big("video", "Appel vidéo");
+  const bAudio = big("phone", "Appel audio");
+  if (!admin && (IS_MOBILE || !navigator.mediaDevices?.getDisplayMedia)) bShareCall.hidden = true;
+  const call = async (b, video, mode) => {
+    err.hidden = true;
+    let screenTrack = null;
+    if (mode === "share") {
+      // Le choix de l'écran se fait tout de suite (le navigateur l'exige juste après le clic)
+      try { screenTrack = (await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15 }, width: { max: 1920 } }, audio: false })).getVideoTracks()[0]; }
+      catch { return; }
+    }
+    busy(b, true);
+    try { const id = await chooser.id(); startCall(id, video, chooser.peer(), { screenTrack, askScreen: mode === "ask" }); }
+    catch (e) { screenTrack && screenTrack.stop(); showErr(err, e); }
+    busy(b, false);
+  };
+  bShareCall.onclick = () => call(bShareCall, true, admin ? "ask" : "share");
+  bVideo.onclick = () => call(bVideo, true);
+  bAudio.onclick = () => call(bAudio, false);
+
+  // 2. Enregistrer l'écran
+  const bRecord = big("rec", "Enregistrer mon écran");
+  const recNote = h("p", { class: "muted small" }, "L'écran et votre voix, même plus d'une heure. La vidéo est ajoutée à la demande.");
+  if (!canRecordScreen()) { bRecord.hidden = true; recNote.textContent = "Sur téléphone : utilisez l'enregistreur d'écran du téléphone (ou AZ Screen Recorder), puis ajoutez la vidéo dans la demande avec 📎 (jusqu'à 5 Go)."; }
+  bRecord.onclick = async () => {
+    err.hidden = true;
+    let id;
+    try { id = await chooser.id(); } catch (e) { return showErr(err, e); }
+    startScreenRecording(async (att) => {
+      try {
+        await api(`/api/tickets/${id}/messages`, { method: "POST", body: { body: "🖥 Enregistrement de l'écran" + (att.duration ? " · " + clock(att.duration) : ""), attachments: [att.id] } });
+        toast("Vidéo ajoutée à la demande"); if (location.hash.startsWith("#/live")) router();
+      } catch (e) { SCR.orphans.push(att); toast("Vidéo prête, mais non envoyée : " + e.message); }
+    });
+  };
+
+  // 3. Prise en main à distance (AnyDesk / RustDesk)
+  const rid = h("input", { inputmode: "numeric", maxlength: 40, placeholder: "Ex. : 123 456 789", "aria-label": "Identifiant AnyDesk ou RustDesk" });
+  const bRid = h("button", { class: "btn", type: "button" }, "Envoyer l'identifiant");
+  bRid.onclick = async () => {
+    err.hidden = true;
+    const v = rid.value.trim();
+    if (!/^[0-9a-z@ .\-]{6,40}$/i.test(v)) return showErr(err, new Error("Saisissez l'identifiant affiché dans AnyDesk ou RustDesk"));
+    bRid.disabled = true;
+    try { const id = await chooser.id(); await api(`/api/tickets/${id}/messages`, { method: "POST", body: { body: "🖱 Prise en main à distance · identifiant : " + v } }); rid.value = ""; toast("Identifiant envoyé au consultant"); }
+    catch (e) { showErr(err, e); }
+    bRid.disabled = false;
+  };
+
+  const gallery = h("div", { class: "rgrid" }, h("p", { class: "muted" }, "Chargement…"));
+  const loadGallery = async () => {
+    try {
+      const { recordings } = await api("/api/recordings");
+      gallery.replaceChildren(...(recordings.length ? recordings.map((r) => recCard(r, admin)) : [emptyState("video", admin ? "Aucune vidéo pour le moment." : "Vos enregistrements d'écran et d'appels apparaîtront ici.")]));
+    } catch (e) { gallery.replaceChildren(h("div", { class: "err" }, e.message)); }
+  };
+  const step = (n, title, text, ...kids) => h("section", { class: "card stack live-card" }, h("div", { class: "row tight" }, h("span", { class: "live-n" }, n), h("h2", null, title)), text ? h("p", { class: "muted small" }, text) : null, ...kids);
+  mount(h("div", { class: "stack" },
+    h("div", { class: "live-hero" }, h("div", null, h("h1", null, admin ? "Assistance en direct" : "Écran & appel"),
+      h("p", { class: "sub" }, admin ? "Appelez un client, voyez son écran et réglez le problème avec lui, en direct." : "Montrez-nous votre écran en direct ou en vidéo : nous réglons le problème avec vous."))),
+    h("div", { class: "card stack" }, chooser.el, err),
+    h("div", { class: "live-grid" },
+      step("1", admin ? "Appel avec partage d'écran" : "Réparation en direct",
+        admin ? "Le téléphone ou l'ordinateur du client sonne. Une fois connecté, il est invité à partager son écran : vous voyez EBP ou Sage comme lui." : "Un consultant voit votre écran pendant l'appel et vous guide pas à pas. Choisissez tout l'écran ou la fenêtre du logiciel.",
+        h("div", { class: "stack tight" }, bShareCall, h("div", { class: "row tight" }, bVideo, bAudio)),
+        !admin && IS_MOBILE ? h("p", { class: "muted small" }, "Sur téléphone : lancez un appel vidéo et filmez l'écran de l'ordinateur avec la caméra arrière (bouton « Retourner »).") : null),
+      admin ? null : step("2", "Filmer mon écran", null, recNote, bRecord),
+      step(admin ? "2" : "3", "Prise en main à distance", admin ? "Pour prendre le contrôle du poste du client : il installe AnyDesk ou RustDesk et vous envoie son identifiant depuis cet onglet. Il apparaît dans sa demande." : "Pour que le consultant contrôle votre ordinateur : ouvrez AnyDesk ou RustDesk et envoyez l'identifiant affiché.",
+        admin ? null : h("div", { class: "row tight" }, rid, bRid),
+        h("p", { class: "small" }, h("a", { href: "https://anydesk.com/fr/downloads", target: "_blank", rel: "noopener" }, "Télécharger AnyDesk"), " · ", h("a", { href: "https://rustdesk.com/fr/", target: "_blank", rel: "noopener" }, "RustDesk (gratuit)")))),
+    h("div", { class: "row between" }, h("h2", null, admin ? "Toutes les vidéos des clients" : "Mes vidéos"), h("button", { class: "btn sm", type: "button", onclick: loadGallery }, "Actualiser")),
+    gallery));
+  if (!chooser.count() && admin) showErr(err, new Error("Aucune demande pour le moment."));
+  loadGallery();
+}
+
 // ---------- Routeur ----------
 async function router() {
   clearInterval(pollTimer); pollTimer = null;
+  RENDER++;
   VA.ctx = null; VC.ticketId = null;
   const path = location.hash.slice(1) || "/";
   if (!ME) {
@@ -1270,6 +1472,7 @@ async function router() {
   let m;
   if (path === "/new" && !admin) return viewNew();
   if (path === "/profil") return viewProfile();
+  if (path === "/live" || path.startsWith("/live?")) return viewLive();
   if ((m = path.match(/^\/t\/([0-9a-f-]{36})$/))) return viewTicket(m[1]);
   if (admin && path === "/clients") return viewClients();
   if (admin && (m = path.match(/^\/client\/([0-9a-f-]{36})$/))) return viewAdmin({ user: m[1] });

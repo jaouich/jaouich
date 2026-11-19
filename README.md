@@ -107,3 +107,7 @@ npm run deploy
 - **Longues vidéos du téléphone** (AZ Screen Recorder, enregistreur intégré) : ajoutées avec 📎, jusqu'à 5 Go, envoyées en morceaux de 10 Mo (reprise automatique si un morceau échoue).
 - **Enregistrement des appels** : même envoi en morceaux, jusqu'à 4 heures.
 - Coût R2 : 10 Go gratuits, puis environ 0,015 $ par Go et par mois (1 h d'écran ≈ 400 Mo).
+- **Onglet « Écran & appel »** (clients et équipe) : réparation en direct.
+  - Client (ordinateur) : « Appeler et montrer mon écran » : il choisit l'écran, puis le support sonne et voit son écran tout de suite. Sur téléphone : appel vidéo + caméra arrière (« Retourner ») pour filmer l'écran du PC.
+  - Équipe : « Appel vidéo + demander son écran » ; pendant tout appel, le bouton « Demander l'écran » invite le client à partager (colonne D1 `calls.ask_screen`). Partage d'écran en haute netteté (priorité à la résolution), plein écran.
+  - « Filmer mon écran » (enregistrement ajouté à la demande), « Prise en main à distance » (le client envoie son identifiant AnyDesk / RustDesk), galerie de toutes les vidéos (`GET /api/recordings`).

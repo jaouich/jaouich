@@ -212,3 +212,29 @@ textarea{min-height:120px;resize:vertical}
 .scr-time{font-variant-numeric:tabular-nums;font-size:1rem}
 .scr-info{opacity:.75;font-size:.8rem}
 .scr-bar.paused .rec-dot{animation:none;background:#f5a524}
+/* Onglet Écran & appel */
+.nav{overflow-x:auto;scrollbar-width:none;max-width:100%}.nav::-webkit-scrollbar{display:none}
+.live-hero h1{font-size:clamp(1.5rem,4vw,2rem)}
+.live-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;align-items:start}
+.live-card h2{font-size:1.05rem}
+.live-n{width:30px;height:30px;border-radius:50%;background:var(--brand);color:var(--on-brand);display:grid;place-items:center;font-weight:800;flex:none}
+.stack.tight{gap:8px}
+.bigbtn{width:100%;min-height:52px;justify-content:flex-start;padding:12px 16px;font-size:.95rem}
+.row.tight .bigbtn{flex:1;width:auto}
+.btn.primary .ic{color:inherit}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.rc{padding:0;overflow:hidden;display:flex;flex-direction:column}
+.rc video{width:100%;aspect-ratio:16/9;background:#000;display:block;object-fit:contain}
+.rc .aud{margin:12px;max-width:none}
+.rc-meta{display:flex;flex-direction:column;gap:3px;padding:10px 14px 14px}
+.rc-meta a:first-of-type{font-weight:700;color:var(--fg);text-decoration:none}
+.rc-kind{font-size:.75rem;font-weight:800;color:var(--brand);text-transform:uppercase;letter-spacing:.05em}
+/* Demande d'écran pendant l'appel */
+.call-ask{position:absolute;z-index:3;left:50%;top:calc(70px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(520px,calc(100% - 24px));background:#fff;color:#0e1a33;border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 18px 50px rgba(0,0,0,.45);animation:ringin .3s ease-out}
+.call-ask span{color:#5a6784;font-size:.88rem}
+.call-ask .btn:not(.ring-yes){background:#eef1f7;color:#0e1a33;border-color:transparent}
+.call-ask .ring-yes{background:#16a34a;color:#fff;border-color:#16a34a}
+.cbtn.ask .ic{background:rgba(22,163,74,.85)}
+.wrap{padding-bottom:120px}
+.bigbtn{white-space:nowrap}
+.row.tight .bigbtn{padding:12px}

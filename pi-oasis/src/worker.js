@@ -1140,11 +1140,10 @@ const routes = {
     const u = await auth(req, env);
     const now = Date.now(), day = L.dayId(now), E = L.EARN;
     const n = (u.earn_day ?? -1) === day ? Number(u.earn_n) || 0 : 0;
-    if (n >= E.DATES.length) bad("earn.done");
     if (now - (Number(u.earn_at) || 0) < E.GAP) bad("earn.wait");
     if (!(await verifyAd(env, u.uid, body.adId, now))) bad("k.adFail");
     const ads = Number(u.earn_ads) || 0, lvl = L.earnLevel(ads);
-    let dates = Math.round(E.DATES[n] * (1 + E.LEVELS[lvl].x));
+    let dates = Math.round((n < E.DATES.length ? E.DATES[n] : E.AFTER) * (1 + E.LEVELS[lvl].x));
     const bonus = E.BONUS[n + 1] ? { ...E.BONUS[n + 1] } : n + 1 === E.STREAK_ADS ? {} : null;
     // the 5th ad of the day keeps the daily streak going
     let streak = null;

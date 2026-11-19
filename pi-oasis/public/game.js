@@ -614,7 +614,7 @@
   function renderFunBadges() {
     $("whBadge").textContent = !account ? "" : account.wheelFree ? t("wh.freeNow") : account.wheelSpins ? t("wh.left", { n: account.wheelSpins }) : t("wh.tomorrow");
     $("whBadge").classList.toggle("hot", !!(account && (account.wheelFree || account.wheelSpins)));
-    $("earnBadge").textContent = !account ? t("earn.badge") : account.earnN >= L.EARN.DATES.length ? t("earn.doneToday") : t("earn.badgeN", { n: account.earnN, max: L.EARN.DATES.length });
+    $("earnBadge").textContent = !account ? t("earn.badge") : t("earn.badgeN", { n: account.earnN, max: "∞" });
     $("mkBadge").textContent = account && account.mkBalance > 0 ? fmtN(+account.mkBalance.toFixed(2)) + " π" : t("mk.badge");
   }
   function renderWheel() {
@@ -663,10 +663,10 @@
   let jmOpen = false, jmAds = null, jmTop = null, jmBusy = false, jmTimer = 0;
   function renderMedia() {
     if (!jmOpen) return;
-    const acc = account, n = acc ? acc.earnN : 0, max = E.DATES.length, done = n >= max;
+    const acc = account, n = acc ? acc.earnN : 0, max = E.DATES.length, done = false; // no daily limit
     const wait = acc ? Math.max(0, E.GAP - (now() - acc.earnAt)) : 0;
     const ads = acc ? acc.earnAds : 0, li = L.earnLevel(ads), lv = E.LEVELS[li], nx = E.LEVELS[li + 1];
-    const mult = 1 + lv.x, next = done ? 0 : Math.round(E.DATES[n] * mult);
+    const mult = 1 + lv.x, next = Math.round((n < max ? E.DATES[n] : E.AFTER) * mult);
     const streak = acc ? acc.earnStreak : 0, sToday = acc && acc.earnStreakToday;
     const bonusTxt = (bn) => [bn.spins ? `🎡+${bn.spins}` : "", bn.coins ? `🪙+${shortN(bn.coins)}` : "", bn.jry ? `JRY+${bn.jry}` : ""].filter(Boolean).join(" ");
     const st = jmAds ? jmAds.s : "check";
@@ -685,9 +685,9 @@
           <button class="jm-ring" data-jm="watch" style="--p:${(100 * n) / max}%" ${can ? "" : "disabled"}>
             <span><i>${done ? "✅" : "▶"}</i><b>${!acc ? t("t.loginFirst") : done ? t("jm.doneToday") : wait > 0 ? t("jm.waitS", { s: Math.ceil(wait / 1000) }) : t("jm.watch")}</b>${!done && acc ? `<small dir="ltr">+${next} 🌴</small>` : ""}</span>
           </button>
-          <div class="jm-count" dir="ltr">${n} / ${max}</div>
+          <div class="jm-count" dir="ltr">${n < max ? `${n} / ${max}` : `${n} · ∞`}</div>
         </div>
-        <div class="jm-steps">${E.DATES.map((d, i) => `<div class="${i < n ? "done" : i === n ? "next" : ""}"><small>${i + 1}</small><b>${Math.round(d * mult)}</b>${E.BONUS[i + 1] ? `<em>${bonusTxt(E.BONUS[i + 1])}</em>` : ""}${i + 1 === E.STREAK_ADS ? `<em>🔥</em>` : ""}</div>`).join("")}</div>
+        <div class="jm-steps">${E.DATES.map((d, i) => `<div class="${i < n ? "done" : i === n ? "next" : ""}"><small>${i + 1}</small><b>${Math.round(d * mult)}</b>${E.BONUS[i + 1] ? `<em>${bonusTxt(E.BONUS[i + 1])}</em>` : ""}${i + 1 === E.STREAK_ADS ? `<em>🔥</em>` : ""}</div>`).join("")}<div class="${n >= max ? "next" : ""} jm-inf"><small>11+</small><b>${Math.round(E.AFTER * mult)}</b><em>∞</em></div></div>
         <div class="jm-cards">
           <div class="jm-card"><div class="jm-ct">${JM_ICON[lv.id]} ${t("jm.lv." + lv.id)} <em>+${Math.round(lv.x * 100)}%</em></div>
             <div class="jm-bar"><i style="width:${nx ? Math.min(100, (100 * (ads - lv.n)) / (nx.n - lv.n)) : 100}%"></i></div>
@@ -741,7 +741,7 @@
 
   // ---------- 🕹️ Jerry Arcade: free skill games that give dates ----------
   const AR = L.ARCADE;
-  let arcInfo = null, arcGame = "", arcStop = null;
+  let arcInfo = null, arcGame = "", arcStop = null, arcPlayers = 0;
   const arcPlays = (g) => (arcInfo && arcInfo.plays[g]) || 0;
   function arcHome() {
     arcGame = ""; if (arcStop) { arcStop(); arcStop = null; }
@@ -751,11 +751,19 @@
     $("arcade").innerHTML = `<header class="jm-head"><button class="jm-back" data-arc="close">‹ ${t("jm.back")}</button><b>🕹️ Jerry <span>Arcade</span></b><span></span></header>
       <div class="jm-body"><p class="arc-intro">${t("ar.intro", { n: AR.PLAYS })}</p>
         ${card("memory", "🧠", arcInfo && arcInfo.best.memory)}${card("catcher", "🧺", arcInfo && arcInfo.best.catcher)}
+        <h4>🔒 ${t("fut.t")}</h4><p class="arc-intro">${t("fut.d")}</p>
+        <div class="fut-grid">${L.FUTURE.map((f) => { const have = arcPlayers || 0, pc = Math.min(100, (100 * have) / f.players);
+          return `<div class="fut ${have >= f.players ? "open" : ""}"><i>${f.e}</i><b>${t("fut." + f.id)}</b><div class="jm-bar"><i style="width:${pc}%"></i></div><small dir="ltr">${fmtN(have)} / ${fmtN(f.players)} 👥</small><small>${have >= f.players ? t("fut.soon") : t("fut.lock", { n: fmtN(f.players - have) })}</small></div>`; }).join("")}</div>
+        <button class="jm-cash" data-arc="share">📣 ${t("fut.share")}</button>
         <div class="jm-top"><b>🧠 ${t("ar.memory.t")} · ${t("ar.today")}</b>${top("memory", t("ar.moves"))}</div>
         <div class="jm-top"><b>🧺 ${t("ar.catcher.t")} · ${t("ar.today")}</b>${top("catcher", "🌴")}</div>
         <p class="jm-note">${t("ar.note")}</p></div>`;
   }
-  async function arcLoad() { if (!account) return; try { arcInfo = await Pi.arcade(); } catch (e) {} if (!arcGame) arcHome(); }
+  async function arcLoad() {
+    try { arcPlayers = (await Pi.stats()).players; } catch (e) {}
+    if (account) { try { arcInfo = await Pi.arcade(); } catch (e) {} }
+    if (!arcGame) arcHome();
+  }
   async function arcClaim(game, score, ms) {
     if (!account) return { txt: t("t.loginFirst") };
     try {
@@ -839,6 +847,7 @@
     const a = b.dataset.arc;
     if (a === "close") { if (arcStop) arcStop(); return $("arcade").classList.add("hidden"); }
     if (a === "home") return arcHome();
+    if (a === "share") { const x = piShare(); const text = t("fut.shareText", { link: x.link, host: x.host }); if (navigator.share) return navigator.share({ text }).catch(() => {}); return navigator.clipboard?.writeText(text).then(() => toast(t("t.copied")), () => {}); }
     if (arcStop) { arcStop(); arcStop = null; }
     if (a === "memory") arcMemory(); else if (a === "catcher") arcCatcher();
   });

@@ -121,6 +121,19 @@
     { id: "crown", e: "👑", r: "epic", max: 50, price: 500000, perk: 0.06 },
     { id: "origins", e: "🦊", r: "legendary", max: 10, price: 3000000, perk: 0.12 },
     { id: "star", e: "⭐", r: "mythic", max: 1, price: 20000000, perk: 0.25 },
+    // second series
+    { id: "jar", e: "🏺", r: "common", max: 1000, price: 15000, perk: 0.01 },
+    { id: "moon", e: "🌙", r: "common", max: 1000, price: 15000, perk: 0.01 },
+    { id: "tea", e: "🍵", r: "common", max: 1000, price: 15000, perk: 0.01 },
+    { id: "drum", e: "🪘", r: "rare", max: 500, price: 80000, perk: 0.03 },
+    { id: "eye", e: "🧿", r: "rare", max: 500, price: 80000, perk: 0.03 },
+    { id: "dune", e: "🏜️", r: "rare", max: 500, price: 80000, perk: 0.03 },
+    { id: "falcon", e: "🦅", r: "epic", max: 200, price: 400000, perk: 0.06 },
+    { id: "gate", e: "🕌", r: "epic", max: 200, price: 400000, perk: 0.06 },
+    { id: "gem", e: "💎", r: "epic", max: 200, price: 400000, perk: 0.06 },
+    { id: "cup", e: "🏆", r: "legendary", max: 50, price: 2500000, perk: 0.12 },
+    { id: "dragon", e: "🐉", r: "legendary", max: 50, price: 2500000, perk: 0.12 },
+    { id: "sun", e: "☀️", r: "mythic", max: 3, price: 15000000, perk: 0.2 },
   ];
   const NFT_FEE = 0.05; // 5% of each sale is burned (fewer coins in the game)
   const NFT_MAX = 0.5;

@@ -1063,3 +1063,11 @@ body.k-open { overflow: hidden; }
 .media h4 { margin: 14px 0 6px; }
 
 .pay-banner { margin: 10px 0; padding: 10px 14px; border-radius: 16px; font-weight: 700; font-size: .88rem; line-height: 1.45; color: #fff; background: linear-gradient(135deg, #7c5cff, #0f6b4a); box-shadow: 0 4px 0 #22105a; }
+
+.jm-inf { border-style: dashed !important; }
+.fut-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.fut { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 16px; background: rgba(255, 255, 255, .07); border: 1px dashed rgba(255, 255, 255, .25); min-width: 0; }
+.fut i { font-style: normal; font-size: 30px; filter: grayscale(.6); }
+.fut.open { border: 1px solid #ffd34d; }
+.fut.open i { filter: none; }
+.fut small { font-size: .7rem; opacity: .85; }

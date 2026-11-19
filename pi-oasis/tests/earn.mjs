@@ -21,7 +21,8 @@ for (let i = 6; i <= 10; i++) { await skip(); r = await post("/api/earn/ad", { a
 ok(r.ok && r.dates === 200 && r.account.jryPts === 5 && r.state.kombat.coins >= 20000, "10th ad: +200 dates, 20,000 coins and 5 JRY");
 ok(r.state.dates === d0 + 1150 && r.account.earnTotal === 1150 && r.account.earnAds === 10, "10 ads = 1,150 dates in total (with the streak bonus)");
 await skip();
-ok((await post("/api/earn/ad", { adId: "goodE11" }, H)).error === "earn.done", "10 ads a day at most");
+r = await post("/api/earn/ad", { adId: "goodE11" }, H);
+ok(r.ok && r.dates === 50 && r.n === 11, "no daily limit: the 11th ad still gives 50 dates");
 await exec("UPDATE users SET earn_day = earn_day - 1 WHERE uid='uB'");
 ok((await me()).account.earnN === 0, "the counter starts again the next day");
 await exec("UPDATE users SET earn_sday = earn_sday - 1, earn_ads = 30 WHERE uid='uB'");

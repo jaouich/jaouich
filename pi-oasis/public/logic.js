@@ -485,7 +485,8 @@
   // DATES[i] = reward of the (i+1)th ad of the day; BONUS at the 5th and 10th ad; GAP between ads.
   // LEVELS: viewer level by lifetime ads watched (x = extra dates per ad). STREAK: days in a row
   // with STREAK_ADS ads; the streak bonus is STREAK_DATES × days (up to STREAK_MAX days).
-  const EARN = { GAP: 45000, DATES: [50, 60, 70, 80, 100, 100, 120, 120, 150, 200], BONUS: { 5: { spins: 1 }, 10: { coins: 20000, jry: 5 } },
+  // AFTER: reward of every ad after the first 10 of the day (no daily limit)
+  const EARN = { GAP: 45000, AFTER: 50, DATES: [50, 60, 70, 80, 100, 100, 120, 120, 150, 200], BONUS: { 5: { spins: 1 }, 10: { coins: 20000, jry: 5 } },
     LEVELS: [{ id: "bronze", n: 0, x: 0 }, { id: "silver", n: 25, x: 0.1 }, { id: "gold", n: 100, x: 0.2 }, { id: "diamond", n: 300, x: 0.35 }, { id: "legend", n: 1000, x: 0.5 }],
     STREAK_ADS: 5, STREAK_DATES: 100, STREAK_MAX: 7 };
   const earnLevel = (ads) => { let i = 0; EARN.LEVELS.forEach((l, j) => { if (ads >= l.n) i = j; }); return i; };
@@ -496,6 +497,9 @@
   // Business showcase: Pi businesses pay Pi to be shown (reviewed by the owner first).
   const SPONSOR = { PLANS: [{ id: "d1", days: 1, price: 1 }, { id: "d7", days: 7, price: 5 }, { id: "d30", days: 30, price: 15 }],
     CATS: ["shop", "food", "services", "apps", "education", "travel", "other"], NAME: 40, DESC: 160 };
-  const api = { ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  // Games still in the works: each one opens when the game reaches this many players
+  const FUTURE = [{ id: "race", e: "🐪", players: 1000 }, { id: "quiz", e: "🧠", players: 2500 }, { id: "chess", e: "♟️", players: 5000 },
+    { id: "kart", e: "🏎️", players: 10000 }, { id: "hunt", e: "🗺️", players: 25000 }, { id: "world", e: "🌍", players: 100000 }];
+  const api = { FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

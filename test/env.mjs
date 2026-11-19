@@ -36,4 +36,33 @@ export class R2 {
     return { body: new Blob([b]).stream(), size: o.buf.length };
   }
   async delete(k) { for (const x of [].concat(k)) this.m.delete(x); }
+  // Envoi en plusieurs morceaux (comme R2)
+  createMultipartUpload(key, opts) {
+    this.mp ||= new Map();
+    const uploadId = "mp" + Math.random().toString(36).slice(2);
+    this.mp.set(uploadId, { key, type: opts?.httpMetadata?.contentType, parts: new Map() });
+    return Promise.resolve(this.resumeMultipartUpload(key, uploadId));
+  }
+  resumeMultipartUpload(key, uploadId) {
+    const r2 = this;
+    return {
+      key, uploadId,
+      async uploadPart(n, body) {
+        const u = r2.mp.get(uploadId); if (!u) throw new Error("NoSuchUpload");
+        const buf = Buffer.from(await new Response(body).arrayBuffer());
+        const etag = "e" + n + "-" + buf.length; u.parts.set(n, { buf, etag });
+        return { partNumber: n, etag };
+      },
+      async complete(parts) {
+        const u = r2.mp.get(uploadId); if (!u) throw new Error("NoSuchUpload");
+        const sorted = [...parts].sort((a, b) => a.partNumber - b.partNumber);
+        const bufs = sorted.map((p) => { const x = u.parts.get(p.partNumber); if (!x || x.etag !== p.etag) throw new Error("InvalidPart"); return x.buf; });
+        const sizes = bufs.map((b) => b.length);
+        if (sizes.slice(0, -1).some((s) => s !== sizes[0] || s < 5)) throw new Error("EntityTooSmall / parts differ");
+        const buf = Buffer.concat(bufs); r2.m.set(key, { buf, type: u.type }); r2.mp.delete(uploadId);
+        return { key, size: buf.length };
+      },
+      async abort() { r2.mp.delete(uploadId); },
+    };
+  }
 }

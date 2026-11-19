@@ -18,6 +18,8 @@ const MIME = {
   "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm", "video/3gpp": "3gp",
   "audio/webm": "weba", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac", "audio/mpeg": "mp3", "audio/wav": "wav",
 };
+const MAX_BIG = 5 * 1024 * MB;             // vidéo longue (enregistrement d'écran, d'appel, fichier du téléphone) : 5 Go
+const PART_MAX = 95 * MB;                 // un morceau d'envoi
 const RING_MS = 45000;                    // durée de sonnerie avant « appel manqué »
 const MAX_SDP = 30000;
 const STATUSES = ["open", "in_review", "resolved", "unresolved"];
@@ -65,6 +67,7 @@ async function route(req, env, ctx) {
   if (p === "/api/me/email" && m === "POST") return changeEmail(req, env, me);
   if (p === "/api/me/password" && m === "POST") return changePassword(req, env, me);
   if (p === "/api/uploads" && m === "PUT") return upload(req, env, me);
+  if (p === "/api/uploads/mp" && m === "POST") return mpCreate(req, env, me);
   if (p === "/api/tickets" && m === "GET") return listTickets(url, env, me);
   if (p === "/api/tickets" && m === "POST") return createTicket(req, env, me, ctx);
 
@@ -73,6 +76,10 @@ async function route(req, env, ctx) {
   if ((r = p.match(/^\/api\/tickets\/([0-9a-f-]{36})\/messages$/)) && m === "POST") return addMessage(r[1], req, env, me, ctx);
   if ((r = p.match(/^\/api\/tickets\/([0-9a-f-]{36})\/status$/)) && m === "PATCH") return setStatus(r[1], req, env, me, ctx);
   if ((r = p.match(/^\/api\/media\/([0-9a-f-]{36})$/)) && (m === "GET" || m === "HEAD")) return media(r[1], req, url, env, me);
+
+  if ((r = p.match(/^\/api\/uploads\/mp\/([0-9a-f-]{36})\/(\d{1,5})$/)) && m === "PUT") return mpPart(r[1], Number(r[2]), req, env, me);
+  if ((r = p.match(/^\/api\/uploads\/mp\/([0-9a-f-]{36})\/complete$/)) && m === "POST") return mpComplete(r[1], req, env, me);
+  if ((r = p.match(/^\/api\/uploads\/mp\/([0-9a-f-]{36})\/abort$/)) && m === "POST") return mpAbort(r[1], env, me);
 
   // Appels audio / vidéo
   if (p === "/api/rtc-config" && m === "GET") return rtcConfig(env);
@@ -296,6 +303,62 @@ async function upload(req, env, me) {
     .bind(id, me.id, key, type, size, name, now()).run();
   return json({ attachment: { id, mime: type, size, name } }, 201);
 }
+
+// ---------- Longues vidéos : envoi en morceaux (multipart R2) ----------
+// Le navigateur envoie la vidéo morceau par morceau PENDANT l'enregistrement : pas de limite
+// d'une heure, pas besoin de tout garder en mémoire. Maximum 5 Go par fichier.
+async function mpCreate(req, env, me) {
+  const b = await readJson(req);
+  const type = str(b.type, 60).split(";")[0].toLowerCase();
+  const ext = MIME[type];
+  if (!ext || !(type.startsWith("video/") || type.startsWith("audio/"))) fail(415, "Format non accepté pour une longue vidéo");
+  const pending = await env.DB.prepare("SELECT (SELECT COUNT(*) FROM attachments WHERE owner_id = ? AND message_id IS NULL) + (SELECT COUNT(*) FROM multipart_uploads WHERE owner_id = ?) AS n").bind(me.id, me.id).first();
+  if (pending.n >= MAX_PENDING) fail(429, "Trop de fichiers en attente. Envoyez d'abord votre message.");
+  const name = (str(b.name, 120).replace(/[\u0000-\u001f\\/]/g, "") || "video." + ext);
+  const id = uid(), key = `u/${me.id}/${id}.${ext}`;
+  const mpu = await env.MEDIA.createMultipartUpload(key, { httpMetadata: { contentType: type } });
+  await env.DB.prepare("INSERT INTO multipart_uploads (id, owner_id, r2_key, upload_id, mime, name, created_at) VALUES (?,?,?,?,?,?,?)")
+    .bind(id, me.id, key, mpu.uploadId, type, name, now()).run();
+  return json({ upload: { id } }, 201);
+}
+async function loadMp(env, id, me) {
+  const u = await env.DB.prepare("SELECT * FROM multipart_uploads WHERE id = ? AND owner_id = ?").bind(id, me.id).first();
+  if (!u) fail(404, "Envoi introuvable");
+  return u;
+}
+async function mpPart(id, n, req, env, me) {
+  const u = await loadMp(env, id, me);
+  if (n < 1 || n > 10000) fail(400, "Morceau invalide");
+  const size = Number(req.headers.get("Content-Length") || 0);
+  if (!size || size > PART_MAX) fail(413, "Morceau trop lourd");
+  const buf = await req.arrayBuffer();
+  if (buf.byteLength !== size) fail(400, "Envoi interrompu, réessayez");
+  const part = await env.MEDIA.resumeMultipartUpload(u.r2_key, u.upload_id).uploadPart(n, buf);
+  return json({ part: n, etag: part.etag });
+}
+async function mpComplete(id, req, env, me) {
+  const u = await loadMp(env, id, me);
+  const b = await readJson(req, 600000);
+  if (!Array.isArray(b.parts) || !b.parts.length || b.parts.length > 10000) fail(400, "Envoi incomplet");
+  const parts = b.parts.map((p) => ({ partNumber: Number(p.part), etag: String(p.etag || "").slice(0, 200) }));
+  let obj;
+  try { obj = await env.MEDIA.resumeMultipartUpload(u.r2_key, u.upload_id).complete(parts); }
+  catch (e) { console.error("mp complete", e); fail(400, "Envoi incomplet, réessayez"); }
+  const size = obj.size;
+  if (size > MAX_BIG) { await env.MEDIA.delete(u.r2_key); await env.DB.prepare("DELETE FROM multipart_uploads WHERE id = ?").bind(id).run(); fail(413, "Fichier trop lourd (maximum 5 Go)"); }
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO attachments (id,message_id,ticket_id,owner_id,r2_key,mime,size,original_name,created_at) VALUES (?,NULL,NULL,?,?,?,?,?,?)")
+      .bind(id, me.id, u.r2_key, u.mime, size, u.name, now()),
+    env.DB.prepare("DELETE FROM multipart_uploads WHERE id = ?").bind(id),
+  ]);
+  return json({ attachment: { id, mime: u.mime, size, name: u.name } }, 201);
+}
+async function mpAbort(id, env, me) {
+  const u = await loadMp(env, id, me);
+  try { await env.MEDIA.resumeMultipartUpload(u.r2_key, u.upload_id).abort(); } catch {}
+  await env.DB.prepare("DELETE FROM multipart_uploads WHERE id = ?").bind(id).run();
+  return json({ ok: true });
+}
 async function claimStatements(env, me, ids, ticketId, messageId) {
   if (!Array.isArray(ids)) ids = [];
   ids = [...new Set(ids.filter((x) => typeof x === "string"))];
@@ -345,6 +408,14 @@ async function media(id, req, url, env, me) {
 async function cleanupPending(env) {
   const { results } = await env.DB.prepare("SELECT id, r2_key FROM attachments WHERE message_id IS NULL AND created_at < ? LIMIT 500")
     .bind(now() - PENDING_TTL).all();
+  // Envois longs abandonnés (plus de 24 h)
+  try {
+    const { results: mps } = await env.DB.prepare("SELECT id, r2_key, upload_id FROM multipart_uploads WHERE created_at < ? LIMIT 100").bind(now() - PENDING_TTL).all();
+    for (const u of mps) {
+      try { await env.MEDIA.resumeMultipartUpload(u.r2_key, u.upload_id).abort(); } catch {}
+      await env.DB.prepare("DELETE FROM multipart_uploads WHERE id = ?").bind(u.id).run();
+    }
+  } catch (e) { console.error("mp cleanup", e); }
   // Appels oubliés (onglet fermé sans raccrocher)
   await env.DB.prepare("UPDATE calls SET status = CASE WHEN status='ringing' THEN 'missed' ELSE 'ended' END, ended_at=?, offer=NULL, answer=NULL WHERE status IN ('ringing','active') AND created_at < ?")
     .bind(now(), now() - 6 * 3600000).run();

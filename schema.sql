@@ -93,3 +93,15 @@ CREATE TABLE IF NOT EXISTS calls (
 );
 CREATE INDEX IF NOT EXISTS idx_calls_status ON calls(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_calls_ticket ON calls(ticket_id, created_at);
+
+-- Envois en morceaux en cours (longues vidéos). Supprimés à la fin de l'envoi ou après 24 h.
+CREATE TABLE IF NOT EXISTS multipart_uploads (
+  id         TEXT PRIMARY KEY,
+  owner_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  r2_key     TEXT NOT NULL,
+  upload_id  TEXT NOT NULL,
+  mime       TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mp_owner ON multipart_uploads(owner_id);

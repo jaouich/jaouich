@@ -204,3 +204,11 @@ textarea{min-height:120px;resize:vertical}
 .va-panel.vc{max-height:calc(100vh - 190px);max-height:calc(100dvh - 190px);width:min(420px,calc(100% - 32px))}
 .vc textarea,.vc input,.vc select{font-weight:400}
 .vc textarea{min-height:90px}
+/* Enregistrement de l'écran */
+.btn.danger{background:#dc2626;color:#fff;border-color:#dc2626}
+.scr-bar{position:fixed;z-index:95;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;background:#0a1f4d;color:#fff;border-radius:16px;padding:10px 16px;box-shadow:0 14px 40px rgba(0,0,0,.35);font-size:.9rem;max-width:calc(100% - 24px)}
+.scr-bar .btn{min-height:36px;padding:6px 14px}
+.scr-bar .btn:not(.danger){background:rgba(255,255,255,.14);color:#fff;border-color:transparent}
+.scr-time{font-variant-numeric:tabular-nums;font-size:1rem}
+.scr-info{opacity:.75;font-size:.8rem}
+.scr-bar.paused .rec-dot{animation:none;background:#f5a524}

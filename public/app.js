@@ -3,6 +3,8 @@
 
 const MB = 1024 * 1024;
 const MAX_IMG = 15 * MB, MAX_VID = 95 * MB, MAX_AUD = 25 * MB, MAX_FILES = 6;
+const MAX_BIG = 5 * 1024 * MB;      // vidéo longue envoyée en morceaux
+const MAX_REC_SEC = 4 * 3600;       // enregistrement d'écran ou d'appel : 4 heures maximum
 const MAX_VOICE_SEC = 300;   // message vocal : 5 minutes maximum
 const STATUS = { open: "Ouvert", in_review: "En cours de traitement", resolved: "Résolu", unresolved: "Non résolu" };
 const STATUS_HELP = {
@@ -104,13 +106,119 @@ function uploadFile(file, type, onProgress) {
 const AUDIO_MIMES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
 const pickMime = (list) => { if (!window.MediaRecorder) return null; for (const t of list) { try { if (MediaRecorder.isTypeSupported(t)) return t; } catch {} } return ""; };
 const extOf = (type) => ({ "audio/webm": "weba", "audio/ogg": "ogg", "audio/mp4": "m4a", "video/webm": "webm", "video/mp4": "mp4" })[type] || "bin";
-const clock = (sec) => Math.floor(sec / 60) + ":" + String(Math.floor(sec % 60)).padStart(2, "0");
+const clock = (sec) => { sec = Math.floor(sec); const hh = Math.floor(sec / 3600), mm = Math.floor((sec % 3600) / 60), ss = String(sec % 60).padStart(2, "0"); return hh ? `${hh}:${String(mm).padStart(2, "0")}:${ss}` : `${mm}:${ss}`; };
 function mediaError(e) {
   if (e && (e.name === "NotAllowedError" || e.name === "SecurityError")) return "Accès refusé. Autorisez le micro ou la caméra dans les réglages du navigateur (icône 🔒 à côté de l'adresse).";
   if (e && e.name === "NotFoundError") return "Aucun micro ou caméra trouvé sur cet appareil.";
   if (e && e.name === "NotReadableError") return "Le micro ou la caméra est déjà utilisé par une autre application.";
   return "Micro ou caméra indisponible sur ce navigateur.";
 }
+// ---------- Envoi en morceaux (longues vidéos, plus d'une heure) ----------
+// Les morceaux partent pendant l'enregistrement : rien n'est perdu de long, rien de lourd en mémoire.
+class StreamUpload {
+  constructor(type, name) { this.type = type; this.name = name; this.buf = []; this.bufSize = 0; this.sent = 0; this.size = 0; this.parts = []; this.n = 0; this.q = Promise.resolve(); this.err = null; this.PART = window.__PART || 10 * MB; }
+  async init() { this.id = (await api("/api/uploads/mp", { method: "POST", body: { type: this.type, name: this.name } })).upload.id; return this; }
+  push(blob) {
+    if (!blob || !blob.size) return;
+    this.buf.push(blob); this.bufSize += blob.size; this.size += blob.size;
+    while (this.bufSize >= this.PART) {
+      const all = new Blob(this.buf);
+      this.send(all.slice(0, this.PART));
+      const rest = all.slice(this.PART); this.buf = rest.size ? [rest] : []; this.bufSize = rest.size;
+    }
+  }
+  send(blob) { const n = ++this.n; this.q = this.q.then(() => this.put(n, blob)).catch((e) => { this.err ||= e; }); }
+  async put(n, blob) {
+    if (this.err) return;
+    for (let tries = 1; ; tries++) {
+      try {
+        const r = await fetch(`/api/uploads/mp/${this.id}/${n}`, { method: "PUT", credentials: "same-origin", headers: { "X-Requested-With": "magisdesk", "Content-Type": "application/octet-stream" }, body: blob });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || "Envoi interrompu");
+        this.parts.push({ part: n, etag: d.etag }); this.sent += blob.size; this.onprogress && this.onprogress(this);
+        return;
+      } catch (e) { if (tries >= 4) throw e; await new Promise((r) => setTimeout(r, 1500 * tries)); }
+    }
+  }
+  async finish() {
+    if (this.bufSize) { this.send(new Blob(this.buf)); this.buf = []; this.bufSize = 0; }
+    await this.q;
+    if (this.err) { this.abort(); throw this.err; }
+    if (!this.parts.length) { this.abort(); throw new Error("Enregistrement vide"); }
+    return (await api(`/api/uploads/mp/${this.id}/complete`, { method: "POST", body: { parts: this.parts.sort((a, b) => a.part - b.part) } })).attachment;
+  }
+  abort() { if (this.id) api(`/api/uploads/mp/${this.id}/abort`, { method: "POST" }).catch(() => {}); }
+}
+// Fichier déjà enregistré sur le téléphone (AZ Screen Recorder, enregistreur intégré…) : découpé en morceaux
+async function uploadBigFile(file, type, onProgress) {
+  const up = await new StreamUpload(type, file.name).init();
+  up.onprogress = () => onProgress(up.sent / file.size);
+  for (let o = 0; o < file.size; o += up.PART) { up.push(file.slice(o, o + up.PART)); await up.q; if (up.err) break; }
+  return up.finish();
+}
+let BUSY_UPLOADS = 0;
+window.addEventListener("beforeunload", (e) => { if (BUSY_UPLOADS || SCR.cur || (CALL.cur && CALL.cur.rec)) { e.preventDefault(); e.returnValue = ""; } });
+
+// ---------- Enregistrement de l'écran (ordinateur) ----------
+// Comme une application d'enregistrement d'écran : l'écran + votre voix, sans limite d'une heure.
+const SCR = { cur: null, orphans: [] };
+const canRecordScreen = () => !!(navigator.mediaDevices?.getDisplayMedia && window.MediaRecorder) && !/android|iphone|ipad|ipod/i.test(navigator.userAgent);
+async function startScreenRecording(onDone) {
+  if (SCR.cur) return toast("Un enregistrement est déjà en cours");
+  let screen;
+  try { screen = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 24 }, width: { max: 1920 }, height: { max: 1080 } }, audio: true }); }
+  catch { return; }
+  let mic = null;
+  try { mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); } catch { toast("Micro non autorisé : l'écran sera enregistré sans votre voix"); }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ac = new AC(), dest = ac.createMediaStreamDestination();
+  let hasAudio = false;
+  for (const st of [screen, mic]) if (st && st.getAudioTracks().length) { ac.createMediaStreamSource(new MediaStream(st.getAudioTracks())).connect(dest); hasAudio = true; }
+  const tracks = [...screen.getVideoTracks(), ...(hasAudio ? dest.stream.getAudioTracks() : [])];
+  const mime = pickMime(["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"]);
+  const type = (mime || "video/webm").split(";")[0];
+  const d = new Date();
+  const name = `enregistrement-ecran-${d.toISOString().slice(0, 10)}-${String(d.getHours()).padStart(2, "0")}h${String(d.getMinutes()).padStart(2, "0")}.${extOf(type)}`;
+  let up;
+  try { up = await new StreamUpload(type, name).init(); }
+  catch (e) { screen.getTracks().forEach((t) => t.stop()); mic && mic.getTracks().forEach((t) => t.stop()); ac.close().catch(() => {}); return toast(e.message); }
+  const rec = new MediaRecorder(new MediaStream(tracks), { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 900000, audioBitsPerSecond: 64000 });
+  const t0 = Date.now(); let paused = 0, pausedAt = 0;
+  const clk = h("b", { class: "scr-time" }, "0:00");
+  const info = h("span", { class: "scr-info" }, "");
+  const bPause = h("button", { class: "btn sm", type: "button" }, "Pause");
+  const bStop = h("button", { class: "btn sm danger", type: "button" }, "■ Arrêter");
+  const bar = h("div", { class: "scr-bar", role: "status" }, h("span", { class: "rec-dot" }), h("span", null, "Enregistrement de l'écran"), clk, info, bPause, bStop);
+  document.body.append(bar);
+  const cur = (SCR.cur = { rec, up, bar });
+  BUSY_UPLOADS++;
+  const elapsed = () => (Date.now() - t0 - paused - (pausedAt ? Date.now() - pausedAt : 0)) / 1000;
+  const timer = setInterval(() => { const sec = elapsed(); clk.textContent = clock(sec); info.textContent = fmtSize(up.size) + (up.err ? " · erreur réseau" : ""); if (sec >= MAX_REC_SEC || up.size > MAX_BIG - 50 * MB) stop(); }, 1000);
+  const stop = () => { if (rec.state !== "inactive") rec.stop(); };
+  bStop.onclick = stop;
+  bPause.onclick = () => {
+    if (rec.state === "recording") { rec.pause(); pausedAt = Date.now(); bPause.textContent = "Reprendre"; bar.classList.add("paused"); }
+    else if (rec.state === "paused") { rec.resume(); paused += Date.now() - pausedAt; pausedAt = 0; bPause.textContent = "Pause"; bar.classList.remove("paused"); }
+  };
+  screen.getVideoTracks()[0].onended = stop;     // « Arrêter le partage » du navigateur
+  rec.ondataavailable = (e) => up.push(e.data);
+  rec.onstop = async () => {
+    clearInterval(timer);
+    screen.getTracks().forEach((t) => t.stop()); mic && mic.getTracks().forEach((t) => t.stop()); ac.close().catch(() => {});
+    bar.replaceChildren(h("span", null, "Envoi de la fin de l'enregistrement…"), info);
+    const secs = Math.round(elapsed());
+    try {
+      const att = await up.finish();
+      att.duration = secs;
+      bar.remove();
+      toast("Enregistrement de l'écran prêt (" + fmtSize(att.size) + ")");
+      onDone(att);
+    } catch (e) { bar.remove(); toast("Enregistrement non envoyé : " + e.message); }
+    BUSY_UPLOADS--; SCR.cur = null;
+  };
+  rec.start(4000);
+}
+
 function makePicker() {
   const items = []; // { file, type, url, tile, prog, att }
   const grid = h("div", { class: "picker", hidden: true });
@@ -122,12 +230,12 @@ function makePicker() {
     const type = ALLOWED.has(file.type) ? file.type : EXT[ext];
     if (!type) { showErr(err, `« ${file.name} » : format non accepté (photos JPG, PNG, HEIC…, vidéos MP4, MOV… ou audio)`); return; }
     const isVid = type.startsWith("video/"), isAud = type.startsWith("audio/");
-    const max = isVid ? MAX_VID : isAud ? MAX_AUD : MAX_IMG;
-    if (file.size > max) { showErr(err, `« ${file.name} » est trop lourd (maximum ${max / MB} Mo).${isVid ? " Raccourcissez ou compressez la vidéo." : ""}`); return; }
+    const max = isVid ? MAX_BIG : isAud ? MAX_BIG : MAX_IMG;
+    if (file.size > max) { showErr(err, `« ${file.name} » est trop lourd (maximum ${isVid || isAud ? "5 Go" : "15 Mo"}).`); return; }
     if (items.length >= MAX_FILES) { showErr(err, `Maximum ${MAX_FILES} fichiers par message.`); return; }
     const url = URL.createObjectURL(file);
     const prog = h("div", { class: "prog" });
-    const it = { file, type, url, prog, att: null };
+    const it = { file, type, url, prog, att: null, big: (isVid || isAud) && file.size > (isAud ? MAX_AUD : MAX_VID) };
     const media = isAud ? h("div", { class: "pv-aud" }, h("span", null, "🎤 Message vocal"), h("audio", { src: url, controls: true, preload: "metadata" }))
       : isVid ? h("video", { src: url, muted: true, playsinline: true, preload: "metadata" }) : h("img", { src: url, alt: file.name });
     it.tile = h("div", { class: "pv" + (isAud ? " aud" : "") }, media,
@@ -137,6 +245,20 @@ function makePicker() {
     items.push(it); grid.append(it.tile); grid.hidden = false;
   };
   input.addEventListener("change", () => { err.hidden = true; for (const file of input.files) addFile(file); input.value = ""; });
+  // Vidéo déjà envoyée (enregistrement d'écran)
+  const addUploaded = (att) => {
+    if (items.length >= MAX_FILES) { showErr(err, `Maximum ${MAX_FILES} fichiers par message.`); return; }
+    const src = "/api/media/" + att.id;
+    const it = { att, url: null, prog: h("div", { class: "prog" }) };
+    it.prog.style.width = "100%";
+    it.tile = h("div", { class: "pv" }, h("video", { src, muted: true, playsinline: true, preload: "metadata" }),
+      h("span", { class: "tag" }, "🖥 Écran · " + (att.duration ? clock(att.duration) + " · " : "") + fmtSize(att.size)),
+      h("button", { type: "button", "aria-label": "Retirer", onclick: () => { it.tile.remove(); items.splice(items.indexOf(it), 1); grid.hidden = !items.length; } }, "×"), it.prog);
+    items.push(it); grid.append(it.tile); grid.hidden = false;
+  };
+  const scrBtn = h("button", { class: "btn sm", type: "button", hidden: !canRecordScreen(), title: "Enregistrez votre écran et votre voix, même plus d'une heure" }, icon("screen"), "Enregistrer l'écran");
+  scrBtn.addEventListener("click", () => { err.hidden = true; startScreenRecording((att) => (grid.isConnected ? addUploaded(att) : SCR.orphans.push(att))); });
+  setTimeout(() => { while (SCR.orphans.length && grid.isConnected) addUploaded(SCR.orphans.shift()); }, 0);
 
   // Message vocal enregistré directement dans le navigateur
   const recMime = pickMime(AUDIO_MIMES);
@@ -169,20 +291,27 @@ function makePicker() {
     tick(); recTimer = setInterval(tick, 500);
   });
   return {
-    el: h("div", { class: "stack" }, h("div", { class: "row" }, addBtn, recBtn, h("span", { class: "muted small" }, `Jusqu'à ${MAX_FILES} fichiers · photos 15 Mo · vidéos 95 Mo · vocal 5 min`)), grid, err),
+    el: h("div", { class: "stack" }, h("div", { class: "row" }, addBtn, recBtn, scrBtn, h("span", { class: "muted small" }, `Jusqu'à ${MAX_FILES} fichiers · photos 15 Mo · vidéos jusqu'à 5 Go`)),
+      !canRecordScreen() && /android|iphone|ipad/i.test(navigator.userAgent) ? h("p", { class: "muted small" }, "Pour filmer l'écran du téléphone : utilisez l'enregistreur d'écran du téléphone, puis ajoutez la vidéo avec 📎.") : null,
+      grid, err),
     count: () => items.length,
     busy: () => !!rec,
     stop: stopRec,
     async uploadAll() {
       const ids = [];
       for (const it of items) {
-        if (!it.att) it.att = await uploadFile(it.file, it.type, (p) => (it.prog.style.width = Math.round(p * 100) + "%"));
+        if (!it.att) {
+          const prog = (p) => (it.prog.style.width = Math.round(p * 100) + "%");
+          BUSY_UPLOADS++;
+          try { it.att = it.big ? await uploadBigFile(it.file, it.type, prog) : await uploadFile(it.file, it.type, prog); }
+          finally { BUSY_UPLOADS--; }
+        }
         it.prog.style.width = "100%";
         ids.push(it.att.id);
       }
       return ids;
     },
-    clear() { for (const it of items) URL.revokeObjectURL(it.url); items.length = 0; grid.replaceChildren(); grid.hidden = true; },
+    clear() { for (const it of items) it.url && URL.revokeObjectURL(it.url); items.length = 0; grid.replaceChildren(); grid.hidden = true; },
   };
 }
 
@@ -813,28 +942,30 @@ async function toggleRecord(s) {
   for (const t of [s.micTrack, ...s.remote.getAudioTracks()]) if (t) ac.createMediaStreamSource(new MediaStream([t])).connect(dest);
   const vid = s.remote.getVideoTracks().find((t) => t.readyState === "live" && !t.muted);
   const mime = pickMime(vid ? ["video/webm;codecs=vp8,opus", "video/webm", "video/mp4"] : AUDIO_MIMES);
+  const type = (mime || (vid ? "video/webm" : "audio/webm")).split(";")[0];
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+  let up;
+  try { up = await new StreamUpload(type, `enregistrement-appel-${stamp}.${extOf(type)}`).init(); }
+  catch (e) { ac.close().catch(() => {}); return toast(e.message); }
   const rec = new MediaRecorder(new MediaStream([...dest.stream.getAudioTracks(), ...(vid ? [vid] : [])]),
-    { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 600000, audioBitsPerSecond: 64000 });
-  const chunks = []; let size = 0;
-  const limit = (vid ? MAX_VID : MAX_AUD) - 2 * MB;
-  rec.ondataavailable = (e) => { if (e.data.size) { chunks.push(e.data); size += e.data.size; if (size > limit && rec.state === "recording") { toast("Taille maximale atteinte : enregistrement arrêté"); rec.stop(); } } };
+    { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 700000, audioBitsPerSecond: 64000 });
+  const t0 = Date.now();
+  BUSY_UPLOADS++;
+  rec.ondataavailable = (e) => { up.push(e.data); if ((Date.now() - t0) / 1000 > MAX_REC_SEC && rec.state === "recording") { toast("Durée maximale atteinte : enregistrement arrêté"); rec.stop(); } };
   rec.onstop = async () => {
     s.rec = null; ac.close().catch(() => {});
     s.bRec.classList.remove("on"); s.recFlag.hidden = true;
     if (s.id && !s.ended) api(`/api/calls/${s.id}/recording`, { method: "POST", body: { on: false } }).catch(() => {});
-    if (!chunks.length) return;
-    const type = (rec.mimeType || mime || "audio/webm").split(";")[0];
-    const d = new Date(), stamp = d.toISOString().slice(0, 16).replace(/[-:T]/g, "");
-    const file = new File(chunks, `enregistrement-appel-${stamp}.${extOf(type)}`, { type });
     toast("Envoi de l'enregistrement dans la demande…");
     try {
-      const att = await uploadFile(file, type, () => {});
-      await api(`/api/tickets/${s.ticketId}/messages`, { method: "POST", body: { body: "⏺ Enregistrement de l'appel", attachments: [att.id] } });
+      const att = await up.finish();
+      await api(`/api/tickets/${s.ticketId}/messages`, { method: "POST", body: { body: "⏺ Enregistrement de l'appel · " + clock((Date.now() - t0) / 1000), attachments: [att.id] } });
       toast("Enregistrement ajouté à la demande");
       if (location.hash.includes(s.ticketId) && !CALL.cur) router();
     } catch (e) { toast("Enregistrement non envoyé : " + e.message); }
+    BUSY_UPLOADS--;
   };
-  rec.start(1000);
+  rec.start(4000);
   s.rec = rec; s.bRec.classList.add("on"); s.recFlag.hidden = false;
   api(`/api/calls/${s.id}/recording`, { method: "POST", body: { on: true } }).catch(() => {});
   toast("Enregistrement démarré. Prévenez votre interlocuteur.");

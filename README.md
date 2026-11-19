@@ -103,3 +103,7 @@ npm run deploy
 - **Assistant vocal (admin)** : bouton micro rond en bas à droite. Exemples : « demandes en attente », « chercher Atlas », « ouvre la première », « lis le message », « réponds … », « envoie », « statut résolu », « appel vidéo », « combien ». En darija : « اللي كيتسناو », « قلب على … », « حل اللولة », « اقرا », « جاوب … », « صيفط », « دير محلول », « عيط ».
 - **Parler au support (clients)** : bouton micro vert en bas à droite. Le client parle ; sa voix est enregistrée et transcrite en même temps. Il relit le texte puis envoie : l'équipe reçoit le texte ET le message vocal (réponse sur la demande ouverte, sinon nouvelle demande).
 - **🔊 Écouter** sous chaque message : lecture à voix haute (français ou arabe).
+- **Enregistrer l'écran (ordinateur)** : bouton « Enregistrer l'écran » à côté de 📎. Écran + voix (micro et son de l'ordinateur), pause / reprise, jusqu'à 4 heures. La vidéo est envoyée **morceau par morceau pendant l'enregistrement** (R2 multipart, table D1 `multipart_uploads`), donc pas de limite d'une heure.
+- **Longues vidéos du téléphone** (AZ Screen Recorder, enregistreur intégré) : ajoutées avec 📎, jusqu'à 5 Go, envoyées en morceaux de 10 Mo (reprise automatique si un morceau échoue).
+- **Enregistrement des appels** : même envoi en morceaux, jusqu'à 4 heures.
+- Coût R2 : 10 Go gratuits, puis environ 0,015 $ par Go et par mois (1 h d'écran ≈ 400 Mo).

@@ -761,6 +761,94 @@
   $("caCopy").addEventListener("click", () => navigator.clipboard?.writeText(caMade.join("\n")).then(() => toast(t("t.copied")), () => {}));
   $("caList").addEventListener("click", (e) => { const b = e.target.closest("[data-cadel]"); if (b && confirm(t("code.del"))) codeAdmin({ action: "delete", code: b.dataset.cadel }); });
 
+  // ---------- 🎯 Tasks center: daily, weekly and one-time tasks made by the owner ----------
+  let qData = null, qAdmin = null, qTimer = null;
+  const qTitle = (x) => (x.title.startsWith("@") ? t(x.title.slice(1), { n: x.need || x.goal || 1 }) : esc(x.title));
+  const qReward = (x) => `+${fmtN(x.reward)} ${codeIco[x.reward_kind]}`;
+  function qBadge() {
+    const n = qData ? qData.list.filter((x) => !x.done).length : 0;
+    $("qBadge").textContent = qData ? (n ? t("q.left", { n }) : t("q.allDone")) : t("q.badge");
+  }
+  async function qLoad() {
+    if (!account) return;
+    try { qData = await Pi.quests(); } catch (e) { toast(e.message); }
+    qBadge(); if (!$("quests").classList.contains("hidden")) renderQuests();
+  }
+  function qCard(x) {
+    let act = "";
+    if (x.done) act = `<span class="q-done">✅</span>`;
+    else if (x.kind === "link") act = x.opened && x.wait <= 0 ? `<button class="btn small gold" data-q="claim" data-id="${x.id}">${t("q.claim")}</button>`
+      : x.opened ? `<button class="btn small secondary" disabled>⏳ ${Math.ceil(x.wait / 1000)}s</button>`
+      : `<button class="btn small gold" data-q="open" data-id="${x.id}" data-link="${esc(x.link)}">${t("q.open")}</button>`;
+    else if (x.kind === "secret") act = `<button class="btn small gold" data-q="secret" data-id="${x.id}">${t("q.answer")}</button>`;
+    else act = `<button class="btn small ${x.need && x.progress < x.need ? "secondary" : "gold"}" data-q="claim" data-id="${x.id}" ${x.need && x.progress < x.need ? "disabled" : ""}>${t("q.claim")}</button>`;
+    const bar = x.need > 1 || (x.need && x.kind !== "spin") ? `<div class="jm-bar"><i style="width:${Math.round((100 * x.progress) / x.need)}%"></i></div><small dir="ltr">${x.progress}/${x.need}</small>` : "";
+    const desc = x.title.startsWith("@") ? t(x.title.slice(1) + ".d", { n: x.need || 1 }) : esc(x.descr);
+    return `<div class="q-card${x.done ? " is-done" : ""}"><i>${esc(x.emoji)}</i><span><b>${qTitle(x)}</b>${desc ? `<small>${desc}</small>` : ""}${bar}<em>${qReward(x)}</em></span>${act}</div>`;
+  }
+  function renderQuests() {
+    const list = qData ? qData.list : [];
+    const sec = (p) => { const l = list.filter((x) => x.period === p); return l.length ? `<h4>${t("q.p." + p)} <small>${t("q.r." + p)}</small></h4>` + l.map(qCard).join("") : ""; };
+    const kinds = ["checkin", "link", "secret", "ads", "arcade", "invite", "spin"];
+    $("quests").innerHTML = `<header class="jm-head"><button class="jm-back" data-q="close">‹ ${t("jm.back")}</button><b>🎯 ${t("q.t")}</b><span></span></header>
+      <div class="jm-body">
+        <p class="arc-intro">${t("q.intro")}</p>
+        ${!account ? `<p class="jm-note">${t("t.loginFirst")}</p>` : !qData ? `<p class="jm-note">…</p>` : list.length ? sec("daily") + sec("weekly") + sec("once") : `<p class="jm-note">${t("q.empty")}</p>`}
+        ${account && account.isAdmin ? `<details class="biz-form q-admin"><summary>🛡️ ${t("q.admin")}</summary>
+          <button class="btn small secondary" data-q="starter">✨ ${t("q.starter")}</button>
+          <label>${t("q.f.title")}<input id="qaTitle" maxlength="80"></label>
+          <label>${t("q.f.desc")}<textarea id="qaDesc" maxlength="200" rows="2"></textarea></label>
+          <div class="biz-row"><label>${t("biz.f.emoji")}<input id="qaEmoji" maxlength="4" value="🎯"></label>
+            <label>${t("q.f.kind")}<select id="qaKind">${kinds.map((k) => `<option value="${k}">${t("q.k." + k)}</option>`).join("")}</select></label></div>
+          <div class="biz-row"><label>${t("q.f.period")}<select id="qaPeriod"><option value="daily">${t("q.p.daily")}</option><option value="weekly">${t("q.p.weekly")}</option><option value="once">${t("q.p.once")}</option></select></label>
+            <label>${t("q.f.goal")}<input id="qaGoal" type="number" min="1" value="1"></label></div>
+          <label>${t("q.f.link")}<input id="qaLink" dir="ltr" placeholder="https://… / pi://…"></label>
+          <label>${t("q.f.secret")}<input id="qaSecret" maxlength="40"></label>
+          <div class="biz-row"><label>${t("code.f.kind")}<select id="qaRk"><option value="dates">🌴</option><option value="coins">🪙</option><option value="jry">JRY</option><option value="spins">🎡</option></select></label>
+            <label>${t("code.amount")}<input id="qaRw" type="number" min="1" value="100"></label></div>
+          <label>${t("q.f.days")}<input id="qaDays" type="number" min="0" value="0"></label>
+          <small class="biz-rules">${t("q.f.hint")}</small>
+          <button class="btn gold" data-q="create">${t("q.create")}</button>
+          ${qAdmin ? qAdmin.list.map((x) => `<div class="biz-adm${x.active ? "" : " q-off"}"><span><b>${esc(x.emoji)} ${qTitle(x)}</b><small>${t("q.k." + x.kind)} · ${t("q.p." + x.period)}${x.goal > 1 ? " · " + x.goal : ""} · ${qReward(x)} · ✅ ${x.done_n}${x.secret ? " · 🔑 " + esc(x.secret) : ""}</small>${x.link ? `<small dir="ltr">${esc(x.link)}</small>` : ""}</span>
+            <button class="btn small secondary" data-q="toggle" data-id="${x.id}">${x.active ? "⏸" : "▶️"}</button><button class="btn small secondary" data-q="del" data-id="${x.id}">🗑</button></div>`).join("") : ""}
+        </details>` : ""}
+      </div>`;
+    clearTimeout(qTimer);
+    if (list.some((x) => x.opened && x.wait > 0 && !x.done)) qTimer = setTimeout(() => { list.forEach((x) => { if (x.opened && x.wait > 0) x.wait = Math.max(0, x.wait - 1000); }); if (!$("quests").classList.contains("hidden")) renderQuests(); }, 1000);
+  }
+  async function qAdm(o) { try { qAdmin = await Pi.adminQuests(o); } catch (e) { toast(e.message); } await qLoad(); renderQuests(); }
+  $("qOpen").addEventListener("click", () => {
+    $("quests").classList.remove("hidden"); renderQuests(); qLoad();
+    if (account && account.isAdmin && !qAdmin) qAdm({ action: "list" });
+  });
+  $("quests").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-q]");
+    if (!b) return;
+    const a = b.dataset.q, id = Number(b.dataset.id);
+    if (a === "close") { clearTimeout(qTimer); return $("quests").classList.add("hidden"); }
+    if (!account) return toast(t("t.loginFirst"));
+    if (a === "create") return qAdm({ action: "create", title: $("qaTitle").value, descr: $("qaDesc").value, emoji: $("qaEmoji").value, kind: $("qaKind").value, period: $("qaPeriod").value,
+      goal: $("qaGoal").value, link: $("qaLink").value, secret: $("qaSecret").value, reward_kind: $("qaRk").value, reward: $("qaRw").value, days: $("qaDays").value });
+    if (a === "starter") return qAdm({ action: "starter" });
+    if (a === "toggle") return qAdm({ action: "toggle", id });
+    if (a === "del") return confirm(t("q.del")) && qAdm({ action: "delete", id });
+    b.disabled = true;
+    try {
+      if (a === "open") {
+        await Pi.questOpen(id);
+        const link = b.dataset.link;
+        if (/^(https:\/\/|pi:\/\/)/i.test(link)) window.open(link, "_blank", "noopener");
+      } else {
+        let answer;
+        if (a === "secret") { answer = prompt(t("q.ask")); if (!answer) { b.disabled = false; return; } }
+        const r = await Pi.questClaim(id, answer);
+        account = r.account; S = r.state; render(); burst();
+        toast(t("q.ok", { n: fmtN(r.amount), i: codeIco[r.kind] }));
+      }
+    } catch (err) { toast(err.message); }
+    await qLoad();
+  });
+
   // ---------- 🕹️ Jerry Arcade: free skill games that give dates ----------
   const AR = L.ARCADE;
   let arcInfo = null, arcGame = "", arcStop = null, arcPlayers = 0;
@@ -1008,6 +1096,7 @@
       $("userLabel").textContent = t("welcome", { name: account.username });
       $("loginBtn").classList.add("hidden");
       render();
+      qLoad();
       if (account.isAdmin) { $("codeAdmin").classList.remove("hidden"); codeAdmin({ action: "list" }); partners("list"); partnerRequests("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
       if (account.testGifts) testGifts("list");
       // Mainnet: once, say that the Testnet progress came along
@@ -1131,7 +1220,7 @@
   // ---------- Guide: first-time tour + help center ----------
   const TOUR = [null, "farm", "camels", "city", "stake", "rank", "vip", null];
   const HELP = ["basics", "farm", "camels", "city", "granary", "events", "shop", "ranking", "club", "referral", "missions",
-    "kombat", "kfun", "kboss", "kleague", "kcollect", "ktribes", "kjry", "kp2p", "earn", "arcade", "showcase", "pmarket", "wheel", "kvote", "kairdrop", "safety", "faq"];
+    "kombat", "kfun", "kboss", "kleague", "kcollect", "ktribes", "kjry", "kp2p", "earn", "quests", "arcade", "showcase", "pmarket", "wheel", "kvote", "kairdrop", "safety", "faq"];
   const KOMBAT_HELP = HELP.filter((k) => k[0] === "k");
   let tourI = -1;
   const goTab = (tab) => document.querySelector(`.tabs [data-tab="${tab}"]`).click();
@@ -1353,6 +1442,7 @@
   });
 
   function render() {
+    qBadge();
     S = L.normalize(S, now());
     $("dates").textContent = S.dates.toLocaleString("en-US");
     if (account) Pi.setPayOpen(account.payOpen);

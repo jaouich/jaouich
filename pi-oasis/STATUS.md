@@ -32,7 +32,8 @@ Farm, camels, city, granary, weekly ranking with Pi prize pool, memberships, ref
 Jerry Kombat (cards, bosses, leagues, tournament, tribes, 20 collectibles, rewarded ads), JRY in-game currency (bought with Pi),
 testJRY token + players' market (Testnet only), points market (25% fee, withdraw from 5 Pi), lucky wheel (prizes in-game only),
 Jerry Media Earnings (unlimited rewarded ads), Jerry Arcade (memory, date catcher, future games by player milestones),
-Business showcase (paid listings reviewed by the owner), gift codes, Testnet → Mainnet progress carry-over (once, by username).
+Business showcase (paid listings reviewed by the owner), gift codes, Task center (owner-made daily / weekly / one-time tasks:
+check-in, open a link, secret word, ads, Arcade, invites, wheel; managed inside the Task center page), Testnet → Mainnet progress carry-over (once, by username).
 
 ## Decisions already made (do not reopen)
 - Pi-only payments in the app (owner committed to it in the listing). No USD/USDT, no external code shop.

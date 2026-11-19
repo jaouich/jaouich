@@ -18,7 +18,7 @@
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
         const code = data.error || "server";
-        const msg = I18N.has("t." + code) ? I18N.t("t." + code, data.vars) : I18N.t("e." + code);
+        const msg = I18N.has("t." + code) ? I18N.t("t." + code, data.vars) : I18N.t("e." + code, data.vars);
         throw Object.assign(new Error(msg), { code, data });
       }
       return data;
@@ -198,6 +198,10 @@
     arcade: () => api("/api/arcade"),
     redeemCode: (code) => api("/api/code/redeem", { code }),
     adminCodes: (o) => api("/api/admin/codes", o),
+    quests: () => api("/api/quests"),
+    questOpen: (id) => api("/api/quests/open", { id }),
+    questClaim: (id, answer) => api("/api/quests/claim", { id, answer }),
+    adminQuests: (o) => api("/api/admin/quests", o),
     arcadeClaim: (game, score, ms) => api("/api/arcade/claim", { game, score, ms }),
     sponsors: () => api("/api/sponsors"),
     sponsorClick: (id) => api("/api/sponsors/click", { id }).catch(() => {}),

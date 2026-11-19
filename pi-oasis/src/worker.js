@@ -173,6 +173,11 @@ const SCHEMA = [
   // Gift codes made by the owner: one reward per player per code, limited uses, optional expiry
   "CREATE TABLE IF NOT EXISTS codes ( code TEXT PRIMARY KEY COLLATE NOCASE, kind TEXT NOT NULL, amount INTEGER NOT NULL, max_uses INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0, expires_at INTEGER, note TEXT, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS code_uses ( code TEXT NOT NULL COLLATE NOCASE, uid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (code, uid) )",
+  // Tasks center: tasks made by the owner. period: daily | weekly | once.
+  // kind: checkin | link | secret | ads | arcade | invite | spin
+  "CREATE TABLE IF NOT EXISTS quests ( id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, descr TEXT, emoji TEXT NOT NULL, kind TEXT NOT NULL, period TEXT NOT NULL, link TEXT, secret TEXT, goal INTEGER NOT NULL DEFAULT 1, reward_kind TEXT NOT NULL, reward INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0, ends_at INTEGER, done_n INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS quest_done ( quest_id INTEGER NOT NULL, uid TEXT NOT NULL, pkey INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (quest_id, uid, pkey) )",
+  "CREATE TABLE IF NOT EXISTS quest_open ( quest_id INTEGER NOT NULL, uid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (quest_id, uid) )",
   // Jerry Arcade: rewarded plays per day and best scores
   "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
   // Business showcase. status: paying → review → live (until ends_at) | rejected (refunded)
@@ -1192,9 +1197,7 @@ const routes = {
     if (!r.meta.changes) bad("code.empty");
     const ins = await run(env, "INSERT OR IGNORE INTO code_uses (code, uid, at) VALUES (?, ?, ?)", code, u.uid, now);
     if (!ins.meta.changes) { await run(env, "UPDATE codes SET used = used - 1 WHERE code = ?", code); bad("code.used"); }
-    if (c.kind === "dates" || c.kind === "coins") await creditPoints(env, u.uid, c.kind, c.amount, now, "code");
-    else if (c.kind === "jry") await run(env, "UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?", c.amount, u.uid);
-    else if (c.kind === "spins") await run(env, "UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?", c.amount, u.uid);
+    await giveReward(env, u.uid, c.kind, c.amount, now, "code");
     const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
     const acc = await account(env, fresh);
     return { ok: true, kind: c.kind, amount: c.amount, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
@@ -1224,6 +1227,70 @@ const routes = {
     }
     const list = await all(env, "SELECT * FROM codes ORDER BY created_at DESC LIMIT 100");
     return { made, list };
+  },
+
+  // ---------- 🎯 Tasks center ----------
+  "GET /api/quests": async (req, env) => {
+    const u = await auth(req, env);
+    const now = Date.now();
+    const list = await all(env, "SELECT * FROM quests WHERE active = 1 AND (ends_at IS NULL OR ends_at > ?) ORDER BY sort, id", now);
+    const out = [];
+    for (const q of list) out.push(await questView(env, u, q, now));
+    return { list: out };
+  },
+  "POST /api/quests/open": async (req, env, body) => {
+    const u = await auth(req, env);
+    const q = await one(env, "SELECT * FROM quests WHERE id = ? AND active = 1", Number(body.id));
+    if (!q || q.kind !== "link") bad("q.gone");
+    await run(env, "INSERT OR IGNORE INTO quest_open (quest_id, uid, at) VALUES (?, ?, ?)", q.id, u.uid, Date.now());
+    return { ok: true, wait: Q.LINK_WAIT };
+  },
+  "POST /api/quests/claim": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now();
+    const q = await one(env, "SELECT * FROM quests WHERE id = ?", Number(body.id));
+    if (!q || !q.active || (q.ends_at && q.ends_at <= now)) bad("q.gone");
+    const v = await questView(env, u, q, now);
+    if (v.done) bad("q.done");
+    if (q.kind === "secret") {
+      const norm = (x) => String(x || "").trim().toLowerCase().replace(/\s+/g, " ");
+      if (!norm(body.answer) || norm(body.answer) !== norm(q.secret)) bad("q.wrong");
+    } else if (q.kind === "link") {
+      if (!v.opened) bad("q.openFirst");
+      if (v.wait > 0) bad("q.wait", { s: Math.ceil(v.wait / 1000) });
+    } else if (v.need && v.progress < v.need) bad("q.notYet");
+    // one reward per player per period, even with two taps at the same moment
+    const r = await run(env, "INSERT OR IGNORE INTO quest_done (quest_id, uid, pkey, at) VALUES (?, ?, ?, ?)", q.id, u.uid, questKey(q, now), now);
+    if (!r.meta.changes) bad("q.done");
+    await run(env, "UPDATE quests SET done_n = done_n + 1 WHERE id = ?", q.id);
+    if (q.kind === "link") await run(env, "DELETE FROM quest_open WHERE quest_id = ? AND uid = ?", q.id, u.uid);
+    await giveReward(env, u.uid, q.reward_kind, q.reward, now, "quest");
+    const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
+    const acc = await account(env, fresh);
+    return { ok: true, kind: q.reward_kind, amount: q.reward, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
+  },
+  "POST /api/admin/quests": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const now = Date.now(), id = Number(body.id);
+    if (body.action === "create") {
+      const q = questInput(body, now);
+      await run(env, "INSERT INTO quests (title, descr, emoji, kind, period, link, secret, goal, reward_kind, reward, active, sort, ends_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)",
+        q.title, q.descr, q.emoji, q.kind, q.period, q.link, q.secret, q.goal, q.reward_kind, q.reward, q.sort, q.ends_at, now);
+    } else if (body.action === "toggle") {
+      await run(env, "UPDATE quests SET active = 1 - active WHERE id = ?", id);
+    } else if (body.action === "delete") {
+      await run(env, "DELETE FROM quests WHERE id = ?", id);
+      await run(env, "DELETE FROM quest_done WHERE quest_id = ?", id);
+      await run(env, "DELETE FROM quest_open WHERE quest_id = ?", id);
+    } else if (body.action === "starter") {
+      for (const q of Q.STARTER) {
+        if (await one(env, "SELECT 1 AS x FROM quests WHERE title = ?", q.title)) continue;
+        await run(env, "INSERT INTO quests (title, descr, emoji, kind, period, link, secret, goal, reward_kind, reward, active, sort, ends_at, created_at) VALUES (?, '', ?, ?, ?, NULL, NULL, ?, ?, ?, 1, ?, NULL, ?)",
+          q.title, q.emoji, q.kind, q.period, q.goal, q.reward_kind, q.reward, q.sort, now);
+      }
+    }
+    return { list: await all(env, "SELECT * FROM quests ORDER BY active DESC, sort, id") };
   },
 
   // ---------- 🕹️ Jerry Arcade ----------
@@ -1751,6 +1818,71 @@ async function completePayment(env, id, txid, uid) {
 const MK = L.MARKET;
 // Adds points to a player without touching a game save that may be running at the same time.
 // Bought / returned / won points never count toward weekly rankings.
+// ---------- Tasks center helpers ----------
+const Q = {
+  KINDS: ["checkin", "link", "secret", "ads", "arcade", "invite", "spin"],
+  PERIODS: ["daily", "weekly", "once"],
+  REWARDS: { dates: 1e6, coins: 1e8, jry: 1e5, spins: 100 },
+  LINK_WAIT: 15000, // a link task can be claimed 15 s after it was opened
+  // Ready-made tasks the owner can add with one tap ("@" titles are translated in the app)
+  STARTER: [
+    { title: "@q.s.checkin", emoji: "🗓️", kind: "checkin", period: "daily", goal: 1, reward_kind: "dates", reward: 50, sort: 1 },
+    { title: "@q.s.ads", emoji: "📺", kind: "ads", period: "daily", goal: 3, reward_kind: "dates", reward: 150, sort: 2 },
+    { title: "@q.s.arcade", emoji: "🕹️", kind: "arcade", period: "daily", goal: 2, reward_kind: "dates", reward: 80, sort: 3 },
+    { title: "@q.s.spin", emoji: "🎡", kind: "spin", period: "daily", goal: 1, reward_kind: "dates", reward: 30, sort: 4 },
+    { title: "@q.s.weekAds", emoji: "🎬", kind: "ads", period: "weekly", goal: 25, reward_kind: "spins", reward: 3, sort: 10 },
+    { title: "@q.s.weekArcade", emoji: "🏅", kind: "arcade", period: "weekly", goal: 10, reward_kind: "coins", reward: 50000, sort: 11 },
+    { title: "@q.s.invite1", emoji: "🤝", kind: "invite", period: "once", goal: 1, reward_kind: "dates", reward: 500, sort: 20 },
+    { title: "@q.s.invite5", emoji: "👥", kind: "invite", period: "once", goal: 5, reward_kind: "jry", reward: 500, sort: 21 },
+  ],
+};
+// Which period a reward belongs to: the day, the week (Monday), or forever
+const questStart = (q, now) => (q.period === "daily" ? L.dayId(now) * 86400000 : q.period === "weekly" ? L.weekId(now) : q.created_at);
+const questKey = (q, now) => (q.period === "daily" ? L.dayId(now) : q.period === "weekly" ? L.weekId(now) : 0);
+async function questView(env, u, q, now) {
+  const from = questStart(q, now);
+  const done = !!(await one(env, "SELECT 1 AS x FROM quest_done WHERE quest_id = ? AND uid = ? AND pkey = ?", q.id, u.uid, questKey(q, now)));
+  let progress = null, need = null, opened = false, wait = 0;
+  if (q.kind === "ads") { need = q.goal; progress = (await one(env, "SELECT COUNT(*) AS n FROM ads WHERE uid = ? AND created_at >= ?", u.uid, from)).n; }
+  else if (q.kind === "arcade") { need = q.goal; progress = (await one(env, "SELECT COALESCE(SUM(plays), 0) AS n FROM arcade WHERE uid = ? AND day >= ?", u.uid, L.dayId(from))).n; }
+  else if (q.kind === "invite") {
+    // invites count from the start of the period (all time for a one-time task)
+    need = q.goal;
+    progress = (await one(env, q.period === "once" ? "SELECT COUNT(*) AS n FROM users WHERE referrer = ?" : "SELECT COUNT(*) AS n FROM users WHERE referrer = ? AND created_at >= ?", u.uid, ...(q.period === "once" ? [] : [from]))).n;
+  } else if (q.kind === "spin") { need = 1; progress = (u.wheel_day ?? -1) === L.dayId(now) ? 1 : 0; }
+  else if (q.kind === "link") {
+    const o = await one(env, "SELECT at FROM quest_open WHERE quest_id = ? AND uid = ?", q.id, u.uid);
+    if (o) { opened = true; wait = Math.max(0, o.at + Q.LINK_WAIT - now); }
+  }
+  if (progress != null) progress = Math.min(progress, need);
+  return { id: q.id, title: q.title, descr: q.descr || "", emoji: q.emoji, kind: q.kind, period: q.period, link: q.link || "",
+    reward_kind: q.reward_kind, reward: q.reward, ends_at: q.ends_at, done, progress, need, opened, wait };
+}
+function questInput(b, now) {
+  const kind = Q.KINDS.includes(b.kind) ? b.kind : bad("badAction");
+  const period = Q.PERIODS.includes(b.period) ? b.period : bad("badAction");
+  if (kind === "spin" && period !== "daily") bad("q.spinDaily");
+  const reward_kind = Q.REWARDS[b.reward_kind] ? b.reward_kind : bad("badAction");
+  const reward = Math.floor(Number(b.reward));
+  if (!(reward > 0 && reward <= Q.REWARDS[reward_kind])) bad("badAction");
+  const title = String(b.title || "").trim().slice(0, 80);
+  if (title.length < 2) bad("q.noTitle");
+  const link = String(b.link || "").trim().slice(0, 300);
+  if (kind === "link" && !/^(https:\/\/|pi:\/\/)\S+$/i.test(link)) bad("q.badLink");
+  const secret = String(b.secret || "").trim().slice(0, 40);
+  if (kind === "secret" && !secret) bad("q.noSecret");
+  const goal = ["ads", "arcade", "invite"].includes(kind) ? Math.min(1000, Math.max(1, Math.floor(Number(b.goal)) || 1)) : 1;
+  const days = Number(b.days) || 0;
+  return { title, descr: String(b.descr || "").trim().slice(0, 200), emoji: [...String(b.emoji || "🎯").trim()].slice(0, 2).join("") || "🎯",
+    kind, period, link: kind === "link" ? link : null, secret: kind === "secret" ? secret : null, goal, reward_kind, reward,
+    sort: Math.floor(Number(b.sort)) || 0, ends_at: days > 0 ? now + days * 86400000 : null };
+}
+// Gives an in-game reward: dates, Kombat coins, JRY or wheel spins
+async function giveReward(env, uid, kind, n, now, src) {
+  if (kind === "dates" || kind === "coins") return creditPoints(env, uid, kind, n, now, src);
+  if (kind === "jry") return run(env, "UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?", n, uid);
+  if (kind === "spins") return run(env, "UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?", n, uid);
+}
 async function creditPoints(env, uid, kind, n, now, src) {
   if (kind === "coins") return run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, ?)", uid, n, now, src);
   if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", uid))) await saveState(env, uid, L.fresh(now), now);

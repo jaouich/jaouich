@@ -366,6 +366,27 @@
         <p class="hint" data-i18n="ref.hint"></p>
       </div>
 
+      <div class="panel code-box">
+        <h3>🎟️ <span data-i18n="code.t"></span></h3>
+        <p class="hint" data-i18n="code.d"></p>
+        <div class="ref-row"><input id="codeIn" dir="ltr" maxlength="24" placeholder="JRY-XXXXXXXXXX" autocapitalize="characters"><button id="codeGo" class="btn small gold" data-i18n="code.go"></button></div>
+      </div>
+      <div id="codeAdmin" class="panel admin hidden">
+        <h3>🎟️ <span data-i18n="code.admin"></span></h3>
+        <div class="code-form">
+          <label><small data-i18n="code.f.kind"></small><select id="caKind"><option value="dates">🌴</option><option value="coins">🪙</option><option value="jry">JRY</option><option value="spins">🎡</option></select></label>
+          <label><small data-i18n="code.amount"></small><input id="caAmount" type="number" min="1"></label>
+          <label><small data-i18n="code.f.uses"></small><input id="caUses" type="number" min="1" value="1"></label>
+          <label><small data-i18n="code.f.count"></small><input id="caCount" type="number" min="1" max="200" value="10"></label>
+          <label><small data-i18n="code.f.days"></small><input id="caDays" type="number" min="0" value="30"></label>
+          <label><small data-i18n="code.f.custom"></small><input id="caCode" dir="ltr" maxlength="24" placeholder="JERRY2026"></label>
+        </div>
+        <small class="hint" data-i18n="code.formHint"></small>
+        <button id="caMake" class="btn small gold" data-i18n="code.make"></button>
+        <button id="caCopy" class="btn small secondary hidden" data-i18n="code.copy"></button>
+        <div id="caList" class="list"></div>
+      </div>
+
       <!-- Only shown to the owner: grant the Partner membership -->
       <div id="adminBox" class="panel admin hidden">
         <h3 data-i18n="admin.title"></h3>

@@ -196,6 +196,8 @@
     earnAd: (adId) => api("/api/earn/ad", { adId }),
     earnTop: () => api("/api/earn/top"),
     arcade: () => api("/api/arcade"),
+    redeemCode: (code) => api("/api/code/redeem", { code }),
+    adminCodes: (o) => api("/api/admin/codes", o),
     arcadeClaim: (game, score, ms) => api("/api/arcade/claim", { game, score, ms }),
     sponsors: () => api("/api/sponsors"),
     sponsorClick: (id) => api("/api/sponsors/click", { id }).catch(() => {}),

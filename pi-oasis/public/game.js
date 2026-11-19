@@ -739,6 +739,28 @@
     }
   });
 
+  // ---------- 🎟️ Gift codes ----------
+  const codeIco = { dates: "🌴", coins: "🪙", jry: "JRY", spins: "🎡" };
+  let caMade = [];
+  $("codeGo").addEventListener("click", async () => {
+    if (!account) return toast(t("t.loginFirst"));
+    const b = $("codeGo"); b.disabled = true;
+    try {
+      const r = await Pi.redeemCode($("codeIn").value);
+      account = r.account; S = r.state; render(); burst();
+      toast(t("code.ok", { n: fmtN(r.amount), i: codeIco[r.kind] })); $("codeIn").value = "";
+    } catch (e) { toast(e.message); }
+    b.disabled = false;
+  });
+  function renderCodes(d) {
+    $("caList").innerHTML = (d.list || []).map((c) => `<div><span><b dir="ltr">${esc(c.code)}</b> · ${codeIco[c.kind]} ${fmtN(c.amount)} · <span dir="ltr">${c.used}/${c.max_uses}</span>${c.expires_at ? " · ⏳ " + new Date(c.expires_at).toLocaleDateString() : ""}</span><button class="btn small secondary" data-cadel="${esc(c.code)}">🗑</button></div>`).join("");
+    $("caCopy").classList.toggle("hidden", !caMade.length);
+  }
+  async function codeAdmin(o) { try { const d = await Pi.adminCodes(o); if (d.made && d.made.length) caMade = d.made; renderCodes(d); } catch (e) { toast(e.message); } }
+  $("caMake").addEventListener("click", () => codeAdmin({ action: "create", kind: $("caKind").value, amount: $("caAmount").value, uses: $("caUses").value, count: $("caCount").value, days: $("caDays").value, code: $("caCode").value }));
+  $("caCopy").addEventListener("click", () => navigator.clipboard?.writeText(caMade.join("\n")).then(() => toast(t("t.copied")), () => {}));
+  $("caList").addEventListener("click", (e) => { const b = e.target.closest("[data-cadel]"); if (b && confirm(t("code.del"))) codeAdmin({ action: "delete", code: b.dataset.cadel }); });
+
   // ---------- 🕹️ Jerry Arcade: free skill games that give dates ----------
   const AR = L.ARCADE;
   let arcInfo = null, arcGame = "", arcStop = null, arcPlayers = 0;
@@ -986,7 +1008,7 @@
       $("userLabel").textContent = t("welcome", { name: account.username });
       $("loginBtn").classList.add("hidden");
       render();
-      if (account.isAdmin) { partners("list"); partnerRequests("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
+      if (account.isAdmin) { $("codeAdmin").classList.remove("hidden"); codeAdmin({ action: "list" }); partners("list"); partnerRequests("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
       if (account.testGifts) testGifts("list");
       // Mainnet: once, say that the Testnet progress came along
       if (S.fromTestnet && Date.now() - S.fromTestnet < 7 * 864e5) {

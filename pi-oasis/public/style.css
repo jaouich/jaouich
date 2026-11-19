@@ -1071,3 +1071,12 @@ body.k-open { overflow: hidden; }
 .fut.open { border: 1px solid #ffd34d; }
 .fut.open i { filter: none; }
 .fut small { font-size: .7rem; opacity: .85; }
+
+.code-box input, .code-form input, .code-form select { min-width: 0; border-radius: 12px; border: 1px solid #e3cf9e; padding: 9px 10px; font: inherit; background: #fff; }
+.code-box .ref-row input { flex: 1; letter-spacing: 1px; text-transform: uppercase; }
+.code-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
+#caList > div { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: .82rem; }
+#caList > div > span { min-width: 0; overflow-wrap: anywhere; }
+
+.code-form label { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.code-form label small { font-size: .7rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

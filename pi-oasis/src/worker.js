@@ -170,6 +170,9 @@ const SCHEMA = [
   // Points market (dates / Kombat coins for Pi). status: open → reserved → sold, or cancelled
   "CREATE TABLE IF NOT EXISTS mk_offers ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, kind TEXT NOT NULL, amount INTEGER NOT NULL, pi REAL NOT NULL, status TEXT NOT NULL, buyer TEXT, pay_id TEXT, reserved_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
   "CREATE INDEX IF NOT EXISTS mk_open ON mk_offers(status, kind)",
+  // Gift codes made by the owner: one reward per player per code, limited uses, optional expiry
+  "CREATE TABLE IF NOT EXISTS codes ( code TEXT PRIMARY KEY COLLATE NOCASE, kind TEXT NOT NULL, amount INTEGER NOT NULL, max_uses INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0, expires_at INTEGER, note TEXT, created_at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS code_uses ( code TEXT NOT NULL COLLATE NOCASE, uid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (code, uid) )",
   // Jerry Arcade: rewarded plays per day and best scores
   "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
   // Business showcase. status: paying → review → live (until ends_at) | rejected (refunded)
@@ -1172,6 +1175,55 @@ const routes = {
     const top = await all(env, "SELECT username, earn_ads AS ads, earn_total AS dates FROM users WHERE earn_ads > 0 ORDER BY earn_ads DESC, earn_total DESC LIMIT 10");
     const tot = await one(env, "SELECT COALESCE(SUM(earn_ads), 0) AS ads, COUNT(*) AS viewers FROM users WHERE earn_ads > 0");
     return { top, ads: tot.ads, viewers: tot.viewers };
+  },
+
+  // ---------- 🎟️ Gift codes ----------
+  "POST /api/code/redeem": async (req, env, body) => {
+    const u = await auth(req, env);
+    const code = String(body.code || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+    if (code.length < 4) bad("code.bad");
+    const now = Date.now();
+    const c = await one(env, "SELECT * FROM codes WHERE code = ?", code);
+    if (!c) bad("code.bad");
+    if (c.expires_at && c.expires_at < now) bad("code.expired");
+    if (await one(env, "SELECT 1 AS x FROM code_uses WHERE code = ? AND uid = ?", code, u.uid)) bad("code.used");
+    // take one use (never more than max_uses, even with two players at the same moment)
+    const r = await run(env, "UPDATE codes SET used = used + 1 WHERE code = ? AND used < max_uses", code);
+    if (!r.meta.changes) bad("code.empty");
+    const ins = await run(env, "INSERT OR IGNORE INTO code_uses (code, uid, at) VALUES (?, ?, ?)", code, u.uid, now);
+    if (!ins.meta.changes) { await run(env, "UPDATE codes SET used = used - 1 WHERE code = ?", code); bad("code.used"); }
+    if (c.kind === "dates" || c.kind === "coins") await creditPoints(env, u.uid, c.kind, c.amount, now, "code");
+    else if (c.kind === "jry") await run(env, "UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?", c.amount, u.uid);
+    else if (c.kind === "spins") await run(env, "UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?", c.amount, u.uid);
+    const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
+    const acc = await account(env, fresh);
+    return { ok: true, kind: c.kind, amount: c.amount, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
+  },
+  "POST /api/admin/codes": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const now = Date.now(), made = [];
+    if (body.action === "create") {
+      const kind = ["dates", "coins", "jry", "spins"].includes(body.kind) ? body.kind : "dates";
+      const amount = Math.floor(Number(body.amount)), uses = Math.floor(Number(body.uses)) || 1, count = Math.min(200, Math.max(1, Math.floor(Number(body.count)) || 1));
+      const lim = { dates: 1e6, coins: 1e8, jry: 1e5, spins: 100 }[kind];
+      if (!(amount > 0 && amount <= lim) || !(uses >= 1 && uses <= 1e6)) bad("badAction");
+      const days = Number(body.days) || 0, exp = days > 0 ? now + days * 86400000 : null;
+      const custom = String(body.code || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+      const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const rnd = () => { const b = crypto.getRandomValues(new Uint8Array(10)); return "JRY-" + [...b].map((x) => abc[x % abc.length]).join(""); };
+      for (let i = 0; i < (custom ? 1 : count); i++) {
+        const code = custom || rnd();
+        const r = await run(env, "INSERT OR IGNORE INTO codes (code, kind, amount, max_uses, used, expires_at, note, created_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
+          code, kind, amount, uses, exp, String(body.note || "").slice(0, 80), now);
+        if (r.meta.changes) made.push(code);
+      }
+      if (custom && !made.length) bad("code.exists");
+    } else if (body.action === "delete") {
+      await run(env, "DELETE FROM codes WHERE code = ?", String(body.code || ""));
+    }
+    const list = await all(env, "SELECT * FROM codes ORDER BY created_at DESC LIMIT 100");
+    return { made, list };
   },
 
   // ---------- 🕹️ Jerry Arcade ----------

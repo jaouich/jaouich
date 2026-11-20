@@ -1,0 +1,2 @@
+Performing Streamed Install
+adb: failed to stat test/magiscom-desk.apk: No such file or directory

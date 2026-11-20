@@ -187,6 +187,8 @@ const SCHEMA = [
   // Pi Notification Center: one notification per (player, kind, ref), never twice
   // JRY handed out by the owner (one row per distribution)
   "CREATE TABLE IF NOT EXISTS jry_drops ( id INTEGER PRIMARY KEY AUTOINCREMENT, amount INTEGER NOT NULL, target TEXT NOT NULL, players INTEGER NOT NULL, note TEXT, at INTEGER NOT NULL )",
+  // Every JRY a player spends in the game (usage figures for the owner)
+  "CREATE TABLE IF NOT EXISTS jry_spent ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, n INTEGER NOT NULL, dest TEXT NOT NULL, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS notif_log ( uid TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, kind, ref) )",
   // Jerry Arcade: rewarded plays per day and best scores
   "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
@@ -1401,6 +1403,17 @@ const routes = {
     return derbyView(d);
   },
 
+  // JRY economy at a glance (owner): supply, holders, usage
+  "GET /api/admin/jrystats": async (req, env) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const now = Date.now();
+    const s = await one(env, "SELECT COALESCE(SUM(jry_pts), 0) AS supply, COUNT(CASE WHEN jry_pts > 0 THEN 1 END) AS holders, COUNT(*) AS players FROM users");
+    const sp = await one(env, "SELECT COALESCE(SUM(n), 0) AS all_n, COALESCE(SUM(CASE WHEN at >= ? THEN n END), 0) AS week_n, COUNT(DISTINCT CASE WHEN at >= ? THEN uid END) AS users30 FROM jry_spent", now - 7 * DAY, now - 30 * DAY);
+    const dr = await one(env, "SELECT COALESCE(SUM(amount * players), 0) AS n FROM jry_drops");
+    const top = await all(env, "SELECT username, jry_pts AS n FROM users WHERE jry_pts > 0 ORDER BY jry_pts DESC LIMIT 10");
+    return { supply: s.supply, holders: s.holders, players: s.players, spentAll: sp.all_n, spentWeek: sp.week_n, users30: sp.users30, dropped: dr.n, top };
+  },
   // ---------- 💠 JRY distribution (owner) ----------
   // target: active (played in the last 7 days) | all | top (this week's top N in the Oasis ranking) | names (list of usernames)
   // preview: only counts the players. Blocked accounts (airdrop_block) never receive anything.
@@ -1563,6 +1576,7 @@ const routes = {
     const now = Date.now();
     const r = await run(env, "UPDATE users SET jry_pts = jry_pts - ? WHERE uid = ? AND jry_pts >= ?", n, u.uid, n);
     if (!r.meta.changes) bad("jp.notEnough");
+    await run(env, "INSERT INTO jry_spent (uid, n, dest, at) VALUES (?, ?, ?, ?)", u.uid, n, to, now);
     const got = Math.floor(n * (to === "coins" ? KL.JRYP.COINS : KL.JRYP.DATES));
     if (to === "coins") await run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'jry')", u.uid, got, now);
     else {

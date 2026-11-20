@@ -1192,3 +1192,9 @@ body.k-open { overflow: hidden; }
 .hub-earn { background: linear-gradient(#e3f6ec, #c8eedb); border-color: #2fae78; box-shadow: 0 3px 0 #1f8a5c; }
 .hub-tile:active, .hub-big:active { transform: translateY(2px); }
 .hub-big b { white-space: normal; line-height: 1.15; font-size: .92rem; }
+
+.jd-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
+.jd-stats div { display: flex; flex-direction: column; padding: 8px; border-radius: 12px; background: #fff; border: 1px solid #f0d79a; }
+.jd-stats small { font-size: .7rem; opacity: .75; }
+.jd-stats b { font-size: 1rem; direction: ltr; text-align: start; }
+.jd-top { grid-column: 1 / -1; font-size: .74rem; margin: 2px 0 0; line-height: 1.5; }

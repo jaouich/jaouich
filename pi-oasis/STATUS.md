@@ -49,3 +49,4 @@ check-in, open a link, secret word, ads, Arcade, invites, wheel; managed inside 
 `https://developers.minepi.com/mcp` (guide: https://developers.minepi.com/agents.md). Tools: whoami, list_apps, get_app
 (checklist incl. `create_wallet`), update_app, verify_app_url_ownership, set_app_logo, prompt_payments. Connected as a claude.ai
 custom connector; use `get_app` to check the Mainnet wallet and listing status instead of asking for screenshots.
+- JRY token plan: see JRY-PLAN.md (Launchpad/PiRC1 path, Mainnet Launchpad planned Q1 2027).

@@ -875,6 +875,15 @@
   function jdRender(d) {
     $("jdList").innerHTML = (d.list || []).map((x) => `<div><span>💠 ${fmtN(x.amount)} × ${x.players} · ${t("jd.t." + x.target)} · ${new Date(x.at).toLocaleDateString()}${x.note ? " · " + esc(x.note) : ""}</span></div>`).join("");
   }
+  async function jdStats() {
+    try {
+      const d = await Pi.adminJryStats();
+      $("jdStats").innerHTML = `<div><small>${t("js.supply")}</small><b>${fmtN(d.supply)}</b></div><div><small>${t("js.holders")}</small><b>${fmtN(d.holders)} / ${fmtN(d.players)}</b></div>
+        <div><small>${t("js.spentWeek")}</small><b>${fmtN(d.spentWeek)}</b></div><div><small>${t("js.users30")}</small><b>${fmtN(d.users30)}</b></div>
+        <div><small>${t("js.spentAll")}</small><b>${fmtN(d.spentAll)}</b></div><div><small>${t("js.dropped")}</small><b>${fmtN(d.dropped)}</b></div>
+        ${d.top.length ? `<p class="jd-top">🏅 ${d.top.map((x) => `${esc(x.username)} ${fmtN(x.n)}`).join(" · ")}</p>` : ""}`;
+    } catch (e) {}
+  }
   async function jdPreview() { try { const d = await Pi.adminJryDrop(jdBody(true)); $("jdInfo").textContent = t("jd.count", { n: d.players, total: fmtN(d.players * (Number($("jdAmount").value) || 0)) }); jdRender(d); } catch (e) { toast(e.message); } }
   $("jdPreview").addEventListener("click", jdPreview);
   ["jdTarget", "jdAmount", "jdN"].forEach((id) => $(id).addEventListener("change", jdPreview));
@@ -885,7 +894,7 @@
       if (!confirm(t("jd.confirm", { n: pre.players, a: fmtN(Number($("jdAmount").value) || 0) }))) return;
       b.disabled = true;
       const d = await Pi.adminJryDrop(jdBody(false));
-      toast(t("jd.done", { n: d.players, total: fmtN(d.total) })); jdRender(d); $("jdInfo").textContent = "";
+      toast(t("jd.done", { n: d.players, total: fmtN(d.total) })); jdRender(d); $("jdInfo").textContent = ""; jdStats();
     } catch (e) { toast(e.message); }
     b.disabled = false;
   });
@@ -1149,7 +1158,7 @@
       $("loginBtn").classList.add("hidden");
       render();
       qLoad();
-      if (account.isAdmin) { $("jdAdmin").classList.remove("hidden"); jdPreview(); }
+      if (account.isAdmin) { $("jdAdmin").classList.remove("hidden"); jdPreview(); jdStats(); }
       if (account.isAdmin) { $("codeAdmin").classList.remove("hidden"); codeAdmin({ action: "list" }); partners("list"); partnerRequests("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
       if (account.testGifts) testGifts("list");
       // Mainnet: once, say that the Testnet progress came along

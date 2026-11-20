@@ -37,5 +37,12 @@ const c1 = await jry("uC");
 await fetch(B + "/__test/cron");
 ok(await jry("uC") === c1 + 500, "weekly #1 also gets 500 JRY");
 ok((await notifs()).some((x) => x.user_uid === "uC" && x.body.includes("+500 JRY")), "weekly notification mentions the JRY");
+// usage figures
+await exec("UPDATE users SET jry_pts = 1000 WHERE uid = 'uC'");
+const sw = await post("/api/jrypts/swap", { n: 200, to: "dates" }, HC);
+ok(sw.ok, "a player spends 200 JRY");
+const st = await fetch(B + "/api/admin/jrystats", { headers: HA }).then((x) => x.json());
+ok(st.spentWeek === 200 && st.users30 === 1 && st.supply >= 800 && st.top[0].username === "carol" && st.dropped > 0, "JRY stats: supply, spending, holders, given");
+ok((await fetch(B + "/api/admin/jrystats", { headers: HB })).status === 403, "stats are for the owner only");
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

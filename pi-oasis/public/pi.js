@@ -239,6 +239,7 @@
     redeemCode: (code) => api("/api/code/redeem", { code }),
     adminCodes: (o) => api("/api/admin/codes", o),
     adminJryDrop: (o) => api("/api/admin/jrydrop", o),
+    adminJryStats: () => api("/api/admin/jrystats"),
     quests: () => api("/api/quests"),
     questOpen: (id) => api("/api/quests/open", { id }),
     questClaim: (id, answer) => api("/api/quests/claim", { id, answer }),

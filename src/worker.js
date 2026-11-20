@@ -118,7 +118,7 @@ const SEC_HEADERS = {
 };
 function asset(p) {
   const a = ASSETS[p] || ASSETS["/"];               // application monopage
-  if (a.b64) return new Response(fromB64(a.b64), { headers: { "Content-Type": a.type, "Cache-Control": "public, max-age=86400", "X-Content-Type-Options": "nosniff" } });
+  if (a.b64) return new Response(fromB64(a.b64), { headers: { "Content-Type": a.type, "Cache-Control": a.dl ? "no-cache" : "public, max-age=86400", "X-Content-Type-Options": "nosniff", ...(a.dl ? { "Content-Disposition": `attachment; filename="${a.dl}"` } : {}) } });
   return new Response(a.body, { headers: { "Content-Type": a.type, "Cache-Control": "no-cache", ...SEC_HEADERS } });
 }
 

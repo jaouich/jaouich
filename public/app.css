@@ -290,3 +290,7 @@ textarea{min-height:120px;resize:vertical}
 .rec-link .ic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
 .rec-link>span{display:flex;flex-direction:column}
 .rec-page textarea{min-height:80px}
+.apk-card{border:2px solid var(--brand)}
+.apk-ic{border-radius:14px;flex:none}
+.apk-card h2{margin:0 0 4px}
+.apk-btn{min-height:52px;justify-content:center;font-size:1.02rem}

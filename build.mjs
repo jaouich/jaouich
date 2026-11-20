@@ -13,6 +13,7 @@ const assets = {
   "/sw.js": { type: "text/javascript; charset=utf-8", body: read("./public/sw.js") },
   "/icon-192.png": { type: "image/png", b64: readFileSync(new URL("./public/icon-192.png", import.meta.url)).toString("base64") },
   "/icon-512.png": { type: "image/png", b64: readFileSync(new URL("./public/icon-512.png", import.meta.url)).toString("base64") },
+  "/app/magiscom-desk.apk": { type: "application/vnd.android.package-archive", dl: "magiscom-desk.apk", b64: readFileSync(new URL("./public/app/magiscom-desk.apk", import.meta.url)).toString("base64") },
   "/logo.png": { type: "image/png", b64: readFileSync(new URL("./public/logo.png", import.meta.url)).toString("base64") },
 };
 const src = read("./src/worker.js");

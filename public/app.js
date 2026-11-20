@@ -1405,7 +1405,7 @@ async function viewLive() {
   // 2. Enregistrer l'écran
   const bRecord = big("rec", "Enregistrer mon écran");
   const recNote = h("p", { class: "muted small" }, "L'écran et votre voix, même plus d'une heure. La vidéo est ajoutée à la demande.");
-  if (!canRecordScreen()) { bRecord.hidden = true; recNote.textContent = "Sur téléphone : utilisez l'enregistreur d'écran du téléphone (ou AZ Screen Recorder), puis ajoutez la vidéo dans la demande avec 📎 (jusqu'à 5 Go)."; }
+  if (!canRecordScreen()) { bRecord.hidden = true; recNote.textContent = /android/i.test(navigator.userAgent) ? "Sur Android : installez l'application Magiscom Desk pour filmer l'écran du téléphone en parlant." : "Sur téléphone : utilisez l'enregistreur d'écran du téléphone, puis ajoutez la vidéo dans la demande avec 📎 (jusqu'à 5 Go)."; }
   bRecord.onclick = async () => {
     err.hidden = true;
     let id;
@@ -1448,7 +1448,7 @@ async function viewLive() {
         admin ? "Le téléphone ou l'ordinateur du client sonne. Une fois connecté, il est invité à partager son écran : vous voyez EBP ou Sage comme lui." : "Un consultant voit votre écran pendant l'appel et vous guide pas à pas. Choisissez tout l'écran ou la fenêtre du logiciel.",
         h("div", { class: "stack tight" }, bShareCall, h("div", { class: "row tight" }, bVideo, bAudio)),
         !admin && IS_MOBILE ? h("p", { class: "muted small" }, "Sur téléphone : lancez un appel vidéo et filmez l'écran de l'ordinateur avec la caméra arrière (bouton « Retourner »).") : null),
-      admin ? null : step("2", "Filmer mon écran", null, recNote, bRecord, canRecordScreen() ? h("a", { class: "small", href: "#/rec" }, "Ouvrir l'enregistreur complet (caméra, son du PC, télécharger la vidéo) →") : null),
+      admin ? null : step("2", "Filmer mon écran", null, recNote, bRecord, canRecordScreen() ? h("a", { class: "small", href: "#/rec" }, "Ouvrir l'enregistreur complet (caméra, son du PC, télécharger la vidéo) →") : /android/i.test(navigator.userAgent) ? h("a", { class: "btn primary", href: APK_URL, download: "magiscom-desk.apk" }, "📲 Télécharger l'application Android") : null),
       step(admin ? "2" : "3", "Prise en main à distance", admin ? "Pour prendre le contrôle du poste du client : il installe AnyDesk ou RustDesk et vous envoie son identifiant depuis cet onglet. Il apparaît dans sa demande." : "Pour que le consultant contrôle votre ordinateur : ouvrez AnyDesk ou RustDesk et envoyez l'identifiant affiché.",
         admin ? null : h("div", { class: "row tight" }, rid, bRid),
         h("p", { class: "small" }, h("a", { href: "https://anydesk.com/fr/downloads", target: "_blank", rel: "noopener" }, "Télécharger AnyDesk"), " · ", h("a", { href: "https://rustdesk.com/fr/", target: "_blank", rel: "noopener" }, "RustDesk (gratuit)")))),
@@ -1459,6 +1459,20 @@ async function viewLive() {
 }
 
 
+
+// Application Android « Magiscom Desk » : enregistre l'écran du téléphone (comme AZ Screen Recorder)
+const APK_URL = "/app/magiscom-desk.apk";
+function androidCard() {
+  return h("div", { class: "card stack apk-card" },
+    h("div", { class: "row" }, h("img", { src: "/icon-192.png", alt: "", width: 56, height: 56, class: "apk-ic" }),
+      h("div", null, h("h2", null, "Application Android Magiscom Desk"), h("p", { class: "small muted" }, "Enregistrez l'écran du téléphone en parlant, avec une bulle flottante, puis envoyez la vidéo à Magiscom Tech. Android 10 et plus · 120 Ko."))),
+    h("a", { class: "btn primary apk-btn", href: APK_URL, download: "magiscom-desk.apk" }, "📲 Télécharger l'application"),
+    h("ol", { class: "rec-steps small" },
+      h("li", null, "Ouvrez le fichier ", h("b", null, "magiscom-desk.apk"), " téléchargé (notification ou dossier Téléchargements)."),
+      h("li", null, "Si Android le demande : ", h("b", null, "Paramètres › Autoriser cette source"), ", puis ", h("b", null, "Installer"), "."),
+      h("li", null, "Ouvrez ", h("b", null, "Magiscom Desk"), ", connectez-vous avec le même compte, touchez le gros bouton rouge.")),
+    h("p", { class: "small muted" }, "Si Play Protect affiche un avertissement : l'application vient directement de Magiscom Tech et n'est pas (encore) sur le Play Store. Touchez « Installer quand même »."));
+}
 // ---------- Enregistreur d'écran (comme AZ Screen Recorder) ----------
 // Filme TOUT l'écran du PC (EBP, Sage, Excel…) avec la voix, le son de l'ordinateur et, en option,
 // une bulle caméra. Des commandes flottantes restent au-dessus de tous les logiciels. À la fin :
@@ -1619,14 +1633,18 @@ async function viewRec() {
   function setup() {
     const o = recOptions();
     if (!canRec) {
-      box.replaceChildren(h("div", { class: "card stack" },
-        h("h2", null, "Sur téléphone ou tablette"),
+      const android = /android/i.test(navigator.userAgent);
+      box.replaceChildren(
+        android ? androidCard() : null,
+        h("div", { class: "card stack" },
+        h("h2", null, android ? "Sans installer l'application" : "Sur téléphone ou tablette"),
         h("p", null, "Les navigateurs des téléphones ne permettent pas à un site de filmer l'écran. Utilisez l'enregistreur du téléphone, puis envoyez la vidéo :"),
         h("ol", { class: "rec-steps" },
           h("li", null, h("b", null, "Android : "), "faites glisser le haut de l'écran vers le bas, touchez « Enregistrement d'écran » (ou utilisez AZ Screen Recorder). Activez le micro pour parler."),
           h("li", null, h("b", null, "iPhone : "), "ouvrez le Centre de contrôle, touchez ⏺ (appui long pour activer le micro)."),
           h("li", null, "Ouvrez votre demande dans Magiscom Tech Desk et ajoutez la vidéo avec 📎 (jusqu'à 5 Go).")),
         ME ? h("a", { class: "btn primary", href: "#/new" }, "Nouvelle demande") : h("a", { class: "btn primary", href: "#/login" }, "Se connecter")));
+      [...box.childNodes].forEach((n) => n.nodeType === 3 && n.remove());
       return;
     }
     const opt = (key, ic, label, hint, disabled) => {

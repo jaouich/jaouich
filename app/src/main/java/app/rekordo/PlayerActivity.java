@@ -111,6 +111,10 @@ public class PlayerActivity extends Activity {
         actions.setGravity(Gravity.CENTER);
         actions.setPadding(Ui.dp(this, 8), Ui.dp(this, 10), Ui.dp(this, 8), Ui.dp(this, 10));
         actions.addView(action(Icons.SHARE, R.string.share, v -> share()), Ui.weight());
+        actions.addView(action(Icons.EDIT, R.string.edit, v -> {
+            if (vv != null && vv.isPlaying()) toggle();
+            startActivity(new Intent(this, video ? EditorActivity.class : AnnotateActivity.class).setData(uri));
+        }), Ui.weight());
         if (video) {
             actions.addView(action(Icons.CUT, R.string.trim, v -> trimDialog()), Ui.weight());
             actions.addView(action(Icons.FRAME, R.string.frame, v -> frame()), Ui.weight());

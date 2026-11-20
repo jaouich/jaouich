@@ -48,16 +48,44 @@ tap_text "Stop" "82 394"; sleep 6
 adb shell cmd statusbar expand-notifications; sleep 2; shot 10-arret
 adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:width:height:relative_path > $OUT/videos.txt 2>&1
 adb shell content query --uri content://media/external/images/media --projection _display_name:_size:relative_path > $OUT/images.txt 2>&1
-# --- Lecteur (depuis la notification « Video saved ») puis galerie
+# --- Lecteur puis éditeur (filtre N&B + texte + 360p)
 tap_text "Video saved" "150 280"; sleep 5; shot 12-lecteur
-adb shell input tap 160 330; sleep 1; tap_text "Cut" "122 590"; sleep 3; shot 13-couper
-tap_text "Save as a new video"; sleep 8; shot 13b-apres-coupe
-tap_text "Save this frame"; sleep 4
-adb shell input keyevent BACK; sleep 1
-adb shell am start -W -n $PKG/.MainActivity; sleep 4; shot 11-galerie
-tap_text "Screenshots"; sleep 3; shot 14-captures
-adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:width:height:relative_path > $OUT/videos2.txt 2>&1
-adb shell content query --uri content://media/external/images/media --projection _display_name:_size:relative_path > $OUT/images2.txt 2>&1
+adb shell input tap 160 330; sleep 1
+tap_text "Edit"; sleep 5; shot 13-editeur
+tap_text "Filters"; sleep 3; tap_text "B&W"; sleep 2; shot 14-filtre
+tap_text "Text"; sleep 2; tap_text "Text shown on the video"; sleep 1; adb shell input text "Hello%sRekordo"; adb shell input keyevent 111; sleep 2; shot 15-texte
+tap_text "Size"; sleep 2; tap_text "360p"; sleep 1; shot 16-taille
+tap_text "Export"; sleep 3; shot 17-export
+for i in $(seq 1 40); do sleep 5; adb shell dumpsys window | grep -q "mCurrentFocus.*PlayerActivity" && break; done
+sleep 3; shot 18-resultat-edition
+adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:width:height > $OUT/videos-apres-edition.txt 2>&1
+adb shell input keyevent BACK; sleep 2
+# --- Galerie : sélection de 2 vidéos et fusion
+adb shell am start -W -n $PKG/.MainActivity; sleep 4; shot 19-galerie
+dump; cp $OUT/ui.xml $OUT/galerie.xml
+python3 - > $OUT/cells.txt <<'PY'
+import re
+x=open("test/out/galerie.xml",encoding="utf-8").read()
+for m in re.finditer(r'<node [^>]*class="android.widget.LinearLayout"[^>]*long-clickable="true"[^>]*>', x):
+    a=list(map(int,re.findall(r'\d+',re.search(r'bounds="([^"]*)"',m.group(0)).group(1)))); print((a[0]+a[2])//2,(a[1]+a[3])//2)
+PY
+cat $OUT/cells.txt
+C1=$(sed -n 1p $OUT/cells.txt); C2=$(sed -n 2p $OUT/cells.txt)
+[ -z "$C1" ] && C1="85 330"; [ -z "$C2" ] && C2="235 330"
+adb shell input swipe $C1 $C1 900; sleep 1; adb shell input tap $C2; sleep 1; shot 20-selection
+tap_text "Merge"; sleep 5; shot 21-fusion
+tap_text "Export"; sleep 3
+for i in $(seq 1 60); do sleep 5; adb shell dumpsys window | grep -q "mCurrentFocus.*PlayerActivity" && break; done
+sleep 3; shot 22-resultat-fusion
+adb shell input keyevent BACK; sleep 2
+# --- Dessin sur une capture
+adb shell am start -W -n $PKG/.MainActivity; sleep 3
+tap_text "Screenshots"; sleep 3; adb shell input tap 60 320; sleep 3
+tap_text "Edit"; sleep 3
+adb shell input swipe 60 200 260 400 400; adb shell input swipe 260 200 60 400 400; sleep 1; shot 23-dessin
+tap_text "Save"; sleep 4; shot 24-dessin-enregistre
+adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:width:height > $OUT/videos2.txt 2>&1
+adb shell content query --uri content://media/external/images/media --projection _display_name:_size > $OUT/images2.txt 2>&1
 adb logcat -d > $OUT/logcat-full.txt
 grep -E "AndroidRuntime|FATAL|rekordo|Rekordo|MediaCodec.*rror|MediaProjection" $OUT/logcat-full.txt | tail -250 > $OUT/logcat.txt
 true

@@ -77,4 +77,45 @@
     <string name="take_shot">Faire une capture</string>
     <string name="stats" formatted="true">%1$d · %2$s</string>
     <string name="info">Détails</string>
+    <string name="edit">Modifier</string>
+    <string name="export">Exporter</string>
+    <string name="merge">Fusionner</string>
+    <string name="merge_n" formatted="true">Fusionner %d vidéos</string>
+    <string name="merge_pick">Sélectionnez au moins 2 vidéos</string>
+    <string name="selected_n" formatted="true">%d sélectionné(s)</string>
+    <string name="filters">Filtres</string>
+    <string name="adjust">Réglages</string>
+    <string name="text">Texte</string>
+    <string name="speed">Vitesse</string>
+    <string name="rotate">Pivoter</string>
+    <string name="sound">Son</string>
+    <string name="size">Taille</string>
+    <string name="speed_note">À une vitesse autre que 1×, le son est retiré.</string>
+    <string name="f_none">Original</string>
+    <string name="f_bw">N&amp;B</string>
+    <string name="f_sepia">Sépia</string>
+    <string name="f_vivid">Éclatant</string>
+    <string name="f_warm">Chaud</string>
+    <string name="f_cool">Froid</string>
+    <string name="f_fade">Délavé</string>
+    <string name="f_noir">Noir</string>
+    <string name="f_vintage">Vintage</string>
+    <string name="brightness">Luminosité</string>
+    <string name="contrast">Contraste</string>
+    <string name="saturation">Saturation</string>
+    <string name="text_hint">Texte affiché sur la vidéo</string>
+    <string name="pos_bottom">Bas</string>
+    <string name="pos_top">Haut</string>
+    <string name="pos_center">Centre</string>
+    <string name="no_sound_in_video">Cette vidéo n\'a pas de son.</string>
+    <string name="keep_sound">Garder le son</string>
+    <string name="mute">Couper le son</string>
+    <string name="resolution_now" formatted="true">Actuellement : %s</string>
+    <string name="original">Original</string>
+    <string name="estimate" formatted="true">Résultat : %1$s · %2$s</string>
+    <string name="exporting">Création de la vidéo…</string>
+    <string name="export_failed" formatted="true">Impossible de créer la vidéo : %s</string>
+    <string name="draw_on_image">Dessiner</string>
+    <string name="save_copy_short">Enregistrer</string>
+    <string name="highlighter">Surligneur</string>
 </resources>

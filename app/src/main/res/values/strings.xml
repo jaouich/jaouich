@@ -78,4 +78,45 @@
     <string name="take_shot">Take a screenshot</string>
     <string name="stats" formatted="true">%1$d · %2$s</string>
     <string name="info">Details</string>
+    <string name="edit">Edit</string>
+    <string name="export">Export</string>
+    <string name="merge">Merge</string>
+    <string name="merge_n" formatted="true">Merge %d videos</string>
+    <string name="merge_pick">Select at least 2 videos</string>
+    <string name="selected_n" formatted="true">%d selected</string>
+    <string name="filters">Filters</string>
+    <string name="adjust">Adjust</string>
+    <string name="text">Text</string>
+    <string name="speed">Speed</string>
+    <string name="rotate">Rotate</string>
+    <string name="sound">Sound</string>
+    <string name="size">Size</string>
+    <string name="speed_note">At a speed other than 1×, the sound is removed.</string>
+    <string name="f_none">Original</string>
+    <string name="f_bw">B&amp;W</string>
+    <string name="f_sepia">Sepia</string>
+    <string name="f_vivid">Vivid</string>
+    <string name="f_warm">Warm</string>
+    <string name="f_cool">Cool</string>
+    <string name="f_fade">Fade</string>
+    <string name="f_noir">Noir</string>
+    <string name="f_vintage">Vintage</string>
+    <string name="brightness">Brightness</string>
+    <string name="contrast">Contrast</string>
+    <string name="saturation">Saturation</string>
+    <string name="text_hint">Text shown on the video</string>
+    <string name="pos_bottom">Bottom</string>
+    <string name="pos_top">Top</string>
+    <string name="pos_center">Center</string>
+    <string name="no_sound_in_video">This video has no sound.</string>
+    <string name="keep_sound">Keep sound</string>
+    <string name="mute">Mute</string>
+    <string name="resolution_now" formatted="true">Now: %s</string>
+    <string name="original">Original</string>
+    <string name="estimate" formatted="true">Result: %1$s · %2$s</string>
+    <string name="exporting">Creating the video…</string>
+    <string name="export_failed" formatted="true">Could not create the video: %s</string>
+    <string name="draw_on_image">Draw</string>
+    <string name="save_copy_short">Save</string>
+    <string name="highlighter">Marker</string>
 </resources>

@@ -45,6 +45,11 @@ public class MainActivity extends Activity {
     private TextView recLabel, recSub;
     private View recBtn;
     private boolean wasRecording;
+    private final java.util.LinkedHashSet<android.net.Uri> selected = new java.util.LinkedHashSet<>();
+    private LinearLayout selBar;
+    private TextView selCount;
+    private Adapter adapter;
+    private List<Store.Item> shown = new ArrayList<>();
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -179,6 +184,7 @@ public class MainActivity extends Activity {
     }
 
     private void show(int k) {
+        if (k != tab) selected.clear();
         tab = k;
         for (int i = 0; i < 3; i++) {
             boolean on = i == k;
@@ -226,6 +232,7 @@ public class MainActivity extends Activity {
         if (!video) stats.setText(items.size() + " · " + Store.size(total));
         stats.setPadding(Ui.dp(this, 20), Ui.dp(this, 4), Ui.dp(this, 20), Ui.dp(this, 8));
         box.addView(stats);
+        box.addView(selectionBar(video));
         GridView g = new GridView(this);
         g.setNumColumns(video ? 2 : 3);
         int gap = Ui.dp(this, 10);
@@ -234,11 +241,17 @@ public class MainActivity extends Activity {
         g.setPadding(Ui.dp(this, 16), 0, Ui.dp(this, 16), Ui.dp(this, 16));
         g.setClipToPadding(false);
         g.setSelector(new android.graphics.drawable.ColorDrawable(0));
-        g.setAdapter(new Adapter(items, video));
+        shown = items;
+        selected.retainAll(uris(items));
+        adapter = new Adapter(items, video);
+        g.setAdapter(adapter);
         g.setOnItemClickListener((p, v, pos, id) -> {
             Store.Item it = items.get(pos);
+            if (!selected.isEmpty()) { toggleSel(it); return; }
             startActivity(new Intent(this, PlayerActivity.class).setData(it.uri).putExtra(PlayerActivity.EXTRA_VIDEO, it.video));
         });
+        g.setOnItemLongClickListener((p, v, pos, id) -> { toggleSel(items.get(pos)); return true; });
+        refreshSel();
         box.addView(g, new LinearLayout.LayoutParams(-1, 0, 1));
         content.addView(box, new FrameLayout.LayoutParams(-1, -1));
     }
@@ -269,6 +282,13 @@ public class MainActivity extends Activity {
                 bl.setMargins(0, 0, Ui.dp(MainActivity.this, 8), Ui.dp(MainActivity.this, 8));
                 fr.addView(hd.badge, bl);
                 int hgt = video ? Ui.dp(MainActivity.this, 190) : Ui.dp(MainActivity.this, 170);
+                hd.check = new ImageView(MainActivity.this);
+                int cp = Ui.dp(MainActivity.this, 3);
+                hd.check.setPadding(cp, cp, cp, cp);
+                FrameLayout.LayoutParams kl = new FrameLayout.LayoutParams(Ui.dp(MainActivity.this, 26), Ui.dp(MainActivity.this, 26), Gravity.TOP | Gravity.END);
+                kl.setMargins(0, Ui.dp(MainActivity.this, 8), Ui.dp(MainActivity.this, 8), 0);
+                fr.addView(hd.check, kl);
+                hd.frame = fr;
                 c.addView(fr, new LinearLayout.LayoutParams(-1, hgt));
                 hd.sub = Ui.text(MainActivity.this, "", 12, Ui.MUTED, false);
                 hd.sub.setPadding(Ui.dp(MainActivity.this, 4), Ui.dp(MainActivity.this, 6), 0, 0);
@@ -278,6 +298,11 @@ public class MainActivity extends Activity {
                 cv = c;
             } else hd = (Holder) cv.getTag();
             Store.Item it = items.get(pos);
+            boolean sel = selected.contains(it.uri);
+            hd.check.setVisibility(selected.isEmpty() ? View.GONE : View.VISIBLE);
+            hd.check.setImageDrawable(sel ? new Icons(Icons.CHECK, Color.WHITE) : null);
+            hd.check.setBackground(sel ? Ui.grad(Ui.dp(MainActivity.this, 13)) : ring());
+            hd.img.setAlpha(sel ? 0.75f : 1f);
             hd.badge.setVisibility(video ? View.VISIBLE : View.GONE);
             hd.badge.setText(Store.dur(it.duration));
             hd.sub.setText(video ? df.format(new Date(it.date)) + " · " + Store.size(it.size) : Store.size(it.size));
@@ -299,7 +324,99 @@ public class MainActivity extends Activity {
         }
     }
 
-    private static final class Holder { ImageView img; TextView badge, sub; String key; }
+    private static final class Holder { ImageView img, check; TextView badge, sub; String key; FrameLayout frame; }
+
+    private android.graphics.drawable.GradientDrawable ring() {
+        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+        g.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        g.setColor(0x55000000);
+        g.setStroke(Ui.dp(this, 2), Color.WHITE);
+        return g;
+    }
+
+    private static java.util.Set<android.net.Uri> uris(List<Store.Item> items) {
+        java.util.Set<android.net.Uri> s = new java.util.HashSet<>();
+        for (Store.Item i : items) s.add(i.uri);
+        return s;
+    }
+
+    // ---------------------------------------------------------------- sélection multiple
+
+    private View selectionBar(boolean video) {
+        selBar = Ui.row(this);
+        selBar.setPadding(Ui.dp(this, 12), Ui.dp(this, 4), Ui.dp(this, 12), Ui.dp(this, 8));
+        ImageView close = selIcon(Icons.CLOSE, v -> { selected.clear(); refreshSel(); }, R.string.close);
+        selBar.addView(close);
+        selCount = Ui.text(this, "", 15, Ui.TEXT, true);
+        selBar.addView(selCount, Ui.weight());
+        if (video) selBar.addView(selIcon(Icons.MERGE, v -> mergeSelected(), R.string.merge));
+        selBar.addView(selIcon(Icons.SHARE, v -> shareSelected(video), R.string.share));
+        selBar.addView(selIcon(Icons.TRASH, v -> deleteSelected(), R.string.delete));
+        return selBar;
+    }
+
+    private ImageView selIcon(int k, View.OnClickListener l, int desc) {
+        ImageView v = new ImageView(this);
+        v.setImageDrawable(new Icons(k, Ui.TEXT));
+        int p = Ui.dp(this, 10);
+        v.setPadding(p, p, p, p);
+        Ui.press(v, Ui.round(Ui.CARD2, Ui.dp(this, 22)));
+        v.setOnClickListener(l);
+        v.setContentDescription(getString(desc));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44));
+        lp.setMarginStart(Ui.dp(this, 6));
+        v.setLayoutParams(lp);
+        return v;
+    }
+
+    private void toggleSel(Store.Item it) {
+        if (!selected.remove(it.uri)) selected.add(it.uri);
+        refreshSel();
+    }
+
+    private void refreshSel() {
+        if (selBar == null) return;
+        selBar.setVisibility(selected.isEmpty() ? View.GONE : View.VISIBLE);
+        selCount.setText(getString(R.string.selected_n, selected.size()));
+        if (adapter != null) adapter.notifyDataSetChanged();
+    }
+
+    private void mergeSelected() {
+        if (selected.size() < 2) { android.widget.Toast.makeText(this, R.string.merge_pick, android.widget.Toast.LENGTH_SHORT).show(); return; }
+        // Ordre chronologique (du plus ancien au plus récent)
+        ArrayList<android.net.Uri> list = new ArrayList<>();
+        for (int i = shown.size() - 1; i >= 0; i--) if (selected.contains(shown.get(i).uri)) list.add(shown.get(i).uri);
+        selected.clear();
+        refreshSel();
+        startActivity(new Intent(this, EditorActivity.class).putParcelableArrayListExtra(EditorActivity.EXTRA_URIS, list));
+    }
+
+    private void shareSelected(boolean video) {
+        ArrayList<android.net.Uri> list = new ArrayList<>(selected);
+        Intent i = new Intent(Intent.ACTION_SEND_MULTIPLE).setType(video ? "video/mp4" : "image/png")
+                .putParcelableArrayListExtra(Intent.EXTRA_STREAM, list).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivity(Intent.createChooser(i, getString(R.string.share)));
+    }
+
+    private void deleteSelected() {
+        ArrayList<android.net.Uri> list = new ArrayList<>(selected);
+        try {
+            android.app.PendingIntent pi = android.provider.MediaStore.createDeleteRequest(getContentResolver(), list);
+            startIntentSenderForResult(pi.getIntentSender(), 9, null, 0, 0, 0);
+        } catch (Exception e) {
+            android.widget.Toast.makeText(this, R.string.delete_failed, android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override protected void onActivityResult(int req, int code, Intent data) {
+        super.onActivityResult(req, code, data);
+        if (req == 9 && code == RESULT_OK) { selected.clear(); show(tab); }
+    }
+
+    @Override public void onBackPressed() {
+        if (!selected.isEmpty()) { selected.clear(); refreshSel(); return; }
+        super.onBackPressed();
+    }
 
     // ---------------------------------------------------------------- réglages
 

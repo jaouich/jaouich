@@ -36,6 +36,8 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity android:name=".PlayerActivity" android:exported="false" />
+        <activity android:name=".EditorActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".AnnotateActivity" android:exported="false" />
 
         <service
             android:name=".RecorderService"

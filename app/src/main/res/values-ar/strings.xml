@@ -77,4 +77,45 @@
     <string name="take_shot">التقاط لقطة شاشة</string>
     <string name="stats" formatted="true">%1$d · %2$s</string>
     <string name="info">التفاصيل</string>
+    <string name="edit">تعديل</string>
+    <string name="export">تصدير</string>
+    <string name="merge">دمج</string>
+    <string name="merge_n" formatted="true">دمج %d فيديوهات</string>
+    <string name="merge_pick">اختر فيديوهين على الأقل</string>
+    <string name="selected_n" formatted="true">تم اختيار %d</string>
+    <string name="filters">فلاتر</string>
+    <string name="adjust">ضبط</string>
+    <string name="text">نص</string>
+    <string name="speed">السرعة</string>
+    <string name="rotate">تدوير</string>
+    <string name="sound">الصوت</string>
+    <string name="size">الحجم</string>
+    <string name="speed_note">عند سرعة غير 1× يُحذف الصوت.</string>
+    <string name="f_none">الأصل</string>
+    <string name="f_bw">أبيض وأسود</string>
+    <string name="f_sepia">بني قديم</string>
+    <string name="f_vivid">زاهي</string>
+    <string name="f_warm">دافئ</string>
+    <string name="f_cool">بارد</string>
+    <string name="f_fade">باهت</string>
+    <string name="f_noir">نوار</string>
+    <string name="f_vintage">عتيق</string>
+    <string name="brightness">الإضاءة</string>
+    <string name="contrast">التباين</string>
+    <string name="saturation">التشبع</string>
+    <string name="text_hint">نص يظهر على الفيديو</string>
+    <string name="pos_bottom">أسفل</string>
+    <string name="pos_top">أعلى</string>
+    <string name="pos_center">الوسط</string>
+    <string name="no_sound_in_video">هذا الفيديو بدون صوت.</string>
+    <string name="keep_sound">الإبقاء على الصوت</string>
+    <string name="mute">كتم الصوت</string>
+    <string name="resolution_now" formatted="true">الحالي: %s</string>
+    <string name="original">الأصل</string>
+    <string name="estimate" formatted="true">النتيجة: %1$s · %2$s</string>
+    <string name="exporting">جارٍ إنشاء الفيديو…</string>
+    <string name="export_failed" formatted="true">تعذّر إنشاء الفيديو: %s</string>
+    <string name="draw_on_image">رسم</string>
+    <string name="save_copy_short">حفظ</string>
+    <string name="highlighter">قلم تحديد</string>
 </resources>

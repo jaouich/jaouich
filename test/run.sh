@@ -91,7 +91,8 @@ tap_text "LIVE" "290 210"; sleep 3; shot 25-direct
 tap_text "Other"; sleep 1
 tap_text "rtmp://…"; sleep 1; adb shell input text "rtmp://10.0.2.2:1935/live"; sleep 1
 tap_text "Paste your stream key"; sleep 1; adb shell input text "rekordotest"; adb shell input keyevent 111; sleep 1; shot 26-direct-rempli
-tap_text "● Go live"; sleep 4
+adb shell input swipe 160 550 160 150 300; sleep 1; adb shell input swipe 160 550 160 150 300; sleep 1; shot 26b-bas
+tap_text "● Go live" "160 520"; sleep 4
 tap_text "Start now"; sleep 30; shot 27-en-direct
 curl -s http://127.0.0.1:9997/v3/paths/list > $OUT/live-api.txt 2>&1 || true
 adb shell cmd statusbar expand-notifications; sleep 2; shot 28-notif-direct

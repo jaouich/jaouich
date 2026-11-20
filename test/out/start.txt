@@ -1,0 +1,7 @@
+Starting: Intent { cmp=ma.magiscom.desk/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: ma.magiscom.desk/.MainActivity
+TotalTime: 2215
+WaitTime: 2223
+Complete

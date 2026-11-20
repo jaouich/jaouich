@@ -1,0 +1,20 @@
+ACTIVITY MANAGER SERVICES (dumpsys activity services)
+  User 0 active services:
+  * ServiceRecord{6c2f6d4 u0 ma.magiscom.desk/.RecorderService}
+    intent={act=ma.magiscom.desk.START cmp=ma.magiscom.desk/.RecorderService}
+    packageName=ma.magiscom.desk
+    processName=ma.magiscom.desk
+    baseDir=/data/app/~~s0_LsMCdqEk5XLXUJzLRkQ==/ma.magiscom.desk-xPXFkDPRmTMVg6GrHtbnxA==/base.apk
+    dataDir=/data/user/0/ma.magiscom.desk
+    app=ProcessRecord{d8b8b34 3195:ma.magiscom.desk/u0a192}
+    mAllowWhileInUsePermissionInFgsReason=PROC_STATE_TOP
+    allowUiJobScheduling=true
+    recentCallingPackage=ma.magiscom.desk
+    recentCallingUid=10192
+    allowStartForeground=PROC_STATE_TOP
+    startForegroundCount=1
+    infoAllowStartForeground=[callingPackage: ma.magiscom.desk; callingUid: 10192; uidState: TOP ; uidBFSL: [BFSL]; intent: Intent { act=ma.magiscom.desk.START cmp=ma.magiscom.desk/.RecorderService (has extras) }; code:PROC_STATE_TOP; tempAllowListReason:<null>; targetSdkVersion:34; callerTargetSdkVersion:34; startForegroundCount:0; bindFromPackage:null: isBindService:false]
+    isForeground=true foregroundId=1 types=000000A0 foregroundNoti=Notification(channel=rec shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x6a color=0xffdc2626 actions=2 vis=PRIVATE)
+    createTime=-8s573ms startingBgTimeout=--
+    lastActivity=-8s573ms restartTime=-8s573ms createdFromFg=true
+    startRequested=true delayedStop=false stopIfKilled=true callStart=true lastStartId=1

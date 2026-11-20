@@ -383,6 +383,51 @@
     } catch (err) { toast(err.message); }
     render();
   });
+  // ---------- 👑 Royal cards ----------
+  const RC = L.ROYAL;
+  let rcData = null;
+  const rcPerks = (tid, sig) => { const tt = RC.tierById(tid), s = RC.SIGS.find((x) => x.id === sig) || {}; return `<li>⚔️ ${t("rc.boost", { n: Math.round(tt.boost * 100) })}</li><li>🏁 ${t("rc.races", { n: tt.races })}</li>
+      <li>🎁 ${t("rc.gift", { d: fmtN(tt.gift.dates), c: fmtN(tt.gift.coins), j: tt.gift.jry })}</li>${sig ? `<li class="rc-sig">${s.e} ${t("rc.sig." + sig)}</li>` : ""}`; };
+  function renderRoyal() {
+    const d = rcData;
+    if (!d) { $("rcShop").innerHTML = `<p class="hint">…</p>`; return; }
+    $("rcShop").innerHTML = RC.TIERS.map((tt) => { const x = d.tiers.find((y) => y.id === tt.id) || {}; return `<div class="rc-card" style="--c:${tt.color}">
+      <div class="rc-top"><i>${tt.e}</i><b>${t("rc.n." + tt.id)}</b><em dir="ltr">${x.sold || 0}/${RC.MAX}</em></div>
+      ${x.next ? `<div class="rc-next">${t("rc.next", { n: x.next })}</div>` : `<div class="rc-next">${t("rc.soldout")}</div>`}
+      <ul>${rcPerks(tt.id, x.sig)}</ul>
+      <button class="btn small gold" data-rc="${tt.id}" data-ed="${x.next || 0}" ${x.next ? "" : "disabled"}>${tt.price} Pi</button></div>`; }).join("");
+    const mine = d.mine || [];
+    $("rcMine").innerHTML = mine.length ? `<div class="rc-mine"><b>👑 ${t("rc.mine", { n: mine.length })}</b>
+      <div>${mine.map((c) => { const tt = RC.tierById(c.tier), s = RC.SIGS.find((x) => x.id === c.sig); return `<span style="--c:${tt.color}">${tt.e} #${c.ed} ${s.e}</span>`; }).join("")}</div>
+      <button class="btn small gold" data-rcclaim="1" ${mine.every((c) => c.got) ? "disabled" : ""}>${mine.every((c) => c.got) ? t("rc.claimed") : "🎁 " + t("rc.claim")}</button></div>` : "";
+    const P = RC.PRIZES;
+    $("rcContest").innerHTML = `<b>🏆 ${t("rc.contest")}</b><small>${t("rc.contestD")}</small>
+      <div class="rc-prizes"><span>🥇 ${fmtN(P[0])}</span><span>🥈 ${fmtN(P[1])}</span><span>🥉 ${fmtN(P[2])}</span><span>4-10 · ${fmtN(P[3])}</span></div>
+      ${(d.contest || []).length ? d.contest.slice(0, 10).map((r, i) => `<div class="rc-row"><span>${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}. ${esc(r.username)}</span><b dir="ltr">🪙 ${fmtN(r.earned)}</b></div>`).join("") : `<small>${t("rc.noContest")}</small>`}`;
+  }
+  async function rcLoad() { try { rcData = await Pi.royal(); } catch (e) {} renderRoyal(); }
+  $("tab-vip").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-rc], [data-rcclaim]");
+    if (!b) return;
+    if (!account) return toast(t("t.loginFirst"));
+    b.disabled = true;
+    try {
+      if (b.dataset.rcclaim) {
+        const r = await Pi.royalClaim();
+        account = r.account; S = r.state; render(); burst();
+        toast(t("rc.got", { d: fmtN(r.gift.dates), c: fmtN(r.gift.coins), j: r.gift.jry }));
+      } else {
+        const tt = RC.tierById(b.dataset.rc), ed = Number(b.dataset.ed), x = rcData.tiers.find((y) => y.id === tt.id);
+        if (!confirm(t("rc.confirm", { name: t("rc.n." + tt.id), n: ed, sig: t("rc.sig." + x.sig), p: tt.price }))) { b.disabled = false; return; }
+        const r = await Pi.buyRoyal(tt.id, ed);
+        if (r.account) account = r.account; if (r.state) S = r.state;
+        toast(t("rc.bought")); burst(); render();
+      }
+    } catch (err) { toast(err.message); }
+    await rcLoad();
+  });
+  rcLoad();
+
   // ---------- 💎 Founding supporters ----------
   const SUPN = ["", "💚", "💙", "💎"];
   let supData = null;
@@ -1179,6 +1224,7 @@
       document.getElementById("piGate")?.remove(); // signed in, so this is Pi Browser
       setTimeout(goFromLink, 400);
       setTimeout(renderShare, 0);
+      setTimeout(() => { rcLoad(); supLoad(); }, 0);
       publicUrl = res.publicUrl || "";
       if (res.via === "appstudio" && !res.canBuy) enterOldApp(); // purchases only work in the official app until its key is set
       S = res.state; // the server's game replaces the guest demo
@@ -1544,6 +1590,7 @@
     qBadge();
     renderLevelPacks();
     renderSupporters();
+    if (typeof rcData !== "undefined") renderRoyal();
     S = L.normalize(S, now());
     $("dates").textContent = S.dates.toLocaleString("en-US");
     if (account) Pi.setPayOpen(account.payOpen);

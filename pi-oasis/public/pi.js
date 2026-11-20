@@ -93,6 +93,12 @@
     if (!pack) return Promise.reject(new Error(I18N.t("e.payment")));
     return pay({ amount: pack.price, memo: `Pi Oasis – ${pack.dates} dates`, metadata: { type: "dates", pack: pack.id } });
   }
+  // Royal card: one numbered copy, seen before paying
+  function buyRoyal(tier, ed) {
+    const t = window.OasisLogic.ROYAL.tierById(tier);
+    if (!t || !(ed >= 1)) return Promise.reject(new Error(I18N.t("e.payment")));
+    return pay({ amount: t.price, memo: `Pi Oasis royal card ${tier} #${ed}`, metadata: { type: "royal", tier, ed } });
+  }
   // Founding supporter (support, not an investment)
   function buySupporter(id) {
     const s = window.OasisLogic.SUPPORTER.find((x) => x.id === id);
@@ -233,6 +239,9 @@
     derbyRename: (i, name) => api("/api/derby/rename", { i, name }),
     buyLevel,
     buySupporter,
+    buyRoyal,
+    royal: () => api("/api/royal"),
+    royalClaim: () => api("/api/royal/claim", {}),
     supporters: () => api("/api/supporters"),
     buyJry,
     buyCoins,

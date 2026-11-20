@@ -480,6 +480,43 @@
     { id: "l20", e: "🥇", price: 20, dates: 250000, coins: 5000000, jry: 1000, spins: 25 },
     { id: "l100", e: "👑", price: 100, dates: 1400000, coins: 30000000, jry: 6000, spins: 100, camel: 3 },
   ];
+  // Royal cards: 4 tiers × 500 numbered copies, bought with Pi. Every copy is unique (its number
+  // and its signature perk), and the buyer sees exactly which copy and perks they get before paying:
+  // nothing is left to chance. Perks: Kombat profit, Derby races, a daily gift. Holders compete
+  // every month in Kombat (skill, not luck) for a grand prize of 1 billion Kombat coins.
+  const ROYAL = {
+    MAX: 500,
+    TIERS: [
+      { id: "r10", e: "🥉", price: 10, boost: 0.05, races: 1, gift: { dates: 300, coins: 20000, jry: 2 }, color: "#c98a4b" },
+      { id: "r25", e: "🥈", price: 25, boost: 0.1, races: 2, gift: { dates: 800, coins: 60000, jry: 5 }, color: "#9aa7b8" },
+      { id: "r50", e: "🥇", price: 50, boost: 0.18, races: 3, gift: { dates: 1800, coins: 150000, jry: 12 }, color: "#e2a918" },
+      { id: "r100", e: "💎", price: 100, boost: 0.3, races: 5, gift: { dates: 4000, coins: 400000, jry: 30 }, color: "#7c5cff" },
+    ],
+    // One signature perk per copy, all of similar value
+    SIGS: [
+      { id: "moon", e: "🌙", spins: 1 },          // +1 wheel spin with the daily gift
+      { id: "sun", e: "☀️", dates: 0.5 },         // +50% dates in the daily gift
+      { id: "wind", e: "🌪️", races: 1 },          // +1 Derby race a day
+      { id: "caravan", e: "🐪", boost: 0.03 },    // +3% Kombat profit
+      { id: "spring", e: "💧", feed: 1 },         // +1 golden feed with the daily gift
+      { id: "flame", e: "🔥", coins: 0.5 },       // +50% coins in the daily gift
+      { id: "gem", e: "💠", jry: 1 },             // +100% JRY in the daily gift
+    ],
+    BOOST_MAX: 0.6,
+    PRIZES: [1e9, 3e8, 1e8, 2e7, 2e7, 2e7, 2e7, 2e7, 2e7, 2e7], // monthly contest, Kombat coins
+  };
+  ROYAL.tierById = (id) => ROYAL.TIERS.find((x) => x.id === id) || null;
+  // The signature of copy #ed of a tier: fixed for ever, the same on every phone
+  ROYAL.sigOf = (tid, ed) => { let h = 2166136261; for (const c of tid + ":" + ed) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return ROYAL.SIGS[h % ROYAL.SIGS.length]; };
+  // Month id (UTC): 202611 for November 2026
+  ROYAL.monthId = (t) => { const d = new Date(t); return d.getUTCFullYear() * 100 + d.getUTCMonth() + 1; };
+  ROYAL.monthStart = (m) => Date.UTC(Math.floor(m / 100), (m % 100) - 1, 1);
+  ROYAL.prevMonth = (m) => (m % 100 === 1 ? (Math.floor(m / 100) - 1) * 100 + 12 : m - 1);
+  // Daily gift of one card (with its signature)
+  ROYAL.giftOf = (tid, ed) => {
+    const t = ROYAL.tierById(tid), s = ROYAL.sigOf(tid, ed), g = t.gift;
+    return { dates: Math.round(g.dates * (1 + (s.dates || 0))), coins: Math.round(g.coins * (1 + (s.coins || 0))), jry: Math.round(g.jry * (1 + (s.jry || 0))), spins: s.spins || 0, feed: s.feed || 0 };
+  };
   // Founding supporters: support the development of the games. A thank-you, not an investment:
   // no return and no profit, only in-game rewards and a lasting badge on the honor wall.
   const SUPPORTER = [
@@ -527,6 +564,6 @@
   };
   const FUTURE = [{ id: "falcon", e: "🦅", players: 1000 }, { id: "quiz", e: "🧠", players: 2500 }, { id: "chess", e: "♟️", players: 5000 },
     { id: "kart", e: "🏎️", players: 10000 }, { id: "hunt", e: "🗺️", players: 25000 }, { id: "world", e: "🌍", players: 100000 }];
-  const api = { SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

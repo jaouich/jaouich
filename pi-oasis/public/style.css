@@ -1253,3 +1253,24 @@ body.k-open { overflow: hidden; }
 .js-b { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; border: 1px solid #f0d79a; background: #fff; color: var(--ink); text-decoration: none; font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
 .js-b i { font-style: normal; font-size: 20px; }
 .js-wa { background: #e7f8ee; border-color: #25d366; } .js-fb { background: #e8f0fe; border-color: #1877f2; } .js-tg { background: #e6f4fb; border-color: #2aabee; }
+
+/* Royal cards */
+.rc-shop { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rc-card { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 18px; color: #fff; min-width: 0; background: linear-gradient(160deg, var(--c), #1a0b33 120%); border: 2px solid #ffd34d; box-shadow: 0 4px 0 rgba(0,0,0,.3); position: relative; overflow: hidden; }
+.rc-card::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.18) 48%, transparent 60%); animation: kShine 4s infinite; pointer-events: none; }
+.rc-top { display: flex; align-items: center; gap: 6px; }
+.rc-top i { font-style: normal; font-size: 24px; }
+.rc-top b { flex: 1; font-size: .82rem; line-height: 1.2; }
+.rc-top em { font-style: normal; font-size: .66rem; background: rgba(0,0,0,.3); padding: 2px 6px; border-radius: 99px; }
+.rc-next { font-size: .72rem; font-weight: 800; background: rgba(255,255,255,.18); border-radius: 10px; padding: 4px 6px; text-align: center; }
+.rc-card ul { list-style: none; padding: 0; margin: 0; font-size: .66rem; line-height: 1.5; flex: 1; }
+.rc-sig { color: #ffe58a; font-weight: 800; }
+.rc-card .btn { width: 100%; position: relative; z-index: 1; }
+.rc-mine { margin: 0 0 10px; padding: 10px 12px; border-radius: 16px; background: #fff8e6; border: 1px solid #f0d79a; display: flex; flex-direction: column; gap: 8px; }
+.rc-mine div { display: flex; flex-wrap: wrap; gap: 6px; }
+.rc-mine span { background: var(--c); color: #fff; border-radius: 99px; padding: 2px 9px; font-size: .78rem; font-weight: 700; }
+.rc-contest { margin-top: 10px; padding: 12px; border-radius: 16px; background: linear-gradient(135deg, #2a1162, #7c5cff); color: #fff; display: flex; flex-direction: column; gap: 6px; }
+.rc-contest small { opacity: .85; font-size: .74rem; line-height: 1.4; }
+.rc-prizes { display: flex; flex-wrap: wrap; gap: 6px; }
+.rc-prizes span { background: rgba(255,255,255,.15); border-radius: 99px; padding: 2px 9px; font-size: .74rem; font-weight: 800; }
+.rc-row { display: flex; justify-content: space-between; font-size: .84rem; border-bottom: 1px solid rgba(255,255,255,.12); padding: 3px 0; }

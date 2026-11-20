@@ -35,7 +35,7 @@
     if (!G.account) return `<p class="jm-note">${t("t.loginFirst")}</p>`;
     if (!data) return `<p class="jm-note">…</p>`;
     const d = data.derby, c = d.camels[d.act], cup = DL.CUPS[data.cup], next = DL.CUPS[data.cup + 1];
-    const raceBtn = data.left > 0 ? `<button class="db-go" data-db="race">🏁 ${t("db.race")} <small>(${data.left}/${DL.RACES_PER_DAY})</small></button>`
+    const raceBtn = data.left > 0 ? `<button class="db-go" data-db="race">🏁 ${t("db.race")} <small>(${data.left}/${data.max || DL.RACES_PER_DAY})</small></button>`
       : data.adLeft > 0 ? `<button class="db-go db-ad" data-db="adrace">📺 ${t("db.adRace")} <small>(${data.adLeft})</small></button>`
       : `<button class="db-go" disabled>⏳ ${t("db.tomorrow")}</button>`;
     return `<div class="jm-hero">

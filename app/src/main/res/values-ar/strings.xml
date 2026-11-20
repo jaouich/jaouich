@@ -75,6 +75,6 @@
     <string name="privacy_note">يعمل Rekordo بدون إنترنت: لا حساب، لا إعلانات، ولا شيء يغادر هاتفك.</string>
     <string name="version" formatted="true">الإصدار %s</string>
     <string name="take_shot">التقاط لقطة شاشة</string>
-    <string name="stats" formatted="true">%1$d فيديو · %2$s</string>
+    <string name="stats" formatted="true">%1$d · %2$s</string>
     <string name="info">التفاصيل</string>
 </resources>

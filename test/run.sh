@@ -50,7 +50,7 @@ adb shell content query --uri content://media/external/video/media --projection 
 adb shell content query --uri content://media/external/images/media --projection _display_name:_size:relative_path > $OUT/images.txt 2>&1
 # --- Lecteur (depuis la notification « Video saved ») puis galerie
 tap_text "Video saved" "150 280"; sleep 5; shot 12-lecteur
-tap_text "Cut"; sleep 2; shot 13-couper
+adb shell input tap 160 330; sleep 1; tap_text "Cut" "122 590"; sleep 3; shot 13-couper
 tap_text "Save as a new video"; sleep 8; shot 13b-apres-coupe
 tap_text "Save this frame"; sleep 4
 adb shell input keyevent BACK; sleep 1

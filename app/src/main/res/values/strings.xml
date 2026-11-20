@@ -76,6 +76,6 @@
     <string name="privacy_note">Rekordo works offline: no account, no ads, nothing leaves your phone.</string>
     <string name="version" formatted="true">Version %s</string>
     <string name="take_shot">Take a screenshot</string>
-    <string name="stats" formatted="true">%1$d videos · %2$s</string>
+    <string name="stats" formatted="true">%1$d · %2$s</string>
     <string name="info">Details</string>
 </resources>

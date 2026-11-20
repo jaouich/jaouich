@@ -75,6 +75,6 @@
     <string name="privacy_note">Rekordo fonctionne hors ligne : pas de compte, pas de pub, rien ne quitte votre téléphone.</string>
     <string name="version" formatted="true">Version %s</string>
     <string name="take_shot">Faire une capture</string>
-    <string name="stats" formatted="true">%1$d vidéos · %2$s</string>
+    <string name="stats" formatted="true">%1$d · %2$s</string>
     <string name="info">Détails</string>
 </resources>

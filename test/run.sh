@@ -31,14 +31,18 @@ tap_text "Start now"
 sleep 1.5; shot 4-compte-a-rebours
 sleep 6; shot 5-enregistrement
 adb shell dumpsys activity services ma.magiscom.desk | head -20 > $OUT/service.txt
-tap_text "0:0"; sleep 1.5; shot 6-bulle-ouverte
-tap_text "Pause"; sleep 2; shot 7-pause
+adb shell input tap 60 205; sleep 1.5; shot 6-bulle-ouverte
+adb shell input tap 60 205; sleep 1
+adb shell cmd statusbar expand-notifications; sleep 2; shot 7-notification
+tap_text "Pause"; sleep 2
+adb shell cmd statusbar expand-notifications; sleep 2; shot 7b-pause
 tap_text "Reprendre"; sleep 3
-tap_text "Arrêter"; sleep 5; shot 8-resultat
+adb shell cmd statusbar expand-notifications; sleep 2
+tap_text "Arrêter"; sleep 6; shot 8-resultat
 adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:relative_path > $OUT/videos.txt 2>&1
 adb logcat -d > $OUT/logcat-full.txt
 grep -E "AndroidRuntime|FATAL|magiscom|MediaRecorder|MediaProjection" $OUT/logcat-full.txt | tail -200 > $OUT/logcat.txt
 true
 # 2026-11-20T02:12:47Z
 
-# relance 2
+# relance 3

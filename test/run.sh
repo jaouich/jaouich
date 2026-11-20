@@ -39,3 +39,4 @@ adb shell content query --uri content://media/external/video/media --projection 
 adb logcat -d > $OUT/logcat-full.txt
 grep -E "AndroidRuntime|FATAL|magiscom|MediaRecorder|MediaProjection" $OUT/logcat-full.txt | tail -200 > $OUT/logcat.txt
 true
+# 2026-11-20T02:12:47Z

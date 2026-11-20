@@ -1,3 +1,0 @@
-Starting: Intent { cmp=ma.magiscom.desk/.MainActivity }
-Error type 3
-Error: Activity class {ma.magiscom.desk/ma.magiscom.desk.MainActivity} does not exist.

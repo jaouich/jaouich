@@ -25,13 +25,13 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -no-boot-anim
           script: bash test/run.sh
-      - name: Commit results
+      - name: Save results (branche android-test-results)
         if: always()
         run: |
           git config user.name "android-bot"
           git config user.email "android-bot@users.noreply.github.com"
           rm -f test/out/logcat-full.txt test/out/ui.xml
+          git checkout -B android-test-results
           git add -f test/out
           git commit -m "Résultats du test sur émulateur" || true
-          git pull --rebase -q || true
-          git push
+          git push -f origin android-test-results

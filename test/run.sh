@@ -44,18 +44,20 @@ adb shell cmd statusbar expand-notifications; sleep 2
 tap_text "Screenshot" "238 394"; sleep 3; shot 09-apres-capture
 sleep 3
 adb shell cmd statusbar expand-notifications; sleep 2
-tap_text "Stop" "82 394"; sleep 6; shot 10-arret
+tap_text "Stop" "82 394"; sleep 6
+adb shell cmd statusbar expand-notifications; sleep 2; shot 10-arret
 adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:width:height:relative_path > $OUT/videos.txt 2>&1
 adb shell content query --uri content://media/external/images/media --projection _display_name:_size:relative_path > $OUT/images.txt 2>&1
-# --- Galerie et lecteur
-adb shell am start -W -n $PKG/.MainActivity; sleep 3; shot 11-galerie
-dump; cp $OUT/ui.xml $OUT/galerie.xml
-adb shell input tap 280 900; sleep 4; shot 12-lecteur
+# --- Lecteur (depuis la notification « Video saved ») puis galerie
+tap_text "Video saved" "150 280"; sleep 5; shot 12-lecteur
 tap_text "Cut"; sleep 2; shot 13-couper
+tap_text "Save as a new video"; sleep 8; shot 13b-apres-coupe
+tap_text "Save this frame"; sleep 4
 adb shell input keyevent BACK; sleep 1
-tap_text "Save this frame"; sleep 3
-adb shell input keyevent BACK; sleep 2
+adb shell am start -W -n $PKG/.MainActivity; sleep 4; shot 11-galerie
 tap_text "Screenshots"; sleep 3; shot 14-captures
+adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:width:height:relative_path > $OUT/videos2.txt 2>&1
+adb shell content query --uri content://media/external/images/media --projection _display_name:_size:relative_path > $OUT/images2.txt 2>&1
 adb logcat -d > $OUT/logcat-full.txt
 grep -E "AndroidRuntime|FATAL|rekordo|Rekordo|MediaCodec.*rror|MediaProjection" $OUT/logcat-full.txt | tail -250 > $OUT/logcat.txt
 true

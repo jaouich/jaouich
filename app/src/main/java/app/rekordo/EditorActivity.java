@@ -436,8 +436,10 @@ public class EditorActivity extends Activity {
         for (int i = 0; i < labels.length; i++) {
             TextView c = Ui.text(this, labels[i], 14, Ui.TEXT, true);
             c.setGravity(Gravity.CENTER);
-            c.setPadding(Ui.dp(this, 14), Ui.dp(this, 9), Ui.dp(this, 14), Ui.dp(this, 9));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
+            c.setSingleLine(true);
+            c.setAutoSizeTextTypeUniformWithConfiguration(9, 14, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
+            c.setPadding(Ui.dp(this, 4), Ui.dp(this, 9), Ui.dp(this, 4), Ui.dp(this, 9));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Ui.dp(this, 40), 1);
             lp.setMargins(Ui.dp(this, 3), 0, Ui.dp(this, 3), 0);
             row.addView(c, lp);
             all.add(c);

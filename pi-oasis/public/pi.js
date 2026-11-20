@@ -93,6 +93,12 @@
     if (!pack) return Promise.reject(new Error(I18N.t("e.payment")));
     return pay({ amount: pack.price, memo: `Pi Oasis – ${pack.dates} dates`, metadata: { type: "dates", pack: pack.id } });
   }
+  // Founding supporter (support, not an investment)
+  function buySupporter(id) {
+    const s = window.OasisLogic.SUPPORTER.find((x) => x.id === id);
+    if (!s) return Promise.reject(new Error(I18N.t("e.payment")));
+    return pay({ amount: s.price, memo: `Jerry Development – founding supporter ${s.price} Pi`, metadata: { type: "sup", pack: s.id } });
+  }
   // Level-up packs
   function buyLevel(packId) {
     const pack = window.OasisLogic.LEVEL_PACKS.find((x) => x.id === packId);
@@ -226,6 +232,8 @@
     derbySelect: (i) => api("/api/derby/select", { i }),
     derbyRename: (i, name) => api("/api/derby/rename", { i, name }),
     buyLevel,
+    buySupporter,
+    supporters: () => api("/api/supporters"),
     buyJry,
     buyCoins,
     buyJryPts,

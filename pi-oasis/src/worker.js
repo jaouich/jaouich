@@ -227,6 +227,9 @@ const ensureSchema = (env) =>
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_streak INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_sday INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN lang TEXT").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN sup_lvl INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN sup_pi REAL NOT NULL DEFAULT 0").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN sup_at INTEGER").run().catch(() => {}))
     .catch((e) => { schemaReady = null; throw e; }));
 
 const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
@@ -321,6 +324,7 @@ async function account(env, u) {
     partnerReq: tier === PARTNER ? "approved" : ((await one(env, "SELECT status FROM partner_requests WHERE uid = ?", u.uid)) || {}).status || null,
     jryHeld: held,
     jryPts: Number(u.jry_pts) || 0,
+    supLvl: Number(u.sup_lvl) || 0,
     mkBalance: Number(u.mk_balance) || 0,
     wheelFree: (u.wheel_day ?? -1) !== L.dayId(now),
     wheelSpins: Number(u.wheel_spins) || 0,
@@ -631,7 +635,7 @@ const routes = {
     const w = await one(env, "SELECT prize_pool FROM weeks WHERE id = ?", wid);
     const top = await all(
       env,
-      `SELECT u.username, s.score, u.vip_until, u.vip_tier,
+      `SELECT u.username, s.score, u.vip_until, u.vip_tier, u.sup_lvl,
               EXISTS (SELECT 1 FROM partners p WHERE p.username = u.username) AS partner
        FROM week_scores s JOIN users u ON u.uid = s.uid
        WHERE s.week_id = ? AND s.score > 0 ORDER BY s.score DESC, s.updated_at ASC LIMIT 100`,
@@ -641,7 +645,7 @@ const routes = {
     return {
       prizePool: w ? w.prize_pool : 0,
       bands: L.WEEK100.BANDS,
-      top: top.map((r) => ({ username: r.username, score: r.score, tier: L.TIERS[tierOf(r, now, !!r.partner)].id })),
+      top: top.map((r) => ({ username: r.username, score: r.score, tier: L.TIERS[tierOf(r, now, !!r.partner)].id, sup: r.sup_lvl || 0 })),
     };
   },
 
@@ -1414,6 +1418,12 @@ const routes = {
     const top = await all(env, "SELECT username, jry_pts AS n FROM users WHERE jry_pts > 0 ORDER BY jry_pts DESC LIMIT 10");
     return { supply: s.supply, holders: s.holders, players: s.players, spentAll: sp.all_n, spentWeek: sp.week_n, users30: sp.users30, dropped: dr.n, top };
   },
+  // Honor wall of founding supporters
+  "GET /api/supporters": async (req, env) => {
+    const list = await all(env, "SELECT username, sup_lvl AS lvl, sup_pi AS pi FROM users WHERE sup_lvl > 0 ORDER BY sup_lvl DESC, sup_pi DESC, sup_at ASC LIMIT 200");
+    const t = await one(env, "SELECT COUNT(*) AS n, COALESCE(SUM(sup_pi), 0) AS pi FROM users WHERE sup_lvl > 0");
+    return { list, count: t.n, total: t.pi };
+  },
   // ---------- 💠 JRY distribution (owner) ----------
   // target: active (played in the last 7 days) | all | top (this week's top N in the Oasis ranking) | names (list of usernames)
   // preview: only counts the players. Blocked accounts (airdrop_block) never receive anything.
@@ -1900,6 +1910,11 @@ function checkPayment(p, uid) {
     if (!price || Number(p.amount) !== price) bad("badPayment");
     return { price, derby: fp ? { feed: fp.feed } : { breed: br.id } };
   }
+  if (p.metadata?.type === "sup") {
+    const s = L.SUPPORTER.find((x) => x.id === p.metadata.pack);
+    if (!s || Number(p.amount) !== s.price) bad("badPayment");
+    return { price: s.price, sup: s };
+  }
   if (p.metadata?.type === "lvl") {
     const pack = L.LEVEL_PACKS.find((x) => x.id === p.metadata.pack);
     if (!pack || Number(p.amount) !== pack.price) bad("badPayment");
@@ -1957,6 +1972,11 @@ async function completePayment(env, id, txid, uid) {
     if (item.jryPts) stmts.push(env.DB.prepare("UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(item.jryPts.jry, u.uid));
     if (item.coins) stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, item.coins.coins, now));
     if (item.tier) stmts.push(await applyMembership(env, u, item.tier, now));
+    if (item.sup) {
+      // keeps the highest level reached; the total supported adds up
+      stmts.push(env.DB.prepare("UPDATE users SET sup_lvl = MAX(COALESCE(sup_lvl, 0), ?), sup_pi = ROUND(COALESCE(sup_pi, 0) + ?, 7), sup_at = COALESCE(sup_at, ?), jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?")
+        .bind(item.sup.lvl, item.sup.price, now, item.sup.jry, u.uid));
+    }
     if (item.lvl) {
       const k = item.lvl;
       if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
@@ -1977,9 +1997,10 @@ async function completePayment(env, id, txid, uid) {
   }
   await env.DB.batch(stmts);
   if (item.derby && u) await derbyGrant(env, u.uid, item.derby, now);
-  if (item.lvl && item.lvl.camel && u) {
+  const camel = (item.lvl && item.lvl.camel) || (item.sup && item.sup.camel);
+  if (camel && u) {
     const st = await loadState(env, u.uid, now);
-    L.addAnimal(st, item.lvl.camel, now, "pack");
+    L.addAnimal(st, camel, now, item.sup ? "supporter" : "pack");
     await saveState(env, u.uid, st, now);
   }
   if (item.jry && u) {

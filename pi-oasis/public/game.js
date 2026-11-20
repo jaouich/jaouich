@@ -285,11 +285,11 @@
       const me = account.username;
       const pod = (r, place) => r ? `<div class="pod p${place} ${r.username === me ? "me" : ""}">
           <div class="av">${esc(r.username.slice(0, 1).toUpperCase())}</div>
-          <div class="nm">${esc(r.username)}</div>${chip(r.tier)}
+          <div class="nm">${esc(r.username)}${r.sup ? " " + SUPN[r.sup] : ""}</div>${chip(r.tier)}
           <div class="sc">${r.score} 🪙</div><div class="step">${place}</div></div>` : `<div></div>`;
       $("podium").innerHTML = lb.top.length ? pod(lb.top[1], 2) + pod(lb.top[0], 1) + pod(lb.top[2], 3) : "";
       $("leaderboard").innerHTML = lb.top.length
-        ? lb.top.slice(3).map((r, i) => `<li class="${r.username === me ? "me" : ""}"><span><span class="pos">${i + 4}</span>${esc(r.username)}${chip(r.tier)}</span><b>${r.score} 🪙</b></li>`).join("")
+        ? lb.top.slice(3).map((r, i) => `<li class="${r.username === me ? "me" : ""}"><span><span class="pos">${i + 4}</span>${esc(r.username)}${r.sup ? " " + SUPN[r.sup] : ""}${chip(r.tier)}</span><b>${r.score} 🪙</b></li>`).join("")
         : `<li class="hint">${t("rank.empty")}</li>`;
     } catch (e) { toast(e.message); }
   }
@@ -383,6 +383,34 @@
     } catch (err) { toast(err.message); }
     render();
   });
+  // ---------- 💎 Founding supporters ----------
+  const SUPN = ["", "💚", "💙", "💎"];
+  let supData = null;
+  function renderSupporters() {
+    const mine = (account && account.supLvl) || 0;
+    $("supShop").innerHTML = L.SUPPORTER.map((s) => `<div class="sup-card sup${s.lvl}${mine >= s.lvl ? " got" : ""}">
+      <div class="sup-top"><i>${s.e}</i><b>${t("sup.n" + s.lvl)}</b></div>
+      <ul><li>${s.e} ${t("sup.badge")}</li><li>🐪 ${t("sup.camel" + s.camel)}</li><li>💠 ${fmtN(s.jry)} JRY</li><li>📜 ${t("sup.wall")}</li></ul>
+      <button class="btn small gold" data-sup="${s.id}">${mine >= s.lvl ? "✓ " : ""}${s.price} Pi</button></div>`).join("");
+    const d = supData;
+    $("supWall").innerHTML = d ? `<b>📜 ${t("sup.wallT", { n: d.count })}</b>` + (d.list.length ? `<div>${d.list.map((x) => `<span>${SUPN[x.lvl]} ${esc(x.username)}</span>`).join("")}</div>` : `<small>${t("sup.first")}</small>`) : "";
+  }
+  async function supLoad() { try { supData = await Pi.supporters(); } catch (e) {} renderSupporters(); }
+  $("supShop").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-sup]");
+    if (!b) return;
+    if (!account) return toast(t("t.loginFirst"));
+    if (!confirm(t("sup.confirm"))) return;
+    b.disabled = true;
+    try {
+      const res = await Pi.buySupporter(b.dataset.sup);
+      if (res.account) account = res.account; if (res.state) S = res.state;
+      toast(t("sup.thanks")); burst(); await supLoad();
+    } catch (err) { toast(err.message); }
+    b.disabled = false; render();
+  });
+  supLoad();
+
   // ---------- 🚀 Level-up packs ----------
   function renderLevelPacks() {
     $("lvShop").innerHTML = L.LEVEL_PACKS.map((k) => `<div class="lv-card${k.price >= 20 ? " lv-big" : ""}">
@@ -1506,6 +1534,7 @@
   function render() {
     qBadge();
     renderLevelPacks();
+    renderSupporters();
     S = L.normalize(S, now());
     $("dates").textContent = S.dates.toLocaleString("en-US");
     if (account) Pi.setPayOpen(account.payOpen);

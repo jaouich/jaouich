@@ -480,6 +480,13 @@
     { id: "l20", e: "🥇", price: 20, dates: 250000, coins: 5000000, jry: 1000, spins: 25 },
     { id: "l100", e: "👑", price: 100, dates: 1400000, coins: 30000000, jry: 6000, spins: 100, camel: 3 },
   ];
+  // Founding supporters: support the development of the games. A thank-you, not an investment:
+  // no return and no profit, only in-game rewards and a lasting badge on the honor wall.
+  const SUPPORTER = [
+    { id: "s10", lvl: 1, e: "💚", price: 10, jry: 2000, camel: 1 },
+    { id: "s50", lvl: 2, e: "💙", price: 50, jry: 12000, camel: 2 },
+    { id: "s200", lvl: 3, e: "💎", price: 200, jry: 60000, camel: 3 },
+  ];
   // Points market: players sell dates / Kombat coins to each other for Pi at their own price.
   // The buyer's Pi goes to the app wallet; the seller's share shows in their sales balance and
   // can be withdrawn from MIN_WITHDRAW Pi. TAX is kept by the app on every sale.
@@ -520,6 +527,6 @@
   };
   const FUTURE = [{ id: "falcon", e: "🦅", players: 1000 }, { id: "quiz", e: "🧠", players: 2500 }, { id: "chess", e: "♟️", players: 5000 },
     { id: "kart", e: "🏎️", players: 10000 }, { id: "hunt", e: "🗺️", players: 25000 }, { id: "world", e: "🌍", players: 100000 }];
-  const api = { LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

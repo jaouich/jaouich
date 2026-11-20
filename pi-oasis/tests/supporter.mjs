@@ -1,0 +1,33 @@
+// Founding supporters. Start tests/harness.mjs first.
+const B = "http://localhost:3457";
+const post = (p, b, h = {}) => fetch(B + p, { method: "POST", headers: { "Content-Type": "application/json", ...h }, body: JSON.stringify(b) }).then((r) => r.text().then((t) => { try { return { s: r.status, ...JSON.parse(t) }; } catch { return { s: r.status, t }; } }));
+const get = (p, h) => fetch(B + p, { headers: h }).then((r) => r.json());
+const sql = (q) => fetch(B + "/__test/sql", { method: "POST", body: q }).then((r) => r.json());
+let pass = 0, fail = 0;
+const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); c ? pass++ : fail++; };
+const H = async (tok) => ({ Authorization: "Bearer " + (await post("/api/auth", { accessToken: tok })).session });
+const HB = await H("tokB");
+const pay = async (id, amount, pack) => {
+  await fetch(B + "/__test/pay", { method: "POST", body: JSON.stringify({ id, uid: "uB", amount, type: "sup", pack, txid: "t" + id }) });
+  const a = await post("/api/payments/approve", { paymentId: id }, HB);
+  if (a.error) return a;
+  return post("/api/payments/complete", { paymentId: id, txid: "t" + id }, HB);
+};
+ok((await get("/api/supporters")).count === 0, "honor wall empty at first");
+ok((await pay("s1", 5, "s10")).error === "badPayment", "wrong price refused");
+const j0 = (await get("/api/me", HB)).account.jryPts, cam0 = JSON.parse((await sql("SELECT json FROM state WHERE uid='uB'"))[0].json).animals.length;
+let r = await pay("s2", 10, "s10");
+ok(r.ok && r.account.supLvl === 1 && r.account.jryPts === j0 + 2000, "10 Pi: supporter badge + 2,000 JRY");
+let an = JSON.parse((await sql("SELECT json FROM state WHERE uid='uB'"))[0].json).animals;
+ok(an.length === cam0 + 1 && an[an.length - 1].rarity === 1 && an[an.length - 1].from === "supporter", "+ a rare camel");
+r = await pay("s3", 200, "s200");
+ok(r.account.supLvl === 3, "200 Pi: founder");
+r = await pay("s4", 10, "s10");
+ok(r.account.supLvl === 3, "the highest level is kept");
+const w = await get("/api/supporters");
+ok(w.count === 1 && w.list[0].username === "bob" && w.list[0].lvl === 3 && w.total === 220, "honor wall: bob, founder, 220 Pi in total");
+await fetch(B + "/__test/exec", { method: "POST", body: `INSERT INTO week_scores (week_id, uid, score, updated_at) VALUES (${(await sql("SELECT MAX(id) AS id FROM weeks"))[0].id || 0}, 'uB', 50, 1)` });
+const pool = (await sql("SELECT SUM(prize_pool) AS p FROM weeks"))[0].p;
+ok(pool > 0, "part of the support feeds the weekly prize pool");
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

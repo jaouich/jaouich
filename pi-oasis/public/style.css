@@ -1224,3 +1224,19 @@ body.k-open { overflow: hidden; }
 .jt-step small { font-size: .76rem; opacity: .85; line-height: 1.4; }
 .jt-box { padding: 12px; border-radius: 14px; background: rgba(255,255,255,.08); font-size: .84rem; line-height: 1.55; }
 .jt-warn { background: rgba(192,57,43,.22); border: 1px solid rgba(255,138,61,.6); }
+
+/* Founding supporters */
+.sup-shop { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sup-card { display: flex; flex-direction: column; gap: 6px; padding: 10px 8px; border-radius: 18px; color: #fff; min-width: 0; box-shadow: 0 4px 0 rgba(0,0,0,.25); }
+.sup-card.sup1 { background: linear-gradient(160deg, #0f6b4a, #2fae78); }
+.sup-card.sup2 { background: linear-gradient(160deg, #0b3a66, #3ea7e0); }
+.sup-card.sup3 { background: linear-gradient(160deg, #3b1a86, #7c5cff 60%, #b8860b); border: 2px solid #ffd34d; }
+.sup-card.got { outline: 3px solid #ffd34d; }
+.sup-top { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.sup-top i { font-style: normal; font-size: 28px; }
+.sup-top b { font-size: .8rem; line-height: 1.2; }
+.sup-card ul { list-style: none; padding: 0; margin: 0; font-size: .66rem; line-height: 1.5; flex: 1; }
+.sup-card .btn { width: 100%; padding-left: 4px; padding-right: 4px; }
+.sup-wall { margin: 10px 0 0; padding: 10px 12px; border-radius: 16px; background: #fff8e6; border: 1px solid #f0d79a; font-size: .82rem; }
+.sup-wall div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.sup-wall span { background: #fff; border: 1px solid #f0d79a; border-radius: 99px; padding: 2px 9px; }

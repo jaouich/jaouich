@@ -55,10 +55,17 @@ tap_text "Edit"; sleep 5; shot 13-editeur
 tap_text "Filters"; sleep 3; tap_text "B&W"; sleep 2; shot 14-filtre
 tap_text "Text"; sleep 2; tap_text "Text shown on the video"; sleep 1; adb shell input text "Hello%sRekordo"; adb shell input keyevent 111; sleep 2; shot 15-texte
 tap_text "Size"; sleep 2; tap_text "360p"; sleep 1; shot 16-taille
-tap_text "Export"; sleep 3; shot 17-export
+tap_text "Export"; sleep 2; tap_text "Video (MP4)"; sleep 3; shot 17-export
 for i in $(seq 1 40); do sleep 5; adb shell dumpsys window | grep -q "mCurrentFocus.*PlayerActivity" && break; done
 sleep 3; shot 18-resultat-edition
 adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:width:height > $OUT/videos-apres-edition.txt 2>&1
+# --- GIF depuis la même vidéo (filtre et texte gardés par un nouvel éditeur : on refait vite)
+adb shell input tap 160 330; sleep 1
+tap_text "Edit"; sleep 5
+tap_text "Crop"; sleep 2; tap_text "1:1"; sleep 2; shot 17b-recadrage
+tap_text "Export"; sleep 2; tap_text "Animated GIF (up to 15 s)"; sleep 3
+for i in $(seq 1 40); do sleep 5; adb shell dumpsys window | grep -q "mCurrentFocus.*PlayerActivity" && break; done
+sleep 3; shot 18b-gif
 adb shell input keyevent BACK; sleep 2
 # --- Galerie : sélection de 2 vidéos et fusion
 adb shell am start -W -n $PKG/.MainActivity; sleep 4; shot 19-galerie
@@ -79,7 +86,8 @@ tap_text "Save"; sleep 4; shot 24-dessin-enregistre
 adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:width:height > $OUT/videos2.txt 2>&1
 adb shell content query --uri content://media/external/images/media --projection _display_name:_size > $OUT/images2.txt 2>&1
 # --- Direct vers le serveur local (10.0.2.2 = l'ordinateur qui fait tourner l'émulateur)
-adb shell am start -W -n $PKG/.LiveActivity; sleep 3; shot 25-direct
+adb shell am start -W -n $PKG/.MainActivity; sleep 3
+tap_text "LIVE" "290 210"; sleep 3; shot 25-direct
 tap_text "Other"; sleep 1
 tap_text "rtmp://…"; sleep 1; adb shell input text "rtmp://10.0.2.2:1935/live"; sleep 1
 tap_text "Paste your stream key"; sleep 1; adb shell input text "rekordotest"; adb shell input keyevent 111; sleep 1; shot 26-direct-rempli

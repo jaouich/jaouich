@@ -71,7 +71,7 @@ await fetch(B + "/__test/cron");
 ok((await sql("SELECT SUM(amount) AS n FROM nft_credits WHERE uid='uC' AND src='royal-final'"))[0].n === 1e9, "final #1 gets 1 billion Kombat coins");
 ok((await sql("SELECT SUM(amount) AS n FROM nft_credits WHERE uid='uB' AND src='royal-final'"))[0].n === 3e8, "#2 gets 300 million");
 await fetch(B + "/__test/cron");
-ok((await sql("SELECT COUNT(*) AS n FROM nft_credits WHERE src='royal-final'"))[0].n === 3, "prizes given once (3 holders played)");
+ok((await sql("SELECT COUNT(*) AS n FROM nft_credits WHERE src='royal-final'"))[0].n === 2, "prizes given once (only the 2 holders who played)");
 ok((await get("/api/royal", HB)).final.done, "final marked as done");
 // surprise gift to all holders
 r = await post("/api/admin/jrydrop", { preview: true, target: "cards" }, HA);

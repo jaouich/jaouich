@@ -5,10 +5,10 @@ set -x
 OUT=test/out; rm -rf $OUT; mkdir -p $OUT
 PKG=app.rekordo
 shot() { adb exec-out screencap -p > $OUT/$1.png; }
-dump() { adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml $OUT/ui.xml >/dev/null 2>&1; }
+N=0
+dump() { N=$((N+1)); adb shell uiautomator dump /sdcard/ui.xml > $OUT/dumpmsg-$N.txt 2>&1; adb pull /sdcard/ui.xml $OUT/ui.xml >/dev/null 2>&1; cp $OUT/ui.xml $OUT/dump-$N.xml; }
 tap_text() {
-  dump
-  b=$(python3 - "$1" <<'PY'
+  dump; b=$(python3 - "$1" <<'PY'
 import re,sys,html
 x=open("test/out/ui.xml",encoding="utf-8").read()
 for m in re.finditer(r'<node [^>]*>', x):
@@ -17,7 +17,7 @@ for m in re.finditer(r'<node [^>]*>', x):
         a=list(map(int,re.findall(r'\d+',re.search(r'bounds="([^"]*)"',n).group(1)))); print((a[0]+a[2])//2,(a[1]+a[3])//2); break
 PY
 )
-  echo "tap '$1' -> $b"; [ -n "$b" ] && adb shell input tap $b
+  echo "tap '$1' -> $b (dump $N)" | tee -a $OUT/steps.txt; [ -n "$b" ] && adb shell input tap $b
 }
 adb install -r test/rekordo.apk 2>&1 | tee $OUT/install.txt
 adb logcat -c

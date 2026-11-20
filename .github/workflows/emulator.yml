@@ -29,7 +29,7 @@ jobs:
         if: always()
         run: |
           git config user.name "android-bot"; git config user.email "android-bot@users.noreply.github.com"
-          rm -f test/out/logcat-full.txt test/out/ui.xml
+          rm -f test/out/logcat-full.txt
           git checkout -B rekordo-test-results
           git add -f test/out; git commit -m "Résultats du test Rekordo" || true
           git push -f origin rekordo-test-results

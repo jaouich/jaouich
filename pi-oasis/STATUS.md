@@ -36,6 +36,7 @@ Business showcase (paid listings reviewed by the owner), gift codes, Level-up pa
 Camel Derby (3rd game: train racing camels, 8 free races a day + 4 after an ad, Pi buys golden feed and breeds; no entry fee, no bets),
 Royal cards (Club tab: 4 tiers 10/25/50/100 Pi × 500 numbered copies, each with a fixed signature perk shown before buying; Kombat profit, Derby races, daily gift; Grand Royal Final opens once all 2,000 copies are sold: 30 days, top 10 holders by Kombat coins earned win, 1B coins for #1; no random rewards),
 Learn page /learn.html (videos in public/videos + guide in ar/en/fr + share buttons), welcome screen with language choice for links opened outside Pi Browser, share bar (WhatsApp/Facebook/Telegram/X/Messenger) under the invite link, og-image.jpg for link previews,
+Free support from 1 Pi (in-app Pi payment to the incoming wallet; 100 JRY + 1,000 dates per Pi, 🤍 badge, one monthly surprise identical for all supporters that month),
 Founding supporters (Club tab: 10 / 50 / 200 Pi, badge 💚💙💎, camel, JRY, honor wall; support, not investment),
 Owner JRY distribution (Club tab, owner panel: active / all / weekly top N / usernames, with Pi notification), weekly JRY for the Oasis top 100 (500 … 20),
 Pi Notification Center (scope in_app_notifications; weekly prizes, Kombat/Derby winners, sold offers, daily reminder 18:00 UTC; links /?go=…),

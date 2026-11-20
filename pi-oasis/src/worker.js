@@ -194,6 +194,8 @@ const SCHEMA = [
   "CREATE INDEX IF NOT EXISTS royal_owner ON royal_cards(uid)",
   "CREATE TABLE IF NOT EXISTS royal_gifts ( card_id INTEGER NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (card_id, day) )",
   "CREATE TABLE IF NOT EXISTS royal_final ( id INTEGER PRIMARY KEY, start_at INTEGER NOT NULL, end_at INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0 )",
+  // Monthly surprise for free supporters: once per player per month
+  "CREATE TABLE IF NOT EXISTS sup_surprise ( uid TEXT NOT NULL, month INTEGER NOT NULL, kind TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, month) )",
   "CREATE TABLE IF NOT EXISTS notif_log ( uid TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, kind, ref) )",
   // Jerry Arcade: rewarded plays per day and best scores
   "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
@@ -330,6 +332,7 @@ async function account(env, u) {
     jryHeld: held,
     jryPts: Number(u.jry_pts) || 0,
     supLvl: Number(u.sup_lvl) || 0,
+    supPi: Number(u.sup_pi) || 0,
     mkBalance: Number(u.mk_balance) || 0,
     wheelFree: (u.wheel_day ?? -1) !== L.dayId(now),
     wheelSpins: Number(u.wheel_spins) || 0,
@@ -641,7 +644,7 @@ const routes = {
     const w = await one(env, "SELECT prize_pool FROM weeks WHERE id = ?", wid);
     const top = await all(
       env,
-      `SELECT u.username, s.score, u.vip_until, u.vip_tier, u.sup_lvl,
+      `SELECT u.username, s.score, u.vip_until, u.vip_tier, u.sup_lvl, u.sup_pi,
               EXISTS (SELECT 1 FROM partners p WHERE p.username = u.username) AS partner
        FROM week_scores s JOIN users u ON u.uid = s.uid
        WHERE s.week_id = ? AND s.score > 0 ORDER BY s.score DESC, s.updated_at ASC LIMIT 100`,
@@ -651,7 +654,7 @@ const routes = {
     return {
       prizePool: w ? w.prize_pool : 0,
       bands: L.WEEK100.BANDS,
-      top: top.map((r) => ({ username: r.username, score: r.score, tier: L.TIERS[tierOf(r, now, !!r.partner)].id, sup: r.sup_lvl || 0 })),
+      top: top.map((r) => ({ username: r.username, score: r.score, tier: L.TIERS[tierOf(r, now, !!r.partner)].id, sup: r.sup_lvl || (r.sup_pi > 0 ? 4 : 0) })),
     };
   },
 
@@ -1426,9 +1429,11 @@ const routes = {
   },
   // Honor wall of founding supporters
   "GET /api/supporters": async (req, env) => {
-    const list = await all(env, "SELECT username, sup_lvl AS lvl, sup_pi AS pi FROM users WHERE sup_lvl > 0 ORDER BY sup_lvl DESC, sup_pi DESC, sup_at ASC LIMIT 200");
-    const t = await one(env, "SELECT COUNT(*) AS n, COALESCE(SUM(sup_pi), 0) AS pi FROM users WHERE sup_lvl > 0");
-    return { list, count: t.n, total: t.pi };
+    const list = await all(env, "SELECT username, sup_lvl AS lvl, sup_pi AS pi FROM users WHERE sup_pi > 0 ORDER BY sup_lvl DESC, sup_pi DESC, sup_at ASC LIMIT 200");
+    const t = await one(env, "SELECT COUNT(*) AS n, COALESCE(SUM(sup_pi), 0) AS pi FROM users WHERE sup_pi > 0");
+    let surprise = null;
+    try { const u = await auth(req, env); const r = await one(env, "SELECT kind FROM sup_surprise WHERE uid = ? AND month = ?", u.uid, L.ROYAL.monthId(Date.now())); surprise = r ? r.kind : null; } catch (e) {}
+    return { list, count: t.n, total: t.pi, surprise };
   },
   // ---------- 💠 JRY distribution (owner) ----------
   // target: active (played in the last 7 days) | all | top (this week's top N in the Oasis ranking) | names (list of usernames)
@@ -1965,6 +1970,11 @@ function checkPayment(p, uid) {
     if (!t || !Number.isInteger(ed) || ed < 1 || ed > L.ROYAL.MAX || Number(p.amount) !== t.price) bad("badPayment");
     return { price: t.price, royal: { tier: t.id, ed } };
   }
+  if (p.metadata?.type === "supfree") {
+    const F = L.SUPPORT_FREE, amt = Number(p.amount);
+    if (!Number.isInteger(amt) || amt < F.MIN || amt > F.MAX || Number(p.metadata.amt) !== amt) bad("badPayment");
+    return { price: amt, supFree: amt };
+  }
   if (p.metadata?.type === "sup") {
     const s = L.SUPPORTER.find((x) => x.id === p.metadata.pack);
     if (!s || Number(p.amount) !== s.price) bad("badPayment");
@@ -2027,6 +2037,12 @@ async function completePayment(env, id, txid, uid) {
     if (item.jryPts) stmts.push(env.DB.prepare("UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(item.jryPts.jry, u.uid));
     if (item.coins) stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, item.coins.coins, now));
     if (item.tier) stmts.push(await applyMembership(env, u, item.tier, now));
+    if (item.supFree) {
+      const F = L.SUPPORT_FREE, n = item.supFree;
+      stmts.push(env.DB.prepare("UPDATE users SET sup_pi = ROUND(COALESCE(sup_pi, 0) + ?, 7), sup_at = COALESCE(sup_at, ?), jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(n, now, n * F.JRY, u.uid));
+      if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
+      stmts.push(env.DB.prepare("UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?").bind(n * F.DATES, n * F.DATES, u.uid));
+    }
     if (item.sup) {
       // keeps the highest level reached; the total supported adds up
       stmts.push(env.DB.prepare("UPDATE users SET sup_lvl = MAX(COALESCE(sup_lvl, 0), ?), sup_pi = ROUND(COALESCE(sup_pi, 0) + ?, 7), sup_at = COALESCE(sup_at, ?), jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?")
@@ -2052,6 +2068,7 @@ async function completePayment(env, id, txid, uid) {
   }
   await env.DB.batch(stmts);
   if (item.derby && u) await derbyGrant(env, u.uid, item.derby, now);
+  if (item.supFree && u) await supSurprise(env, u.uid, now);
   if (item.royal && u) await royalGrant(env, u.uid, item.royal, id, now, item.price);
   const camel = (item.lvl && item.lvl.camel) || (item.sup && item.sup.camel);
   if (camel && u) {
@@ -2226,6 +2243,20 @@ async function royalFinalPrizes(env) {
   for (let i = 0; i < top.length; i++) await creditPoints(env, top[i].uid, "coins", L.ROYAL.PRIZES[i], now, "royal-final");
   await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "rfinal", ref: 1, vars: { p: i + 1, n: L.ROYAL.PRIZES[i].toLocaleString("en-US") } })));
   return top.length;
+}
+
+// The surprise of the month for a free supporter (once a month, the same for everyone that month)
+async function supSurprise(env, uid, now) {
+  const m = L.ROYAL.monthId(now), s = L.SUPPORT_FREE.surpriseOf(m);
+  const r = await run(env, "INSERT OR IGNORE INTO sup_surprise (uid, month, kind, at) VALUES (?, ?, ?, ?)", uid, m, s.id, now);
+  if (!r.meta.changes) return null;
+  if (s.camel) { const st = await loadState(env, uid, now); L.addAnimal(st, s.camel, now, "supporter"); await saveState(env, uid, st, now); }
+  if (s.spins) await giveReward(env, uid, "spins", s.spins, now, "surprise");
+  if (s.feed) await derbyGrant(env, uid, { feed: s.feed }, now);
+  if (s.coins) await giveReward(env, uid, "coins", s.coins, now, "surprise");
+  if (s.jry) await giveReward(env, uid, "jry", s.jry, now, "surprise");
+  if (s.dates) await giveReward(env, uid, "dates", s.dates, now, "surprise");
+  return s;
 }
 
 // ---------- Tasks center helpers ----------

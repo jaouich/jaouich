@@ -1275,3 +1275,11 @@ body.k-open { overflow: hidden; }
 .rc-prizes span { background: rgba(255,255,255,.15); border-radius: 99px; padding: 2px 9px; font-size: .74rem; font-weight: 800; }
 .rc-row { display: flex; justify-content: space-between; font-size: .84rem; border-bottom: 1px solid rgba(255,255,255,.12); padding: 3px 0; }
 .rc-bar { height: 10px; border-radius: 99px; background: rgba(255,255,255,.18); overflow: hidden; } .rc-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd34d, #ff8a3d); }
+
+.sf-card { margin-bottom: 10px; padding: 12px; border-radius: 18px; background: linear-gradient(135deg, #fff, #f3eaff); border: 2px solid #c4b5fd; box-shadow: 0 4px 0 #a78bfa; display: flex; flex-direction: column; gap: 8px; }
+.sf-top { display: flex; gap: 10px; align-items: center; }
+.sf-top i { font-style: normal; font-size: 32px; }
+.sf-top span { display: flex; flex-direction: column; }
+.sf-top small { font-size: .76rem; opacity: .8; line-height: 1.4; }
+.sf-box { padding: 8px 10px; border-radius: 12px; background: #fff8e6; border: 1px dashed #e2a918; font-size: .82rem; font-weight: 700; }
+.sf-card input { max-width: 110px; }

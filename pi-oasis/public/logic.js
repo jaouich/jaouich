@@ -526,6 +526,21 @@
     { id: "s50", lvl: 2, e: "💙", price: 50, jry: 12000, camel: 2 },
     { id: "s200", lvl: 3, e: "💎", price: 200, jry: 60000, camel: 3 },
   ];
+  // Free support (any whole amount from 1 Pi): per Pi 100 JRY + 1,000 dates, a 🤍 badge, and once a
+  // month the surprise of the month. The surprise is the same for every supporter of that month
+  // (nothing random), it only changes from month to month.
+  const SUPPORT_FREE = {
+    MIN: 1, MAX: 10000, JRY: 100, DATES: 1000,
+    SURPRISES: [
+      { id: "camel", e: "🐪", camel: 1 },        // a rare camel
+      { id: "spins", e: "🎡", spins: 5 },        // 5 wheel spins
+      { id: "feed", e: "🌾", feed: 10 },         // 10 golden feed for the Derby
+      { id: "coins", e: "🪙", coins: 300000 },   // 300,000 Kombat coins
+      { id: "jry", e: "💠", jry: 300 },          // 300 JRY
+      { id: "dates", e: "🌴", dates: 20000 },    // 20,000 dates
+    ],
+  };
+  SUPPORT_FREE.surpriseOf = (monthId) => SUPPORT_FREE.SURPRISES[monthId % SUPPORT_FREE.SURPRISES.length];
   // Points market: players sell dates / Kombat coins to each other for Pi at their own price.
   // The buyer's Pi goes to the app wallet; the seller's share shows in their sales balance and
   // can be withdrawn from MIN_WITHDRAW Pi. TAX is kept by the app on every sale.
@@ -566,6 +581,6 @@
   };
   const FUTURE = [{ id: "falcon", e: "🦅", players: 1000 }, { id: "quiz", e: "🧠", players: 2500 }, { id: "chess", e: "♟️", players: 5000 },
     { id: "kart", e: "🏎️", players: 10000 }, { id: "hunt", e: "🗺️", players: 25000 }, { id: "world", e: "🌍", players: 100000 }];
-  const api = { ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

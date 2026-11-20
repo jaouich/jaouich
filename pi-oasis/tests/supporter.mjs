@@ -29,5 +29,27 @@ ok(w.count === 1 && w.list[0].username === "bob" && w.list[0].lvl === 3 && w.tot
 await fetch(B + "/__test/exec", { method: "POST", body: `INSERT INTO week_scores (week_id, uid, score, updated_at) VALUES (${(await sql("SELECT MAX(id) AS id FROM weeks"))[0].id || 0}, 'uB', 50, 1)` });
 const pool = (await sql("SELECT SUM(prize_pool) AS p FROM weeks"))[0].p;
 ok(pool > 0, "part of the support feeds the weekly prize pool");
+// free support (any whole amount from 1 Pi) + surprise of the month
+global.window = global; await import("../public/logic.js"); const OL = globalThis.OasisLogic;
+const HC = await H("tokC");
+const payC = async (id, amount, amt) => {
+  await fetch(B + "/__test/pay", { method: "POST", body: JSON.stringify({ id, uid: "uC", amount, type: "supfree", amt, txid: "t" + id }) });
+  const a = await post("/api/payments/approve", { paymentId: id }, HC);
+  if (a.error) return a;
+  return post("/api/payments/complete", { paymentId: id, txid: "t" + id }, HC);
+};
+ok((await payC("f0", 0.5, 0.5)).error === "badPayment", "less than 1 Pi refused");
+ok((await payC("f1", 3, 2)).error === "badPayment", "amount must match");
+const c0 = await get("/api/me", HC);
+r = await payC("f2", 3, 3);
+ok(r.ok && r.account.jryPts === c0.account.jryPts + 300 && r.account.supPi === 3, "3 Pi: +300 JRY, counted as support");
+const sur = OL.SUPPORT_FREE.surpriseOf(OL.ROYAL.monthId(Date.now()));
+let wl = await get("/api/supporters", HC);
+ok(wl.surprise === sur.id, "surprise of the month received (the same for everyone this month)");
+const before = (await sql("SELECT COUNT(*) AS n FROM sup_surprise WHERE uid='uC'"))[0].n;
+await payC("f3", 1, 1);
+ok((await sql("SELECT COUNT(*) AS n FROM sup_surprise WHERE uid='uC'"))[0].n === before, "only one surprise per month");
+wl = await get("/api/supporters");
+ok(wl.list.some((x) => x.username === "carol" && x.lvl === 0 && x.pi === 4), "carol on the honor wall with 4 Pi (🤍)");
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

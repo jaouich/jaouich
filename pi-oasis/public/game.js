@@ -432,18 +432,39 @@
   rcLoad();
 
   // ---------- 💎 Founding supporters ----------
-  const SUPN = ["", "💚", "💙", "💎"];
+  const SUPN = ["", "💚", "💙", "💎", "🤍"];
   let supData = null;
   function renderSupporters() {
-    const mine = (account && account.supLvl) || 0;
+    const mine = (account && account.supLvl) || 0, F = L.SUPPORT_FREE;
+    const got = supData && supData.surprise ? F.SURPRISES.find((x) => x.id === supData.surprise) : null;
+    $("supFree").innerHTML = `<div class="sf-card"><div class="sf-top"><i>🤍</i><span><b>${t("sf.t")}</b><small>${t("sf.d", { j: F.JRY, d: fmtN(F.DATES) })}</small></span></div>
+      <div class="sf-box">🎁 ${got ? t("sf.got", { s: got.e + " " + t("sf.s." + got.id) }) : t("sf.box")}</div>
+      <div class="ref-row"><input id="sfAmt" type="number" inputmode="numeric" min="${F.MIN}" step="1" value="1" dir="ltr"><button class="btn small gold" data-sf="1">${t("sf.go")}</button></div></div>`;
     $("supShop").innerHTML = L.SUPPORTER.map((s) => `<div class="sup-card sup${s.lvl}${mine >= s.lvl ? " got" : ""}">
       <div class="sup-top"><i>${s.e}</i><b>${t("sup.n" + s.lvl)}</b></div>
       <ul><li>${s.e} ${t("sup.badge")}</li><li>🐪 ${t("sup.camel" + s.camel)}</li><li>💠 ${fmtN(s.jry)} JRY</li><li>📜 ${t("sup.wall")}</li></ul>
       <button class="btn small gold" data-sup="${s.id}">${mine >= s.lvl ? "✓ " : ""}${s.price} Pi</button></div>`).join("");
     const d = supData;
-    $("supWall").innerHTML = d ? `<b>📜 ${t("sup.wallT", { n: d.count })}</b>` + (d.list.length ? `<div>${d.list.map((x) => `<span>${SUPN[x.lvl]} ${esc(x.username)}</span>`).join("")}</div>` : `<small>${t("sup.first")}</small>`) : "";
+    $("supWall").innerHTML = d ? `<b>📜 ${t("sup.wallT", { n: d.count })}</b>` + (d.list.length ? `<div>${d.list.map((x) => `<span>${SUPN[x.lvl || 4]} ${esc(x.username)}</span>`).join("")}</div>` : `<small>${t("sup.first")}</small>`) : "";
   }
   async function supLoad() { try { supData = await Pi.supporters(); } catch (e) {} renderSupporters(); }
+  $("supFree").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-sf]");
+    if (!b) return;
+    if (!account) return toast(t("t.loginFirst"));
+    const n = Math.floor(Number($("sfAmt").value));
+    if (!(n >= L.SUPPORT_FREE.MIN)) return toast(t("e.sf.amount"));
+    if (!confirm(t("sf.confirm", { n }))) return;
+    b.disabled = true;
+    try {
+      const res = await Pi.buySupportFree(n);
+      if (res.account) account = res.account; if (res.state) S = res.state;
+      await supLoad(); burst();
+      const s = supData && supData.surprise ? L.SUPPORT_FREE.SURPRISES.find((x) => x.id === supData.surprise) : null;
+      toast(t("sf.thanks", { j: fmtN(n * L.SUPPORT_FREE.JRY) }) + (s ? " · 🎁 " + s.e + " " + t("sf.s." + s.id) : ""));
+    } catch (err) { toast(err.message); }
+    b.disabled = false; render();
+  });
   $("supShop").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-sup]");
     if (!b) return;

@@ -93,6 +93,13 @@
     if (!pack) return Promise.reject(new Error(I18N.t("e.payment")));
     return pay({ amount: pack.price, memo: `Pi Oasis – ${pack.dates} dates`, metadata: { type: "dates", pack: pack.id } });
   }
+  // Free support: any whole amount from 1 Pi
+  function buySupportFree(n) {
+    const F = window.OasisLogic.SUPPORT_FREE;
+    n = Math.floor(Number(n));
+    if (!(n >= F.MIN && n <= F.MAX)) return Promise.reject(new Error(I18N.t("e.sf.amount")));
+    return pay({ amount: n, memo: `Jerry Development – support ${n} Pi`, metadata: { type: "supfree", amt: n } });
+  }
   // Royal card: one numbered copy, seen before paying
   function buyRoyal(tier, ed) {
     const t = window.OasisLogic.ROYAL.tierById(tier);
@@ -240,6 +247,7 @@
     buyLevel,
     buySupporter,
     buyRoyal,
+    buySupportFree,
     royal: () => api("/api/royal"),
     royalClaim: () => api("/api/royal/claim", {}),
     supporters: () => api("/api/supporters"),

@@ -180,25 +180,21 @@ public class RecorderService extends Service {
             if (uri == null) throw new IllegalStateException("galerie indisponible");
             pfd = getContentResolver().openFileDescriptor(uri, "rw");
 
-            recorder = Build.VERSION.SDK_INT >= 31 ? new MediaRecorder(this) : new MediaRecorder();
-            if (mic) recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            recorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            recorder.setOutputFile(pfd.getFileDescriptor());
-            recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-            if (mic) {
-                recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-                recorder.setAudioEncodingBitRate(128000);
-                recorder.setAudioSamplingRate(44100);
-                recorder.setAudioChannels(1);
+            // Certains téléphones refusent une taille : on réessaie plus petit
+            Exception last = null;
+            double[] scales = {1.0, 0.75, 0.5};
+            for (double sc : scales) {
+                int vw = Math.max(16, (int) Math.round(width * sc / 16.0) * 16), vh = Math.max(16, (int) Math.round(height * sc / 16.0) * 16);
+                try { prepareRecorder(vw, vh); recorder.start(); last = null; break; }
+                catch (Exception e) {
+                    last = e;
+                    // Android 14 : une seule surface virtuelle par autorisation, on la garde et on change sa taille
+                    try { if (display != null) display.setSurface(null); } catch (Exception ignored) {}
+                    try { if (recorder != null) recorder.release(); } catch (Exception ignored) {}
+                    recorder = null;
+                }
             }
-            recorder.setVideoSize(width, height);
-            recorder.setVideoFrameRate(30);
-            recorder.setVideoEncodingBitRate(hd ? 6_000_000 : 3_000_000);
-            recorder.prepare();
-            display = projection.createVirtualDisplay("MagiscomDesk", width, height, dpi,
-                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, recorder.getSurface(), null, null);
-            recorder.start();
+            if (last != null) throw last;
         } catch (Exception e) {
             fail("L'enregistrement n'a pas pu démarrer : " + e.getMessage());
             return;
@@ -207,6 +203,28 @@ public class RecorderService extends Service {
         t0 = SystemClock.elapsedRealtime();
         if (showBubble) showBubble();
         tick();
+    }
+
+    private void prepareRecorder(int vw, int vh) throws Exception {
+        recorder = Build.VERSION.SDK_INT >= 31 ? new MediaRecorder(this) : new MediaRecorder();
+        if (mic) recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        recorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+        recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+        recorder.setOutputFile(pfd.getFileDescriptor());
+        recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+        if (mic) {
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            recorder.setAudioEncodingBitRate(128000);
+            recorder.setAudioSamplingRate(44100);
+            recorder.setAudioChannels(1);
+        }
+        recorder.setVideoSize(vw, vh);
+        recorder.setVideoFrameRate(30);
+        recorder.setVideoEncodingBitRate(hd ? 6_000_000 : 3_000_000);
+        recorder.prepare();
+        if (display == null) display = projection.createVirtualDisplay("MagiscomDesk", vw, vh, dpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, recorder.getSurface(), null, null);
+        else { display.resize(vw, vh, dpi); display.setSurface(recorder.getSurface()); }
     }
 
     private long elapsedSecs() {

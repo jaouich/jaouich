@@ -1,0 +1,41 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0}
+body{width:540px;height:675px;overflow:hidden;font-family:"DejaVu Sans",sans-serif}
+#c{position:relative;width:540px;height:675px;overflow:hidden;color:#fff;padding:26px 24px}
+.g1{background:radial-gradient(120% 80% at 80% 0%,#35b983 0%,#0f6b4a 45%,#06281c 100%)}
+.g2{background:radial-gradient(120% 80% at 80% 0%,#f59e0b 0%,#9a3412 50%,#2a0e04 100%)}
+.g3{background:radial-gradient(120% 80% at 80% 0%,#ffd34d 0%,#b8860b 40%,#3a2614 100%)}
+.g4{background:radial-gradient(120% 80% at 80% 0%,#7c5cff 0%,#2a1162 50%,#0b0620 100%)}
+.g5{background:radial-gradient(120% 80% at 80% 0%,#a855f7 0%,#6d28d9 40%,#12051f 100%)}
+.g6{background:radial-gradient(120% 80% at 80% 0%,#34d399 0%,#0f766e 45%,#062a2a 100%)}
+.g7{background:radial-gradient(120% 80% at 80% 0%,#3ea7e0 0%,#0b3a66 50%,#05101f 100%)}
+.g8{background:radial-gradient(120% 80% at 80% 0%,#0f766e 0%,#0b3a66 50%,#04121f 100%)}
+.g9{background:radial-gradient(120% 80% at 80% 0%,#7c5cff 0%,#3b1a86 45%,#1a0b33 100%)}
+.g10{background:radial-gradient(120% 80% at 80% 0%,#ef4444 0%,#7f1d1d 50%,#1f0505 100%)}
+.g11{background:radial-gradient(120% 80% at 80% 0%,#c084fc 0%,#5b21b6 45%,#0b0620 100%)}
+.g12{background:radial-gradient(120% 80% at 80% 0%,#2fae78 0%,#0f6b4a 40%,#062a1c 100%)}
+.g13{background:radial-gradient(120% 80% at 80% 0%,#60a5fa 0%,#1e3a8a 50%,#0a1430 100%)}
+.g14{background:radial-gradient(120% 80% at 80% 0%,#ffd34d 0%,#0f6b4a 55%,#06281c 100%)}
+.rays{position:absolute;left:50%;top:40%;width:1200px;height:1200px;margin:-600px 0 0 -600px;border-radius:50%;background:repeating-conic-gradient(rgba(255,255,255,.05) 0 6deg,transparent 6deg 12deg)}
+.tag{position:relative;display:inline-block;background:#ffd34d;color:#3a2614;font-weight:900;font-size:16px;padding:6px 14px;border-radius:99px;box-shadow:0 4px 0 #a85f00}
+h1{position:relative;font-size:40px;line-height:1.1;margin:14px 0 4px;text-shadow:0 4px 0 rgba(0,0,0,.25);unicode-bidi:plaintext}
+.sub{position:relative;font-size:19px;opacity:.92;font-weight:700;unicode-bidi:plaintext}
+ul{position:relative;list-style:none;padding:0;margin:16px 0 0;width:255px;display:flex;flex-direction:column;gap:10px}
+li{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:14px;padding:9px 11px;font-size:14.5px;font-weight:700;line-height:1.35;unicode-bidi:plaintext}
+.phone{position:absolute;left:24px;top:150px;width:220px;height:440px;border-radius:32px;background:#14101c;padding:7px;box-shadow:0 24px 50px rgba(0,0,0,.5),inset 0 0 0 2px #4a3a5a;transform:rotate(-4deg)}
+.screen{width:100%;height:100%;border-radius:26px;overflow:hidden;background:#fbf0d9}
+.screen img{width:100%;display:block}
+.foot{position:absolute;left:0;right:0;bottom:0;height:70px;display:flex;align-items:center;gap:12px;padding:0 22px;background:rgba(0,0,0,.35);backdrop-filter:blur(4px)}
+.foot img{width:44px;height:44px;border-radius:12px}
+.foot b{font-size:15px;display:block}
+.foot small{font-size:13px;opacity:.85}
+.url{margin-right:auto;background:linear-gradient(#fff6c2,#ffc21a);color:#2a1162;font-weight:900;font-size:15px;padding:8px 12px;border-radius:12px;direction:ltr}
+</style></head><body><div id="c"><div class="rays"></div>
+<span class="tag" id="tag"></span><h1 id="title"></h1><div class="sub" id="sub"></div><ul id="pts"></ul>
+<div class="phone"><div class="screen"><img id="shot"></div></div>
+<div class="foot"><img src="src/jerry-logo.png"><div><b>Jerry Development</b><small>افتح متصفح Pi</small></div><span class="url">jerryoasis9559.pinet.com</span></div>
+</div><script>
+window.show=(p)=>{document.getElementById('c').className=p.bg;tag.textContent=p.tag;title.textContent=p.title;sub.textContent=p.sub;
+pts.innerHTML=p.pts.map(x=>`<li>${x.replace(/[<>&]/g,'')}</li>`).join('');document.getElementById('shot').src='src/'+p.shot+'.png';
+return new Promise(r=>{const i=document.getElementById('shot');if(i.complete)r();else i.onload=r;});};
+</script></body></html>

@@ -1283,3 +1283,19 @@ body.k-open { overflow: hidden; }
 .sf-top small { font-size: .76rem; opacity: .8; line-height: 1.4; }
 .sf-box { padding: 8px 10px; border-radius: 12px; background: #fff8e6; border: 1px dashed #e2a918; font-size: .82rem; font-weight: 700; }
 .sf-card input { max-width: 110px; }
+
+/* Jerry Development services */
+.svc-bar { background: linear-gradient(135deg, #1e3a8a, #3ea7e0 60%, #0f766e); }
+.media.svc { background: radial-gradient(120% 60% at 50% 0%, #3ea7e0 0%, #1e3a8a 45%, #0a1430 100%); }
+.sv-proof { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,211,77,.45); margin-bottom: 6px; }
+.sv-proof small { font-size: .8rem; opacity: .9; line-height: 1.5; }
+.sv-pack { display: flex; gap: 10px; align-items: flex-start; padding: 12px; margin-bottom: 8px; border-radius: 16px; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.18); }
+.sv-pack > i { font-style: normal; font-size: 30px; }
+.sv-pack span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sv-pack small { font-size: .8rem; opacity: .88; line-height: 1.45; }
+.sv-pack em { font-style: normal; font-weight: 800; color: #ffd34d; font-size: .85rem; }
+.sv-form textarea { resize: vertical; }
+.sv-note { margin-top: 12px; font-size: .8rem; }
+.sv-adm { flex-direction: column !important; align-items: stretch !important; }
+.sv-idea { white-space: pre-wrap; background: rgba(0,0,0,.2); border-radius: 8px; padding: 6px; }
+.sv-btns { display: flex !important; flex-direction: row !important; gap: 6px; flex-wrap: wrap; }

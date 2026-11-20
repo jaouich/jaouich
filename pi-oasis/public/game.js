@@ -1235,7 +1235,7 @@
   function goFromLink() {
     if (goDone) return; goDone = true;
     const go = new URLSearchParams(location.search).get("go");
-    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
+    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
     if (tabs[go]) document.querySelector(`.tabs [data-tab="${tabs[go]}"]`).click();
     else if (opens[go]) setTimeout(() => $(opens[go]).click(), 300);
   }
@@ -1694,6 +1694,62 @@
   }
   const G_refLink = () => `${publicUrl || location.origin + location.pathname}?ref=${encodeURIComponent(account.username)}`;
   document.addEventListener("langchange", renderShare);
+
+  // ---------- 🛠️ Jerry Development services: we build Pi apps for clients ----------
+  const SV = L.SERVICES;
+  let svData = null, svAdmin = null;
+  function renderServices() {
+    const d = svData || { packs: SV.PACKS, mine: [] };
+    const st = (s) => t("svc.st." + s);
+    $("services").innerHTML = `<header class="jm-head"><button class="jm-back" data-sv="close">‹ ${t("jm.back")}</button><b>🛠️ Jerry <span>Development</span></b><span></span></header>
+      <div class="jm-body">
+        <p class="arc-intro"><b>${t("svc.title")}</b><br>${t("svc.intro")}</p>
+        <div class="sv-proof"><b>🌴 ${t("svc.proof")}</b><small>${t("svc.proofD")}</small></div>
+        <h4>📦 ${t("svc.packs")}</h4>
+        ${d.packs.map((k) => `<div class="sv-pack"><i>${k.e}</i><span><b>${t("svc.p." + k.id)}</b><small>${t("svc.p." + k.id + ".d")}</small>
+          <em>${t(k.monthly ? "svc.fromM" : "svc.from", { n: fmtN(k.from) })}${k.weeks ? " · " + t("svc.weeks", { n: k.weeks }) : ""}</em></span></div>`).join("")}
+        <h4>🧭 ${t("svc.how")}</h4>
+        <div class="jm-how">${[1, 2, 3, 4].map((i) => `<div><i>${i}</i><span>${t("svc.h" + i)}</span></div>`).join("")}</div>
+        <h4>✉️ ${t("svc.form")}</h4>
+        ${account ? `<div class="biz-form sv-form">
+          <label>${t("svc.f.pkg")}<select id="svPkg">${d.packs.map((k) => `<option value="${k.id}">${k.e} ${t("svc.p." + k.id)}</option>`).join("")}</select></label>
+          <label>${t("svc.f.name")}<input id="svName" maxlength="${SV.NAME}"></label>
+          <label>${t("svc.f.idea")}<textarea id="svIdea" rows="4" maxlength="${SV.IDEA}" placeholder="${t("svc.f.ideaPh")}"></textarea></label>
+          <label>${t("svc.f.budget")}<input id="svBudget" maxlength="${SV.BUDGET}" placeholder="${t("svc.f.budgetPh")}"></label>
+          <label>${t("svc.f.contact")}<input id="svContact" maxlength="${SV.CONTACT}" placeholder="${t("svc.f.contactPh")}"></label>
+          <small class="biz-rules">${t("svc.f.hint")}</small>
+          <button class="btn gold" data-sv="send">${t("svc.send")}</button></div>` : `<p class="jm-note">${t("t.loginFirst")}</p>`}
+        ${d.mine.length ? `<h4>📋 ${t("svc.mine")}</h4>` + d.mine.map((x) => `<div class="biz-mine"><b>${(SV.PACKS.find((k) => k.id === x.pkg) || {}).e || ""} ${t("svc.p." + x.pkg)} · #${x.id}</b><small>${st(x.status)} · ${new Date(x.at).toLocaleDateString()}</small>${x.note ? `<small>💬 ${esc(x.note)}</small>` : ""}</div>`).join("") : ""}
+        <div class="jt-box sv-note">🛡️ ${t("svc.note")}</div>
+        ${account && account.isAdmin ? `<div class="jm-top"><b>🛡️ ${t("svc.admin")}</b><button class="jm-back" data-sv="adm">${t("jm.recheck")}</button>
+          ${svAdmin ? (svAdmin.list.length ? svAdmin.list.map((x) => `<div class="biz-adm sv-adm"><span><b>#${x.id} · ${(SV.PACKS.find((k) => k.id === x.pkg) || {}).e || ""} ${t("svc.p." + x.pkg)} · ${st(x.status)}</b>
+            <small>@${esc(x.username)} · ${esc(x.name)} · ${new Date(x.at).toLocaleString()}</small><small class="sv-idea">${esc(x.idea)}</small>
+            ${x.budget ? `<small>💰 ${esc(x.budget)}</small>` : ""}${x.contact ? `<small dir="auto">📞 ${esc(x.contact)}</small>` : ""}${x.note ? `<small>💬 ${esc(x.note)}</small>` : ""}</span>
+            <span class="sv-btns">${SV.STATUS.filter((s) => s !== "new").map((s) => `<button class="btn small ${s === x.status ? "gold" : "secondary"}" data-sv="st" data-id="${x.id}" data-st="${s}">${st(s)}</button>`).join("")}</span></div>`).join("") : `<small>—</small>`) : ""}</div>` : ""}
+      </div>`;
+  }
+  async function svLoad() { try { svData = await Pi.svc(); } catch (e) {} if (!$("services").classList.contains("hidden")) renderServices(); }
+  $("svcOpen").addEventListener("click", () => { $("services").classList.remove("hidden"); renderServices(); svLoad(); if (account && account.isAdmin && !svAdmin) Pi.adminSvc({ action: "list" }).then((d) => { svAdmin = d; renderServices(); }, () => {}); });
+  $("services").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-sv]");
+    if (!b) return;
+    const a = b.dataset.sv;
+    if (a === "close") return $("services").classList.add("hidden");
+    if (!account) return toast(t("t.loginFirst"));
+    b.disabled = true;
+    try {
+      if (a === "send") {
+        await Pi.svcRequest({ pkg: $("svPkg").value, name: $("svName").value, idea: $("svIdea").value, budget: $("svBudget").value, contact: $("svContact").value });
+        toast(t("svc.sent")); await svLoad();
+      } else if (a === "adm") svAdmin = await Pi.adminSvc({ action: "list" });
+      else if (a === "st") {
+        const note = prompt(t("svc.noteAsk")) || "";
+        svAdmin = await Pi.adminSvc({ action: "status", id: Number(b.dataset.id), status: b.dataset.st, note });
+      }
+    } catch (err) { toast(err.message); }
+    b.disabled = false; renderServices();
+  });
+  document.addEventListener("langchange", () => { if (!$("services").classList.contains("hidden")) renderServices(); });
 
   // Activities grid: gift code and invite tiles jump to their place in the Club tab
   const toClub = (sel) => { document.querySelector('.tabs [data-tab="vip"]').click(); setTimeout(() => { const e = document.querySelector(sel); e && e.scrollIntoView({ behavior: "smooth", block: "center" }); }, 80); };

@@ -74,6 +74,7 @@ footer { text-align: center; font-size: .8rem; opacity: .7; padding: 20px; }
   <h2 id="t-videos"></h2><div class="vids" id="videos"></div>
   <h2 id="t-guide"></h2><div class="guide" id="guide"></div>
   <h2 id="t-share"></h2><p id="share-d"></p><div id="share"></div>
+  <h2 id="t-svc"></h2><div class="card" id="svc"></div>
   <h2 id="t-safe"></h2><div class="card warn" id="safe"></div>
 </main>
 <footer>Jerry Development · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></footer>
@@ -84,6 +85,7 @@ const T = {
 ar: { dir: "rtl", h1: "واحة باي على شبكة Pi 🌴", lead: "لعبة مجانية من مجتمع Jerry Development: مزرعة، جِمال، مدينة، سباق الجمال، جيري كومبات، و100 فائز كل أسبوع.",
   play: "📲 افتح اللعبة في متصفح Pi", getpi: "ليس عندك متصفح Pi؟", tStart: "ابدأ في 3 خطوات",
   start: ["افتح تطبيق <b>متصفح Pi</b> (Pi Browser) على هاتفك.", "اكتب في شريط البحث: <span class='url'>jerryoasis9559.pinet.com</span>", "سجّل الدخول بحساب Pi بضغطة واحدة… والعب! اللعبة بالعربية والفرنسية والإنجليزية."],
+  tSvc: "🛠️ تريد تطبيقك على Pi؟", svc: "يبني فريق Jerry Development تطبيقات وألعاب Pi من أجلك: تسجيل الدخول بـ Pi، والمدفوعات، والإعلانات، بالعربية والإنجليزية والفرنسية. افتح اللعبة في متصفح Pi ثم صفحة «ابنِ تطبيقك على Pi» لإرسال طلبك.",
   tVideos: "🎬 الفيديوهات", tGuide: "📖 الشرح الكامل", tShare: "📤 شارك مع أصدقائك", shareD: "كل صديق يدخل من رابطك يُحسب لك، وتربح 10% من مشترياته.", tSafe: "🛡️ احمِ نفسك",
   safe: "لا تعطِ أبدًا كلماتك السرية (24 كلمة) أو مفتاحك الخاص لأي أحد. فريق Jerry Development لن يطلبها منك أبدًا. الدفع في اللعبة بعملة Pi فقط ومن داخل اللعبة.",
   share: "🌴 واحة باي: لعبة مجانية على شبكة Pi! مزرعة، جِمال، سباق، كومبات و100 فائز كل أسبوع. افتحها في متصفح Pi:",
@@ -103,6 +105,7 @@ ar: { dir: "rtl", h1: "واحة باي على شبكة Pi 🌴", lead: "لعبة
 en: { dir: "ltr", h1: "Pi Oasis on Pi Network 🌴", lead: "A free game from the Jerry Development community: farm, camels, city, Camel Derby, Jerry Kombat, and 100 winners every week.",
   play: "📲 Open the game in Pi Browser", getpi: "No Pi Browser yet?", tStart: "Start in 3 steps",
   start: ["Open the <b>Pi Browser</b> app on your phone.", "Type in the search bar: <span class='url'>jerryoasis9559.pinet.com</span>", "Sign in with your Pi account in one tap… and play! Available in English, Arabic and French."],
+  tSvc: "🛠️ Want your own app on Pi?", svc: "The Jerry Development team builds Pi apps and games for you: Pi sign-in, payments and ads, in Arabic, English and French. Open the game in Pi Browser, then the \"Build your app on Pi\" page to send your request.",
   tVideos: "🎬 Videos", tGuide: "📖 Full guide", tShare: "📤 Share with friends", shareD: "Every friend who joins from your link counts for you, and you earn 10% of their purchases.", tSafe: "🛡️ Stay safe",
   safe: "Never share your 24 secret words or private key with anyone. The Jerry Development team will never ask for them. Payments in the game are in Pi only, and only inside the game.",
   share: "🌴 Pi Oasis: a free game on Pi Network! Farm, camels, racing, Kombat and 100 winners every week. Open it in Pi Browser:",
@@ -122,6 +125,7 @@ en: { dir: "ltr", h1: "Pi Oasis on Pi Network 🌴", lead: "A free game from the
 fr: { dir: "ltr", h1: "Pi Oasis sur Pi Network 🌴", lead: "Un jeu gratuit de la communauté Jerry Development : ferme, chameaux, ville, Course de chameaux, Jerry Kombat et 100 gagnants chaque semaine.",
   play: "📲 Ouvrir le jeu dans Pi Browser", getpi: "Pas encore Pi Browser ?", tStart: "Commencer en 3 étapes",
   start: ["Ouvre l'application <b>Pi Browser</b> sur ton téléphone.", "Tape dans la barre de recherche : <span class='url'>jerryoasis9559.pinet.com</span>", "Connecte-toi avec ton compte Pi en un clic… et joue ! En français, arabe et anglais."],
+  tSvc: "🛠️ Ton app sur Pi ?", svc: "L'équipe Jerry Development crée des apps et des jeux Pi pour toi : connexion Pi, paiements et pubs, en arabe, anglais et français. Ouvre le jeu dans Pi Browser, puis la page « Ton app sur Pi » pour envoyer ta demande.",
   tVideos: "🎬 Vidéos", tGuide: "📖 Guide complet", tShare: "📤 Partage avec tes amis", shareD: "Chaque ami qui arrive par ton lien compte pour toi, et tu gagnes 10 % de ses achats.", tSafe: "🛡️ Reste prudent",
   safe: "Ne partage jamais tes 24 mots secrets ni ta clé privée. L'équipe Jerry Development ne te les demandera jamais. Les paiements se font uniquement en Pi, dans le jeu.",
   share: "🌴 Pi Oasis : un jeu gratuit sur Pi Network ! Ferme, chameaux, courses, Kombat et 100 gagnants chaque semaine. Ouvre-le dans Pi Browser :",
@@ -160,6 +164,7 @@ function show(l) {
   $("t-guide").textContent = d.tGuide; $("guide").innerHTML = d.guide.map(([t, p]) => `<details><summary>${t}</summary><p>${p}</p></details>`).join("");
   $("t-share").textContent = d.tShare; $("share-d").textContent = d.shareD;
   JShare.bar($("share"), { url: gameUrl, text: d.share, labels: { copy: d.copy, copied: d.copied, more: d.more } });
+  $("t-svc").textContent = d.tSvc; $("svc").innerHTML = d.svc + ` <a href="${openUrl.replace(/\/(\?|$)/, "/?go=services&").replace(/&$/, "")}">→</a>`;
   $("t-safe").textContent = d.tSafe; $("safe").textContent = d.safe;
   try { localStorage.setItem("oasis_lang", l); } catch (e) {}
   const u = new URL(location.href); u.searchParams.set("lang", l); history.replaceState(null, "", u);

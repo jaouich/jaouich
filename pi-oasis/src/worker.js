@@ -33,6 +33,8 @@ class HttpError extends Error {
   constructor(status, code, vars) { super(code); this.status = status; this.code = code; this.vars = vars; }
 }
 const bad = (code, vars) => { throw new HttpError(400, code, vars); };
+// Words never allowed in texts players publish or send (business listings, service requests)
+const RULES_RE = /(casino|bet|gambl|poker|porn|xxx|forex|double your|guaranteed profit|قمار|رهان|كازينو)/i;
 
 // ---------- Pi API ----------
 async function pi(env, path, { method = "GET", body, key } = {}) {
@@ -196,6 +198,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS royal_final ( id INTEGER PRIMARY KEY, start_at INTEGER NOT NULL, end_at INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0 )",
   // Monthly surprise for free supporters: once per player per month
   "CREATE TABLE IF NOT EXISTS sup_surprise ( uid TEXT NOT NULL, month INTEGER NOT NULL, kind TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, month) )",
+  // Requests for Jerry Development services (app building). status: new | talking | done | closed
+  "CREATE TABLE IF NOT EXISTS svc_requests ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, username TEXT NOT NULL, pkg TEXT NOT NULL, name TEXT NOT NULL, idea TEXT NOT NULL, budget TEXT, contact TEXT, status TEXT NOT NULL, note TEXT, at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS notif_log ( uid TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, kind, ref) )",
   // Jerry Arcade: rewarded plays per day and best scores
   "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
@@ -1508,6 +1512,50 @@ const routes = {
     return { ok: true, gift: total, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
   },
 
+  // ---------- 🛠️ Jerry Development services ----------
+  "GET /api/svc": async (req, env) => {
+    let mine = [];
+    try {
+      const u = await auth(req, env);
+      mine = await all(env, "SELECT id, pkg, status, note, at FROM svc_requests WHERE uid = ? ORDER BY id DESC LIMIT 20", u.uid);
+    } catch (e) {}
+    return { packs: L.SERVICES.PACKS, mine };
+  },
+  "POST /api/svc/request": async (req, env, body) => {
+    const u = await auth(req, env);
+    const V = L.SERVICES, clean = (x, n) => String(x || "").replace(/[\u0000-\u0009\u000b-\u001f<>]/g, " ").replace(/[ \t]+/g, " ").trim().slice(0, n);
+    const pkg = V.PACKS.find((x) => x.id === body.pkg);
+    if (!pkg) bad("badAction");
+    const name = clean(body.name, V.NAME), idea = clean(body.idea, V.IDEA), budget = clean(body.budget, V.BUDGET), contact = clean(body.contact, V.CONTACT);
+    if (name.length < 2 || idea.length < 20) bad("svc.short");
+    if (RULES_RE.test(name + " " + idea + " " + budget)) bad("sp.rules");
+    const open = await one(env, "SELECT COUNT(*) AS n FROM svc_requests WHERE uid = ? AND status IN ('new', 'talking')", u.uid);
+    if (open.n >= V.OPEN) bad("svc.tooMany");
+    const now = Date.now();
+    const r = await one(env, "INSERT INTO svc_requests (uid, username, pkg, name, idea, budget, contact, status, at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'new', ?, ?) RETURNING id",
+      u.uid, u.username, pkg.id, name, idea, budget || null, contact || null, now, now);
+    // tell the owner(s) in the Pi app
+    const admins = String(env.ADMIN_USERNAMES || "").split(",").map((x) => x.trim()).filter(Boolean);
+    const rows = [];
+    for (const a of admins) { const x = await one(env, "SELECT uid FROM users WHERE username = ? COLLATE NOCASE", a); if (x) rows.push(x); }
+    await notify(env, rows.map((x) => ({ uid: x.uid, kind: "svc", ref: r.id, vars: { u: u.username, p: pkg.e } })));
+    return { ok: true, id: r.id };
+  },
+  "POST /api/admin/svc": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    if (body.action === "status") {
+      const id = Number(body.id), st = String(body.status || "");
+      if (!L.SERVICES.STATUS.includes(st)) bad("badAction");
+      const x = await one(env, "SELECT * FROM svc_requests WHERE id = ?", id);
+      if (!x) bad("badAction");
+      const note = String(body.note || "").replace(/[<>]/g, " ").trim().slice(0, 300);
+      await run(env, "UPDATE svc_requests SET status = ?, note = ?, updated_at = ? WHERE id = ?", st, note || x.note, Date.now(), id);
+      if (st !== x.status) await notify(env, [{ uid: x.uid, kind: "svcup", ref: id + ":" + st, vars: {} }]);
+    }
+    return { list: await all(env, "SELECT * FROM svc_requests ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'talking' THEN 1 ELSE 2 END, id DESC LIMIT 100") };
+  },
+
   // ---------- 🕹️ Jerry Arcade ----------
   "GET /api/arcade": async (req, env) => {
     const u = await auth(req, env);
@@ -1569,7 +1617,7 @@ const routes = {
     if (name.length < 2 || descr.length < 10) bad("sp.short");
     if (link && !/^(https:\/\/|pi:\/\/)[^\s]+$/i.test(link)) bad("sp.link");
     if (!plan) bad("badAction");
-    if (/(casino|bet|gambl|poker|porn|xxx|forex|double your|guaranteed profit|قمار|رهان|كازينو)/i.test(name + " " + descr + " " + link)) bad("sp.rules");
+    if (RULES_RE.test(name + " " + descr + " " + link)) bad("sp.rules");
     const n = await one(env, "SELECT COUNT(*) AS n FROM sponsors WHERE uid = ? AND status IN ('paying', 'review')", u.uid);
     if (n.n >= 3) bad("sp.tooMany");
     await run(env, "DELETE FROM sponsors WHERE uid = ? AND status = 'paying' AND created_at < ?", u.uid, Date.now() - 3600e3);
@@ -2095,6 +2143,8 @@ const MK = L.MARKET;
 const NOTE = {
   daily: { go: "farm", en: ["🌴 Your oasis is waiting", "Your camels made dates and your free Derby races are ready."], ar: ["🌴 واحتك في انتظارك", "جِمالك جمعت التمر، وسباقاتك المجانية جاهزة."], fr: ["🌴 Ton oasis t'attend", "Tes chameaux ont produit des dattes et tes courses gratuites sont prêtes."] },
   week: { go: "rank", en: ["🏆 Weekly ranking: #{p}", "Well done! +{d} dates and +{j} JRY for your place. Pi prizes are sent to your wallet."], ar: ["🏆 ترتيب الأسبوع: المركز {p}", "أحسنت! +{d} تمرة و+{j} JRY لمركزك. جوائز Pi تُرسل إلى محفظتك."], fr: ["🏆 Classement : {p}e place", "Bravo ! +{d} dattes et +{j} JRY pour ta place. Les prix en Pi arrivent dans ton portefeuille."] },
+  svc: { go: "services", en: ["🛠️ New app request", "{p} from @{u}: open the services page to answer."], ar: ["🛠️ طلب تطبيق جديد", "{p} من ‎@{u}: افتح صفحة الخدمات للرد."], fr: ["🛠️ Nouvelle demande d'app", "{p} de @{u} : ouvre la page des services pour répondre."] },
+  svcup: { go: "services", en: ["🛠️ Your app request was updated", "Open the services page to see the new status."], ar: ["🛠️ تم تحديث طلب تطبيقك", "افتح صفحة الخدمات لترى الحالة الجديدة."], fr: ["🛠️ Ta demande d'app a été mise à jour", "Ouvre la page des services pour voir le nouveau statut."] },
   rstart: { go: "vip", en: ["👑 The Grand Royal Final has started!", "All royal cards are sold. {d} days to earn the most Kombat coins: 1 billion for #1."], ar: ["👑 بدأ النهائي الملكي الكبير!", "بيعت كل البطاقات الملكية. {d} يومًا لجمع أكثر عملات كومبات: مليار للأول."], fr: ["👑 La Grande Finale royale commence !", "Toutes les cartes royales sont vendues. {d} jours pour gagner le plus de pièces Kombat : 1 milliard pour le 1er."] },
   rfinal: { go: "vip", en: ["👑 Grand Royal Final: #{p}", "+{n} Kombat coins for your place!"], ar: ["👑 النهائي الملكي الكبير: المركز {p}", "+{n} عملة كومبات لمركزك!"], fr: ["👑 Grande Finale royale : {p}e", "+{n} pièces Kombat pour ta place !"] },
   jry: { go: "kombat", en: ["💠 +{n} JRY from Jerry Development", "{note}"], ar: ["💠 +{n} JRY من Jerry Development", "{note}"], fr: ["💠 +{n} JRY de Jerry Development", "{note}"] },

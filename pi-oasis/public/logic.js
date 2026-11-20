@@ -526,6 +526,18 @@
     { id: "s50", lvl: 2, e: "💙", price: 50, jry: 12000, camel: 2 },
     { id: "s200", lvl: 3, e: "💎", price: 200, jry: 60000, camel: 3 },
   ];
+  // Jerry Development services: we build Pi apps for clients. Prices start "from" these amounts;
+  // the client sends a request and the owner answers (no payment on this page).
+  const SERVICES = {
+    PACKS: [
+      { id: "site", e: "🌱", from: 10000, weeks: "2" },
+      { id: "game", e: "🎮", from: 50000, weeks: "3-4" },
+      { id: "custom", e: "🛠️", from: 100000, weeks: "" },
+      { id: "care", e: "🔧", from: 3000, monthly: true },
+    ],
+    NAME: 60, IDEA: 1000, BUDGET: 120, CONTACT: 120, OPEN: 3,
+    STATUS: ["new", "talking", "done", "closed"],
+  };
   // Free support (any whole amount from 1 Pi): per Pi 100 JRY + 1,000 dates, a 🤍 badge, and once a
   // month the surprise of the month. The surprise is the same for every supporter of that month
   // (nothing random), it only changes from month to month.
@@ -581,6 +593,6 @@
   };
   const FUTURE = [{ id: "falcon", e: "🦅", players: 1000 }, { id: "quiz", e: "🧠", players: 2500 }, { id: "chess", e: "♟️", players: 5000 },
     { id: "kart", e: "🏎️", players: 10000 }, { id: "hunt", e: "🗺️", players: 25000 }, { id: "world", e: "🌍", players: 100000 }];
-  const api = { SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

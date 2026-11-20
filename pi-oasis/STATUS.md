@@ -34,6 +34,7 @@ testJRY token + players' market (Testnet only), points market (25% fee, withdraw
 Jerry Media Earnings (unlimited rewarded ads), Jerry Arcade (memory, date catcher, future games by player milestones),
 Business showcase (paid listings reviewed by the owner), gift codes, Level-up packs (0.1 / 0.5 / 1 / 5 / 20 / 100 Pi),
 Camel Derby (3rd game: train racing camels, 8 free races a day + 4 after an ad, Pi buys golden feed and breeds; no entry fee, no bets),
+Jerry Development services page (Farm tab → 🛠️ bar, /?go=services): 4 packages "from … Pi" (public/logic.js SERVICES), request form → owner Pi notification + owner list with statuses; no payment on the page,
 Royal cards (Club tab: 4 tiers 10/25/50/100 Pi × 500 numbered copies, each with a fixed signature perk shown before buying; Kombat profit, Derby races, daily gift; Grand Royal Final opens once all 2,000 copies are sold: 30 days, top 10 holders by Kombat coins earned win, 1B coins for #1; no random rewards),
 Learn page /learn.html (videos in public/videos + guide in ar/en/fr + share buttons), welcome screen with language choice for links opened outside Pi Browser, share bar (WhatsApp/Facebook/Telegram/X/Messenger) under the invite link, og-image.jpg for link previews,
 Free support from 1 Pi (in-app Pi payment to the incoming wallet; 100 JRY + 1,000 dates per Pi, 🤍 badge, one monthly surprise identical for all supporters that month),

@@ -63,15 +63,7 @@ adb shell input keyevent BACK; sleep 2
 # --- Galerie : sélection de 2 vidéos et fusion
 adb shell am start -W -n $PKG/.MainActivity; sleep 4; shot 19-galerie
 dump; cp $OUT/ui.xml $OUT/galerie.xml
-python3 - > $OUT/cells.txt <<'PY'
-import re
-x=open("test/out/galerie.xml",encoding="utf-8").read()
-for m in re.finditer(r'<node [^>]*class="android.widget.LinearLayout"[^>]*long-clickable="true"[^>]*>', x):
-    a=list(map(int,re.findall(r'\d+',re.search(r'bounds="([^"]*)"',m.group(0)).group(1)))); print((a[0]+a[2])//2,(a[1]+a[3])//2)
-PY
-cat $OUT/cells.txt
-C1=$(sed -n 1p $OUT/cells.txt); C2=$(sed -n 2p $OUT/cells.txt)
-[ -z "$C1" ] && C1="85 330"; [ -z "$C2" ] && C2="235 330"
+C1="85 350"; C2="235 350"
 adb shell input swipe $C1 $C1 900; sleep 1; adb shell input tap $C2; sleep 1; shot 20-selection
 tap_text "Merge"; sleep 5; shot 21-fusion
 tap_text "Export"; sleep 3

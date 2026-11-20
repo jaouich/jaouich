@@ -1172,3 +1172,23 @@ body.k-open { overflow: hidden; }
 .mainnet-bar span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .mainnet-bar small { opacity: .9; font-size: .78rem; line-height: 1.35; }
 .mainnet-bar em { font-style: normal; font-weight: 800; background: #ffd34d; color: #3a2614; padding: 7px 12px; border-radius: 99px; white-space: nowrap; }
+
+/* Activities grid on the Farm tab */
+.hub { margin: 4px 0 12px; }
+.hub-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.hub-big { grid-column: span 2; display: flex; align-items: center; gap: 8px; padding: 12px 10px; border: 0; border-radius: 20px; color: #fff; font: inherit; text-align: start; cursor: pointer; position: relative; overflow: hidden; min-width: 0; }
+.hub-big::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.16) 45%, transparent 60%); animation: kShine 3.6s infinite; }
+.hub-big i { font-style: normal; font-size: 34px; filter: drop-shadow(0 3px 6px rgba(0,0,0,.35)); }
+.hub-big span { display: flex; flex-direction: column; min-width: 0; }
+.hub-big b { font-size: .98rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hub-big small { font-size: .7rem; opacity: .88; line-height: 1.3; }
+.hub-k { background: radial-gradient(120% 140% at 0% 0%, #6c3bd8 0%, #2a1162 60%, #160838 100%); box-shadow: 0 5px 0 #0d0526; }
+.hub-d { background: radial-gradient(120% 140% at 0% 0%, #f59e0b 0%, #b45309 55%, #7c2d12 100%); box-shadow: 0 5px 0 #5a1f08; }
+.hub-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 4px 8px; border: 1px solid #f0d79a; border-radius: 16px; background: linear-gradient(#fffaf0, #fff1d6); box-shadow: 0 3px 0 #e6c787; font: inherit; color: var(--ink); cursor: pointer; min-width: 0; }
+.hub-tile i { font-style: normal; font-size: 26px; line-height: 1.1; }
+.hub-tile b { font-size: .74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.hub-tile small { font-size: .6rem; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; min-height: .8em; }
+.hub-tile small.hot { color: #c0392b; opacity: 1; font-weight: 800; }
+.hub-earn { background: linear-gradient(#e3f6ec, #c8eedb); border-color: #2fae78; box-shadow: 0 3px 0 #1f8a5c; }
+.hub-tile:active, .hub-big:active { transform: translateY(2px); }
+.hub-big b { white-space: normal; line-height: 1.15; font-size: .92rem; }

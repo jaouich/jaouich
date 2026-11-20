@@ -1521,6 +1521,11 @@
   });
 
   // Bridge for the Jerry Kombat page (kombat.js)
+  // Activities grid: gift code and invite tiles jump to their place in the Club tab
+  const toClub = (sel) => { document.querySelector('.tabs [data-tab="vip"]').click(); setTimeout(() => { const e = document.querySelector(sel); e && e.scrollIntoView({ behavior: "smooth", block: "center" }); }, 80); };
+  $("codeTile").addEventListener("click", () => toClub(".code-box"));
+  $("inviteTile").addEventListener("click", () => toClub("#refLink"));
+
   // Testnet game: point players to the real game on Mainnet (their progress moves with them)
   if (/^(pi-oasis\.|oasisgame6033\.)/.test(location.hostname)) $("mainnetBar").classList.remove("hidden");
 

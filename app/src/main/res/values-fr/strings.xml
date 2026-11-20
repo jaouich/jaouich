@@ -72,7 +72,7 @@
     <string name="tile_label">Enregistrer l\'écran</string>
     <string name="notif_channel">Enregistrement</string>
     <string name="starting">Préparation…</string>
-    <string name="privacy_note">Rekordo fonctionne hors ligne : pas de compte, pas de pub, rien ne quitte votre téléphone.</string>
+    <string name="privacy_note">Rekordo n\'a ni compte ni publicité. Les vidéos restent sur votre téléphone ; seul un direct que vous lancez part vers la plateforme choisie.</string>
     <string name="version" formatted="true">Version %s</string>
     <string name="take_shot">Faire une capture</string>
     <string name="stats" formatted="true">%1$d · %2$s</string>
@@ -118,4 +118,40 @@
     <string name="draw_on_image">Dessiner</string>
     <string name="save_copy_short">Enregistrer</string>
     <string name="highlighter">Surligneur</string>
+    <string name="crop">Recadrer</string>
+    <string name="crop_note">9:16 pour TikTok, Reels et Shorts · 1:1 pour les publications · 16:9 pour YouTube</string>
+    <string name="music">Musique</string>
+    <string name="music_pick">Choisir une musique</string>
+    <string name="music_change">Changer</string>
+    <string name="remove">Retirer</string>
+    <string name="music_volume">Musique</string>
+    <string name="video_volume">Son de la vidéo</string>
+    <string name="music_note">Choisissez un fichier audio de votre téléphone. Il se répète s\'il est plus court que la vidéo et baisse doucement à la fin.</string>
+    <string name="export_mp4">Vidéo (MP4)</string>
+    <string name="export_gif">GIF animé (15 s maximum)</string>
+    <string name="gif_done">GIF enregistré</string>
+    <string name="created_by">Créé par Jaouich</string>
+    <string name="live_title">Direct</string>
+    <string name="live_platform">Plateforme</string>
+    <string name="live_custom">Autre</string>
+    <string name="live_server">Adresse du serveur</string>
+    <string name="live_key">Clé de diffusion</string>
+    <string name="live_key_hint">Collez votre clé de diffusion</string>
+    <string name="live_show_key">Afficher / masquer la clé</string>
+    <string name="live_quality">Qualité</string>
+    <string name="live_quality_note">Le 720p demande environ 3 Mb/s en envoi. Prenez 480p en données mobiles.</string>
+    <string name="live_save">Garder aussi une copie sur le téléphone</string>
+    <string name="live_go">Lancer le direct</string>
+    <string name="live_privacy">L\'écran et le son partent directement vers la plateforme choisie. Rekordo n\'a pas de serveur et ne garde rien.</string>
+    <string name="live_help_youtube">YouTube : ouvrez YouTube Studio › Créer › Passer au direct › Diffusion. Copiez ici la « Clé de flux ». Le serveur est déjà rempli. La chaîne doit être activée pour le direct (la première fois : jusqu\'à 24 h).</string>
+    <string name="live_help_facebook">Facebook : ouvrez facebook.com/live/producer › Passer en direct › Logiciel de diffusion. Copiez ici la « Clé de stream ». Le serveur (rtmps) est déjà rempli.</string>
+    <string name="live_help_twitch">Twitch : Tableau de bord › Paramètres › Stream › Clé de stream principale. Copiez-la ici.</string>
+    <string name="live_help_custom">Tout serveur RTMP ou RTMPS (TikTok Live, Instagram via un outil partenaire, votre propre serveur…). Saisissez l\'adresse et la clé.</string>
+    <string name="live_bad_url">L\'adresse du serveur doit commencer par rtmp:// ou rtmps://</string>
+    <string name="live_no_key">Collez d\'abord votre clé de diffusion.</string>
+    <string name="live_busy">Un enregistrement est déjà en cours.</string>
+    <string name="live_connecting">Connexion au serveur du direct…</string>
+    <string name="live_error" formatted="true">Direct arrêté : %s</string>
+    <string name="live_connect_failed" formatted="true">Connexion impossible : %s. Vérifiez la clé et Internet.</string>
+    <string name="live_ended">Direct terminé</string>
 </resources>

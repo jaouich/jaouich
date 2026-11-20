@@ -35,14 +35,14 @@ final class Gl {
     private final Object frameLock = new Object();
     private boolean frameAvailable;
     private final float[] stMatrix = new float[16], mvp = new float[16];
-    private float[] color = identity(), offset = new float[4];
+    private float[] color = identity(), offset = new float[4], crop = {0, 0, 1, 1};
 
     private static final float[] QUAD = {-1, -1, 0, 0, 1, -1, 1, 0, -1, 1, 0, 1, 1, 1, 1, 1};
     private final FloatBuffer quad = ByteBuffer.allocateDirect(QUAD.length * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(QUAD);
 
     private static final String VS =
-            "uniform mat4 uMVP; uniform mat4 uST; attribute vec4 aPos; attribute vec4 aTex; varying vec2 vTex;\n" +
-            "void main(){ gl_Position = uMVP * vec4(aPos.xy,0.0,1.0); vTex = (uST * aTex).xy; }";
+            "uniform mat4 uMVP; uniform mat4 uST; uniform vec4 uCrop; attribute vec4 aPos; attribute vec4 aTex; varying vec2 vTex;\n" +
+            "void main(){ gl_Position = uMVP * vec4(aPos.xy,0.0,1.0); vec2 t = uCrop.xy + aTex.xy * uCrop.zw; vTex = (uST * vec4(t,0.0,1.0)).xy; }";
     private static final String FS =
             "#extension GL_OES_EGL_image_external : require\nprecision mediump float; varying vec2 vTex;\n" +
             "uniform samplerExternalOES sTex; uniform mat4 uColor; uniform vec4 uOff;\n" +
@@ -91,6 +91,9 @@ final class Gl {
     /** Rotation en degrés (0, 90, 180, 270) appliquée à l'image. */
     void setRotation(int deg) { Matrix.setIdentityM(mvp, 0); Matrix.rotateM(mvp, 0, -deg, 0, 0, 1); }
 
+    /** Recadrage centré : part de la largeur / hauteur de l'image source gardée (0..1). */
+    void setCrop(float sx, float sy) { crop = new float[]{(1 - sx) / 2, (1 - sy) / 2, sx, sy}; }
+
     void setOverlay(Bitmap b) {
         if (b == null) return;
         int[] t = new int[1];
@@ -133,6 +136,7 @@ final class Gl {
         GLES20.glUniformMatrix4fv(GLES20.glGetUniformLocation(videoProg, "uST"), 1, false, stMatrix, 0);
         GLES20.glUniformMatrix4fv(GLES20.glGetUniformLocation(videoProg, "uColor"), 1, false, color, 0);
         GLES20.glUniform4fv(GLES20.glGetUniformLocation(videoProg, "uOff"), 1, offset, 0);
+        GLES20.glUniform4fv(GLES20.glGetUniformLocation(videoProg, "uCrop"), 1, crop, 0);
         quadAttribs(videoProg);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         if (overlayTex >= 0) {

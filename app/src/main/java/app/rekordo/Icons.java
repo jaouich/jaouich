@@ -13,7 +13,7 @@ import android.graphics.drawable.Drawable;
 final class Icons extends Drawable {
     static final int REC = 0, STOP = 1, PAUSE = 2, PLAY = 3, CAMERA = 4, BRUSH = 5, FACE = 6, HOME = 7, CLOSE = 8,
             SHARE = 9, TRASH = 10, CUT = 11, FRAME = 12, UNDO = 13, INFO = 14, BACK = 15, VIDEO = 16, IMAGE = 17, GEAR = 18,
-            FILTER = 19, ADJUST = 20, TEXT = 21, SPEED = 22, ROTATE = 23, SOUND = 24, SIZE = 25, EDIT = 26, CHECK = 27, MERGE = 28;
+            FILTER = 19, ADJUST = 20, TEXT = 21, SPEED = 22, ROTATE = 23, SOUND = 24, SIZE = 25, EDIT = 26, CHECK = 27, MERGE = 28, CROP = 29, MUSIC = 30, LIVE = 31;
 
     private final int kind;
     private final Paint s = new Paint(Paint.ANTI_ALIAS_FLAG), f = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -108,6 +108,16 @@ final class Icons extends Drawable {
             case MERGE:
                 c.drawRoundRect(new RectF(3, 7, 10.5f, 17), 2, 2, s); c.drawRoundRect(new RectF(13.5f, 7, 21, 17), 2, 2, s);
                 c.drawLine(10.5f, 12, 13.5f, 12, s); break;
+            case CROP:
+                p.moveTo(7, 3); p.lineTo(7, 17); p.lineTo(21, 17); c.drawPath(p, s);
+                p.reset(); p.moveTo(3, 7); p.lineTo(17, 7); p.lineTo(17, 21); c.drawPath(p, s); break;
+            case MUSIC:
+                p.moveTo(9, 17.5f); p.lineTo(9, 5.5f); p.lineTo(19, 3.5f); p.lineTo(19, 15.5f); c.drawPath(p, s);
+                c.drawCircle(6.5f, 17.5f, 2.6f, f); c.drawCircle(16.5f, 15.5f, 2.6f, f); break;
+            case LIVE:
+                c.drawCircle(12, 12, 2.5f, f);
+                c.drawArc(new RectF(6.5f, 6.5f, 17.5f, 17.5f), -50, 100, false, s); c.drawArc(new RectF(6.5f, 6.5f, 17.5f, 17.5f), 130, 100, false, s);
+                c.drawArc(new RectF(2.5f, 2.5f, 21.5f, 21.5f), -50, 100, false, s); c.drawArc(new RectF(2.5f, 2.5f, 21.5f, 21.5f), 130, 100, false, s); break;
         }
         c.restore();
     }

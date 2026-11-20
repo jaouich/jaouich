@@ -57,7 +57,10 @@ public class EditorActivity extends Activity {
     private MediaMetadataRetriever mmr;
     private long frameReq;
 
-    private static final int T_CUT = 0, T_FILTER = 1, T_ADJUST = 2, T_TEXT = 3, T_SPEED = 4, T_ROTATE = 5, T_SOUND = 6, T_SIZE = 7;
+    private static final int T_CUT = 0, T_FILTER = 1, T_ADJUST = 2, T_TEXT = 3, T_SPEED = 4, T_ROTATE = 5, T_SOUND = 6, T_SIZE = 7, T_CROP = 8, T_MUSIC = 9;
+    private static final int REQ_MUSIC = 31;
+    private CropMask mask;
+    private String musicName;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -115,6 +118,8 @@ public class EditorActivity extends Activity {
         overlay.setShadowLayer(6, 0, 0, Color.BLACK);
         overlay.setPadding(Ui.dp(this, 20), Ui.dp(this, 16), Ui.dp(this, 20), Ui.dp(this, 16));
         stage.addView(overlay, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        mask = new CropMask(this);
+        stage.addView(mask, new FrameLayout.LayoutParams(-1, -1));
         root.addView(stage, new LinearLayout.LayoutParams(-1, 0, 1));
 
         LinearLayout sc = Ui.row(this);
@@ -148,8 +153,9 @@ public class EditorActivity extends Activity {
         hs.addView(tools);
         hs.setBackgroundColor(Ui.CARD);
         root.addView(hs);
-        int[][] all = {{T_CUT, Icons.CUT, R.string.trim}, {T_FILTER, Icons.FILTER, R.string.filters}, {T_ADJUST, Icons.ADJUST, R.string.adjust},
-                {T_TEXT, Icons.TEXT, R.string.text}, {T_SPEED, Icons.SPEED, R.string.speed}, {T_ROTATE, Icons.ROTATE, R.string.rotate},
+        int[][] all = {{T_CUT, Icons.CUT, R.string.trim}, {T_CROP, Icons.CROP, R.string.crop}, {T_FILTER, Icons.FILTER, R.string.filters},
+                {T_ADJUST, Icons.ADJUST, R.string.adjust}, {T_TEXT, Icons.TEXT, R.string.text}, {T_MUSIC, Icons.MUSIC, R.string.music},
+                {T_SPEED, Icons.SPEED, R.string.speed}, {T_ROTATE, Icons.ROTATE, R.string.rotate},
                 {T_SOUND, Icons.SOUND, R.string.sound}, {T_SIZE, Icons.SIZE, R.string.size}};
         for (int[] t : all) {
             if (merge && t[0] == T_CUT) continue;
@@ -200,6 +206,9 @@ public class EditorActivity extends Activity {
             case T_TEXT: v = textPanel(); break;
             case T_SPEED: v = chips(new String[]{"0.5×", "1×", "1.5×", "2×"}, new float[]{0.5f, 1f, 1.5f, 2f}, spec.speed, f -> { spec.speed = f; updateEstimate(); }, getString(R.string.speed_note)); break;
             case T_ROTATE: v = rotatePanel(); break;
+            case T_CROP: v = chips(new String[]{getString(R.string.original), "9:16", "1:1", "16:9", "4:5"}, new float[]{0, 1, 2, 3, 4}, spec.crop,
+                    f -> { spec.crop = (int) f; updatePreview(); updateEstimate(); }, getString(R.string.crop_note)); break;
+            case T_MUSIC: v = musicPanel(); break;
             case T_SOUND: v = soundPanel(); break;
             default: v = sizePanel(); break;
         }
@@ -344,6 +353,64 @@ public class EditorActivity extends Activity {
                 f -> { spec.mute = f == 1; updateEstimate(); }, note);
     }
 
+    private View musicPanel() {
+        LinearLayout l = Ui.col(this);
+        LinearLayout r = Ui.row(this);
+        TextView pick = Ui.button(this, getString(spec.music == null ? R.string.music_pick : R.string.music_change), spec.music == null);
+        pick.setOnClickListener(v -> {
+            Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("audio/*");
+            try { startActivityForResult(i, REQ_MUSIC); } catch (Exception e) { Toast.makeText(this, R.string.trim_failed, Toast.LENGTH_SHORT).show(); }
+        });
+        r.addView(pick);
+        if (spec.music != null) {
+            TextView name = Ui.text(this, "♪ " + (musicName == null ? "" : musicName), 13, Ui.TEXT, false);
+            name.setSingleLine(true);
+            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            name.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 8), 0);
+            r.addView(name, Ui.weight());
+            TextView rm = Ui.text(this, getString(R.string.remove), 13, Ui.ACCENT, true);
+            rm.setOnClickListener(v -> { spec.music = null; musicName = null; showTool(T_MUSIC); });
+            r.addView(rm);
+        }
+        l.addView(r);
+        if (spec.music != null) {
+            l.addView(small(""));
+            vol(l, getString(R.string.music_volume), spec.musicVol, v -> spec.musicVol = v);
+            vol(l, getString(R.string.video_volume), spec.origVol, v -> spec.origVol = v);
+        } else l.addView(small(getString(R.string.music_note)));
+        return l;
+    }
+
+    private void vol(LinearLayout l, String name, int value, IntSet set) {
+        LinearLayout r = Ui.row(this);
+        r.addView(Ui.text(this, name, 13, Ui.TEXT, false), new LinearLayout.LayoutParams(Ui.dp(this, 110), -2));
+        SeekBar s = new SeekBar(this);
+        tint(s);
+        s.setMax(100);
+        s.setProgress(value);
+        TextView val = Ui.text(this, value + "%", 12, Ui.MUTED, false);
+        s.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int v, boolean user) { set.set(v); val.setText(v + "%"); }
+            @Override public void onStartTrackingTouch(SeekBar sb) {}
+            @Override public void onStopTrackingTouch(SeekBar sb) {}
+        });
+        r.addView(s, Ui.weight());
+        r.addView(val, new LinearLayout.LayoutParams(Ui.dp(this, 40), -2));
+        l.addView(r);
+    }
+
+    @Override protected void onActivityResult(int req, int code, Intent data) {
+        super.onActivityResult(req, code, data);
+        if (req == REQ_MUSIC && code == RESULT_OK && data != null && data.getData() != null) {
+            spec.music = data.getData();
+            musicName = null;
+            try (android.database.Cursor c = getContentResolver().query(spec.music, new String[]{android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                if (c != null && c.moveToFirst()) musicName = c.getString(0);
+            } catch (Exception ignored) {}
+            showTool(T_MUSIC);
+        }
+    }
+
     private View sizePanel() {
         LinearLayout l = Ui.col(this);
         int sw = infos.get(0).w, shh = infos.get(0).h;
@@ -426,6 +493,7 @@ public class EditorActivity extends Activity {
             float k = Math.min(stage.getWidth() / (float) stage.getHeight(), stage.getHeight() / (float) stage.getWidth());
             preview.setScaleX(k); preview.setScaleY(k);
         } else { preview.setScaleX(1); preview.setScaleY(1); }
+        if (mask != null) mask.invalidate();
         overlay.setText(spec.text == null ? "" : spec.text);
         overlay.setTypeface(Typeface.DEFAULT_BOLD);
         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) overlay.getLayoutParams();
@@ -440,7 +508,9 @@ public class EditorActivity extends Activity {
         int sh = Math.min(w, hh);
         if (spec.maxShort > 0 && sh > spec.maxShort) { double k = spec.maxShort / (double) sh; w = (int) (w * k); hh = (int) (hh * k); }
         long bits = (long) Engine.bitrateFor(w, hh, 30, spec.quality) * len / 1_000_000;
-        boolean audio = !spec.mute && spec.speed == 1f;
+        float[] kp = Exporter.cropKeep(spec.rotation % 180 == 0 ? w : hh, spec.rotation % 180 == 0 ? hh : w, spec.crop);
+        bits = (long) (bits * kp[0] * kp[1]);
+        boolean audio = (!spec.mute && spec.speed == 1f) || spec.music != null;
         if (audio) bits += 128_000L * len / 1_000_000;
         estimate.setText(getString(R.string.estimate, Store.dur(len / 1000), "≈ " + Store.size(bits / 8)));
     }
@@ -448,6 +518,55 @@ public class EditorActivity extends Activity {
     // ---------------------------------------------------------------- export
 
     private void exportNow() {
+        if (merge) { exportVideo(); return; }
+        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(R.string.export)
+                .setItems(new String[]{getString(R.string.export_mp4), getString(R.string.export_gif)}, (d, w) -> { if (w == 0) exportVideo(); else exportGif(); })
+                .show();
+    }
+
+    private void exportGif() {
+        AtomicBoolean cancel = new AtomicBoolean();
+        Object[] ui = progressDialog(cancel);
+        AlertDialog d = (AlertDialog) ui[0];
+        ProgressBar bar = (ProgressBar) ui[1];
+        TextView pct = (TextView) ui[2];
+        new Thread(() -> {
+            Uri out = null; String err = null;
+            try {
+                out = Gif.export(this, uris.get(0), startUs, endUs, spec, f -> runOnUiThread(() -> { bar.setProgress((int) (f * 1000)); pct.setText(Math.round(f * 100) + " %"); }), cancel);
+            } catch (InterruptedException e) { err = null; } catch (Exception e) { err = String.valueOf(e.getMessage()); }
+            final Uri r = out; final String fe = err;
+            runOnUiThread(() -> {
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                try { d.dismiss(); } catch (Exception ignored) {}
+                if (cancel.get()) return;
+                if (r == null) { Toast.makeText(this, getString(R.string.export_failed, fe), Toast.LENGTH_LONG).show(); return; }
+                Toast.makeText(this, R.string.gif_done, Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(this, PlayerActivity.class).setData(r).putExtra(PlayerActivity.EXTRA_VIDEO, false));
+                finish();
+            });
+        }, "rekordo-gif").start();
+    }
+
+    private Object[] progressDialog(AtomicBoolean cancel) {
+        LinearLayout box = Ui.col(this);
+        int p = Ui.dp(this, 24);
+        box.setPadding(p, p / 2, p, 0);
+        ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(1000);
+        bar.setProgressTintList(ColorStateList.valueOf(Ui.ACCENT));
+        TextView pct = Ui.text(this, "0 %", 14, Ui.MUTED, false);
+        box.addView(bar);
+        box.addView(pct);
+        AlertDialog d = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(R.string.exporting).setView(box).setCancelable(false)
+                .setNegativeButton(R.string.cancel, (x, w) -> cancel.set(true)).show();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        return new Object[]{d, bar, pct};
+    }
+
+    private void exportVideo() {
         spec.clips.clear();
         if (merge) for (int i = 0; i < uris.size(); i++) spec.clips.add(new Exporter.Clip(uris.get(i), 0, infos.get(i).durationUs));
         else spec.clips.add(new Exporter.Clip(uris.get(0), startUs, endUs));
@@ -487,5 +606,31 @@ public class EditorActivity extends Activity {
                 finish();
             });
         }, "rekordo-export").start();
+    }
+
+    /** Aperçu du recadrage : assombrit ce qui sera coupé. */
+    private final class CropMask extends View {
+        private final android.graphics.Paint dim = new android.graphics.Paint(), line = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        CropMask(android.content.Context c) {
+            super(c);
+            dim.setColor(0xB0000000);
+            line.setStyle(android.graphics.Paint.Style.STROKE);
+            line.setStrokeWidth(Ui.dp(c, 2));
+            line.setColor(Color.WHITE);
+        }
+        @Override protected void onDraw(android.graphics.Canvas cv) {
+            if (spec.crop == 0 || frame == null) return;
+            int fw = frame.getWidth(), fh = frame.getHeight();
+            if (spec.rotation % 180 != 0) { int t = fw; fw = fh; fh = t; }
+            float k = Math.min(getWidth() / (float) fw, getHeight() / (float) fh);
+            float iw = fw * k, ih = fh * k, ix = (getWidth() - iw) / 2, iy = (getHeight() - ih) / 2;
+            float[] keep = Exporter.cropKeep(fw, fh, spec.crop);
+            float cw = iw * keep[0], ch = ih * keep[1], cx = ix + (iw - cw) / 2, cy = iy + (ih - ch) / 2;
+            cv.drawRect(0, 0, getWidth(), cy, dim);
+            cv.drawRect(0, cy + ch, getWidth(), getHeight(), dim);
+            cv.drawRect(0, cy, cx, cy + ch, dim);
+            cv.drawRect(cx + cw, cy, getWidth(), cy + ch, dim);
+            cv.drawRect(cx, cy, cx + cw, cy + ch, line);
+        }
     }
 }

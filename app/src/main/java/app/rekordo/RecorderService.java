@@ -51,7 +51,7 @@ public class RecorderService extends Service {
     private static final int NID = 7, NID_DONE = 8;
 
     /** État lisible par l'écran principal et la tuile. */
-    static volatile boolean recording, paused, counting;
+    static volatile boolean recording, paused, counting, live;
     static volatile long startedAt, pausedTotal, pauseAt;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -64,7 +64,8 @@ public class RecorderService extends Service {
     private BrushOverlay brush;
     private FaceCam face;
     private TextView countView;
-    private boolean stopping, camType;
+    private boolean stopping, camType, liveMode;
+    private Rtmp rtmp;
     private BroadcastReceiver screenOff;
 
     static void send(Context c, String action) {
@@ -134,7 +135,8 @@ public class RecorderService extends Service {
         }, ui);
         int cd = Prefs.COUNTDOWN[Math.min(prefs.countdown(), Prefs.COUNTDOWN.length - 1)];
         if (shot) cd = Math.max(cd, 3);   // le temps d'aller sur l'écran à capturer
-        Runnable go = shot ? this::singleShot : this::beginRecording;
+        liveMode = CaptureActivity.MODE_LIVE.equals(mode);
+        Runnable go = shot ? this::singleShot : liveMode ? this::connectLive : this::beginRecording;
         if (cd > 0) countdown(cd, go); else go.run();
     }
 
@@ -197,29 +199,78 @@ public class RecorderService extends Service {
         return new int[]{w / 2 * 2, h / 2 * 2};
     }
 
+    /** Connexion au serveur du direct (hors du fil principal), puis démarrage. */
+    private void connectLive() {
+        int[] sz = sizeFor(Prefs.LIVE_SHORT[Math.min(prefs.liveRes(), 2)]);
+        int p = prefs.livePlatform();
+        String url = prefs.liveUrl(p), key = prefs.liveKey(p);
+        counting = true;
+        getSystemService(NotificationManager.class).notify(NID, notif(getString(R.string.live_connecting), false));
+        new Thread(() -> {
+            Rtmp r = new Rtmp(url, key, sz[0], sz[1], 30, msg -> ui.post(() -> {
+                toast(this, getString(R.string.live_error, msg));
+                stopRecording();
+            }));
+            try {
+                r.connect();
+                ui.post(() -> {
+                    counting = false;
+                    if (projection == null) { r.close(); return; }
+                    rtmp = r;
+                    beginRecording();
+                });
+            } catch (Exception e) {
+                r.close();
+                ui.post(() -> {
+                    counting = false;
+                    toast(this, getString(R.string.live_connect_failed, String.valueOf(e.getMessage())));
+                    cleanup();
+                });
+            }
+        }, "rekordo-live-connect").start();
+    }
+
+    private int[] sizeFor(int target) {
+        Rect r = getSystemService(WindowManager.class).getMaximumWindowMetrics().getBounds();
+        int w = r.width(), h = r.height();
+        int shortSide = Math.min(w, h);
+        if (target > 0 && shortSide > target) {
+            double k = (double) target / shortSide;
+            w = (int) Math.round(w * k); h = (int) Math.round(h * k);
+        }
+        return new int[]{w / 2 * 2, h / 2 * 2};
+    }
+
     private void beginRecording() {
         if (projection == null) return;
-        int[] sz = size();
-        int fps = Prefs.FPS[Math.min(prefs.fps(), Prefs.FPS.length - 1)];
+        int[] sz = liveMode ? sizeFor(Prefs.LIVE_SHORT[Math.min(prefs.liveRes(), 2)]) : size();
+        int fps = liveMode ? 30 : Prefs.FPS[Math.min(prefs.fps(), Prefs.FPS.length - 1)];
         int dpi = getResources().getDisplayMetrics().densityDpi;
         boolean mic = prefs.wantMic() && granted(Manifest.permission.RECORD_AUDIO);
         boolean internal = prefs.wantInternal() && granted(Manifest.permission.RECORD_AUDIO);
         try {
-            out = Store.newVideo(this, "Rekordo_" + Store.stamp() + ".mp4");
-            if (out == null) throw new IllegalStateException("storage");
-            pfd = getContentResolver().openFileDescriptor(out, "rw");
-            engine = new Engine(projection, sz[0], sz[1], dpi, fps, Engine.bitrateFor(sz[0], sz[1], fps, prefs.quality()), mic, internal);
-            engine.start(pfd.getFileDescriptor());
+            Sink sink = null;
+            if (!liveMode || prefs.liveSave()) {
+                out = Store.newVideo(this, "Rekordo_" + Store.stamp() + (liveMode ? "_live" : "") + ".mp4");
+                if (out == null) throw new IllegalStateException("storage");
+                pfd = getContentResolver().openFileDescriptor(out, "rw");
+                sink = new Sink.Mp4(pfd.getFileDescriptor());
+            }
+            if (liveMode) sink = sink == null ? rtmp : new Sink.Tee(rtmp, sink);
+            int bitrate = liveMode ? Prefs.LIVE_BITRATE[Math.min(prefs.liveRes(), 2)] : Engine.bitrateFor(sz[0], sz[1], fps, prefs.quality());
+            engine = new Engine(projection, sz[0], sz[1], dpi, fps, bitrate, mic, internal, liveMode);
+            engine.start(sink);
         } catch (Exception e) {
             if (engine != null) try { engine.stop(); } catch (Exception ignored) {}
             engine = null;
             if (out != null) Store.discard(this, out);
             out = null;
+            if (rtmp != null) { rtmp.close(); rtmp = null; }
             fail(e);
             return;
         }
         if (internal && !engine.internalOk && prefs.wantInternal()) toast(this, getString(R.string.internal_unavailable));
-        recording = true; paused = false; pausedTotal = 0; startedAt = SystemClock.elapsedRealtime();
+        recording = true; live = liveMode; paused = false; pausedTotal = 0; startedAt = SystemClock.elapsedRealtime();
         vibrate();
         if (prefs.bubble() && Overlay.allowed(this)) {
             bubble = new Bubble(this, new Bubble.Actions() {
@@ -362,7 +413,8 @@ public class RecorderService extends Service {
                 if (ok && length >= 1000) { Store.publish(this, u); doneNotif(u, true); }
                 else { Store.discard(this, u); toast(this, getString(ok ? R.string.too_short : R.string.trim_failed)); }
             }
-            ui.post(() -> { stopping = false; vibrate(); cleanup(); });
+            final boolean wasLive = rtmp != null;
+            ui.post(() -> { stopping = false; vibrate(); if (wasLive) toast(this, getString(R.string.live_ended)); cleanup(); });
         }, "rekordo-stop").start();
     }
 
@@ -375,7 +427,8 @@ public class RecorderService extends Service {
     }
 
     private void cleanup() {
-        recording = false; paused = false; counting = false;
+        recording = false; paused = false; counting = false; live = false;
+        if (rtmp != null) { rtmp.close(); rtmp = null; }
         hideOverlays();
         if (projection != null) { try { projection.stop(); } catch (Exception ignored) {} projection = null; }
         stopForeground(STOP_FOREGROUND_REMOVE);
@@ -426,7 +479,8 @@ public class RecorderService extends Service {
 
     private void refresh() {
         getSystemService(NotificationManager.class).notify(NID,
-                notif(getString(paused ? R.string.paused : R.string.recording_now), true));
+                notif(liveMode ? "● LIVE · " + new String[]{"YouTube", "Facebook", "Twitch", "RTMP"}[Math.min(prefs.livePlatform(), 3)]
+                        + (paused ? " · " + getString(R.string.paused) : "") : getString(paused ? R.string.paused : R.string.recording_now), true));
     }
 
     private void doneNotif(Uri u, boolean video) {

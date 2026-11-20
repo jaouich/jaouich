@@ -72,7 +72,7 @@
     <string name="tile_label">تسجيل الشاشة</string>
     <string name="notif_channel">التسجيل</string>
     <string name="starting">جارٍ التحضير…</string>
-    <string name="privacy_note">يعمل Rekordo بدون إنترنت: لا حساب، لا إعلانات، ولا شيء يغادر هاتفك.</string>
+    <string name="privacy_note">لا حساب ولا إعلانات في Rekordo. تبقى التسجيلات على هاتفك؛ ولا يُرسل إلا البث المباشر الذي تبدؤه إلى المنصة التي تختارها.</string>
     <string name="version" formatted="true">الإصدار %s</string>
     <string name="take_shot">التقاط لقطة شاشة</string>
     <string name="stats" formatted="true">%1$d · %2$s</string>
@@ -118,4 +118,40 @@
     <string name="draw_on_image">رسم</string>
     <string name="save_copy_short">حفظ</string>
     <string name="highlighter">قلم تحديد</string>
+    <string name="crop">قص الإطار</string>
+    <string name="crop_note">9:16 لتيك توك وريلز وشورتس · 1:1 للمنشورات · 16:9 ليوتيوب</string>
+    <string name="music">موسيقى</string>
+    <string name="music_pick">اختر موسيقى</string>
+    <string name="music_change">تغيير</string>
+    <string name="remove">إزالة</string>
+    <string name="music_volume">الموسيقى</string>
+    <string name="video_volume">صوت الفيديو</string>
+    <string name="music_note">اختر ملفًا صوتيًا من هاتفك. يتكرر إن كان أقصر من الفيديو ويخفت في النهاية.</string>
+    <string name="export_mp4">فيديو (MP4)</string>
+    <string name="export_gif">صورة GIF متحركة (15 ثانية كحد أقصى)</string>
+    <string name="gif_done">تم حفظ GIF</string>
+    <string name="created_by">Created by Jaouich</string>
+    <string name="live_title">بث مباشر</string>
+    <string name="live_platform">المنصة</string>
+    <string name="live_custom">أخرى</string>
+    <string name="live_server">عنوان الخادم</string>
+    <string name="live_key">مفتاح البث</string>
+    <string name="live_key_hint">الصق مفتاح البث</string>
+    <string name="live_show_key">إظهار / إخفاء المفتاح</string>
+    <string name="live_quality">الجودة</string>
+    <string name="live_quality_note">تحتاج 720p إلى حوالي 3 ميغابت/ث للرفع. استعمل 480p مع بيانات الهاتف.</string>
+    <string name="live_save">حفظ نسخة على الهاتف أيضًا</string>
+    <string name="live_go">ابدأ البث</string>
+    <string name="live_privacy">تذهب الشاشة والصوت مباشرة إلى المنصة التي اخترتها. لا يملك Rekordo خادمًا ولا يحتفظ بأي شيء.</string>
+    <string name="live_help_youtube">يوتيوب: افتح YouTube Studio › إنشاء › بث مباشر › البث. انسخ «مفتاح البث» هنا. عنوان الخادم مكتوب مسبقًا. يجب تفعيل البث المباشر في القناة (أول مرة: حتى 24 ساعة).</string>
+    <string name="live_help_facebook">فيسبوك: افتح facebook.com/live/producer › بث مباشر › برنامج البث. انسخ «مفتاح البث» هنا. عنوان الخادم (rtmps) مكتوب مسبقًا.</string>
+    <string name="live_help_twitch">تويتش: لوحة التحكم › الإعدادات › البث › مفتاح البث الأساسي. انسخه هنا.</string>
+    <string name="live_help_custom">أي خادم RTMP أو RTMPS (تيك توك لايف، إنستغرام عبر أداة شريكة، خادمك الخاص…). أدخل العنوان والمفتاح.</string>
+    <string name="live_bad_url">يجب أن يبدأ عنوان الخادم بـ rtmp:// أو rtmps://</string>
+    <string name="live_no_key">الصق مفتاح البث أولًا.</string>
+    <string name="live_busy">هناك تسجيل جارٍ بالفعل.</string>
+    <string name="live_connecting">جارٍ الاتصال بخادم البث…</string>
+    <string name="live_error" formatted="true">توقف البث: %s</string>
+    <string name="live_connect_failed" formatted="true">تعذّر الاتصال: %s. تحقق من المفتاح والإنترنت.</string>
+    <string name="live_ended">انتهى البث</string>
 </resources>

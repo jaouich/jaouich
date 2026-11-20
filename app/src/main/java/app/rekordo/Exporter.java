@@ -49,6 +49,18 @@ final class Exporter {
         String text;           // texte incrusté (facultatif)
         int textPos;           // 0 bas, 1 haut, 2 centre
         String suffix = "edit";
+        int crop;              // 0 origine, 1 = 9:16, 2 = 1:1, 3 = 16:9, 4 = 4:5
+        Uri music;             // musique de fond (facultatif)
+        int musicVol = 80, origVol = 100;
+    }
+
+    static final float[] CROP_RATIO = {0, 9f / 16, 1f, 16f / 9, 4f / 5};
+
+    /** Part gardée {largeur, hauteur} pour une image affichée cw x ch et un format donné. */
+    static float[] cropKeep(int cw, int ch, int crop) {
+        if (crop <= 0) return new float[]{1, 1};
+        float r = CROP_RATIO[crop], cur = cw / (float) ch;
+        return cur > r ? new float[]{r / cur, 1} : new float[]{1, cur / r};
     }
 
     private static HandlerThread cbThread;
@@ -103,7 +115,8 @@ final class Exporter {
         int rot = ((first.rotation + spec.rotation) % 360 + 360) % 360;
         int bw = first.w, bh = first.h;
         if (rot == 90 || rot == 270) { int t = bw; bw = bh; bh = t; }
-        int[] out = outputSize(bw, bh);
+        float[] keep0 = cropKeep(bw, bh, spec.crop);
+        int[] out = outputSize(Math.round(bw * keep0[0]), Math.round(bh * keep0[1]));
         int W = out[0], H = out[1];
 
         Uri dst = Store.newVideo(c, "Rekordo_" + Store.stamp() + "_" + spec.suffix + ".mp4");
@@ -112,6 +125,11 @@ final class Exporter {
         Gl gl = null;
         boolean ok = false;
         try {
+            if (spec.music != null) {
+                long len = 0;
+                for (Clip k : spec.clips) len += (long) ((k.endUs - k.startUs) / spec.speed);
+                mixFile = AudioMix.render(c, spec, len, cancel);
+            }
             pfd = c.getContentResolver().openFileDescriptor(dst, "rw");
             mux = new MediaMuxer(pfd.getFileDescriptor(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
             prepareAudio();
@@ -140,7 +158,10 @@ final class Exporter {
                 gl.setRotation(r);
                 int cw = inf.w, ch = inf.h;
                 if (r == 90 || r == 270) { int t = cw; cw = ch; ch = t; }
-                int[] vp = fit(cw, ch, W, H);
+                float[] keep = cropKeep(cw, ch, spec.crop);
+                // la part gardée est exprimée dans l'image affichée ; la texture est dans l'image source
+                if (r == 90 || r == 270) gl.setCrop(keep[1], keep[0]); else gl.setCrop(keep[0], keep[1]);
+                int[] vp = fit(Math.round(cw * keep[0]), Math.round(ch * keep[1]), W, H);
                 audioPlan.add(new long[]{i, offsetUs});
                 final long base = done, tot = total;
                 long used = decodeClip(k, gl, W, H, vp, offsetUs, f -> progress.on((base + f) / (float) tot));
@@ -150,7 +171,10 @@ final class Exporter {
             enc.signalEndOfInputStream();
             drain(true);
             if (!muxing) throw new IllegalStateException("no frames");
-            if (aTrack >= 0) for (long[] a : audioPlan) copyAudio(spec.clips.get((int) a[0]), a[1]);
+            if (aTrack >= 0) {
+                if (mixFile != null) copyAudio(new Clip(Uri.fromFile(mixFile), 0, Long.MAX_VALUE / 4), 0);
+                else for (long[] a : audioPlan) copyAudio(spec.clips.get((int) a[0]), a[1]);
+            }
             mux.stop();
             ok = true;
             progress.on(1f);
@@ -160,6 +184,7 @@ final class Exporter {
             try { if (mux != null) mux.release(); } catch (Exception ignored) {}
             try { if (pfd != null) pfd.close(); } catch (Exception ignored) {}
             if (ok) Store.publish(c, dst); else Store.discard(c, dst);
+            if (mixFile != null) mixFile.delete();
         }
         return dst;
     }
@@ -183,7 +208,10 @@ final class Exporter {
         return new int[]{(W - vw) / 2, (H - vh) / 2, vw, vh};
     }
 
+    private java.io.File mixFile;
+
     private void prepareAudio() {
+        if (mixFile != null) { audioFormat = audioFormatOf(Uri.fromFile(mixFile)); wantAudio = audioFormat != null; return; }
         wantAudio = !spec.mute && spec.speed == 1f;
         if (!wantAudio) return;
         for (Clip k : spec.clips) {

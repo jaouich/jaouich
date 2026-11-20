@@ -73,7 +73,7 @@
     <string name="tile_label">Record screen</string>
     <string name="notif_channel">Recording</string>
     <string name="starting">Starting…</string>
-    <string name="privacy_note">Rekordo works offline: no account, no ads, nothing leaves your phone.</string>
+    <string name="privacy_note">Rekordo has no account and no ads. Recordings stay on your phone; only a live you start goes to the platform you choose.</string>
     <string name="version" formatted="true">Version %s</string>
     <string name="take_shot">Take a screenshot</string>
     <string name="stats" formatted="true">%1$d · %2$s</string>
@@ -119,4 +119,40 @@
     <string name="draw_on_image">Draw</string>
     <string name="save_copy_short">Save</string>
     <string name="highlighter">Marker</string>
+    <string name="crop">Crop</string>
+    <string name="crop_note">9:16 for TikTok, Reels and Shorts · 1:1 for posts · 16:9 for YouTube</string>
+    <string name="music">Music</string>
+    <string name="music_pick">Choose music</string>
+    <string name="music_change">Change</string>
+    <string name="remove">Remove</string>
+    <string name="music_volume">Music</string>
+    <string name="video_volume">Video sound</string>
+    <string name="music_note">Pick an audio file from your phone. It repeats if it is shorter than the video and fades out at the end.</string>
+    <string name="export_mp4">Video (MP4)</string>
+    <string name="export_gif">Animated GIF (up to 15 s)</string>
+    <string name="gif_done">GIF saved</string>
+    <string name="created_by">Created by Jaouich</string>
+    <string name="live_title">Go live</string>
+    <string name="live_platform">Platform</string>
+    <string name="live_custom">Other</string>
+    <string name="live_server">Server address</string>
+    <string name="live_key">Stream key</string>
+    <string name="live_key_hint">Paste your stream key</string>
+    <string name="live_show_key">Show / hide the key</string>
+    <string name="live_quality">Quality</string>
+    <string name="live_quality_note">720p needs about 3 Mb/s of upload. Use 480p on mobile data.</string>
+    <string name="live_save">Also save a copy on my phone</string>
+    <string name="live_go">Go live</string>
+    <string name="live_privacy">Your screen and sound go straight to the platform you chose. Rekordo has no server and keeps nothing.</string>
+    <string name="live_help_youtube">YouTube: open YouTube Studio › Create › Go live › Stream. Copy the « Stream key » here. The server is already filled in. Your channel must be enabled for live streaming (first time: up to 24 h).</string>
+    <string name="live_help_facebook">Facebook: open facebook.com/live/producer › Go live › Streaming software. Copy the « Stream key » here. The server (rtmps) is already filled in.</string>
+    <string name="live_help_twitch">Twitch: Creator Dashboard › Settings › Stream › Primary stream key. Copy it here.</string>
+    <string name="live_help_custom">Any RTMP or RTMPS server (TikTok Live, Instagram via a partner tool, your own server…). Enter the server address and the key.</string>
+    <string name="live_bad_url">The server address must start with rtmp:// or rtmps://</string>
+    <string name="live_no_key">Paste your stream key first.</string>
+    <string name="live_busy">A recording is already running.</string>
+    <string name="live_connecting">Connecting to the live server…</string>
+    <string name="live_error" formatted="true">Live stopped: %s</string>
+    <string name="live_connect_failed" formatted="true">Could not connect: %s. Check the key and your internet.</string>
+    <string name="live_ended">Live ended</string>
 </resources>

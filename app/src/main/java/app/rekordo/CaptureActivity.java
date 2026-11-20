@@ -20,7 +20,7 @@ import java.util.List;
  */
 public class CaptureActivity extends Activity {
     static final String EXTRA_MODE = "mode";
-    static final String MODE_RECORD = "record", MODE_SHOT = "shot";
+    static final String MODE_RECORD = "record", MODE_SHOT = "shot", MODE_LIVE = "live";
     private static final int REQ_PERMS = 1, REQ_PROJECTION = 2;
 
     private String mode;
@@ -44,7 +44,7 @@ public class CaptureActivity extends Activity {
         List<String> need = new ArrayList<>();
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             need.add(Manifest.permission.POST_NOTIFICATIONS);
-        if (MODE_RECORD.equals(mode)) {
+        if (!MODE_SHOT.equals(mode)) {
             if (prefs.wantMic() && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
                 need.add(Manifest.permission.RECORD_AUDIO);
             if (prefs.wantInternal() && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
@@ -68,7 +68,7 @@ public class CaptureActivity extends Activity {
     }
 
     private void checkOverlay() {
-        boolean need = MODE_RECORD.equals(mode) && (prefs.bubble() || prefs.facecam()) && !Settings.canDrawOverlays(this);
+        boolean need = !MODE_SHOT.equals(mode) && (prefs.bubble() || prefs.facecam()) && !Settings.canDrawOverlays(this);
         if (!need) { startProjection(); return; }
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                 .setTitle(R.string.perm_overlay_title)

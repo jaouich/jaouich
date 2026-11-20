@@ -16,6 +16,13 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Start a local live server (MediaMTX, RTMP on 1935)
+        run: |
+          mkdir -p /tmp/mtx && cd /tmp/mtx
+          curl -sSL -o m.tgz https://github.com/bluenviron/mediamtx/releases/download/v1.9.3/mediamtx_v1.9.3_linux_amd64.tar.gz
+          tar xzf m.tgz
+          MTX_API=yes MTX_PATHDEFAULTS_RECORD=yes MTX_PATHDEFAULTS_RECORDPATH=/tmp/mtx/rec/%path/%Y-%m-%d_%H-%M-%S-%f MTX_PATHDEFAULTS_RECORDFORMAT=fmp4 nohup ./mediamtx > /tmp/mtx/log.txt 2>&1 &
+          sleep 3; head -20 /tmp/mtx/log.txt
       - name: Run on emulator (Android 14)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -25,6 +32,14 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -no-boot-anim
           script: bash test/run.sh
+      - name: Check what the live server received
+        if: always()
+        run: |
+          mkdir -p test/out
+          cp /tmp/mtx/log.txt test/out/mediamtx.txt || true
+          find /tmp/mtx/rec -type f -exec ls -la {} \; > test/out/live-files.txt 2>&1 || true
+          for f in $(find /tmp/mtx/rec -type f | head -3); do ffprobe -v error -show_entries stream=codec_name,width,height,sample_rate,channels:format=duration -of compact "$f" >> test/out/live-probe.txt 2>&1; done || true
+          f=$(find /tmp/mtx/rec -type f | head -1); [ -n "$f" ] && ffmpeg -v error -ss 5 -i "$f" -frames:v 1 test/out/live-frame.png || true
       - name: Save results (branche rekordo-test-results)
         if: always()
         run: |

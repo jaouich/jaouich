@@ -101,8 +101,11 @@ public class PlayerActivity extends Activity {
             stage.addView(iv, new FrameLayout.LayoutParams(-1, -1));
             new Thread(() -> {
                 try {
-                    Bitmap bm = ImageDecoder.decodeBitmap(ImageDecoder.createSource(getContentResolver(), uri));
-                    runOnUiThread(() -> iv.setImageBitmap(bm));
+                    android.graphics.drawable.Drawable dr = ImageDecoder.decodeDrawable(ImageDecoder.createSource(getContentResolver(), uri));
+                    runOnUiThread(() -> {
+                        iv.setImageDrawable(dr);
+                        if (dr instanceof android.graphics.drawable.AnimatedImageDrawable) ((android.graphics.drawable.AnimatedImageDrawable) dr).start();
+                    });
                 } catch (Exception ignored) {}
             }).start();
         }
@@ -111,7 +114,8 @@ public class PlayerActivity extends Activity {
         actions.setGravity(Gravity.CENTER);
         actions.setPadding(Ui.dp(this, 8), Ui.dp(this, 10), Ui.dp(this, 8), Ui.dp(this, 10));
         actions.addView(action(Icons.SHARE, R.string.share, v -> share()), Ui.weight());
-        actions.addView(action(Icons.EDIT, R.string.edit, v -> {
+        boolean gif = "image/gif".equals(getContentResolver().getType(uri));
+        if (!gif) actions.addView(action(Icons.EDIT, R.string.edit, v -> {
             if (vv != null && vv.isPlaying()) toggle();
             startActivity(new Intent(this, video ? EditorActivity.class : AnnotateActivity.class).setData(uri));
         }), Ui.weight());
@@ -207,7 +211,9 @@ public class PlayerActivity extends Activity {
     }
 
     private void share() {
-        Intent i = new Intent(Intent.ACTION_SEND).setType(video ? "video/mp4" : "image/png")
+        String type = getContentResolver().getType(uri);
+        if (type == null) type = video ? "video/mp4" : "image/png";
+        Intent i = new Intent(Intent.ACTION_SEND).setType(type)
                 .putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivity(Intent.createChooser(i, getString(R.string.share)));
     }

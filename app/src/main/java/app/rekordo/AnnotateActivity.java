@@ -33,6 +33,7 @@ public class AnnotateActivity extends Activity {
     private int color = COLORS[0];
     private float widthK = 0.008f;
     private boolean marker;
+    private int crop;   // 0 origine, 1 = 9:16, 2 = 1:1, 3 = 16:9, 4 = 4:5
     private final List<View> swatches = new ArrayList<>();
 
     @Override protected void onCreate(Bundle b) {
@@ -89,6 +90,15 @@ public class AnnotateActivity extends Activity {
         });
         penLabel.run();
         bar.addView(pen);
+        TextView cropBtn = Ui.text(this, "", 13, Ui.TEXT, true);
+        cropBtn.setPadding(Ui.dp(this, 12), Ui.dp(this, 6), Ui.dp(this, 12), Ui.dp(this, 6));
+        Ui.press(cropBtn, Ui.round(Ui.CARD2, Ui.dp(this, 12)));
+        String[] cn = {getString(R.string.crop), "9:16", "1:1", "16:9", "4:5"};
+        cropBtn.setText(cn[0]);
+        cropBtn.setOnClickListener(v -> { crop = (crop + 1) % 5; cropBtn.setText(cn[crop]); board.invalidate(); });
+        LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(-2, -2);
+        cl.setMarginStart(Ui.dp(this, 8));
+        bar.addView(cropBtn, cl);
         root.addView(bar);
         mark();
         Ui.edgeToEdge(this, root);
@@ -116,6 +126,24 @@ public class AnnotateActivity extends Activity {
     private void save() {
         Bitmap out = src.copy(Bitmap.Config.ARGB_8888, true);
         board.paintOn(new Canvas(out));
+        if (crop > 0) {
+            android.graphics.RectF r = cropRect(out.getWidth(), out.getHeight());
+            Bitmap c = Bitmap.createBitmap(out, Math.round(r.left), Math.round(r.top), Math.max(1, Math.round(r.width())), Math.max(1, Math.round(r.height())));
+            out.recycle();
+            final Bitmap fc = c;
+            saveBitmap(fc);
+            return;
+        }
+        saveBitmap(out);
+    }
+
+    private android.graphics.RectF cropRect(int w, int h) {
+        float[] k = Exporter.cropKeep(w, h, crop);
+        float cw = w * k[0], ch = h * k[1];
+        return new android.graphics.RectF((w - cw) / 2, (h - ch) / 2, (w + cw) / 2, (h + ch) / 2);
+    }
+
+    private void saveBitmap(Bitmap out) {
         new Thread(() -> {
             Uri u = Store.saveImage(this, out);
             runOnUiThread(() -> {
@@ -146,6 +174,14 @@ public class AnnotateActivity extends Activity {
             c.concat(toView);
             c.drawBitmap(src, 0, 0, null);
             paintOn(c);
+            if (crop > 0) {
+                RectF r = cropRect(src.getWidth(), src.getHeight());
+                Paint dim = new Paint(); dim.setColor(0xB0000000);
+                c.drawRect(0, 0, src.getWidth(), r.top, dim);
+                c.drawRect(0, r.bottom, src.getWidth(), src.getHeight(), dim);
+                c.drawRect(0, r.top, r.left, r.bottom, dim);
+                c.drawRect(r.right, r.top, src.getWidth(), r.bottom, dim);
+            }
             c.restore();
         }
 

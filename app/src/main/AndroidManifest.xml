@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Aucune permission INTERNET : Rekordo fonctionne entièrement hors ligne -->
+    <!-- INTERNET : uniquement pour le direct (RTMP) vers la plateforme choisie par l'utilisateur -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -38,6 +39,7 @@
         <activity android:name=".PlayerActivity" android:exported="false" />
         <activity android:name=".EditorActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".AnnotateActivity" android:exported="false" />
+        <activity android:name=".LiveActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
 
         <service
             android:name=".RecorderService"

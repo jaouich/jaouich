@@ -67,7 +67,12 @@ public class MainActivity extends Activity {
         head.addView(logo, new LinearLayout.LayoutParams(Ui.dp(this, 34), Ui.dp(this, 34)));
         TextView name = Ui.text(this, getString(R.string.app_name), 24, Ui.TEXT, true);
         name.setPadding(Ui.dp(this, 12), 0, 0, 0);
-        head.addView(name, Ui.weight());
+        LinearLayout nameBox = Ui.col(this);
+        nameBox.setPadding(Ui.dp(this, 12), 0, 0, 0);
+        name.setPadding(0, 0, 0, 0);
+        nameBox.addView(name);
+        nameBox.addView(Ui.text(this, getString(R.string.created_by), 11, Ui.MUTED, false));
+        head.addView(nameBox, Ui.weight());
         root.addView(head);
 
         // Grand bouton d'enregistrement
@@ -99,7 +104,17 @@ public class MainActivity extends Activity {
         Ui.press(shot, Ui.round(Ui.CARD2, Ui.dp(this, 24)));
         shot.setContentDescription(getString(R.string.take_shot));
         shot.setOnClickListener(v -> onShot());
-        card.addView(shot, new LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48)));
+        LinearLayout side = Ui.col(this);
+        side.addView(shot, new LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48)));
+        TextView liveBtn = Ui.text(this, "LIVE", 11, Color.WHITE, true);
+        liveBtn.setGravity(Gravity.CENTER);
+        Ui.press(liveBtn, Ui.round(0xFFE5202E, Ui.dp(this, 24)));
+        liveBtn.setContentDescription(getString(R.string.live_title));
+        liveBtn.setOnClickListener(v -> startActivity(new Intent(this, LiveActivity.class)));
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48));
+        llp.topMargin = Ui.dp(this, 8);
+        side.addView(liveBtn, llp);
+        card.addView(side);
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
         clp.setMargins(Ui.dp(this, 16), Ui.dp(this, 8), Ui.dp(this, 16), Ui.dp(this, 8));
         root.addView(card, clp);
@@ -155,7 +170,7 @@ public class MainActivity extends Activity {
             boolean rec = RecorderService.recording || RecorderService.counting;
             recIcon.setImageDrawable(new Icons(rec ? Icons.STOP : Icons.REC, Color.WHITE));
             if (RecorderService.recording) {
-                recLabel.setText(getString(RecorderService.paused ? R.string.paused : R.string.recording_now) + " · " + Store.dur(RecorderService.elapsed()));
+                recLabel.setText((RecorderService.live ? "● LIVE" : getString(RecorderService.paused ? R.string.paused : R.string.recording_now)) + " · " + Store.dur(RecorderService.elapsed()));
                 recSub.setText(R.string.stop);
             } else if (RecorderService.counting) {
                 recLabel.setText(R.string.starting);
@@ -393,7 +408,7 @@ public class MainActivity extends Activity {
 
     private void shareSelected(boolean video) {
         ArrayList<android.net.Uri> list = new ArrayList<>(selected);
-        Intent i = new Intent(Intent.ACTION_SEND_MULTIPLE).setType(video ? "video/mp4" : "image/png")
+        Intent i = new Intent(Intent.ACTION_SEND_MULTIPLE).setType(video ? "video/mp4" : "image/*")
                 .putParcelableArrayListExtra(Intent.EXTRA_STREAM, list).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivity(Intent.createChooser(i, getString(R.string.share)));
     }
@@ -442,7 +457,7 @@ public class MainActivity extends Activity {
 
         String v = "1.0";
         try { PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0); v = pi.versionName; } catch (Exception ignored) {}
-        TextView foot = Ui.text(this, getString(R.string.set_storage) + "\n\n" + getString(R.string.privacy_note) + "\n" + getString(R.string.version, v), 12, Ui.MUTED, false);
+        TextView foot = Ui.text(this, getString(R.string.set_storage) + "\n\n" + getString(R.string.privacy_note) + "\n" + getString(R.string.version, v) + "\n\n" + getString(R.string.created_by), 12, Ui.MUTED, false);
         foot.setPadding(Ui.dp(this, 8), Ui.dp(this, 16), Ui.dp(this, 8), 0);
         l.addView(foot);
         return sv;

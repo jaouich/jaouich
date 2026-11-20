@@ -46,7 +46,8 @@ final class Engine {
     private MediaCodec venc, aenc;
     private Surface input;
     private VirtualDisplay display;
-    private MediaMuxer muxer;
+    private Sink muxer;
+    private final boolean live;
     private final Object lock = new Object();
     private int vTrack = -1, aTrack = -1;
     private boolean muxing, expectAudio;
@@ -59,7 +60,8 @@ final class Engine {
     boolean internalOk, micOk;
     volatile Exception failure;
 
-    Engine(MediaProjection p, int w, int h, int dpi, int fps, int bitrate, boolean mic, boolean internal) {
+    Engine(MediaProjection p, int w, int h, int dpi, int fps, int bitrate, boolean mic, boolean internal, boolean live) {
+        this.live = live;
         this.projection = p; this.width = w; this.height = h; this.dpi = dpi; this.fps = fps; this.bitrate = bitrate;
         this.wantMic = mic; this.wantInternal = internal;
     }
@@ -67,19 +69,19 @@ final class Engine {
     int width() { return width; }
     int height() { return height; }
 
-    void start(FileDescriptor fd) throws Exception {
+    void start(Sink sink) throws Exception {
         venc = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
         fitToEncoder(venc.getCodecInfo().getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).getVideoCapabilities());
         MediaFormat vf = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height);
         vf.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         vf.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
         vf.setInteger(MediaFormat.KEY_FRAME_RATE, fps);
-        vf.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
+        vf.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, live ? 2 : 1);
         vf.setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 1_000_000L / fps); // écran immobile : la vidéo continue
         venc.configure(vf, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         input = venc.createInputSurface();
         venc.start();
-        muxer = new MediaMuxer(fd, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        muxer = sink;
         setupAudio();
         display = projection.createVirtualDisplay("Rekordo", width, height, dpi,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, input, null, null);
@@ -145,7 +147,7 @@ final class Engine {
             while (true) {
                 int idx = venc.dequeueOutputBuffer(info, 10_000);
                 if (idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    synchronized (lock) { vTrack = muxer.addTrack(venc.getOutputFormat()); maybeStartMuxer(); }
+                    synchronized (lock) { vTrack = muxer.addTrack(venc.getOutputFormat(), true); maybeStartMuxer(); }
                 } else if (idx >= 0) {
                     ByteBuffer bb = venc.getOutputBuffer(idx);
                     if ((info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) info.size = 0;
@@ -211,7 +213,7 @@ final class Engine {
             int idx = aenc.dequeueOutputBuffer(info, 5_000);
             if (idx == MediaCodec.INFO_TRY_AGAIN_LATER) return false;
             if (idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                synchronized (lock) { aTrack = muxer.addTrack(aenc.getOutputFormat()); maybeStartMuxer(); }
+                synchronized (lock) { aTrack = muxer.addTrack(aenc.getOutputFormat(), false); maybeStartMuxer(); }
                 continue;
             }
             if (idx < 0) continue;
@@ -236,7 +238,7 @@ final class Engine {
             if (!muxing || track < 0) return false;
             bb.position(info.offset);
             bb.limit(info.offset + info.size);
-            muxer.writeSampleData(track, bb, info);
+            muxer.write(track, bb, info);
             if (track == vTrack) wroteVideo = true;
             return true;
         }
@@ -296,8 +298,7 @@ final class Engine {
         boolean ok;
         synchronized (lock) {
             ok = muxing && wroteVideo;
-            try { if (muxing) muxer.stop(); } catch (Exception e) { ok = false; }
-            try { muxer.release(); } catch (Exception ignored) {}
+            try { boolean s = muxer.stop(); ok = ok && s; } catch (Exception e) { ok = false; }
         }
         try { if (display != null) display.release(); } catch (Exception ignored) {}
         try { venc.stop(); } catch (Exception ignored) {}

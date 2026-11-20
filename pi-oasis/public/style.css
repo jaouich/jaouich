@@ -1198,3 +1198,29 @@ body.k-open { overflow: hidden; }
 .jd-stats small { font-size: .7rem; opacity: .75; }
 .jd-stats b { font-size: 1rem; direction: ltr; text-align: start; }
 .jd-top { grid-column: 1 / -1; font-size: .74rem; margin: 2px 0 0; line-height: 1.5; }
+
+/* JRY token page */
+.jry-bar { width: 100%; display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 12px; border: 1px solid #ffd34d; border-radius: 18px; font: inherit; text-align: start; cursor: pointer; color: #fff; background: linear-gradient(135deg, #0b3a66, #0f766e 60%, #b8860b); box-shadow: 0 4px 0 #062a44; }
+.jry-bar i { font-style: normal; font-size: 28px; }
+.jry-bar span { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.jry-bar small { font-size: .74rem; opacity: .9; }
+.jry-bar em { font-style: normal; font-weight: 800; background: #ffd34d; color: #3a2614; padding: 6px 12px; border-radius: 99px; white-space: nowrap; }
+.media.jtk { background: radial-gradient(120% 60% at 50% 0%, #0f766e 0%, #0b3a66 45%, #04121f 100%); }
+.jt-hero { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; margin: 4px 0 12px; }
+.jt-coin { width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 1.5rem; color: #3a2614; background: radial-gradient(circle at 35% 30%, #fff6c2, #ffc21a 60%, #a85f00); box-shadow: 0 0 0 4px rgba(255,211,77,.35), 0 0 40px rgba(255,211,77,.5); animation: jmPulse 2.4s ease-in-out infinite; }
+.jt-hero > b { font-size: 1.4rem; margin-top: 6px; }
+.jt-hero > small { opacity: .8; font-size: .8rem; }
+.jt-supply { margin-top: 10px; padding: 10px 16px; border-radius: 16px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,211,77,.4); display: flex; flex-direction: column; gap: 2px; }
+.jt-supply b { font-size: 1.35rem; color: #ffd34d; }
+.jt-supply small { font-size: .72rem; opacity: .8; }
+.jt-status { padding: 10px 12px; border-radius: 14px; background: rgba(255,211,77,.18); border: 1px solid rgba(255,211,77,.5); font-size: .84rem; line-height: 1.5; }
+.jt-steps { display: flex; flex-direction: column; gap: 8px; }
+.jt-step { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border-radius: 14px; background: rgba(255,255,255,.07); }
+.jt-step i { font-style: normal; flex: 0 0 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: rgba(255,255,255,.18); }
+.jt-step.done i { background: #2fae78; }
+.jt-step.now { border: 2px solid #ffd34d; }
+.jt-step.now i { background: #ffd34d; color: #3a2614; }
+.jt-step span { display: flex; flex-direction: column; gap: 2px; }
+.jt-step small { font-size: .76rem; opacity: .85; line-height: 1.4; }
+.jt-box { padding: 12px; border-radius: 14px; background: rgba(255,255,255,.08); font-size: .84rem; line-height: 1.55; }
+.jt-warn { background: rgba(192,57,43,.22); border: 1px solid rgba(255,138,61,.6); }

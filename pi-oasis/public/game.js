@@ -1138,7 +1138,7 @@
   function goFromLink() {
     if (goDone) return; goDone = true;
     const go = new URLSearchParams(location.search).get("go");
-    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
+    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
     if (tabs[go]) document.querySelector(`.tabs [data-tab="${tabs[go]}"]`).click();
     else if (opens[go]) setTimeout(() => $(opens[go]).click(), 300);
   }
@@ -1551,6 +1551,31 @@
   });
 
   // Bridge for the Jerry Kombat page (kombat.js)
+  // ---------- 💠 JRY token page: what JRY is, the plan for a Pi token, how to earn it now ----------
+  const JRY_SUPPLY = 10000000000000; // planned total supply of the future token: 10 trillion
+  function renderJryPage() {
+    const steps = [["done", "jt.s1"], ["done", "jt.s2"], ["now", "jt.s3"], ["next", "jt.s4"], ["next", "jt.s5"]];
+    $("jrypage").innerHTML = `<header class="jm-head"><button class="jm-back" data-jt="close">‹ ${t("jm.back")}</button><b>💠 Jerry <span>Token</span></b><span></span></header>
+      <div class="jm-body">
+        <div class="jt-hero"><div class="jt-coin">JRY</div><b>Jerry Token</b><small>${t("jt.by")}</small>
+          <div class="jt-supply"><small>${t("jt.supply")}</small><b dir="ltr">${fmtN(JRY_SUPPLY)}</b><small>${t("jt.supplyW")}</small></div></div>
+        <div class="jt-status">📝 ${t("jt.status")}</div>
+        <h4>🗺️ ${t("jt.road")}</h4>
+        <div class="jt-steps">${steps.map(([s, k], i) => `<div class="jt-step ${s}"><i>${s === "done" ? "✓" : i + 1}</i><span><b>${t(k)}</b><small>${t(k + ".d")}</small></span></div>`).join("")}</div>
+        <h4>🎮 ${t("jt.earn")}</h4>
+        <div class="jm-top">${account ? `<div><span>${t("jt.mine")}</span><b dir="ltr">💠 ${fmtN(account.jryPts || 0)}</b></div>` : ""}
+          ${["jt.e1", "jt.e2", "jt.e3", "jt.e4", "jt.e5"].map((k) => `<div><span>${t(k)}</span></div>`).join("")}</div>
+        <h4>🦊 ${t("jt.early")}</h4>
+        <div class="jt-box">${t("jt.early.d")}</div>
+        <h4>🛡️ ${t("jt.safe")}</h4>
+        <div class="jt-box jt-warn">${t("jt.safe.d")}</div>
+        <p class="jm-note">${t("jt.note")}</p>
+      </div>`;
+  }
+  $("jryOpen").addEventListener("click", () => { $("jrypage").classList.remove("hidden"); renderJryPage(); });
+  $("jrypage").addEventListener("click", (e) => { const b = e.target.closest("[data-jt]"); if (b && b.dataset.jt === "close") $("jrypage").classList.add("hidden"); });
+  document.addEventListener("langchange", () => { if (!$("jrypage").classList.contains("hidden")) renderJryPage(); });
+
   // Activities grid: gift code and invite tiles jump to their place in the Club tab
   const toClub = (sel) => { document.querySelector('.tabs [data-tab="vip"]').click(); setTimeout(() => { const e = document.querySelector(sel); e && e.scrollIntoView({ behavior: "smooth", block: "center" }); }, 80); };
   $("codeTile").addEventListener("click", () => toClub(".code-box"));

@@ -63,13 +63,15 @@
     let ref = null;
     try { ref = new URLSearchParams(location.search).get("ref") || localStorage.getItem("oasis_ref"); } catch {}
     // "payments" scope is required for the VIP subscription (Pi.createPayment).
-    const auth = await withTimeout(
-      window.Pi.authenticate(["username", "payments", "wallet_address"], onIncompletePaymentFound),
-      120000
-    );
+    // "in_app_notifications": weekly prizes, sold offers and a daily reminder in the Pi app's
+    // Notification Center. An older Pi Browser that doesn't know it gets the other scopes only.
+    const scopes = ["username", "payments", "wallet_address"];
+    let auth;
+    try { auth = await withTimeout(window.Pi.authenticate([...scopes, "in_app_notifications"], onIncompletePaymentFound), 120000); }
+    catch (e) { auth = await withTimeout(window.Pi.authenticate(scopes, onIncompletePaymentFound), 120000); }
     // Only the accessToken is sent. The server exchanges it with App Studio
     // and trusts only the identity App Studio returns (uid/username here are ignored).
-    const res = await api("/api/auth", { accessToken: auth.accessToken, ref });
+    const res = await api("/api/auth", { accessToken: auth.accessToken, ref, lang: I18N.lang });
     session = res.session;
     user = res.user;
     return res;

@@ -37,6 +37,11 @@ globalThis.fetch = async (url, opt = {}) => {
     return users[t] ? new Response(JSON.stringify({ sessionToken: "st", user: users[t] })) : new Response("{}", { status: 401 });
   }
   if (u.startsWith("https://api.testnet.minepi.com")) return horizon(u, opt);
+  if (u === "https://api.minepi.com/v2/in_app_notifications/notify" && (opt.headers?.Authorization) === "Key TESTKEY") {
+    const list = JSON.parse(opt.body).notifications;
+    (globalThis.__notifs ||= []).push(...list);
+    return new Response(JSON.stringify({ success: true, delivered_notifications: list.map((n) => ({ id: "n" + Math.random(), ...n, seen_at: null })) }), { status: 201 });
+  }
   if (u.startsWith("https://api.minepi.com/v2/payments") && (opt.headers?.Authorization) === "Key TESTKEY") {
     const p2 = u.slice("https://api.minepi.com/v2".length);
     const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s });
@@ -235,6 +240,7 @@ http.createServer(async (rq, rs) => {
   if (rq.url.startsWith("/__test/nowallet?")) { globalThis.__noWallet = rq.url.split("?")[1]; rs.end("ok"); return; }
   if (rq.url === "/__test/tnexec") { tdb.exec(Buffer.concat(chunks).toString()); rs.end("ok"); return; }
   if (rq.url.startsWith("/__test/mainnet")) { if (rq.url.endsWith("on")) { env.TESTNET_DB = TESTNET_DB; delete env.TESTNET_GIFTS; } else { delete env.TESTNET_DB; env.TESTNET_GIFTS = "1"; } rs.end("ok"); return; }
+  if (rq.url === "/__test/notifs") { rs.end(JSON.stringify(globalThis.__notifs || [])); return; }
   if (rq.url === "/__test/exec") { db.exec(Buffer.concat(chunks).toString()); rs.end("ok"); return; }
   if (rq.url === "/__test/sql") { rs.end(JSON.stringify(db.prepare(Buffer.concat(chunks).toString()).all())); return; }
   const res = await worker.fetch(req, env);

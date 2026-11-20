@@ -1104,6 +1104,15 @@
   });
 
   // ---------- Sign in ----------
+  // Links from Pi notifications: /?go=rank | vip | derby | quests | earn | kombat | market | farm
+  let goDone = false;
+  function goFromLink() {
+    if (goDone) return; goDone = true;
+    const go = new URLSearchParams(location.search).get("go");
+    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
+    if (tabs[go]) document.querySelector(`.tabs [data-tab="${tabs[go]}"]`).click();
+    else if (opens[go]) setTimeout(() => $(opens[go]).click(), 300);
+  }
   async function signIn(silent) {
     if (!silent) $("loginBtn").disabled = true;
     try {
@@ -1111,6 +1120,7 @@
       clockOffset = res.now - Date.now();
       account = res.account;
       document.getElementById("piGate")?.remove(); // signed in, so this is Pi Browser
+      setTimeout(goFromLink, 400);
       publicUrl = res.publicUrl || "";
       if (res.via === "appstudio" && !res.canBuy) enterOldApp(); // purchases only work in the official app until its key is set
       S = res.state; // the server's game replaces the guest demo
@@ -1511,6 +1521,9 @@
   });
 
   // Bridge for the Jerry Kombat page (kombat.js)
+  // Testnet game: point players to the real game on Mainnet (their progress moves with them)
+  if (/^(pi-oasis\.|oasisgame6033\.)/.test(location.hostname)) $("mainnetBar").classList.remove("hidden");
+
   window.OasisGame = {
     get S() { return S; },
     set S(x) { S = x; },

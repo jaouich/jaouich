@@ -1166,3 +1166,9 @@ body.k-open { overflow: hidden; }
 .db-cupup { text-align: center; margin-bottom: 8px; padding: 8px; border-radius: 14px; background: rgba(255, 211, 77, .25); font-weight: 800; }
 .jm-top .db-me { color: #ffd34d; font-weight: 800; }
 .media.dby .jm-hero b { font-size: .92rem; white-space: normal; }
+
+.mainnet-bar { display: flex; align-items: center; gap: 10px; margin: 10px 0; padding: 12px 14px; border-radius: 18px; text-decoration: none; color: #fff; background: linear-gradient(135deg, #0f6b4a, #7c5cff); box-shadow: 0 5px 0 #22105a; }
+.mainnet-bar i { font-style: normal; font-size: 30px; }
+.mainnet-bar span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.mainnet-bar small { opacity: .9; font-size: .78rem; line-height: 1.35; }
+.mainnet-bar em { font-style: normal; font-weight: 800; background: #ffd34d; color: #3a2614; padding: 7px 12px; border-radius: 99px; white-space: nowrap; }

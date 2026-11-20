@@ -184,6 +184,8 @@ const SCHEMA = [
   "CREATE INDEX IF NOT EXISTS derby_tr ON derby(trophies)",
   "CREATE TABLE IF NOT EXISTS derby_weeks ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, pts INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE TABLE IF NOT EXISTS derby_week_paid ( week_id INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
+  // Pi Notification Center: one notification per (player, kind, ref), never twice
+  "CREATE TABLE IF NOT EXISTS notif_log ( uid TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, kind, ref) )",
   // Jerry Arcade: rewarded plays per day and best scores
   "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
   // Business showcase. status: paying → review → live (until ends_at) | rejected (refunded)
@@ -220,6 +222,7 @@ const ensureSchema = (env) =>
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_ads INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_streak INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_sday INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN lang TEXT").run().catch(() => {}))
     .catch((e) => { schemaReady = null; throw e; }));
 
 const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
@@ -438,6 +441,7 @@ async function grantWeeklyCamels(env) {
   const top = await all(env, "SELECT uid FROM week_scores WHERE week_id = ? AND score > 0 ORDER BY score DESC, updated_at ASC LIMIT 100", lastWeek);
   const rarity = [3, 2, 1];
   for (let i = 0; i < top.length; i++) await creditPoints(env, top[i].uid, "dates", L.WEEK100.dates(i + 1), now, "week");
+  await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "week", ref: lastWeek, vars: { p: i + 1, d: L.WEEK100.dates(i + 1).toLocaleString("en-US") } })));
   for (let i = 0; i < Math.min(3, top.length); i++) {
     const st = await loadState(env, top[i].uid, now);
     L.addAnimal(st, rarity[i], now, `prize-${lastWeek}`);
@@ -505,6 +509,7 @@ const routes = {
     }
     const net = await netHash(req, env);
     if (net) await run(env, "UPDATE users SET net = ? WHERE uid = ?", net, me.uid);
+    if (["ar", "en", "fr"].includes(body.lang)) await run(env, "UPDATE users SET lang = ? WHERE uid = ?", body.lang, me.uid);
     u = await one(env, "SELECT * FROM users WHERE uid = ?", me.uid);
     const session = randomToken();
     await run(env, "INSERT INTO sessions (token, uid, created_at) VALUES (?, ?, ?)", session, me.uid, now);
@@ -1943,6 +1948,51 @@ async function completePayment(env, id, txid, uid) {
 const MK = L.MARKET;
 // Adds points to a player without touching a game save that may be running at the same time.
 // Bought / returned / won points never count toward weekly rankings.
+// ---------- Pi Notification Center ----------
+// Messages in the player's language (saved at sign-in). {x} are filled from vars.
+const NOTE = {
+  daily: { go: "farm", en: ["🌴 Your oasis is waiting", "Your camels made dates and your free Derby races are ready."], ar: ["🌴 واحتك في انتظارك", "جِمالك جمعت التمر، وسباقاتك المجانية جاهزة."], fr: ["🌴 Ton oasis t'attend", "Tes chameaux ont produit des dattes et tes courses gratuites sont prêtes."] },
+  week: { go: "rank", en: ["🏆 Weekly ranking: #{p}", "Well done! +{d} dates for your place. Pi prizes are sent to your wallet."], ar: ["🏆 ترتيب الأسبوع: المركز {p}", "أحسنت! +{d} تمرة لمركزك. جوائز Pi تُرسل إلى محفظتك."], fr: ["🏆 Classement : {p}e place", "Bravo ! +{d} dattes pour ta place. Les prix en Pi arrivent dans ton portefeuille."] },
+  kweek: { go: "kombat", en: ["⚔️ Kombat tournament: #{p}", "Open Jerry Kombat to collect your prize."], ar: ["⚔️ بطولة كومبات: المركز {p}", "افتح جيري كومبات لتستلم جائزتك."], fr: ["⚔️ Tournoi Kombat : {p}e", "Ouvre Jerry Kombat pour récupérer ton prix."] },
+  dweek: { go: "derby", en: ["🏁 Camel Derby: #{p}", "+{d} dates for your place this week."], ar: ["🏁 سباق الجمال: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏁 Course de chameaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
+  sold: { go: "market", en: ["💰 Your offer sold", "+{pi} Pi added to your sales balance."], ar: ["💰 تم بيع عرضك", "+{pi} Pi أُضيفت إلى رصيد مبيعاتك."], fr: ["💰 Ton offre est vendue", "+{pi} Pi ajoutés à ton solde de ventes."] },
+};
+// items: [{ uid, kind, ref, vars }]. Best effort: a failure never breaks the game.
+async function notify(env, items) {
+  if (!env.PI_NETWORK_API_KEY || !items.length) return 0;
+  const send = [];
+  for (const it of items) {
+    const r = await run(env, "INSERT OR IGNORE INTO notif_log (uid, kind, ref, at) VALUES (?, ?, ?, ?)", it.uid, it.kind, String(it.ref), Date.now());
+    if (!r.meta.changes) continue;
+    const u = await one(env, "SELECT lang FROM users WHERE uid = ?", it.uid);
+    const n = NOTE[it.kind], m = n[(u && n[u.lang]) ? u.lang : "en"];
+    const fill = (s) => s.replace(/\{(\w+)\}/g, (_, k) => (it.vars && it.vars[k] != null ? String(it.vars[k]) : ""));
+    send.push({ title: fill(m[0]), body: fill(m[1]), user_uid: it.uid, subroute: "/?go=" + n.go });
+  }
+  let sent = 0;
+  for (let i = 0; i < send.length; i += 256) {
+    try {
+      const r = await pi(env, "/in_app_notifications/notify", { method: "POST", body: { notifications: send.slice(i, i + 256) } });
+      sent += (r.delivered_notifications || []).length;
+    } catch (e) { /* logged by pi(); players without the notifications permission are skipped by Pi */ }
+  }
+  return sent;
+}
+// Once a day (18:00 UTC): players who played this week but not yet today
+async function dailyReminder(env) {
+  const now = Date.now();
+  if (new Date(now).getUTCHours() !== 18) return 0;
+  const day = L.dayId(now);
+  const rows = await all(env, "SELECT uid FROM state WHERE updated_at >= ? AND updated_at < ? ORDER BY updated_at DESC LIMIT 2000", now - 7 * DAY, day * DAY);
+  return notify(env, rows.map((r) => ({ uid: r.uid, kind: "daily", ref: day })));
+}
+// Kombat tournament: tell last week's top 100 to collect their prize
+async function kombatWeekNotes(env) {
+  const last = KL.weekId(Date.now() - 7 * DAY);
+  const top = await all(env, "SELECT uid FROM kombat_weeks WHERE week_id = ? AND earned > 0 ORDER BY earned DESC, updated_at ASC LIMIT 100", last);
+  return notify(env, top.map((r, i) => ({ uid: r.uid, kind: "kweek", ref: last, vars: { p: i + 1 } })));
+}
+
 // ---------- Camel Derby helpers ----------
 async function derbyLoad(env, uid, now) {
   const r = await one(env, "SELECT json, ver FROM derby WHERE uid = ?", uid);
@@ -1979,6 +2029,7 @@ async function grantDerbyWeek(env) {
   if (!g.meta.changes) return 0;
   const top = await all(env, "SELECT uid FROM derby_weeks WHERE week_id = ? AND pts > 0 ORDER BY pts DESC, updated_at ASC LIMIT 100", last);
   for (let i = 0; i < top.length; i++) await creditPoints(env, top[i].uid, "dates", DL.weekDates(i + 1), now, "derbyweek");
+  await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "dweek", ref: last, vars: { p: i + 1, d: DL.weekDates(i + 1).toLocaleString("en-US") } })));
   return top.length;
 }
 
@@ -2088,6 +2139,7 @@ async function mkSettle(env, item, payId, buyerUid, now) {
     // part of the tax feeds the weekly prize pool
     env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(L.weekId(now), round(tax * PRIZE_RATE)),
   ]);
+  await notify(env, [{ uid: o.uid, kind: "sold", ref: o.id, vars: { pi: round(o.pi - tax) } }]);
 }
 
 // ---------- Players' testJRY market ----------
@@ -2361,6 +2413,9 @@ export default {
         .catch((e) => logError(env, "weekly camels", 0, e.message))
         .then(() => grantDerbyWeek(env))
         .catch((e) => logError(env, "derby week", 0, e.message))
+        .then(() => kombatWeekNotes(env))
+        .then(() => dailyReminder(env))
+        .catch((e) => logError(env, "notifications", 0, e.message))
         .then(() => runPayouts(env))
         .catch((e) => logError(env, "payouts run", 0, e.message))
     );

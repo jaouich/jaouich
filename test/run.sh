@@ -27,10 +27,10 @@ sleep 4; shot 1-ouverture
 tap_text "sans compte"; sleep 3; shot 2-accueil
 tap_text "Enregistrer"; sleep 4; shot 3-autorisation
 adb shell uiautomator dump /sdcard/ui.xml >/dev/null; adb pull /sdcard/ui.xml $OUT/dialog.xml >/dev/null
-tap_text "Entire screen"; sleep 1; tap_text "A single app" ; sleep 1; tap_text "Entire screen"; sleep 1
-tap_text "Start"; sleep 1; tap_text "Next"; sleep 1; tap_text "Start"
+tap_text "Start now"
 sleep 1.5; shot 4-compte-a-rebours
 sleep 6; shot 5-enregistrement
+adb shell dumpsys activity services ma.magiscom.desk | head -20 > $OUT/service.txt
 tap_text "0:0"; sleep 1.5; shot 6-bulle-ouverte
 tap_text "Pause"; sleep 2; shot 7-pause
 tap_text "Reprendre"; sleep 3
@@ -40,3 +40,5 @@ adb logcat -d > $OUT/logcat-full.txt
 grep -E "AndroidRuntime|FATAL|magiscom|MediaRecorder|MediaProjection" $OUT/logcat-full.txt | tail -200 > $OUT/logcat.txt
 true
 # 2026-11-20T02:12:47Z
+
+# relance 2

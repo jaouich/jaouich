@@ -6,7 +6,7 @@ OUT=test/out; rm -rf $OUT; mkdir -p $OUT
 PKG=app.rekordo
 shot() { adb exec-out screencap -p > $OUT/$1.png; }
 N=0
-dump() { N=$((N+1)); adb shell uiautomator dump /sdcard/ui.xml > $OUT/dumpmsg-$N.txt 2>&1; adb pull /sdcard/ui.xml $OUT/ui.xml >/dev/null 2>&1; cp $OUT/ui.xml $OUT/dump-$N.xml; }
+dump() { N=$((N+1)); for k in 1 2 3 4; do adb shell uiautomator dump /sdcard/ui.xml > $OUT/dumpmsg-$N.txt 2>&1; grep -q dumped $OUT/dumpmsg-$N.txt && break; sleep 1; done; adb pull /sdcard/ui.xml $OUT/ui.xml >/dev/null 2>&1; cp $OUT/ui.xml $OUT/dump-$N.xml; }
 tap_text() {
   dump; b=$(python3 - "$1" <<'PY'
 import re,sys,html

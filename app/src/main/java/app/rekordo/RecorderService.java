@@ -288,7 +288,7 @@ public class RecorderService extends Service {
         new Thread(() -> {
             Uri u = Store.saveImage(this, b);
             b.recycle();
-            if (u != null) { toast(this, getString(R.string.shot_saved)); doneNotif(u, false); }
+            if (u != null) { toast(this, getString(R.string.shot_saved)); if (!recording) doneNotif(u, false); }
         }).start();
     }
 

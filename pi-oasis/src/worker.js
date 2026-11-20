@@ -460,6 +460,7 @@ let marketCache = null;
 let testnetHost = false;
 // Testnet app settings (not secret). Secrets (API key, wallet) still come from Cloudflare.
 const TESTNET_VARS = {
+  A2U_LIVE: "1",
   VALIDATION_KEY: "7c51468ad7937a22873ad4adf0fd7d80b1be68a1f78733624eb98d53c35fe3985aacf7642e50d4d5ee31e85304b4542b08ff9c6322821708bf153f78d54cad8d",
   PUBLIC_URL: "https://oasisgame6033.pinet.com",
   TESTNET_GIFTS: "1",

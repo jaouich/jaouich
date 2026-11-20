@@ -73,7 +73,9 @@ export async function processPayouts(env, d) {
     ]);
   }
 
-  // 4) Send
+  // 4) Send. A2U_LIVE = "0": the app's outgoing wallet is still waiting for Pi's approval, so
+  // payouts stay queued ('new') and go out on their own once it is approved and A2U_LIVE is removed.
+  if (env.A2U_LIVE === "0") return { ...report, held: true };
   const todo = await d.all(env, "SELECT * FROM payouts WHERE status IN ('new', 'created') ORDER BY tries ASC, created_at LIMIT ?", PER_RUN);
   for (const po of todo) {
     try {

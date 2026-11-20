@@ -17,15 +17,15 @@ Secrets live only in Cloudflare (Variables and Secrets): `PI_NETWORK_API_KEY`, `
 Deploy: commit in `pi-oasis/` on branch `ccr-c8d511c9-pqtm95` of `jaouich/jaouich`; Cloudflare Workers Builds deploys both Workers on push.
 
 ## Waiting on Pi
-- Mainnet app wallet GAW5E… (Outgoing Wallet): pending review.
+- Mainnet outgoing wallet GAW5E…: pending review (check with Pi Developers `get_app`: `outgoing_wallet_id` stays null until connected). App id in `.pi-onboard.json`.
 - Ecosystem listing: submitted, pending review.
 - Pi Ad Network: pending (payout address 0xa8546C678c33B9d2277EB015072Ce0A31a90326f).
 - Incoming Multisig wallet: postponed (signer GAB2O… is not on Mainnet).
 
-## When the Mainnet wallet is approved
-1. Owner: Outgoing Wallet → select GAW5E… → Update; send 2–3 Pi to it.
-2. Set `PAYMENTS_LIVE = "1"` under `[env.main.vars]` in `wrangler.toml` and push (purchases on Mainnet are closed until then; the game shows a "purchases open soon" banner).
-3. Test a 0.2 Pi date pack on https://jerryoasis9559.pinet.com.
+## Mainnet payments
+- Purchases are OPEN (`PAYMENTS_LIVE = "1"`). Incoming wallet = owner's personal wallet GAB5M5…2LJY (set in Pi Developers, cap 10,000 Pi).
+- Payouts to players are HELD (`A2U_LIVE = "0"` in `[env.main.vars]`): weekly Pi prizes, market withdrawals and refunds queue as 'new'.
+- When Pi approves the outgoing wallet GAW5E…: owner selects it and sends 2–3 Pi to it; set `A2U_LIVE = "1"` and push. The queue then goes out on the hourly run.
 
 ## Game features (all tested: `node --no-warnings tests/harness.mjs` then each `tests/*.mjs`, plus `bash tests/payments.sh`)
 Farm, camels, city, granary, weekly ranking with Pi prize pool, memberships, referrals (10%), missions, daily events,

@@ -114,7 +114,7 @@
         if (r.me) { ctx.font = "bold 18px sans-serif"; ctx.fillStyle = "#7c2d12"; ctx.fillText("▼ " + t("db.you"), x, y - lh * 0.32); }
       });
       if (el < slow + 0.3) anim = requestAnimationFrame(frame);
-      else { anim = null; playing = false; const res = $("dbRes"); if (res) res.classList.remove("hidden"); if (result.place <= 3) G.burst && G.burst(); }
+      else { anim = null; playing = false; const res = $("dbRes"); if (res) res.classList.remove("hidden"); if (result.place <= 3) G.burst && G.burst(); setTimeout(() => Pi.maybeInterstitial(), 1500); }
     };
     anim = requestAnimationFrame(frame);
   }

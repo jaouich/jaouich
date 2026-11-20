@@ -192,7 +192,25 @@
     }
   }
 
+  // Interstitial ad at a natural break (end of a race or a mini-game): at most one every
+  // INTER_EVERY breaks and never twice within INTER_GAP, only if Pi has an ad ready. No reward,
+  // so nothing to verify; if no ad is ready the game simply goes on.
+  const INTER_EVERY = 3, INTER_GAP = 180000;
+  let interN = 0, interAt = 0;
+  async function maybeInterstitial() {
+    try {
+      if (!piReady || !session || !window.Pi.Ads) return false;
+      if (++interN % INTER_EVERY !== 0 || Date.now() - interAt < INTER_GAP) return false;
+      const ready = await withTimeout(window.Pi.Ads.isAdReady("interstitial"), 3000);
+      if (!ready || !ready.ready) return false;
+      interAt = Date.now();
+      await window.Pi.Ads.showAd("interstitial");
+      return true;
+    } catch (e) { return false; }
+  }
+
   window.PiBridge = {
+    maybeInterstitial,
     get user() { return user; },
     get loggedIn() { return !!session; },
     get piAvailable() { return piReady; },

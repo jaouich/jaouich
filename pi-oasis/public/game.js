@@ -907,6 +907,7 @@
     const box = document.createElement("div");
     box.className = "arc-end"; box.innerHTML = `<b>${title}</b><small>${sub}</small><div><button class="btn gold" data-arc="${game}">🔁 ${t("ar.again")}</button><button class="btn" data-arc="home">${t("ar.menu")}</button></div>`;
     $("arcStage").appendChild(box);
+    setTimeout(() => Pi.maybeInterstitial(), 1200);
   }
   // 🧠 Oasis memory: find the 8 pairs in as few moves as possible
   function arcMemory() {

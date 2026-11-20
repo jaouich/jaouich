@@ -1,0 +1,7 @@
+/* Fenêtre flottante de l'enregistreur d'écran */
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0a1f4d;color:#fff;font:600 14px Inter,system-ui,sans-serif;overflow:hidden}
+.wrap{display:flex;flex-direction:column;height:100%}.cam{flex:1;min-height:0;background:#000;position:relative}.cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+.rc-bar{padding:10px 12px;display:flex;flex-direction:column;gap:8px}.rh{display:flex;align-items:center;gap:8px}.rt{font-size:20px;font-variant-numeric:tabular-nums;margin-left:auto}
+.dot{width:11px;height:11px;border-radius:50%;background:#ef4444;animation:p 1s infinite}.paused .dot{animation:none;background:#f5a524}@keyframes p{50%{opacity:.25}}
+.rbtns{display:flex;gap:6px}.rb{flex:1;border:0;border-radius:10px;padding:9px 6px;background:rgba(255,255,255,.15);color:#fff;font:700 13px inherit;font-family:inherit;cursor:pointer}.rb:hover{background:rgba(255,255,255,.25)}.rb.stop{background:#dc2626}.rb.off{background:#fff;color:#0a1f4d}
+.rm{height:4px;border-radius:2px;background:rgba(255,255,255,.15);overflow:hidden}.rm i{display:block;height:100%;width:0;background:#22c55e;transition:width .1s}

@@ -6,6 +6,7 @@ const assets = {
   "/": { type: "text/html; charset=utf-8", body: read("./public/index.html") },
   "/app.js": { type: "text/javascript; charset=utf-8", body: read("./public/app.js") },
   "/app.css": { type: "text/css; charset=utf-8", body: read("./public/app.css") },
+  "/pip.css": { type: "text/css; charset=utf-8", body: read("./public/pip.css") },
   "/icon.svg": { type: "image/svg+xml", body: read("./public/icon.svg") },
   "/icon.png": { type: "image/png", b64: readFileSync(new URL("./public/icon.png", import.meta.url)).toString("base64") },
   "/manifest.webmanifest": { type: "application/manifest+json", body: read("./public/manifest.webmanifest") },

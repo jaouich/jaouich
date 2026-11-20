@@ -160,7 +160,7 @@ async function uploadBigFile(file, type, onProgress) {
   return up.finish();
 }
 let BUSY_UPLOADS = 0;
-window.addEventListener("beforeunload", (e) => { if (BUSY_UPLOADS || SCR.cur || (CALL.cur && CALL.cur.rec)) { e.preventDefault(); e.returnValue = ""; } });
+window.addEventListener("beforeunload", (e) => { if (BUSY_UPLOADS || SCR.cur || (CALL.cur && CALL.cur.rec) || (typeof REC !== "undefined" && (REC.cur || (REC.last && !REC.last.sent)))) { e.preventDefault(); e.returnValue = ""; } });
 
 // ---------- Enregistrement de l'écran (ordinateur) ----------
 // Comme une application d'enregistrement d'écran : l'écran + votre voix, sans limite d'une heure.
@@ -370,7 +370,7 @@ function viewAuth(mode) {
     const data = Object.fromEntries(new FormData(form));
     try {
       ME = (await api(isReg ? "/api/auth/register" : "/api/auth/login", { method: "POST", body: data })).user;
-      go("/");
+      go(REC.last ? "/rec" : "/");
     } catch (ex) { showErr(err, ex); btn.disabled = false; }
   });
   const feat = (ic, title, text) => h("li", null, icon(ic), h("div", null, h("b", null, title), h("span", null, text)));
@@ -389,7 +389,9 @@ function viewAuth(mode) {
       h("div", { class: "tabs" },
         h("button", { type: "button", "aria-pressed": String(!isReg), onclick: () => go("/login") }, "Connexion"),
         h("button", { type: "button", "aria-pressed": String(isReg), onclick: () => go("/register") }, "Créer un compte")),
-      form)));
+      form,
+      h("a", { class: "rec-link", href: "#/rec" }, icon("rec"), h("span", null, h("b", null, "Enregistrer mon écran"), h("span", { class: "small" }, "Filmez le problème en parlant, sans vous connecter")))),
+    ));
 }
 
 // ---------- Barre du haut ----------
@@ -397,8 +399,8 @@ function showBar(active) {
   $("#bar").hidden = false;
   $("#whoName").textContent = ME.name + (ME.role === "admin" ? " · " + (ME.title || "Admin") : "");
   const links = ME.role === "admin"
-    ? [["/", "Demandes"], ["/live", "Écran & appel"], ["/clients", "Clients"], ["/profil", "Mon profil"]]
-    : [["/", "Mes demandes"], ["/new", "Nouvelle demande"], ["/live", "Écran & appel"], ["/profil", "Mon profil"]];
+    ? [["/", "Demandes"], ["/live", "Écran & appel"], ["/rec", "🎥 Enregistreur"], ["/clients", "Clients"], ["/profil", "Mon profil"]]
+    : [["/", "Mes demandes"], ["/new", "Nouvelle demande"], ["/rec", "🎥 Enregistreur"], ["/live", "Écran & appel"], ["/profil", "Mon profil"]];
   $("#nav").replaceChildren(...links.map(([p, l]) => h("a", { href: "#" + p, class: active === p ? "on" : null }, l)));
 }
 
@@ -1346,6 +1348,9 @@ async function ticketChooser(admin) {
     el: h("div", { class: "stack" }, h("label", { class: "f" }, admin ? "Client et demande" : "Pour quelle demande ?", sel), admin ? null : titleBox),
     count: () => tickets.length,
     peer: () => peerOf(sel.value),
+    isNew: () => sel.value === "new",
+    title: () => title.value.trim(),
+    value: () => sel.value,
     async id() {
       if (sel.value !== "new") return sel.value;
       const subject = title.value.trim() || "Assistance en direct";
@@ -1443,7 +1448,7 @@ async function viewLive() {
         admin ? "Le téléphone ou l'ordinateur du client sonne. Une fois connecté, il est invité à partager son écran : vous voyez EBP ou Sage comme lui." : "Un consultant voit votre écran pendant l'appel et vous guide pas à pas. Choisissez tout l'écran ou la fenêtre du logiciel.",
         h("div", { class: "stack tight" }, bShareCall, h("div", { class: "row tight" }, bVideo, bAudio)),
         !admin && IS_MOBILE ? h("p", { class: "muted small" }, "Sur téléphone : lancez un appel vidéo et filmez l'écran de l'ordinateur avec la caméra arrière (bouton « Retourner »).") : null),
-      admin ? null : step("2", "Filmer mon écran", null, recNote, bRecord),
+      admin ? null : step("2", "Filmer mon écran", null, recNote, bRecord, canRecordScreen() ? h("a", { class: "small", href: "#/rec" }, "Ouvrir l'enregistreur complet (caméra, son du PC, télécharger la vidéo) →") : null),
       step(admin ? "2" : "3", "Prise en main à distance", admin ? "Pour prendre le contrôle du poste du client : il installe AnyDesk ou RustDesk et vous envoie son identifiant depuis cet onglet. Il apparaît dans sa demande." : "Pour que le consultant contrôle votre ordinateur : ouvrez AnyDesk ou RustDesk et envoyez l'identifiant affiché.",
         admin ? null : h("div", { class: "row tight" }, rid, bRid),
         h("p", { class: "small" }, h("a", { href: "https://anydesk.com/fr/downloads", target: "_blank", rel: "noopener" }, "Télécharger AnyDesk"), " · ", h("a", { href: "https://rustdesk.com/fr/", target: "_blank", rel: "noopener" }, "RustDesk (gratuit)")))),
@@ -1453,6 +1458,292 @@ async function viewLive() {
   loadGallery();
 }
 
+
+// ---------- Enregistreur d'écran (comme AZ Screen Recorder) ----------
+// Filme TOUT l'écran du PC (EBP, Sage, Excel…) avec la voix, le son de l'ordinateur et, en option,
+// une bulle caméra. Des commandes flottantes restent au-dessus de tous les logiciels. À la fin :
+// aperçu, téléchargement, ou envoi au support. Fonctionne aussi sans compte (envoi après connexion).
+const REC = { cur: null, last: null, opts: null };
+const PIP_OK = () => !!window.documentPictureInPicture;
+function recOptions() {
+  let o = { mic: true, sys: true, cam: false, count: true, hd: false };
+  try { Object.assign(o, JSON.parse(localStorage.getItem("mtd_rec") || "{}")); } catch {}
+  if (!PIP_OK()) o.cam = false;
+  return o;
+}
+const saveRecOptions = (o) => { try { localStorage.setItem("mtd_rec", JSON.stringify(o)); } catch {} };
+const recName = (type) => { const d = new Date(), p = (n) => String(n).padStart(2, "0"); return `enregistrement-ecran-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}h${p(d.getMinutes())}.${type === "video/mp4" ? "mp4" : "webm"}`; };
+
+async function recStart(o, ui) {
+  let screen;
+  try {
+    screen = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: { ideal: o.hd ? 24 : 15, max: 30 }, width: { max: o.hd ? 1920 : 1280 }, height: { max: o.hd ? 1080 : 720 }, displaySurface: "monitor" },
+      audio: o.sys ? { echoCancellation: false, noiseSuppression: false } : false,
+      systemAudio: o.sys ? "include" : "exclude", selfBrowserSurface: "exclude", surfaceSwitching: "include", monitorTypeSurfaces: "include",
+    });
+  } catch { return null; }
+  const vt = screen.getVideoTracks()[0];
+  try { vt.contentHint = "detail"; } catch {}
+  let mic = null;
+  if (o.mic) { try { mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); } catch { toast("Micro non autorisé : la vidéo sera enregistrée sans votre voix"); } }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ac = new AC(), dest = ac.createMediaStreamDestination();
+  const micGain = ac.createGain(); micGain.connect(dest);
+  const analyser = ac.createAnalyser(); analyser.fftSize = 256;
+  let hasAudio = false;
+  if (mic) { const src = ac.createMediaStreamSource(mic); src.connect(micGain); src.connect(analyser); hasAudio = true; }
+  if (screen.getAudioTracks().length) { ac.createMediaStreamSource(new MediaStream(screen.getAudioTracks())).connect(dest); hasAudio = true; }
+  const mime = pickMime(["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4;codecs=avc1,opus", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]);
+  const type = (mime || "video/webm").split(";")[0];
+  const stream = new MediaStream([vt, ...(hasAudio ? dest.stream.getAudioTracks() : [])]);
+  const r = { screen, mic, ac, micGain, analyser, type, mime, chunks: [], size: 0, t0: 0, paused: 0, pausedAt: 0, state: "count", hasMic: !!mic, muted: false, ui };
+  r.rec = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: o.hd ? 2500000 : 1200000, audioBitsPerSecond: 96000 });
+  r.rec.ondataavailable = (e) => { if (e.data && e.data.size) { r.chunks.push(e.data); r.size += e.data.size; } };
+  r.rec.onstop = () => recFinish(r);
+  vt.onended = () => recStop(r);          // bouton « Arrêter le partage » du navigateur
+  REC.cur = r;
+  if (o.cam && PIP_OK()) { try { r.camStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 480 }, height: { ideal: 480 }, facingMode: "user" } }); } catch { toast("Caméra non autorisée"); } }
+  return r;
+}
+function recElapsed(r) { return r.t0 ? (Date.now() - r.t0 - r.paused - (r.pausedAt ? Date.now() - r.pausedAt : 0)) / 1000 : 0; }
+function recBegin(r) {
+  if (REC.cur !== r || r.state !== "count") return;
+  r.state = "rec"; r.t0 = Date.now();
+  r.rec.start(2000);
+  r.tick = setInterval(() => recPaint(r), 500);
+  recPaint(r);
+}
+function recPause(r) {
+  if (r.state === "rec") { r.rec.pause(); r.pausedAt = Date.now(); r.state = "pause"; }
+  else if (r.state === "pause") { r.rec.resume(); r.paused += Date.now() - r.pausedAt; r.pausedAt = 0; r.state = "rec"; }
+  recPaint(r);
+}
+function recMute(r) { if (!r.hasMic) return; r.muted = !r.muted; r.micGain.gain.value = r.muted ? 0 : 1; recPaint(r); }
+function recStop(r) {
+  if (!r || r.state === "done" || r.state === "stopping") return;
+  if (r.state === "count") { r.state = "done"; recCleanup(r); REC.cur = null; r.ui.reset(); return; }
+  r.state = "stopping";
+  if (r.rec.state !== "inactive") r.rec.stop();
+}
+function recCleanup(r) {
+  clearInterval(r.tick); clearInterval(r.cd);
+  r.screen.getTracks().forEach((t) => t.stop());
+  r.mic && r.mic.getTracks().forEach((t) => t.stop());
+  r.camStream && r.camStream.getTracks().forEach((t) => t.stop());
+  r.ac.close().catch(() => {});
+  try { r.pip && r.pip.close(); } catch {}
+  document.title = "Magiscom Tech Desk";
+}
+function recFinish(r) {
+  const secs = recElapsed(r);
+  r.state = "done"; recCleanup(r);
+  if (REC.cur === r) REC.cur = null;
+  if (!r.chunks.length) { toast("Enregistrement vide"); return r.ui.reset(); }
+  const file = new File(r.chunks, recName(r.type), { type: r.type });
+  REC.last && URL.revokeObjectURL(REC.last.url);
+  REC.last = { file, type: r.type, secs, url: URL.createObjectURL(file), sent: null };
+  r.ui.result();
+}
+// Commandes : dans la page et dans la fenêtre flottante
+function recPaint(r) {
+  const t = clock(recElapsed(r));
+  const lbl = r.state === "pause" ? "En pause" : r.state === "count" ? "Préparation…" : "Enregistrement";
+  if (r.state === "rec" || r.state === "pause") document.title = (r.state === "pause" ? "⏸ " : "⏺ ") + t + " · Enregistrement";
+  for (const v of [r.ui.view, r.pv].filter(Boolean)) {
+    v.time.textContent = t; v.label.textContent = lbl; v.size && (v.size.textContent = fmtSize(r.size));
+    v.root.classList.toggle("paused", r.state === "pause");
+    v.pause.textContent = r.state === "pause" ? "▶ Reprendre" : "⏸ Pause";
+    if (v.mute) { v.mute.textContent = r.muted ? "🔇 Micro coupé" : "🎙 Micro"; v.mute.classList.toggle("off", r.muted); v.mute.hidden = !r.hasMic; }
+  }
+  if (recElapsed(r) > 6 * 3600) recStop(r);
+}
+function recControls(doc, r, opts = {}) {
+  const H = (tag, attrs, ...kids) => { const e = doc.createElement(tag); for (const [k, v] of Object.entries(attrs || {})) { if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (k === "class") e.className = v; else e.setAttribute(k, v); } e.append(...kids.flat().filter((x) => x != null && x !== false)); return e; };
+  const v = {};
+  v.time = H("b", { class: "rt" }, "0:00");
+  v.label = H("span", { class: "rl" }, "Enregistrement");
+  v.size = opts.size ? H("span", { class: "rs" }, "") : null;
+  v.pause = H("button", { class: "rb", type: "button", onclick: () => recPause(r) }, "⏸ Pause");
+  v.mute = H("button", { class: "rb", type: "button", onclick: () => recMute(r) }, "🎙 Micro");
+  const stop = H("button", { class: "rb stop", type: "button", onclick: () => recStop(r) }, "■ Arrêter");
+  v.meter = H("span", { class: "rm" }, H("i", {}));
+  v.root = H("div", { class: "rc-bar" }, H("div", { class: "rh" }, H("span", { class: "dot" }), v.label, v.time, v.size), v.meter, H("div", { class: "rbtns" }, v.pause, v.mute, stop));
+  return v;
+}
+
+async function recOpenPip(r, fromClick) {
+  if (!PIP_OK() || r.pip) return;
+  try {
+    const w = await documentPictureInPicture.requestWindow({ width: 300, height: r.camStream ? 360 : 140, disallowReturnToOpener: false });
+    r.pip = w;
+    const st = w.document.createElement("link"); st.rel = "stylesheet"; st.href = location.origin + "/pip.css"; w.document.head.append(st);
+    w.document.title = "Enregistrement";
+    const box = w.document.createElement("div"); box.className = "wrap";
+    if (r.camStream) { const cam = w.document.createElement("div"); cam.className = "cam"; const vid = w.document.createElement("video"); vid.autoplay = true; vid.muted = true; vid.playsInline = true; vid.srcObject = r.camStream; cam.append(vid); box.append(cam); }
+    r.pv = recControls(w.document, r);
+    box.append(r.pv.root); w.document.body.append(box);
+    w.addEventListener("pagehide", () => { r.pv = null; r.pip = null; if (r.ui.view) r.ui.view.pipBtn.hidden = !PIP_OK() || r.state === "done"; });
+    if (r.ui.view) r.ui.view.pipBtn.hidden = true;
+    recPaint(r);
+  } catch (e) { if (fromClick) toast("Fenêtre flottante indisponible : utilisez les boutons de cette page"); }
+}
+// Niveau du micro (petite barre verte)
+function recMeter(r) {
+  const buf = new Uint8Array(r.analyser.frequencyBinCount);
+  const loop = () => {
+    if (r.state === "done") return;
+    r.analyser.getByteTimeDomainData(buf);
+    let m = 0; for (const x of buf) m = Math.max(m, Math.abs(x - 128));
+    const pct = Math.min(100, (m / 64) * 100 * (r.muted ? 0 : 1));
+    for (const v of [r.ui.view, r.pv].filter(Boolean)) v.meter.firstChild.style.width = pct + "%";
+    setTimeout(loop, 120);
+  };
+  loop();
+}
+
+async function viewRec() {
+  if (ME) showBar("/rec"); else $("#bar").hidden = true;
+  const box = h("div", { class: "stack" });
+  const canRec = canRecordScreen();
+  const head = h("div", { class: "rec-head" },
+    h("div", { class: "rec-ic" }, icon("rec")),
+    h("div", null, h("h1", null, "Enregistreur d'écran"), h("p", { class: "sub" }, "Filmez votre écran et expliquez le problème à la voix, comme avec une application d'enregistrement. Fonctionne avec tous vos logiciels : EBP, Sage, Excel…")));
+  const back = ME ? null : h("p", { class: "small" }, h("a", { href: "#/login" }, "← Connexion à Magiscom Tech Desk"));
+  mount(h("div", { class: "stack rec-page" }, back, head, box));
+
+  const ui = { view: null };
+  ui.reset = () => setup();
+  ui.result = () => result();
+
+  function setup() {
+    const o = recOptions();
+    if (!canRec) {
+      box.replaceChildren(h("div", { class: "card stack" },
+        h("h2", null, "Sur téléphone ou tablette"),
+        h("p", null, "Les navigateurs des téléphones ne permettent pas à un site de filmer l'écran. Utilisez l'enregistreur du téléphone, puis envoyez la vidéo :"),
+        h("ol", { class: "rec-steps" },
+          h("li", null, h("b", null, "Android : "), "faites glisser le haut de l'écran vers le bas, touchez « Enregistrement d'écran » (ou utilisez AZ Screen Recorder). Activez le micro pour parler."),
+          h("li", null, h("b", null, "iPhone : "), "ouvrez le Centre de contrôle, touchez ⏺ (appui long pour activer le micro)."),
+          h("li", null, "Ouvrez votre demande dans Magiscom Tech Desk et ajoutez la vidéo avec 📎 (jusqu'à 5 Go).")),
+        ME ? h("a", { class: "btn primary", href: "#/new" }, "Nouvelle demande") : h("a", { class: "btn primary", href: "#/login" }, "Se connecter")));
+      return;
+    }
+    const opt = (key, ic, label, hint, disabled) => {
+      const cb = h("input", { type: "checkbox", checked: o[key] && !disabled, disabled: !!disabled });
+      cb.addEventListener("change", () => { o[key] = cb.checked; saveRecOptions(o); });
+      return h("label", { class: "rec-opt" + (disabled ? " dis" : "") }, cb, h("span", { class: "rec-sw" }), h("span", { class: "rec-oi" }, ic), h("span", null, h("b", null, label), h("span", { class: "small muted" }, hint)));
+    };
+    const quality = h("div", { class: "seg" },
+      h("button", { type: "button", "aria-pressed": String(!o.hd), onclick: (e) => { o.hd = false; saveRecOptions(o); e.target.parentNode.children[0].setAttribute("aria-pressed", "true"); e.target.parentNode.children[1].setAttribute("aria-pressed", "false"); } }, "Standard 720p"),
+      h("button", { type: "button", "aria-pressed": String(o.hd), onclick: (e) => { o.hd = true; saveRecOptions(o); e.target.parentNode.children[1].setAttribute("aria-pressed", "true"); e.target.parentNode.children[0].setAttribute("aria-pressed", "false"); } }, "HD 1080p"));
+    const start = h("button", { class: "btn rec-go", type: "button" }, h("span", { class: "rec-dot" }), "Démarrer l'enregistrement");
+    start.addEventListener("click", async () => {
+      start.disabled = true;
+      const r = await recStart(o, ui);
+      start.disabled = false;
+      if (!r) return;
+      recording(r, o);
+    });
+    box.replaceChildren(...[
+      REC.last ? h("div", { class: "card row between rec-prev" }, h("span", null, "🎬 Un enregistrement n'a pas encore été envoyé ou téléchargé."), h("button", { class: "btn sm", type: "button", onclick: result }, "Le revoir")) : null,
+      h("div", { class: "rec-grid" },
+        h("div", { class: "card stack" },
+          h("h2", null, "Réglages"),
+          opt("mic", "🎙", "Ma voix (micro)", "Expliquez le problème en parlant"),
+          opt("sys", "🔊", "Son de l'ordinateur", "Les bips et messages sonores du logiciel"),
+          opt("cam", "📷", "Ma caméra (bulle)", PIP_OK() ? "Une petite fenêtre avec votre visage, filmée avec l'écran" : "Non disponible sur ce navigateur (utilisez Chrome ou Edge)", !PIP_OK()),
+          opt("count", "⏱", "Compte à rebours 3 s", "Le temps d'aller dans votre logiciel"),
+          h("div", { class: "f" }, h("span", { class: "small" }, "Qualité"), quality),
+          start),
+        h("div", { class: "card stack rec-how" },
+          h("h2", null, "Comment ça marche"),
+          h("ol", { class: "rec-steps" },
+            h("li", null, "Touchez ", h("b", null, "Démarrer"), ", puis choisissez ", h("b", null, "« Écran entier »"), " pour filmer tous vos logiciels (ou seulement une fenêtre)."),
+            h("li", null, "Allez dans votre logiciel et montrez le problème ", h("b", null, "en parlant"), ". Les commandes flottantes restent visibles au-dessus de tout."),
+            h("li", null, "Touchez ", h("b", null, "■ Arrêter"), " : revoyez la vidéo, ", h("b", null, "téléchargez-la"), " ou ", h("b", null, "envoyez-la au support"), ".")),
+          h("p", { class: "small muted" }, "Pas de limite d'une heure. La vidéo reste sur votre ordinateur tant que vous ne l'envoyez pas.")))].filter(Boolean));
+  }
+
+  function recording(r, o) {
+    const v = recControls(document, r, { size: true });
+    v.pipBtn = h("button", { class: "btn", type: "button", hidden: !PIP_OK(), onclick: () => recOpenPip(r, true) }, "📌 Commandes flottantes");
+    ui.view = v;
+    const count = h("div", { class: "rec-count" }, "3");
+    box.replaceChildren(h("div", { class: "card stack rec-live" + (o.count ? " counting" : "") }, count, v.root,
+      h("p", { class: "muted small" }, "Vous pouvez aller dans votre logiciel : l'enregistrement continue. Pour arrêter : ■ Arrêter, ou « Arrêter le partage » en bas de l'écran."), v.pipBtn));
+    // Fenêtre flottante tout de suite si le navigateur l'autorise, sinon au clic
+    recOpenPip(r);
+    if (!r.meterOn) { r.meterOn = true; recMeter(r); }
+    recPaint(r);
+    if (r.state !== "count") { count.remove(); box.querySelector(".rec-live")?.classList.remove("counting"); }
+    else if (o.count) {
+      let n = 3;
+      r.cd = setInterval(() => { n--; if (n <= 0) { clearInterval(r.cd); count.remove(); box.querySelector(".rec-live")?.classList.remove("counting"); recBegin(r); } else count.textContent = String(n); }, 1000);
+    } else { count.remove(); recBegin(r); }
+  }
+
+  function result() {
+    const L = REC.last;
+    if (!L) return setup();
+    ui.view = null;
+    const dl = h("a", { class: "btn primary", href: L.url, download: L.file.name }, "💾 Télécharger la vidéo");
+    const err = errBox();
+    const prog = h("div", { class: "rec-prog", hidden: true }, h("i"));
+    const sendBox = h("div", { class: "stack" });
+    const sent = () => sendBox.replaceChildren(h("div", { class: "ok-box" }, "✅ Vidéo envoyée à Magiscom Tech. ", h("a", { href: "#/t/" + L.sent }, "Voir la demande")));
+    const fill = async () => {
+      if (L.sent) return sent();
+      if (!ME) {
+        sendBox.replaceChildren(h("p", null, "Pour envoyer la vidéo à l'équipe Magiscom Tech, connectez-vous. La vidéo vous attend ici."),
+          h("div", { class: "row" }, h("a", { class: "btn primary", href: "#/login" }, "Se connecter"), h("a", { class: "btn", href: "#/register" }, "Créer un compte")));
+        return;
+      }
+      const chooser = await ticketChooser(ME.role === "admin");
+      const msg = h("textarea", { maxlength: 5000, placeholder: "Message (facultatif) : ce que montre la vidéo…" });
+      const send = h("button", { class: "btn primary", type: "button" }, "📤 Envoyer à Magiscom Tech");
+      send.addEventListener("click", async () => {
+        err.hidden = true;
+        if (!chooser.count() && ME.role === "admin") return showErr(err, new Error("Aucune demande"));
+        send.disabled = true; prog.hidden = false;
+        BUSY_UPLOADS++;
+        try {
+          const onp = (p) => (prog.firstChild.style.width = Math.round(p * 100) + "%");
+          const att = L.file.size > MAX_VID ? await uploadBigFile(L.file, L.type, onp) : await uploadFile(L.file, L.type, onp);
+          const body = (msg.value.trim() ? msg.value.trim() + "\n\n" : "") + "🖥 Enregistrement de l'écran · " + clock(L.secs);
+          let tid;
+          if (chooser.isNew()) {
+            const subject = chooser.title().length >= 3 ? chooser.title() : "Problème montré en vidéo";
+            tid = (await api("/api/tickets", { method: "POST", body: { subject, category: "autre", body, attachments: [att.id] } })).ticket.id;
+          } else {
+            tid = chooser.value();
+            await api(`/api/tickets/${tid}/messages`, { method: "POST", body: { body, attachments: [att.id] } });
+          }
+          L.sent = tid; toast("Vidéo envoyée"); sent();
+        } catch (e) { showErr(err, e); send.disabled = false; }
+        BUSY_UPLOADS--; prog.hidden = true;
+      });
+      sendBox.replaceChildren(chooser.el, msg, prog, send);
+    };
+    box.replaceChildren(h("div", { class: "rec-grid res" },
+      h("div", { class: "card stack" }, h("video", { class: "rec-video", src: L.url, controls: true, playsinline: true }),
+        h("div", { class: "row between small muted" }, h("span", null, "⏱ " + clock(L.secs) + " · " + fmtSize(L.file.size) + " · " + (L.type === "video/mp4" ? "MP4" : "WEBM")), h("span", null, L.file.name)),
+        h("div", { class: "row" }, dl, h("button", { class: "btn", type: "button", onclick: () => { if (L.sent || confirmDiscard()) { URL.revokeObjectURL(L.url); REC.last = null; setup(); } } }, "⏺ Nouvel enregistrement"))),
+      h("div", { class: "card stack" }, h("h2", null, "Envoyer au support"), sendBox, err)));
+    fill();
+  }
+  const confirmDiscard = () => {
+    const b = box.querySelector(".rec-discard");
+    if (b) return true;
+    toast("Cette vidéo n'a pas été envoyée : touchez encore « Nouvel enregistrement » pour la supprimer, ou téléchargez-la d'abord.");
+    box.append(h("span", { class: "rec-discard", hidden: true }));
+    return false;
+  };
+
+  if (REC.cur && REC.cur.state !== "done") { REC.cur.ui = ui; recording(REC.cur, recOptions()); }
+  else if (REC.last && !REC.last.sent) result();
+  else setup();
+}
 // ---------- Routeur ----------
 async function router() {
   clearInterval(pollTimer); pollTimer = null;
@@ -1465,6 +1756,7 @@ async function router() {
       if (r.ok) ME = (await r.json()).user;
     } catch {}
   }
+  if (path === "/rec") { if (ME) startIncomingPoll(); VA.hide(); VC.hide(); return viewRec(); }
   if (!ME) { VA.hide(); VC.hide(); return viewAuth(path === "/register" ? "register" : "login"); }
   startIncomingPoll();
   if (ME.role === "admin") { VA.show(); VC.hide(); } else { VA.hide(); VC.show(); }

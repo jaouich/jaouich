@@ -19,7 +19,7 @@ const DB = { prepare: (sql) => stmt(sql), batch: async (list) => Promise.all(lis
 // Second database: the Testnet game's data, read by the Mainnet copy (carry-over test)
 const tdb = new DatabaseSync(":memory:"), tstmt = mkStmt(tdb);
 const TESTNET_DB = { prepare: (sql) => tstmt(sql) };
-const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png" };
+const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".mp4": "video/mp4" };
 const ASSETS = { fetch: async (req) => {
   let p = new URL(req.url).pathname; if (p === "/") p = "/index.html";
   try { return new Response(fs.readFileSync(path.join(ROOT, "public", p)), { headers: { "Content-Type": MIME[path.extname(p)] || "text/plain" } }); }

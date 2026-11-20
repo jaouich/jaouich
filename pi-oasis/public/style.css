@@ -1240,3 +1240,16 @@ body.k-open { overflow: hidden; }
 .sup-wall { margin: 10px 0 0; padding: 10px 12px; border-radius: 16px; background: #fff8e6; border: 1px solid #f0d79a; font-size: .82rem; }
 .sup-wall div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .sup-wall span { background: #fff; border: 1px solid #f0d79a; border-radius: 99px; padding: 2px 9px; }
+
+/* Welcome screen outside Pi Browser, share bar */
+.pg-langs { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; }
+.pg-langs button { border: 1px solid #e6c787; background: #fff; border-radius: 99px; padding: 4px 11px; font: inherit; font-size: .82rem; cursor: pointer; color: var(--ink); }
+.pg-langs button.on { background: #ffd34d; border-color: #e2a918; font-weight: 800; }
+.pg-pts { list-style: none; padding: 0; margin: 6px 0 12px; text-align: start; display: flex; flex-direction: column; gap: 6px; }
+.pg-pts li { background: #fff8e6; border: 1px solid #f0d79a; border-radius: 12px; padding: 7px 10px; font-size: .86rem; line-height: 1.4; }
+.pg-learn { display: block; margin-top: 8px; text-decoration: none; text-align: center; }
+.learn-bar { background: linear-gradient(135deg, #0f6b4a, #2fae78 55%, #b8860b); }
+.jshare { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; margin: 8px 0; }
+.js-b { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; border: 1px solid #f0d79a; background: #fff; color: var(--ink); text-decoration: none; font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
+.js-b i { font-style: normal; font-size: 20px; }
+.js-wa { background: #e7f8ee; border-color: #25d366; } .js-fb { background: #e8f0fe; border-color: #1877f2; } .js-tg { background: #e6f4fb; border-color: #2aabee; }

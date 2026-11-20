@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pi Oasis · Learn</title>
+<meta name="theme-color" content="#0f6b4a">
+<meta name="description" content="Pi Oasis on Pi Network: videos and the full guide in Arabic, English and French.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pi Oasis · Videos & guide">
+<meta property="og:description" content="Farm, camels, Camel Derby, Jerry Kombat and 100 winners every week. Videos and guide in Arabic, English and French.">
+<meta property="og:image" content="https://jerryoasis9559.pinet.com/og-image.jpg">
+<meta property="og:url" content="https://jerryoasis9559.pinet.com/learn.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root { --bg: #fbf0d9; --ink: #3a2614; --card: #fffaf0; --line: #f0d79a; --green: #0f6b4a; --gold: #ffc21a; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif; line-height: 1.6; }
+header { background: radial-gradient(120% 120% at 80% 0%, #35b983 0%, #0f6b4a 50%, #06281c 100%); color: #fff; padding: 18px 16px 22px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; max-width: 760px; margin: 0 auto; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; }
+.brand img { width: 40px; height: 40px; border-radius: 10px; }
+.langs { display: flex; gap: 6px; }
+.langs button { border: 1px solid rgba(255,255,255,.5); background: rgba(255,255,255,.12); color: #fff; border-radius: 99px; padding: 5px 11px; font: inherit; font-size: .85rem; cursor: pointer; }
+.langs button.on { background: #ffd34d; color: var(--ink); border-color: #ffd34d; font-weight: 800; }
+.hero { max-width: 760px; margin: 14px auto 0; }
+.hero h1 { margin: 0 0 4px; font-size: 1.7rem; line-height: 1.25; }
+.hero p { margin: 0; opacity: .92; }
+.cta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 11px 16px; border-radius: 14px; font-weight: 800; text-decoration: none; border: 0; cursor: pointer; font: inherit; }
+.btn.gold { background: linear-gradient(#fff6c2, var(--gold)); color: #2a1162; box-shadow: 0 4px 0 #a85f00; }
+.btn.ghost { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.45); }
+main { max-width: 760px; margin: 0 auto; padding: 8px 16px 40px; }
+h2 { font-size: 1.25rem; margin: 26px 0 10px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin-bottom: 10px; box-shadow: 0 3px 0 #e6c787; }
+.steps { counter-reset: s; display: grid; gap: 8px; }
+.steps div { display: flex; gap: 10px; align-items: flex-start; }
+.steps div::before { counter-increment: s; content: counter(s); flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--green); color: #fff; font-weight: 800; display: grid; place-items: center; }
+.url { direction: ltr; unicode-bidi: isolate; font-weight: 800; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 1px 6px; }
+.vids { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.vid { background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.vid video { width: 100%; display: block; background: #000; aspect-ratio: 9 / 16; object-fit: contain; }
+.vid.wide video { aspect-ratio: 4 / 5; }
+.vid div { padding: 10px 12px; }
+.vid b { display: block; }
+.vid small { opacity: .75; }
+.tag { display: inline-block; font-size: .72rem; font-weight: 800; background: #fff1d6; border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px; margin-top: 4px; }
+.guide { display: grid; gap: 8px; }
+details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; }
+summary { cursor: pointer; font-weight: 800; }
+details p { margin: 8px 0 2px; }
+.warn { background: #fde8e4; border-color: #f3a99b; }
+.jshare { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.js-b { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: 14px; border: 1px solid var(--line); background: #fff; color: var(--ink); text-decoration: none; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.js-b i { font-style: normal; font-size: 22px; }
+.js-wa { background: #e7f8ee; border-color: #25d366; } .js-fb { background: #e8f0fe; border-color: #1877f2; } .js-tg { background: #e6f4fb; border-color: #2aabee; }
+footer { text-align: center; font-size: .8rem; opacity: .7; padding: 20px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #14100a; --ink: #f5ead6; --card: #221a10; --line: #4a3a22; } :root:not([data-theme="light"]) .js-b, :root:not([data-theme="light"]) .url, :root:not([data-theme="light"]) .tag { background: #2c2216; color: var(--ink); } :root:not([data-theme="light"]) .warn { background: #3a1d17; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="brand"><img src="logo-1024.png" alt=""><span>Pi Oasis</span></div>
+    <div class="langs"><button data-l="ar">العربية</button><button data-l="en">English</button><button data-l="fr">Français</button></div>
+  </div>
+  <div class="hero"><h1 id="h1"></h1><p id="lead"></p>
+    <div class="cta"><a id="play" class="btn gold" href="/"></a><a id="getpi" class="btn ghost" href="https://minepi.com" target="_blank" rel="noopener"></a></div>
+  </div>
+</header>
+<main>
+  <h2 id="t-start"></h2><div class="card steps" id="start"></div>
+  <h2 id="t-videos"></h2><div class="vids" id="videos"></div>
+  <h2 id="t-guide"></h2><div class="guide" id="guide"></div>
+  <h2 id="t-share"></h2><p id="share-d"></p><div id="share"></div>
+  <h2 id="t-safe"></h2><div class="card warn" id="safe"></div>
+</main>
+<footer>Jerry Development · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></footer>
+<script src="share.js"></script>
+<script>
+const SITE = "https://jerryoasis9559.pinet.com";
+const T = {
+ar: { dir: "rtl", h1: "واحة باي على شبكة Pi 🌴", lead: "لعبة مجانية من مجتمع Jerry Development: مزرعة، جِمال، مدينة، سباق الجمال، جيري كومبات، و100 فائز كل أسبوع.",
+  play: "📲 افتح اللعبة في متصفح Pi", getpi: "ليس عندك متصفح Pi؟", tStart: "ابدأ في 3 خطوات",
+  start: ["افتح تطبيق <b>متصفح Pi</b> (Pi Browser) على هاتفك.", "اكتب في شريط البحث: <span class='url'>jerryoasis9559.pinet.com</span>", "سجّل الدخول بحساب Pi بضغطة واحدة… والعب! اللعبة بالعربية والفرنسية والإنجليزية."],
+  tVideos: "🎬 الفيديوهات", tGuide: "📖 الشرح الكامل", tShare: "📤 شارك مع أصدقائك", shareD: "كل صديق يدخل من رابطك يُحسب لك، وتربح 10% من مشترياته.", tSafe: "🛡️ احمِ نفسك",
+  safe: "لا تعطِ أبدًا كلماتك السرية (24 كلمة) أو مفتاحك الخاص لأي أحد. فريق Jerry Development لن يطلبها منك أبدًا. الدفع في اللعبة بعملة Pi فقط ومن داخل اللعبة.",
+  share: "🌴 واحة باي: لعبة مجانية على شبكة Pi! مزرعة، جِمال، سباق، كومبات و100 فائز كل أسبوع. افتحها في متصفح Pi:",
+  copy: "نسخ", copied: "✓ تم النسخ", more: "تطبيقات أخرى",
+  videos: [["mainnet-ar", "واحة باي على Mainnet", "الشرح العام بالعربية · 4 دقائق", "العربية", ""], ["tour-ar", "جولة في اللعبة", "كل الأنشطة في دقيقة", "العربية", "wide"], ["demo-en", "Pi Oasis demo", "عرض بالإنجليزية مع الصوت · دقيقتان", "English", ""]],
+  guide: [
+   ["🌾 المزرعة", "اختر بذرة وازرعها، ثم احصد التمر عندما ينضج. التمر هو عملة الواحة."],
+   ["🐪 الجِمال والمدينة", "الجِمال تجلب التمر كل ساعة. ابنِ مدينتك بالبيوت والورشات والحدائق، وهي تدفع لك الضرائب. والمخزن يعيد لك تمرك مع مكافأة."],
+   ["🏆 100 فائز كل أسبوع", "الترتيب حسب التمر الذي تربحه باللعب. أفضل 100 يتقاسمون صندوق Pi ويحصلون على التمر وJRY، والثلاثة الأوائل يربحون جملًا. المشتريات لا تُحتسب."],
+   ["⚔️ جيري كومبات", "انقر على جيري، طوّر البطاقات، هاجم الزعماء مع الجميع، واصعد في الدوريات. بطولة كل أسبوع لأفضل 100."],
+   ["🏁 سباق الجمال", "درّب سرعة جملك وتحمّله وانطلاقته، واختر خطة، وسابق لاعبين حقيقيين. 8 سباقات مجانية كل يوم."],
+   ["🎯 المهام والإعلانات", "مركز المهام فيه مهام يومية وأسبوعية وخاصة. وفي Jerry Media Earnings تشاهد إعلانات Pi وتربح التمر."],
+   ["🎡 العجلة والسوق والأركيد", "دورة مجانية كل يوم في عجلة الحظ، وسوق لبيع نقاطك للاعبين مقابل Pi، وألعاب مهارة مجانية."],
+   ["👑 النادي والباقات", "اشتراكات برونزية وفضية وذهبية، وباقات ارتقاء من 0.1 Pi، والداعمون المؤسسون. الدفع بعملة Pi فقط."],
+   ["💠 عملة JRY", "عملة داخل اللعبة لمجتمع Jerry Development. لدينا خطة لطلب إدراجها في Pi عبر الـ Launchpad الرسمي، وهي ليست عرض استثمار."],
+   ["🤝 الدعوات", "شارك رابطك من تبويب النادي، واربح 10% من مشتريات أصدقائك."]] },
+en: { dir: "ltr", h1: "Pi Oasis on Pi Network 🌴", lead: "A free game from the Jerry Development community: farm, camels, city, Camel Derby, Jerry Kombat, and 100 winners every week.",
+  play: "📲 Open the game in Pi Browser", getpi: "No Pi Browser yet?", tStart: "Start in 3 steps",
+  start: ["Open the <b>Pi Browser</b> app on your phone.", "Type in the search bar: <span class='url'>jerryoasis9559.pinet.com</span>", "Sign in with your Pi account in one tap… and play! Available in English, Arabic and French."],
+  tVideos: "🎬 Videos", tGuide: "📖 Full guide", tShare: "📤 Share with friends", shareD: "Every friend who joins from your link counts for you, and you earn 10% of their purchases.", tSafe: "🛡️ Stay safe",
+  safe: "Never share your 24 secret words or private key with anyone. The Jerry Development team will never ask for them. Payments in the game are in Pi only, and only inside the game.",
+  share: "🌴 Pi Oasis: a free game on Pi Network! Farm, camels, racing, Kombat and 100 winners every week. Open it in Pi Browser:",
+  copy: "Copy", copied: "✓ Copied", more: "More apps",
+  videos: [["demo-en", "Pi Oasis demo", "English, with voice · 2 min", "English", ""], ["mainnet-ar", "Pi Oasis on Mainnet", "Full overview · 4 min", "العربية", ""], ["tour-ar", "Game tour", "Every activity in one minute", "العربية", "wide"]],
+  guide: [
+   ["🌾 Farm", "Pick a seed, plant it, and harvest dates when it's ready. Dates are the oasis currency."],
+   ["🐪 Camels & city", "Camels bring dates every hour. Build your city with houses, workshops and gardens: it pays you taxes. The granary gives your dates back with a bonus."],
+   ["🏆 100 winners every week", "The ranking counts the dates you earn by playing. The top 100 share a Pi prize pool and get dates and JRY; the top 3 also win a camel. Purchases never count."],
+   ["⚔️ Jerry Kombat", "Tap Jerry, upgrade cards, fight bosses with everyone and climb the leagues. A tournament every week for the top 100."],
+   ["🏁 Camel Derby", "Train your camel's speed, stamina and start, choose a tactic and race real players. 8 free races a day."],
+   ["🎯 Tasks & ads", "The Task center has daily, weekly and special tasks. In Jerry Media Earnings you watch Pi ads and earn dates."],
+   ["🎡 Wheel, market & arcade", "A free daily spin on the lucky wheel, a market to sell your points to players for Pi, and free skill games."],
+   ["👑 Club & packs", "Bronze, silver and gold memberships, level-up packs from 0.1 Pi, and founding supporters. Payments in Pi only."],
+   ["💠 JRY", "The in-game currency of the Jerry Development community. We plan to apply for a Pi listing through the official Launchpad; it is not an investment offer."],
+   ["🤝 Invites", "Share your link from the Club tab and earn 10% of your friends' purchases."]] },
+fr: { dir: "ltr", h1: "Pi Oasis sur Pi Network 🌴", lead: "Un jeu gratuit de la communauté Jerry Development : ferme, chameaux, ville, Course de chameaux, Jerry Kombat et 100 gagnants chaque semaine.",
+  play: "📲 Ouvrir le jeu dans Pi Browser", getpi: "Pas encore Pi Browser ?", tStart: "Commencer en 3 étapes",
+  start: ["Ouvre l'application <b>Pi Browser</b> sur ton téléphone.", "Tape dans la barre de recherche : <span class='url'>jerryoasis9559.pinet.com</span>", "Connecte-toi avec ton compte Pi en un clic… et joue ! En français, arabe et anglais."],
+  tVideos: "🎬 Vidéos", tGuide: "📖 Guide complet", tShare: "📤 Partage avec tes amis", shareD: "Chaque ami qui arrive par ton lien compte pour toi, et tu gagnes 10 % de ses achats.", tSafe: "🛡️ Reste prudent",
+  safe: "Ne partage jamais tes 24 mots secrets ni ta clé privée. L'équipe Jerry Development ne te les demandera jamais. Les paiements se font uniquement en Pi, dans le jeu.",
+  share: "🌴 Pi Oasis : un jeu gratuit sur Pi Network ! Ferme, chameaux, courses, Kombat et 100 gagnants chaque semaine. Ouvre-le dans Pi Browser :",
+  copy: "Copier", copied: "✓ Copié", more: "Autres apps",
+  videos: [["demo-en", "Démo Pi Oasis", "En anglais, avec voix · 2 min", "English", ""], ["mainnet-ar", "Pi Oasis sur le Mainnet", "Présentation complète · 4 min", "العربية", ""], ["tour-ar", "Visite du jeu", "Toutes les activités en une minute", "العربية", "wide"]],
+  guide: [
+   ["🌾 La ferme", "Choisis une graine, plante-la et récolte des dattes quand elle est prête. Les dattes sont la monnaie de l'oasis."],
+   ["🐪 Chameaux et ville", "Les chameaux rapportent des dattes chaque heure. Construis ta ville (maisons, ateliers, jardins) : elle te verse des impôts. Le grenier rend tes dattes avec un bonus."],
+   ["🏆 100 gagnants par semaine", "Le classement compte les dattes gagnées en jouant. Le top 100 partage une cagnotte en Pi et reçoit des dattes et des JRY ; le top 3 gagne aussi un chameau. Les achats ne comptent jamais."],
+   ["⚔️ Jerry Kombat", "Tape sur Jerry, améliore tes cartes, combats les boss avec tout le monde et monte dans les ligues. Un tournoi chaque semaine pour le top 100."],
+   ["🏁 Course de chameaux", "Entraîne la vitesse, l'endurance et le départ de ton chameau, choisis une tactique et affronte de vrais joueurs. 8 courses gratuites par jour."],
+   ["🎯 Missions et pubs", "Le Centre de missions propose des missions du jour, de la semaine et spéciales. Dans Jerry Media Earnings, tu regardes des pubs Pi et gagnes des dattes."],
+   ["🎡 Roue, marché et arcade", "Un tour gratuit par jour à la roue, un marché pour vendre tes points aux joueurs contre des Pi, et des jeux d'adresse gratuits."],
+   ["👑 Club et packs", "Abonnements bronze, argent et or, packs de progression dès 0,1 Pi, et soutiens fondateurs. Paiements en Pi uniquement."],
+   ["💠 JRY", "La monnaie du jeu de la communauté Jerry Development. Nous prévoyons de demander son inscription via le Launchpad officiel de Pi ; ce n'est pas une offre d'investissement."],
+   ["🤝 Invitations", "Partage ton lien depuis l'onglet Club et gagne 10 % des achats de tes amis."]] },
+};
+const qs = new URLSearchParams(location.search);
+const ref = (qs.get("ref") || "").replace(/[^\w.-]/g, "").slice(0, 40);
+const gameUrl = SITE + "/" + (ref ? "?ref=" + encodeURIComponent(ref) : "");
+const inPi = /PiBrowser/i.test(navigator.userAgent || "");
+const android = /Android/i.test(navigator.userAgent || "");
+const openUrl = inPi ? "/" + (ref ? "?ref=" + encodeURIComponent(ref) : "")
+  : android ? `intent://jerryoasis9559.pinet.com/${ref ? "?ref=" + encodeURIComponent(ref) : ""}#Intent;scheme=pi;package=pi.browser;S.browser_fallback_url=${encodeURIComponent("https://play.google.com/store/apps/details?id=pi.browser")};end`
+  : "pi://jerryoasis9559.pinet.com/" + (ref ? "?ref=" + encodeURIComponent(ref) : "");
+const $ = (id) => document.getElementById(id);
+function show(l) {
+  const d = T[l] || T.ar;
+  document.documentElement.lang = l; document.documentElement.dir = d.dir;
+  document.querySelectorAll(".langs button").forEach((b) => b.classList.toggle("on", b.dataset.l === l));
+  $("h1").textContent = d.h1; $("lead").textContent = d.lead;
+  $("play").textContent = d.play; $("play").href = openUrl; $("getpi").textContent = d.getpi;
+  $("t-start").textContent = d.tStart; $("start").innerHTML = d.start.map((x) => `<div><span>${x}</span></div>`).join("");
+  $("t-videos").textContent = d.tVideos;
+  $("videos").innerHTML = d.videos.map(([id, t, s, lang, wide]) => `<div class="vid ${wide}"><video src="videos/${id}.mp4" poster="videos/${id}.jpg" controls preload="none" playsinline></video><div><b>${t}</b><small>${s}</small><br><span class="tag">${lang}</span></div></div>`).join("");
+  $("t-guide").textContent = d.tGuide; $("guide").innerHTML = d.guide.map(([t, p]) => `<details><summary>${t}</summary><p>${p}</p></details>`).join("");
+  $("t-share").textContent = d.tShare; $("share-d").textContent = d.shareD;
+  JShare.bar($("share"), { url: gameUrl, text: d.share, labels: { copy: d.copy, copied: d.copied, more: d.more } });
+  $("t-safe").textContent = d.tSafe; $("safe").textContent = d.safe;
+  try { localStorage.setItem("oasis_lang", l); } catch (e) {}
+  const u = new URL(location.href); u.searchParams.set("lang", l); history.replaceState(null, "", u);
+}
+document.querySelector(".langs").addEventListener("click", (e) => { const b = e.target.closest("[data-l]"); if (b) show(b.dataset.l); });
+let start = qs.get("lang");
+if (!T[start]) { try { start = localStorage.getItem("oasis_lang"); } catch (e) {} }
+if (!T[start]) start = /^ar/i.test(navigator.language) ? "ar" : /^fr/i.test(navigator.language) ? "fr" : /^en/i.test(navigator.language) ? "en" : "ar";
+show(start);
+</script>
+</body>
+</html>

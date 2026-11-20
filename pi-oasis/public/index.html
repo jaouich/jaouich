@@ -8,10 +8,10 @@
   <meta name="description" content="A farming & trading game in a Moroccan oasis. Plant, harvest, stake dates and climb the weekly leaderboard.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Pi Oasis">
-  <meta property="og:description" content="A farming & trading game in a Moroccan oasis. Plant, harvest, stake dates and climb the weekly leaderboard.">
-  <meta property="og:image" content="https://pi-oasis.jaouich.workers.dev/logo-1024.png">
-  <meta property="og:url" content="https://pi-oasis.jaouich.workers.dev/">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:description" content="🌴 Free game on Pi Network: farm, camels, Camel Derby, Jerry Kombat and 100 winners every week. لعبة مجانية على شبكة Pi.">
+  <meta property="og:image" content="https://jerryoasis9559.pinet.com/og-image.jpg">
+  <meta property="og:url" content="https://jerryoasis9559.pinet.com/">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/svg+xml" href="logo.svg">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -261,6 +261,7 @@
         </div>
       </div>
       <button id="jryOpen" class="jry-bar" type="button"><i>💠</i><span><b data-i18n="jt.bar.t"></b><small data-i18n="jt.bar.d"></small></span><em data-i18n="jt.bar.go"></em></button>
+      <a id="learnBar" class="jry-bar learn-bar" href="learn.html"><i>📚</i><span><b data-i18n="learn.t"></b><small data-i18n="learn.d"></small></span><em data-i18n="jt.bar.go"></em></a>
       <div id="spStrip" class="sp-strip hidden"></div>
       <div id="missions" class="missions"></div>
       <h2 data-i18n="farm.title"></h2>
@@ -364,6 +365,7 @@
           <button id="shareRef" class="btn small gold" data-i18n="ref.share"></button>
           <button id="copyPiRef" class="btn small secondary" data-i18n="ref.copyPi"></button>
         </div>
+        <div id="refShare"></div>
         <p class="hint" data-i18n="ref.hintBrowser"></p>
         <p><span data-i18n="ref.code"></span> <b id="refCode">—</b></p>
         <div id="inviterBox" class="hidden">
@@ -531,6 +533,7 @@
   <script src="kombat-logic.js"></script>
   <script src="logic.js"></script>
   <script src="derby-logic.js"></script>
+  <script src="share.js"></script>
   <script src="pi.js"></script>
   <script src="game.js"></script>
   <script src="kombat.js"></script>

@@ -1178,6 +1178,7 @@
       account = res.account;
       document.getElementById("piGate")?.remove(); // signed in, so this is Pi Browser
       setTimeout(goFromLink, 400);
+      setTimeout(renderShare, 0);
       publicUrl = res.publicUrl || "";
       if (res.via === "appstudio" && !res.canBuy) enterOldApp(); // purchases only work in the official app until its key is set
       S = res.state; // the server's game replaces the guest demo
@@ -1217,22 +1218,30 @@
       : piUrl;
     const d = document.createElement("div");
     d.id = "piGate";
-    d.innerHTML = `<div class="pg-card">
-      <div class="pg-logo">🌴</div>
-      <h2>${esc(t("pg.title"))}</h2>
-      <p>${esc(t("pg.text"))}</p>
-      <a class="btn gold pg-open" href="${esc(openUrl)}">${esc(t("pg.open"))}</a>
-      <p class="hint">${esc(t("pg.manual"))}</p>
-      <button class="btn small secondary pg-copy" type="button"><b dir="ltr">${esc(location.host)}</b> · ${esc(t("pg.copy"))}</button>
-      <a class="pg-get" href="https://minepi.com" target="_blank" rel="noopener">${esc(t("pg.get"))}</a>
-      <button class="pg-stay" type="button">${esc(t("pg.stay"))}</button>
-    </div>`;
+    const ref = new URLSearchParams(location.search).get("ref") || "";
+    function draw() {
+      const l = window.I18N.lang;
+      d.innerHTML = `<div class="pg-card">
+        <div class="pg-langs">${[["ar", "العربية"], ["en", "English"], ["fr", "Français"]].map(([k, n]) => `<button type="button" data-pl="${k}" class="${k === l ? "on" : ""}">${n}</button>`).join("")}</div>
+        <div class="pg-logo">🌴</div>
+        <h2>${esc(t("pg.hello"))}</h2>
+        <ul class="pg-pts"><li>${esc(t("pg.b1"))}</li><li>${esc(t("pg.b2"))}</li><li>${esc(t("pg.b3"))}</li></ul>
+        <a class="btn gold pg-open" href="${esc(openUrl)}">${esc(t("pg.open"))}</a>
+        <a class="btn small pg-learn" href="learn.html?lang=${l}${ref ? "&ref=" + encodeURIComponent(ref) : ""}">📚 ${esc(t("pg.learn"))}</a>
+        <p class="hint">${esc(t("pg.manual"))}</p>
+        <button class="btn small secondary pg-copy" type="button"><b dir="ltr">${esc(location.host)}</b> · ${esc(t("pg.copy"))}</button>
+        <a class="pg-get" href="https://minepi.com" target="_blank" rel="noopener">${esc(t("pg.get"))}</a>
+        <button class="pg-stay" type="button">${esc(t("pg.stay"))}</button>
+      </div>`;
+    }
+    draw();
     document.body.appendChild(d);
-    d.querySelector(".pg-copy").addEventListener("click", () =>
-      navigator.clipboard?.writeText(location.host + location.search).then(() => toast(t("t.copied")), () => {}));
-    d.querySelector(".pg-stay").addEventListener("click", () => {
-      try { sessionStorage.setItem("oasis.stay", "1"); } catch (e) {}
-      d.remove();
+    document.addEventListener("langchange", () => { if (document.body.contains(d)) draw(); });
+    d.addEventListener("click", (e) => {
+      const lb = e.target.closest("[data-pl]");
+      if (lb) { window.I18N.set(lb.dataset.pl); $("langSelect").value = lb.dataset.pl; return; }
+      if (e.target.closest(".pg-copy")) navigator.clipboard?.writeText(location.host + location.search).then(() => toast(t("t.copied")), () => {});
+      if (e.target.closest(".pg-stay")) { try { sessionStorage.setItem("oasis.stay", "1"); } catch (er) {} d.remove(); }
     });
   })();
 
@@ -1604,6 +1613,16 @@
   $("jryOpen").addEventListener("click", () => { $("jrypage").classList.remove("hidden"); renderJryPage(); });
   $("jrypage").addEventListener("click", (e) => { const b = e.target.closest("[data-jt]"); if (b && b.dataset.jt === "close") $("jrypage").classList.add("hidden"); });
   document.addEventListener("langchange", () => { if (!$("jrypage").classList.contains("hidden")) renderJryPage(); });
+
+  // 📚 Videos & guide page, and share buttons for the invite link
+  function learnHref() { return "learn.html?lang=" + window.I18N.lang + (account ? "&ref=" + encodeURIComponent(account.username) : ""); }
+  function renderShare() {
+    $("learnBar").href = learnHref();
+    if (!account || !window.JShare) { $("refShare").innerHTML = ""; return; }
+    window.JShare.bar($("refShare"), { url: G_refLink(), text: t("share.text"), labels: { copy: t("js.copy"), copied: t("js.copied"), more: t("js.more") } });
+  }
+  const G_refLink = () => `${publicUrl || location.origin + location.pathname}?ref=${encodeURIComponent(account.username)}`;
+  document.addEventListener("langchange", renderShare);
 
   // Activities grid: gift code and invite tiles jump to their place in the Club tab
   const toClub = (sel) => { document.querySelector('.tabs [data-tab="vip"]').click(); setTimeout(() => { const e = document.querySelector(sel); e && e.scrollIntoView({ behavior: "smooth", block: "center" }); }, 80); };

@@ -194,6 +194,21 @@ public class RecorderService extends Service {
                     recorder = null;
                 }
             }
+            // Le micro ne répond pas (utilisé par un appel, etc.) : on enregistre l'écran sans le son
+            if (last != null && mic) {
+                mic = false;
+                for (double sc : scales) {
+                    int vw = Math.max(16, (int) Math.round(width * sc / 16.0) * 16), vh = Math.max(16, (int) Math.round(height * sc / 16.0) * 16);
+                    try { prepareRecorder(vw, vh); recorder.start(); last = null; break; }
+                    catch (Exception e) {
+                        last = e;
+                        try { if (display != null) display.setSurface(null); } catch (Exception ignored) {}
+                        try { if (recorder != null) recorder.release(); } catch (Exception ignored) {}
+                        recorder = null;
+                    }
+                }
+                if (last == null) h.post(() -> Toast.makeText(this, "Micro indisponible : l'écran est enregistré sans le son", Toast.LENGTH_LONG).show());
+            }
             if (last != null) throw last;
         } catch (Exception e) {
             fail("L'enregistrement n'a pas pu démarrer : " + e.getMessage());

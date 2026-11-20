@@ -483,7 +483,8 @@
   // Royal cards: 4 tiers × 500 numbered copies, bought with Pi. Every copy is unique (its number
   // and its signature perk), and the buyer sees exactly which copy and perks they get before paying:
   // nothing is left to chance. Perks: Kombat profit, Derby races, a daily gift. Holders compete
-  // every month in Kombat (skill, not luck) for a grand prize of 1 billion Kombat coins.
+  // in the Grand Royal Final (skill, not luck): it opens once all 2,000 copies are sold and lasts
+  // FINAL_DAYS; the 10 holders who earn the most Kombat coins in it share the prizes (1 billion for #1).
   const ROYAL = {
     MAX: 500,
     TIERS: [
@@ -503,7 +504,8 @@
       { id: "gem", e: "💠", jry: 1 },             // +100% JRY in the daily gift
     ],
     BOOST_MAX: 0.6,
-    PRIZES: [1e9, 3e8, 1e8, 2e7, 2e7, 2e7, 2e7, 2e7, 2e7, 2e7], // monthly contest, Kombat coins
+    PRIZES: [1e9, 3e8, 1e8, 2e7, 2e7, 2e7, 2e7, 2e7, 2e7, 2e7], // Grand Royal Final, Kombat coins
+    FINAL_DAYS: 30,
   };
   ROYAL.tierById = (id) => ROYAL.TIERS.find((x) => x.id === id) || null;
   // The signature of copy #ed of a tier: fixed for ever, the same on every phone

@@ -401,9 +401,12 @@
       <div>${mine.map((c) => { const tt = RC.tierById(c.tier), s = RC.SIGS.find((x) => x.id === c.sig); return `<span style="--c:${tt.color}">${tt.e} #${c.ed} ${s.e}</span>`; }).join("")}</div>
       <button class="btn small gold" data-rcclaim="1" ${mine.every((c) => c.got) ? "disabled" : ""}>${mine.every((c) => c.got) ? t("rc.claimed") : "🎁 " + t("rc.claim")}</button></div>` : "";
     const P = RC.PRIZES;
-    $("rcContest").innerHTML = `<b>🏆 ${t("rc.contest")}</b><small>${t("rc.contestD")}</small>
+    const fin = d.final, pct = Math.min(100, (100 * (d.sold || 0)) / (d.total || 2000));
+    const finTxt = !fin ? `<small>${t("rc.waitD")}</small><div class="rc-bar"><i style="width:${pct}%"></i></div><small dir="ltr">${fmtN(d.sold || 0)} / ${fmtN(d.total || 2000)}</small>`
+      : fin.done ? `<small>${t("rc.finalDone")}</small>` : `<small>${t("rc.finalOn", { d: new Date(fin.end).toLocaleDateString() })}</small>`;
+    $("rcContest").innerHTML = `<b>🏆 ${t("rc.contest")}</b>${finTxt}
       <div class="rc-prizes"><span>🥇 ${fmtN(P[0])}</span><span>🥈 ${fmtN(P[1])}</span><span>🥉 ${fmtN(P[2])}</span><span>4-10 · ${fmtN(P[3])}</span></div>
-      ${(d.contest || []).length ? d.contest.slice(0, 10).map((r, i) => `<div class="rc-row"><span>${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}. ${esc(r.username)}</span><b dir="ltr">🪙 ${fmtN(r.earned)}</b></div>`).join("") : `<small>${t("rc.noContest")}</small>`}`;
+      ${fin ? ((d.contest || []).length ? d.contest.slice(0, 10).map((r, i) => `<div class="rc-row"><span>${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}. ${esc(r.username)}</span><b dir="ltr">🪙 ${fmtN(r.earned)}</b></div>`).join("") : `<small>${t("rc.noContest")}</small>`) : ""}`;
   }
   async function rcLoad() { try { rcData = await Pi.royal(); } catch (e) {} renderRoyal(); }
   $("tab-vip").addEventListener("click", async (e) => {

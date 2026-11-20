@@ -193,7 +193,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS royal_cards ( id INTEGER PRIMARY KEY AUTOINCREMENT, tier TEXT NOT NULL, ed INTEGER NOT NULL, uid TEXT NOT NULL, pay_id TEXT, at INTEGER NOT NULL, UNIQUE (tier, ed) )",
   "CREATE INDEX IF NOT EXISTS royal_owner ON royal_cards(uid)",
   "CREATE TABLE IF NOT EXISTS royal_gifts ( card_id INTEGER NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (card_id, day) )",
-  "CREATE TABLE IF NOT EXISTS royal_month_paid ( month INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS royal_final ( id INTEGER PRIMARY KEY, start_at INTEGER NOT NULL, end_at INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0 )",
   "CREATE TABLE IF NOT EXISTS notif_log ( uid TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, kind, ref) )",
   // Jerry Arcade: rewarded plays per day and best scores
   "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
@@ -1462,7 +1462,7 @@ const routes = {
 
   // ---------- 👑 Royal cards ----------
   "GET /api/royal": async (req, env) => {
-    const now = Date.now(), R = L.ROYAL, m = R.monthId(now);
+    const now = Date.now(), R = L.ROYAL;
     const tiers = [];
     for (const t of R.TIERS) {
       const sold = (await one(env, "SELECT COUNT(*) AS n FROM royal_cards WHERE tier = ?", t.id)).n;
@@ -1475,8 +1475,10 @@ const routes = {
       mine = (await all(env, "SELECT c.id, c.tier, c.ed, (SELECT 1 FROM royal_gifts g WHERE g.card_id = c.id AND g.day = ?) AS got FROM royal_cards c WHERE c.uid = ? ORDER BY c.id", day, u.uid))
         .map((c) => ({ ...c, sig: R.sigOf(c.tier, c.ed).id, got: !!c.got }));
     } catch (e) {}
-    const contest = (await royalContest(env, m, 20)).map((r) => ({ username: r.username, earned: r.earned }));
-    return { tiers, mine, contest, month: m, ends: R.monthStart(m % 100 === 12 ? (Math.floor(m / 100) + 1) * 100 + 1 : m + 1) };
+    const fin = await one(env, "SELECT * FROM royal_final WHERE id = 1");
+    const contest = fin ? (await royalContest(env, fin, 20)).map((r) => ({ username: r.username, earned: r.earned })) : [];
+    const sold = tiers.reduce((n, t) => n + t.sold, 0);
+    return { tiers, mine, contest, sold, total: R.MAX * R.TIERS.length, final: fin ? { start: fin.start_at, end: fin.end_at, done: !!fin.paid } : null };
   },
   "POST /api/royal/claim": async (req, env) => {
     const u = await auth(req, env);
@@ -2076,7 +2078,8 @@ const MK = L.MARKET;
 const NOTE = {
   daily: { go: "farm", en: ["🌴 Your oasis is waiting", "Your camels made dates and your free Derby races are ready."], ar: ["🌴 واحتك في انتظارك", "جِمالك جمعت التمر، وسباقاتك المجانية جاهزة."], fr: ["🌴 Ton oasis t'attend", "Tes chameaux ont produit des dattes et tes courses gratuites sont prêtes."] },
   week: { go: "rank", en: ["🏆 Weekly ranking: #{p}", "Well done! +{d} dates and +{j} JRY for your place. Pi prizes are sent to your wallet."], ar: ["🏆 ترتيب الأسبوع: المركز {p}", "أحسنت! +{d} تمرة و+{j} JRY لمركزك. جوائز Pi تُرسل إلى محفظتك."], fr: ["🏆 Classement : {p}e place", "Bravo ! +{d} dattes et +{j} JRY pour ta place. Les prix en Pi arrivent dans ton portefeuille."] },
-  rmonth: { go: "vip", en: ["👑 Royal contest: #{p}", "+{n} Kombat coins for your place this month!"], ar: ["👑 مسابقة البطاقات الملكية: المركز {p}", "+{n} عملة كومبات لمركزك هذا الشهر!"], fr: ["👑 Concours royal : {p}e", "+{n} pièces Kombat pour ta place ce mois-ci !"] },
+  rstart: { go: "vip", en: ["👑 The Grand Royal Final has started!", "All royal cards are sold. {d} days to earn the most Kombat coins: 1 billion for #1."], ar: ["👑 بدأ النهائي الملكي الكبير!", "بيعت كل البطاقات الملكية. {d} يومًا لجمع أكثر عملات كومبات: مليار للأول."], fr: ["👑 La Grande Finale royale commence !", "Toutes les cartes royales sont vendues. {d} jours pour gagner le plus de pièces Kombat : 1 milliard pour le 1er."] },
+  rfinal: { go: "vip", en: ["👑 Grand Royal Final: #{p}", "+{n} Kombat coins for your place!"], ar: ["👑 النهائي الملكي الكبير: المركز {p}", "+{n} عملة كومبات لمركزك!"], fr: ["👑 Grande Finale royale : {p}e", "+{n} pièces Kombat pour ta place !"] },
   jry: { go: "kombat", en: ["💠 +{n} JRY from Jerry Development", "{note}"], ar: ["💠 +{n} JRY من Jerry Development", "{note}"], fr: ["💠 +{n} JRY de Jerry Development", "{note}"] },
   kweek: { go: "kombat", en: ["⚔️ Kombat tournament: #{p}", "Open Jerry Kombat to collect your prize."], ar: ["⚔️ بطولة كومبات: المركز {p}", "افتح جيري كومبات لتستلم جائزتك."], fr: ["⚔️ Tournoi Kombat : {p}e", "Ouvre Jerry Kombat pour récupérer ton prix."] },
   dweek: { go: "derby", en: ["🏁 Camel Derby: #{p}", "+{d} dates for your place this week."], ar: ["🏁 سباق الجمال: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏁 Course de chameaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
@@ -2188,28 +2191,40 @@ async function royalGrant(env, uid, item, payId, now, price) {
     if (!next) break;
     r = await run(env, "INSERT OR IGNORE INTO royal_cards (tier, ed, uid, pay_id, at) VALUES (?, ?, ?, ?, ?)", item.tier, next, uid, payId, now);
   }
+  await royalMaybeFinal(env, now);
   if (!r.meta.changes && !(await one(env, "SELECT 1 AS x FROM royal_cards WHERE pay_id = ?", payId))) {
     await run(env, "INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'refund', ?, ?, ?, 'Pi Oasis royal card refund (sold out)', 'new', ?, ?)",
       crypto.randomUUID(), payId, uid, price, now, now);
   }
 }
-// Monthly contest: card holders ranked by Kombat coins earned in the weeks that start in that month
-async function royalContest(env, m, limit) {
-  const R = L.ROYAL, from = R.monthStart(m), to = R.monthStart(m % 100 === 12 ? (Math.floor(m / 100) + 1) * 100 + 1 : m + 1);
+// Grand Royal Final: card holders ranked by Kombat coins earned in the weeks of the final
+async function royalContest(env, fin, limit) {
+  const from = KL.weekId(fin.start_at), to = fin.end_at;
   return all(env, `SELECT u.uid, u.username, COALESCE(SUM(w.earned), 0) AS earned FROM users u
     JOIN kombat_weeks w ON w.uid = u.uid AND w.week_id >= ? AND w.week_id < ?
     WHERE u.uid IN (SELECT uid FROM royal_cards) GROUP BY u.uid ORDER BY earned DESC LIMIT ?`, from, to, limit)
-    .then((rows) => rows.filter((r) => r.earned > 0).map((r) => ({ username: r.username, earned: r.earned, uid: r.uid })));
+    .then((rows) => rows.filter((r) => r.earned > 0));
 }
-// Last month's prizes (once): 1 billion coins for #1, then 300M, 100M, 20M for 4th-10th
-async function royalMonthPrizes(env) {
+// All 2,000 copies sold: the final opens (once) and every holder is told
+async function royalMaybeFinal(env, now) {
+  const sold = (await one(env, "SELECT COUNT(*) AS n FROM royal_cards")).n;
+  if (sold < L.ROYAL.MAX * L.ROYAL.TIERS.length) return;
+  const r = await run(env, "INSERT OR IGNORE INTO royal_final (id, start_at, end_at, paid) VALUES (1, ?, ?, 0)", now, now + L.ROYAL.FINAL_DAYS * DAY);
+  if (!r.meta.changes) return;
+  const holders = await all(env, "SELECT DISTINCT uid FROM royal_cards");
+  await notify(env, holders.map((h) => ({ uid: h.uid, kind: "rstart", ref: 1, vars: { d: L.ROYAL.FINAL_DAYS } })));
+}
+// The final is over: prizes to the top 10 (once)
+async function royalFinalPrizes(env) {
   await ensureSchema(env);
-  const now = Date.now(), last = L.ROYAL.prevMonth(L.ROYAL.monthId(now));
-  const g = await run(env, "INSERT OR IGNORE INTO royal_month_paid (month, at) VALUES (?, ?)", last, now);
+  const now = Date.now();
+  const fin = await one(env, "SELECT * FROM royal_final WHERE id = 1 AND paid = 0 AND end_at <= ?", now);
+  if (!fin) return 0;
+  const g = await run(env, "UPDATE royal_final SET paid = 1 WHERE id = 1 AND paid = 0");
   if (!g.meta.changes) return 0;
-  const top = await royalContest(env, last, L.ROYAL.PRIZES.length);
-  for (let i = 0; i < top.length; i++) await creditPoints(env, top[i].uid, "coins", L.ROYAL.PRIZES[i], now, "royal-month");
-  await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "rmonth", ref: last, vars: { p: i + 1, n: L.ROYAL.PRIZES[i].toLocaleString("en-US") } })));
+  const top = await royalContest(env, fin, L.ROYAL.PRIZES.length);
+  for (let i = 0; i < top.length; i++) await creditPoints(env, top[i].uid, "coins", L.ROYAL.PRIZES[i], now, "royal-final");
+  await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "rfinal", ref: 1, vars: { p: i + 1, n: L.ROYAL.PRIZES[i].toLocaleString("en-US") } })));
   return top.length;
 }
 
@@ -2593,7 +2608,7 @@ export default {
         .catch((e) => logError(env, "weekly camels", 0, e.message))
         .then(() => grantDerbyWeek(env))
         .catch((e) => logError(env, "derby week", 0, e.message))
-        .then(() => royalMonthPrizes(env))
+        .then(() => royalFinalPrizes(env))
         .then(() => kombatWeekNotes(env))
         .then(() => dailyReminder(env))
         .catch((e) => logError(env, "notifications", 0, e.message))

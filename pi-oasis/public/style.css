@@ -1274,3 +1274,4 @@ body.k-open { overflow: hidden; }
 .rc-prizes { display: flex; flex-wrap: wrap; gap: 6px; }
 .rc-prizes span { background: rgba(255,255,255,.15); border-radius: 99px; padding: 2px 9px; font-size: .74rem; font-weight: 800; }
 .rc-row { display: flex; justify-content: space-between; font-size: .84rem; border-bottom: 1px solid rgba(255,255,255,.12); padding: 3px 0; }
+.rc-bar { height: 10px; border-radius: 99px; background: rgba(255,255,255,.18); overflow: hidden; } .rc-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd34d, #ff8a3d); }

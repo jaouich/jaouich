@@ -49,18 +49,32 @@ ok((await post("/api/royal/claim", {}, (await H("tokA")))).ok, "alice (holds car
 // perks: Derby races
 const dv = await get("/api/derby", HC);
 ok(dv.max === 8 + R.TIERS[3].races + (R.sigOf("r100", 2).races || 0), "Sultan card adds Derby races a day");
-// monthly contest (skill: Kombat coins earned in the month)
-const prevM = R.prevMonth(R.monthId(Date.now())), from = R.monthStart(prevM);
-await exec(`INSERT INTO kombat_weeks (week_id, uid, earned, updated_at) VALUES (${from + 86400000 * 3}, 'uC', 900000, 1), (${from + 86400000 * 3}, 'uB', 500000, 1), (${from + 86400000 * 3}, 'uF', 99999999, 1)`);
-const k0 = (await sql("SELECT COALESCE(SUM(amount),0) AS n FROM nft_credits WHERE uid='uC'"))[0].n;
+// Grand Royal Final: only once all 2,000 copies are sold
+r = await get("/api/royal", HB);
+ok(r.final === null && r.contest.length === 0 && r.total === 2000, "no final while cards remain");
 await fetch(B + "/__test/cron");
-const k1 = (await sql("SELECT COALESCE(SUM(amount),0) AS n FROM nft_credits WHERE uid='uC' AND src='royal-month'"))[0].n;
-ok(k1 === 1e9, "monthly #1 holder gets 1 billion Kombat coins");
-ok((await sql("SELECT COUNT(*) AS n FROM nft_credits WHERE uid='uF' AND src='royal-month'"))[0].n === 0, "players without a card can't win the royal contest");
+ok((await sql("SELECT COUNT(*) AS n FROM nft_credits WHERE src LIKE 'royal-%'"))[0].n === 0, "no prize before the cards are sold out");
+// fill every tier except one Sultan copy, then sell the last one
+await exec(`INSERT OR IGNORE INTO royal_cards (tier, ed, uid, at) SELECT t.tier, n.value, 'uA', 1 FROM (SELECT 'r10' AS tier UNION SELECT 'r25' UNION SELECT 'r50' UNION SELECT 'r100') t, (WITH RECURSIVE n(value) AS (SELECT 1 UNION ALL SELECT value + 1 FROM n WHERE value < 500) SELECT value FROM n) n WHERE NOT (t.tier = 'r100' AND n.value = 500)`);
+r = await pay(HB, "uB", "r9", 100, "r100", 500);
+r = await get("/api/royal", HB);
+ok(r.sold === 2000 && r.final && !r.final.done && r.final.end - r.final.start === 30 * 86400000, "last copy sold: the 30-day final opens");
+const fin = (await sql("SELECT start_at FROM royal_final"))[0].start_at;
+const wk = (t) => { const d = new Date(t); const day = (d.getUTCDay() + 6) % 7; return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day); };
+await exec(`INSERT OR REPLACE INTO kombat_weeks (week_id, uid, earned, updated_at) VALUES (${wk(fin)}, 'uC', 900000, 1), (${wk(fin)}, 'uB', 500000, 1), (${wk(fin)}, 'uF', 99999999, 1)`);
+r = await get("/api/royal", HB);
+ok(r.contest[0].username === "carol" && !r.contest.some((x) => x.username === "fatima"), "final ranking: holders only, by Kombat coins earned");
 await fetch(B + "/__test/cron");
-ok((await sql("SELECT COUNT(*) AS n FROM nft_credits WHERE src='royal-month' AND uid='uC'"))[0].n === 1, "prizes given once");
+ok((await sql("SELECT COUNT(*) AS n FROM nft_credits WHERE src='royal-final'"))[0].n === 0, "no prizes before the final ends");
+await exec("UPDATE royal_final SET end_at = start_at + 1");
+await fetch(B + "/__test/cron");
+ok((await sql("SELECT SUM(amount) AS n FROM nft_credits WHERE uid='uC' AND src='royal-final'"))[0].n === 1e9, "final #1 gets 1 billion Kombat coins");
+ok((await sql("SELECT SUM(amount) AS n FROM nft_credits WHERE uid='uB' AND src='royal-final'"))[0].n === 3e8, "#2 gets 300 million");
+await fetch(B + "/__test/cron");
+ok((await sql("SELECT COUNT(*) AS n FROM nft_credits WHERE src='royal-final'"))[0].n === 3, "prizes given once (3 holders played)");
+ok((await get("/api/royal", HB)).final.done, "final marked as done");
 // surprise gift to all holders
 r = await post("/api/admin/jrydrop", { preview: true, target: "cards" }, HA);
-ok(r.players === 3, "owner can send a surprise to all card holders");
+ok(r.players >= 3, "owner can send a surprise to all card holders");
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

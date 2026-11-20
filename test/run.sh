@@ -17,7 +17,7 @@ for m in re.finditer(r'<node [^>]*>', x):
         a=list(map(int,re.findall(r'\d+',re.search(r'bounds="([^"]*)"',n).group(1)))); print((a[0]+a[2])//2,(a[1]+a[3])//2); break
 PY
 )
-  echo "tap '$1' -> $b (dump $N)" | tee -a $OUT/steps.txt; [ -n "$b" ] && adb shell input tap $b
+  echo "tap '$1' -> $b (dump $N)" | tee -a $OUT/steps.txt; [ -z "$b" ] && [ -n "$2" ] && b="$2" && echo "  fallback $b" >> $OUT/steps.txt; [ -n "$b" ] && adb shell input tap $b
 }
 adb install -r test/rekordo.apk 2>&1 | tee $OUT/install.txt
 adb logcat -c
@@ -37,14 +37,14 @@ sleep 4; shot 05-enregistrement
 adb shell am start -a android.settings.SETTINGS; sleep 3; shot 06-autre-appli
 adb shell dumpsys activity services $PKG | head -30 > $OUT/service.txt
 adb shell cmd statusbar expand-notifications; sleep 2; shot 07-notification
-tap_text "Pause"; sleep 2
+tap_text "Pause" "144 394"; sleep 2
 adb shell cmd statusbar expand-notifications; sleep 2; shot 08-pause
-tap_text "Resume"; sleep 3
+tap_text "Resume" "144 394"; sleep 3
 adb shell cmd statusbar expand-notifications; sleep 2
-tap_text "Screenshot"; sleep 3; shot 09-apres-capture
+tap_text "Screenshot" "238 394"; sleep 3; shot 09-apres-capture
 sleep 3
 adb shell cmd statusbar expand-notifications; sleep 2
-tap_text "Stop"; sleep 6; shot 10-arret
+tap_text "Stop" "82 394"; sleep 6; shot 10-arret
 adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:width:height:relative_path > $OUT/videos.txt 2>&1
 adb shell content query --uri content://media/external/images/media --projection _display_name:_size:relative_path > $OUT/images.txt 2>&1
 # --- Galerie et lecteur

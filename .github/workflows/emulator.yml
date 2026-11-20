@@ -1,0 +1,35 @@
+name: rekordo-emulator-test
+on:
+  push:
+    branches: [rekordo]
+    paths: ["test/run.sh", "test/rekordo.apk", ".github/workflows/emulator.yml"]
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run on emulator (Android 14)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -no-boot-anim
+          script: bash test/run.sh
+      - name: Save results (branche rekordo-test-results)
+        if: always()
+        run: |
+          git config user.name "android-bot"; git config user.email "android-bot@users.noreply.github.com"
+          rm -f test/out/logcat-full.txt test/out/ui.xml
+          git checkout -B rekordo-test-results
+          git add -f test/out; git commit -m "Résultats du test Rekordo" || true
+          git push -f origin rekordo-test-results

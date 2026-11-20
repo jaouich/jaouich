@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tab_videos">Vidéos</string>
+    <string name="tab_shots">Captures</string>
+    <string name="tab_settings">Réglages</string>
+    <string name="record">Enregistrer</string>
+    <string name="stop">Arrêter</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Reprendre</string>
+    <string name="screenshot">Capture</string>
+    <string name="brush">Dessiner</string>
+    <string name="facecam">Caméra</string>
+    <string name="open_app">Ouvrir Rekordo</string>
+    <string name="close">Fermer</string>
+    <string name="undo">Annuler</string>
+    <string name="clear">Effacer</string>
+    <string name="home_hint">Touchez Enregistrer, choisissez ce que vous partagez, puis allez dans l\'application à filmer.</string>
+    <string name="recording_now">Enregistrement en cours</string>
+    <string name="paused">En pause</string>
+    <string name="empty_videos">Aucune vidéo pour l\'instant. Vos enregistrements apparaîtront ici.</string>
+    <string name="empty_shots">Aucune capture pour l\'instant.</string>
+    <string name="set_resolution">Résolution</string>
+    <string name="set_fps">Images par seconde</string>
+    <string name="set_quality">Qualité</string>
+    <string name="set_audio">Son</string>
+    <string name="set_countdown">Compte à rebours</string>
+    <string name="set_bubble">Bulle flottante</string>
+    <string name="set_bubble_sub">Commandes au-dessus de toutes les applis</string>
+    <string name="set_facecam">Bulle caméra</string>
+    <string name="set_facecam_sub">Filmez votre visage avec l\'écran</string>
+    <string name="set_cam_size">Taille de la caméra</string>
+    <string name="set_screen_off">Arrêter quand l\'écran s\'éteint</string>
+    <string name="set_storage">Enregistré dans Films/Rekordo et Images/Rekordo</string>
+    <string name="res_auto">Auto (écran)</string>
+    <string name="q_high">Haute</string>
+    <string name="q_standard">Standard</string>
+    <string name="q_low">Économique</string>
+    <string name="a_none">Sans son</string>
+    <string name="a_mic">Micro</string>
+    <string name="a_internal">Son interne</string>
+    <string name="a_both">Micro + son interne</string>
+    <string name="cd_none">Aucun</string>
+    <string name="size_s">Petite</string>
+    <string name="size_m">Moyenne</string>
+    <string name="size_l">Grande</string>
+    <string name="perm_overlay_title">Bulle flottante</string>
+    <string name="perm_overlay_msg">Pour afficher les commandes au-dessus des autres applis, autorisez « Afficher par-dessus d\'autres applis » pour Rekordo, puis revenez.</string>
+    <string name="allow">Autoriser</string>
+    <string name="without_bubble">Sans bulle</string>
+    <string name="mic_denied">Micro refusé : enregistrement sans votre voix.</string>
+    <string name="cam_denied">Caméra refusée : pas de bulle caméra.</string>
+    <string name="internal_unavailable">Son interne indisponible ici : micro seulement.</string>
+    <string name="rec_saved">Vidéo enregistrée</string>
+    <string name="rec_saved_sub">Touchez pour voir, partager ou couper</string>
+    <string name="shot_saved">Capture enregistrée</string>
+    <string name="rec_failed" formatted="true">L\'enregistrement n\'a pas pu démarrer : %s</string>
+    <string name="too_short">Enregistrement trop court</string>
+    <string name="share">Partager</string>
+    <string name="delete">Supprimer</string>
+    <string name="delete_q">Supprimer ce fichier du téléphone ?</string>
+    <string name="delete_failed">Supprimez-le depuis votre galerie.</string>
+    <string name="cancel">Annuler</string>
+    <string name="trim">Couper</string>
+    <string name="trim_title" formatted="true">Garder de %1$s à %2$s</string>
+    <string name="start">Début</string>
+    <string name="end">Fin</string>
+    <string name="save_copy">Enregistrer une copie</string>
+    <string name="trimming">Découpage…</string>
+    <string name="trim_done">Nouvelle vidéo enregistrée</string>
+    <string name="trim_failed">Impossible de couper cette vidéo</string>
+    <string name="frame">Enregistrer cette image</string>
+    <string name="tile_label">Enregistrer l\'écran</string>
+    <string name="notif_channel">Enregistrement</string>
+    <string name="starting">Préparation…</string>
+    <string name="privacy_note">Rekordo fonctionne hors ligne : pas de compte, pas de pub, rien ne quitte votre téléphone.</string>
+    <string name="version" formatted="true">Version %s</string>
+    <string name="take_shot">Faire une capture</string>
+    <string name="stats" formatted="true">%1$d vidéos · %2$s</string>
+    <string name="info">Détails</string>
+</resources>

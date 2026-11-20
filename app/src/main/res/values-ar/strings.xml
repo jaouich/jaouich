@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tab_videos">الفيديوهات</string>
+    <string name="tab_shots">لقطات الشاشة</string>
+    <string name="tab_settings">الإعدادات</string>
+    <string name="record">تسجيل</string>
+    <string name="stop">إيقاف</string>
+    <string name="pause">إيقاف مؤقت</string>
+    <string name="resume">متابعة</string>
+    <string name="screenshot">لقطة شاشة</string>
+    <string name="brush">رسم</string>
+    <string name="facecam">الكاميرا</string>
+    <string name="open_app">فتح Rekordo</string>
+    <string name="close">إغلاق</string>
+    <string name="undo">تراجع</string>
+    <string name="clear">مسح</string>
+    <string name="home_hint">اضغط على تسجيل، اختر ما تريد مشاركته، ثم انتقل إلى التطبيق الذي تريد تصويره.</string>
+    <string name="recording_now">جارٍ التسجيل</string>
+    <string name="paused">متوقف مؤقتًا</string>
+    <string name="empty_videos">لا توجد فيديوهات بعد. ستظهر تسجيلاتك هنا.</string>
+    <string name="empty_shots">لا توجد لقطات شاشة بعد.</string>
+    <string name="set_resolution">الدقة</string>
+    <string name="set_fps">الإطارات في الثانية</string>
+    <string name="set_quality">الجودة</string>
+    <string name="set_audio">الصوت</string>
+    <string name="set_countdown">العد التنازلي</string>
+    <string name="set_bubble">الفقاعة العائمة</string>
+    <string name="set_bubble_sub">أزرار التحكم فوق كل التطبيقات</string>
+    <string name="set_facecam">فقاعة الكاميرا</string>
+    <string name="set_facecam_sub">صوّر وجهك مع الشاشة</string>
+    <string name="set_cam_size">حجم الكاميرا</string>
+    <string name="set_screen_off">الإيقاف عند إطفاء الشاشة</string>
+    <string name="set_storage">يُحفظ في Movies/Rekordo و Pictures/Rekordo</string>
+    <string name="res_auto">تلقائي (الشاشة)</string>
+    <string name="q_high">عالية</string>
+    <string name="q_standard">عادية</string>
+    <string name="q_low">اقتصادية</string>
+    <string name="a_none">بدون صوت</string>
+    <string name="a_mic">الميكروفون</string>
+    <string name="a_internal">الصوت الداخلي</string>
+    <string name="a_both">الميكروفون + الصوت الداخلي</string>
+    <string name="cd_none">بدون</string>
+    <string name="size_s">صغير</string>
+    <string name="size_m">متوسط</string>
+    <string name="size_l">كبير</string>
+    <string name="perm_overlay_title">الفقاعة العائمة</string>
+    <string name="perm_overlay_msg">لعرض أزرار التحكم فوق التطبيقات الأخرى، فعّل «الظهور فوق التطبيقات الأخرى» لـ Rekordo ثم ارجع.</string>
+    <string name="allow">السماح</string>
+    <string name="without_bubble">بدون فقاعة</string>
+    <string name="mic_denied">تم رفض الميكروفون: التسجيل بدون صوتك.</string>
+    <string name="cam_denied">تم رفض الكاميرا: بدون فقاعة الكاميرا.</string>
+    <string name="internal_unavailable">الصوت الداخلي غير متاح هنا: الميكروفون فقط.</string>
+    <string name="rec_saved">تم حفظ الفيديو</string>
+    <string name="rec_saved_sub">اضغط للمشاهدة أو المشاركة أو القص</string>
+    <string name="shot_saved">تم حفظ لقطة الشاشة</string>
+    <string name="rec_failed" formatted="true">تعذّر بدء التسجيل: %s</string>
+    <string name="too_short">التسجيل قصير جدًا</string>
+    <string name="share">مشاركة</string>
+    <string name="delete">حذف</string>
+    <string name="delete_q">حذف هذا الملف من الهاتف؟</string>
+    <string name="delete_failed">احذفه من تطبيق المعرض.</string>
+    <string name="cancel">إلغاء</string>
+    <string name="trim">قص</string>
+    <string name="trim_title" formatted="true">الاحتفاظ من %1$s إلى %2$s</string>
+    <string name="start">البداية</string>
+    <string name="end">النهاية</string>
+    <string name="save_copy">حفظ كفيديو جديد</string>
+    <string name="trimming">جارٍ القص…</string>
+    <string name="trim_done">تم حفظ الفيديو الجديد</string>
+    <string name="trim_failed">تعذّر قص هذا الفيديو</string>
+    <string name="frame">حفظ هذه الصورة</string>
+    <string name="tile_label">تسجيل الشاشة</string>
+    <string name="notif_channel">التسجيل</string>
+    <string name="starting">جارٍ التحضير…</string>
+    <string name="privacy_note">يعمل Rekordo بدون إنترنت: لا حساب، لا إعلانات، ولا شيء يغادر هاتفك.</string>
+    <string name="version" formatted="true">الإصدار %s</string>
+    <string name="take_shot">التقاط لقطة شاشة</string>
+    <string name="stats" formatted="true">%1$d فيديو · %2$s</string>
+    <string name="info">التفاصيل</string>
+</resources>

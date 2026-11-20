@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Rekordo</string>
+    <string name="tab_videos">Videos</string>
+    <string name="tab_shots">Screenshots</string>
+    <string name="tab_settings">Settings</string>
+    <string name="record">Record</string>
+    <string name="stop">Stop</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+    <string name="screenshot">Screenshot</string>
+    <string name="brush">Draw</string>
+    <string name="facecam">Camera</string>
+    <string name="open_app">Open Rekordo</string>
+    <string name="close">Close</string>
+    <string name="undo">Undo</string>
+    <string name="clear">Clear</string>
+    <string name="home_hint">Tap Record, choose what to share, then go to the app you want to film.</string>
+    <string name="recording_now">Recording</string>
+    <string name="paused">Paused</string>
+    <string name="empty_videos">No videos yet. Your recordings will appear here.</string>
+    <string name="empty_shots">No screenshots yet.</string>
+    <string name="set_resolution">Resolution</string>
+    <string name="set_fps">Frame rate</string>
+    <string name="set_quality">Quality</string>
+    <string name="set_audio">Sound</string>
+    <string name="set_countdown">Countdown</string>
+    <string name="set_bubble">Floating bubble</string>
+    <string name="set_bubble_sub">Controls above all apps</string>
+    <string name="set_facecam">Camera bubble</string>
+    <string name="set_facecam_sub">Film your face with the screen</string>
+    <string name="set_cam_size">Camera size</string>
+    <string name="set_screen_off">Stop when the screen turns off</string>
+    <string name="set_storage">Saved in Movies/Rekordo and Pictures/Rekordo</string>
+    <string name="res_auto">Auto (screen)</string>
+    <string name="q_high">High</string>
+    <string name="q_standard">Standard</string>
+    <string name="q_low">Data saver</string>
+    <string name="a_none">No sound</string>
+    <string name="a_mic">Microphone</string>
+    <string name="a_internal">Internal sound</string>
+    <string name="a_both">Mic + internal sound</string>
+    <string name="cd_none">None</string>
+    <string name="size_s">Small</string>
+    <string name="size_m">Medium</string>
+    <string name="size_l">Large</string>
+    <string name="perm_overlay_title">Floating bubble</string>
+    <string name="perm_overlay_msg">To show the controls above other apps, allow “Display over other apps” for Rekordo, then come back.</string>
+    <string name="allow">Allow</string>
+    <string name="without_bubble">Without bubble</string>
+    <string name="mic_denied">Microphone denied: recording without your voice.</string>
+    <string name="cam_denied">Camera denied: no camera bubble.</string>
+    <string name="internal_unavailable">Internal sound is not available here: microphone only.</string>
+    <string name="rec_saved">Video saved</string>
+    <string name="rec_saved_sub">Tap to watch, share or cut</string>
+    <string name="shot_saved">Screenshot saved</string>
+    <string name="rec_failed" formatted="true">Recording could not start: %s</string>
+    <string name="too_short">Recording too short</string>
+    <string name="share">Share</string>
+    <string name="delete">Delete</string>
+    <string name="delete_q">Delete this file from your phone?</string>
+    <string name="delete_failed">Delete it from your gallery app.</string>
+    <string name="cancel">Cancel</string>
+    <string name="trim">Cut</string>
+    <string name="trim_title" formatted="true">Keep from %1$s to %2$s</string>
+    <string name="start">Start</string>
+    <string name="end">End</string>
+    <string name="save_copy">Save as a new video</string>
+    <string name="trimming">Cutting…</string>
+    <string name="trim_done">New video saved</string>
+    <string name="trim_failed">Could not cut this video</string>
+    <string name="frame">Save this frame</string>
+    <string name="tile_label">Record screen</string>
+    <string name="notif_channel">Recording</string>
+    <string name="starting">Starting…</string>
+    <string name="privacy_note">Rekordo works offline: no account, no ads, nothing leaves your phone.</string>
+    <string name="version" formatted="true">Version %s</string>
+    <string name="take_shot">Take a screenshot</string>
+    <string name="stats" formatted="true">%1$d videos · %2$s</string>
+    <string name="info">Details</string>
+</resources>

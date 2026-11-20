@@ -1,0 +1,18 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'app.rekordo'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'app.rekordo'
+        minSdk 29          // Android 10+ : son interne (AudioPlaybackCapture) et galerie sans permission
+        targetSdk 35       // exigé par Google Play
+        versionCode 1
+        versionName '1.0.0'
+        resourceConfigurations += ['en', 'fr', 'ar']
+    }
+    buildTypes {
+        release { minifyEnabled false }   // signée à part (clé jamais dans ce dépôt public)
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    lint { checkReleaseBuilds false; abortOnError false }
+}

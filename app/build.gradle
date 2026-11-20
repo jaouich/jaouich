@@ -1,0 +1,33 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ma.magiscom.desk'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'ma.magiscom.desk'
+        minSdk 29          // Android 10 et plus (enregistrement d'écran moderne, galerie sans permission)
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Signée ensuite avec la clé de Magiscom Tech (jamais stockée dans ce dépôt public)
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}

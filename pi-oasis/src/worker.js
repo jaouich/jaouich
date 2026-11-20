@@ -185,6 +185,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS derby_weeks ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, pts INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE TABLE IF NOT EXISTS derby_week_paid ( week_id INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
   // Pi Notification Center: one notification per (player, kind, ref), never twice
+  // JRY handed out by the owner (one row per distribution)
+  "CREATE TABLE IF NOT EXISTS jry_drops ( id INTEGER PRIMARY KEY AUTOINCREMENT, amount INTEGER NOT NULL, target TEXT NOT NULL, players INTEGER NOT NULL, note TEXT, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS notif_log ( uid TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, kind, ref) )",
   // Jerry Arcade: rewarded plays per day and best scores
   "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
@@ -440,8 +442,11 @@ async function grantWeeklyCamels(env) {
   if (!claim.meta.changes) return 0; // already given
   const top = await all(env, "SELECT uid FROM week_scores WHERE week_id = ? AND score > 0 ORDER BY score DESC, updated_at ASC LIMIT 100", lastWeek);
   const rarity = [3, 2, 1];
-  for (let i = 0; i < top.length; i++) await creditPoints(env, top[i].uid, "dates", L.WEEK100.dates(i + 1), now, "week");
-  await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "week", ref: lastWeek, vars: { p: i + 1, d: L.WEEK100.dates(i + 1).toLocaleString("en-US") } })));
+  for (let i = 0; i < top.length; i++) {
+    await creditPoints(env, top[i].uid, "dates", L.WEEK100.dates(i + 1), now, "week");
+    await giveReward(env, top[i].uid, "jry", L.WEEK100.jry(i + 1), now, "week");
+  }
+  await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "week", ref: lastWeek, vars: { p: i + 1, d: L.WEEK100.dates(i + 1).toLocaleString("en-US"), j: L.WEEK100.jry(i + 1) } })));
   for (let i = 0; i < Math.min(3, top.length); i++) {
     const st = await loadState(env, top[i].uid, now);
     L.addAnimal(st, rarity[i], now, `prize-${lastWeek}`);
@@ -1396,6 +1401,35 @@ const routes = {
     return derbyView(d);
   },
 
+  // ---------- 💠 JRY distribution (owner) ----------
+  // target: active (played in the last 7 days) | all | top (this week's top N in the Oasis ranking) | names (list of usernames)
+  // preview: only counts the players. Blocked accounts (airdrop_block) never receive anything.
+  "POST /api/admin/jrydrop": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const now = Date.now(), amount = Math.floor(Number(body.amount));
+    const notBlocked = "u.username NOT IN (SELECT username FROM airdrop_block)";
+    let rows;
+    if (body.target === "all") rows = await all(env, `SELECT u.uid FROM users u WHERE ${notBlocked}`);
+    else if (body.target === "top") rows = await all(env, `SELECT u.uid FROM week_scores w JOIN users u ON u.uid = w.uid WHERE w.week_id = ? AND w.score > 0 AND ${notBlocked} ORDER BY w.score DESC LIMIT ?`, L.weekId(now), Math.min(1000, Math.max(1, Math.floor(Number(body.n)) || 10)));
+    else if (body.target === "names") {
+      const names = [...new Set(String(body.names || "").split(/[\s,;@]+/).map((x) => x.trim()).filter(Boolean))].slice(0, 500);
+      rows = [];
+      for (const n of names) { const r = await one(env, `SELECT u.uid FROM users u WHERE u.username = ? COLLATE NOCASE AND ${notBlocked}`, n); if (r) rows.push(r); }
+    } else rows = await all(env, `SELECT u.uid FROM state s JOIN users u ON u.uid = s.uid WHERE s.updated_at >= ? AND ${notBlocked}`, now - 7 * DAY);
+    const list = await all(env, "SELECT * FROM jry_drops ORDER BY id DESC LIMIT 10");
+    if (body.preview) return { players: rows.length, list };
+    if (!(amount > 0 && amount <= 100000)) bad("badAction");
+    if (!rows.length) bad("jd.nobody");
+    const note = String(body.note || "").trim().slice(0, 120);
+    const r = await run(env, "INSERT INTO jry_drops (amount, target, players, note, at) VALUES (?, ?, ?, ?, ?)", amount, String(body.target || "active"), rows.length, note, now);
+    const id = r.meta.last_row_id || now;
+    const stmts = rows.map((x) => env.DB.prepare("UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(amount, x.uid));
+    for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
+    await notify(env, rows.map((x) => ({ uid: x.uid, kind: "jry", ref: "d" + id, vars: { n: amount, note: note || "🦊" } })));
+    return { ok: true, players: rows.length, total: rows.length * amount, list: await all(env, "SELECT * FROM jry_drops ORDER BY id DESC LIMIT 10") };
+  },
+
   // ---------- 🕹️ Jerry Arcade ----------
   "GET /api/arcade": async (req, env) => {
     const u = await auth(req, env);
@@ -1952,7 +1986,8 @@ const MK = L.MARKET;
 // Messages in the player's language (saved at sign-in). {x} are filled from vars.
 const NOTE = {
   daily: { go: "farm", en: ["🌴 Your oasis is waiting", "Your camels made dates and your free Derby races are ready."], ar: ["🌴 واحتك في انتظارك", "جِمالك جمعت التمر، وسباقاتك المجانية جاهزة."], fr: ["🌴 Ton oasis t'attend", "Tes chameaux ont produit des dattes et tes courses gratuites sont prêtes."] },
-  week: { go: "rank", en: ["🏆 Weekly ranking: #{p}", "Well done! +{d} dates for your place. Pi prizes are sent to your wallet."], ar: ["🏆 ترتيب الأسبوع: المركز {p}", "أحسنت! +{d} تمرة لمركزك. جوائز Pi تُرسل إلى محفظتك."], fr: ["🏆 Classement : {p}e place", "Bravo ! +{d} dattes pour ta place. Les prix en Pi arrivent dans ton portefeuille."] },
+  week: { go: "rank", en: ["🏆 Weekly ranking: #{p}", "Well done! +{d} dates and +{j} JRY for your place. Pi prizes are sent to your wallet."], ar: ["🏆 ترتيب الأسبوع: المركز {p}", "أحسنت! +{d} تمرة و+{j} JRY لمركزك. جوائز Pi تُرسل إلى محفظتك."], fr: ["🏆 Classement : {p}e place", "Bravo ! +{d} dattes et +{j} JRY pour ta place. Les prix en Pi arrivent dans ton portefeuille."] },
+  jry: { go: "kombat", en: ["💠 +{n} JRY from Jerry Development", "{note}"], ar: ["💠 +{n} JRY من Jerry Development", "{note}"], fr: ["💠 +{n} JRY de Jerry Development", "{note}"] },
   kweek: { go: "kombat", en: ["⚔️ Kombat tournament: #{p}", "Open Jerry Kombat to collect your prize."], ar: ["⚔️ بطولة كومبات: المركز {p}", "افتح جيري كومبات لتستلم جائزتك."], fr: ["⚔️ Tournoi Kombat : {p}e", "Ouvre Jerry Kombat pour récupérer ton prix."] },
   dweek: { go: "derby", en: ["🏁 Camel Derby: #{p}", "+{d} dates for your place this week."], ar: ["🏁 سباق الجمال: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏁 Course de chameaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   sold: { go: "market", en: ["💰 Your offer sold", "+{pi} Pi added to your sales balance."], ar: ["💰 تم بيع عرضك", "+{pi} Pi أُضيفت إلى رصيد مبيعاتك."], fr: ["💰 Ton offre est vendue", "+{pi} Pi ajoutés à ton solde de ventes."] },

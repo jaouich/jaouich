@@ -511,11 +511,12 @@
   // Weekly ranking: 100 winners. share = part of the Pi prize pool (adds up to 100%), dates = in-game prize.
   const WEEK100 = {
     N: 100,
-    BANDS: [{ from: 1, to: 1, share: 0.2, dates: 50000 }, { from: 2, to: 2, share: 0.12, dates: 30000 }, { from: 3, to: 3, share: 0.08, dates: 20000 },
-      { from: 4, to: 10, share: 0.03, dates: 10000 }, { from: 11, to: 30, share: 0.01, dates: 5000 }, { from: 31, to: 100, share: 0.19 / 70, dates: 2000 }],
+    BANDS: [{ from: 1, to: 1, share: 0.2, dates: 50000, jry: 500 }, { from: 2, to: 2, share: 0.12, dates: 30000, jry: 300 }, { from: 3, to: 3, share: 0.08, dates: 20000, jry: 200 },
+      { from: 4, to: 10, share: 0.03, dates: 10000, jry: 100 }, { from: 11, to: 30, share: 0.01, dates: 5000, jry: 50 }, { from: 31, to: 100, share: 0.19 / 70, dates: 2000, jry: 20 }],
     band: (p) => WEEK100.BANDS.find((b) => p >= b.from && p <= b.to) || null,
     share: (p) => (WEEK100.band(p) || { share: 0 }).share,
     dates: (p) => (WEEK100.band(p) || { dates: 0 }).dates,
+    jry: (p) => (WEEK100.band(p) || { jry: 0 }).jry,
   };
   const FUTURE = [{ id: "falcon", e: "🦅", players: 1000 }, { id: "quiz", e: "🧠", players: 2500 }, { id: "chess", e: "♟️", players: 5000 },
     { id: "kart", e: "🏎️", players: 10000 }, { id: "hunt", e: "🗺️", players: 25000 }, { id: "world", e: "🌍", players: 100000 }];

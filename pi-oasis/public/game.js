@@ -281,7 +281,7 @@
       const lb = await Pi.leaderboard();
       $("prizePool").textContent = (+lb.prizePool).toFixed(3);
       const medal = (b) => (b.from === b.to ? ["🥇", "🥈", "🥉"][b.from - 1] || "#" + b.from : `${b.from}-${b.to}`);
-      $("prizeTable").innerHTML = `<b>${t("rank.bands")}</b>` + (lb.bands || []).map((b) => `<div><span>${medal(b)}</span><span dir="ltr">${+(b.share * 100).toFixed(2)}% · ≈${+(lb.prizePool * b.share).toFixed(3)} π</span><span dir="ltr">+${fmtN(b.dates)} 🌴</span></div>`).join("");
+      $("prizeTable").innerHTML = `<b>${t("rank.bands")}</b>` + (lb.bands || []).map((b) => `<div><span>${medal(b)}</span><span dir="ltr">${+(b.share * 100).toFixed(2)}% · ≈${+(lb.prizePool * b.share).toFixed(3)} π</span><span dir="ltr">+${fmtN(b.dates)} 🌴 +${b.jry} 💠</span></div>`).join("");
       const me = account.username;
       const pod = (r, place) => r ? `<div class="pod p${place} ${r.username === me ? "me" : ""}">
           <div class="av">${esc(r.username.slice(0, 1).toUpperCase())}</div>
@@ -870,6 +870,26 @@
     await qLoad();
   });
 
+  // ---------- 💠 JRY distribution (owner) ----------
+  const jdBody = (preview) => ({ preview, amount: $("jdAmount").value, target: $("jdTarget").value, n: $("jdN").value, names: $("jdNames").value, note: $("jdNote").value });
+  function jdRender(d) {
+    $("jdList").innerHTML = (d.list || []).map((x) => `<div><span>💠 ${fmtN(x.amount)} × ${x.players} · ${t("jd.t." + x.target)} · ${new Date(x.at).toLocaleDateString()}${x.note ? " · " + esc(x.note) : ""}</span></div>`).join("");
+  }
+  async function jdPreview() { try { const d = await Pi.adminJryDrop(jdBody(true)); $("jdInfo").textContent = t("jd.count", { n: d.players, total: fmtN(d.players * (Number($("jdAmount").value) || 0)) }); jdRender(d); } catch (e) { toast(e.message); } }
+  $("jdPreview").addEventListener("click", jdPreview);
+  ["jdTarget", "jdAmount", "jdN"].forEach((id) => $(id).addEventListener("change", jdPreview));
+  $("jdSend").addEventListener("click", async () => {
+    const b = $("jdSend");
+    try {
+      const pre = await Pi.adminJryDrop(jdBody(true));
+      if (!confirm(t("jd.confirm", { n: pre.players, a: fmtN(Number($("jdAmount").value) || 0) }))) return;
+      b.disabled = true;
+      const d = await Pi.adminJryDrop(jdBody(false));
+      toast(t("jd.done", { n: d.players, total: fmtN(d.total) })); jdRender(d); $("jdInfo").textContent = "";
+    } catch (e) { toast(e.message); }
+    b.disabled = false;
+  });
+
   // ---------- 🕹️ Jerry Arcade: free skill games that give dates ----------
   const AR = L.ARCADE;
   let arcInfo = null, arcGame = "", arcStop = null, arcPlayers = 0;
@@ -1129,6 +1149,7 @@
       $("loginBtn").classList.add("hidden");
       render();
       qLoad();
+      if (account.isAdmin) { $("jdAdmin").classList.remove("hidden"); jdPreview(); }
       if (account.isAdmin) { $("codeAdmin").classList.remove("hidden"); codeAdmin({ action: "list" }); partners("list"); partnerRequests("list"); loadPlayers(); loadAirdrop(); if (account.jryOn) token("status"); }
       if (account.testGifts) testGifts("list");
       // Mainnet: once, say that the Testnet progress came along

@@ -396,6 +396,22 @@
         <div id="caList" class="list"></div>
       </div>
 
+      <!-- Owner: hand out JRY to players -->
+      <div id="jdAdmin" class="panel admin hidden">
+        <h3>💠 <span data-i18n="jd.t"></span></h3>
+        <p class="hint" data-i18n="jd.d"></p>
+        <div class="code-form">
+          <label><small data-i18n="jd.amount"></small><input id="jdAmount" type="number" min="1" max="100000" value="100"></label>
+          <label><small data-i18n="jd.target"></small><select id="jdTarget"><option value="active" data-i18n="jd.t.active"></option><option value="all" data-i18n="jd.t.all"></option><option value="top" data-i18n="jd.t.top"></option><option value="names" data-i18n="jd.t.names"></option></select></label>
+          <label><small data-i18n="jd.n"></small><input id="jdN" type="number" min="1" max="1000" value="10"></label>
+        </div>
+        <textarea id="jdNames" rows="2" dir="auto" style="width:100%;border-radius:12px;border:1px solid #e6c787;padding:8px;font:inherit" data-i18n-ph="jd.namesPh"></textarea>
+        <input id="jdNote" maxlength="120" style="width:100%;margin-top:6px" data-i18n-ph="jd.notePh">
+        <div class="ref-row"><button id="jdPreview" class="btn small secondary" data-i18n="jd.preview"></button><button id="jdSend" class="btn small gold" data-i18n="jd.send"></button></div>
+        <div id="jdInfo" class="hint"></div>
+        <div id="jdList" class="list"></div>
+      </div>
+
       <!-- Only shown to the owner: grant the Partner membership -->
       <div id="adminBox" class="panel admin hidden">
         <h3 data-i18n="admin.title"></h3>

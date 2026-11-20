@@ -175,8 +175,8 @@
   const goldenHourOf = (t) => { let x = (day(t) * 2246822519) >>> 0; x ^= x >>> 13; x = Math.imul(x, 3266489917) >>> 0; x ^= x >>> 16; return (x >>> 0) % 24; };
   const goldenStart = (t) => day(t) * 86400000 + goldenHourOf(t) * 3600e3;
   const golden = (t) => t >= goldenStart(t) && t < goldenStart(t) + 3600e3;
-  // Weekly tournament prizes (coins) for places 1..10
-  const WEEK_PRIZES = [1e6, 5e5, 25e4, 1e5, 1e5, 1e5, 1e5, 1e5, 1e5, 1e5];
+  // Weekly tournament prizes (coins) for places 1..100
+  const WEEK_PRIZES = [1e6, 5e5, 25e4, ...Array(7).fill(1e5), ...Array(20).fill(5e4), ...Array(70).fill(2e4)];
 
   function fresh(now) {
     return { v: 1, coins: 0, total: 0, energy: K.E_BASE, eAt: now, tap: 0, cap: 0, cards: {}, last: now, tapAt: 0, refill: { day: day(now), used: 0, at: 0 }, daily: { day: -1, streak: 0 } };

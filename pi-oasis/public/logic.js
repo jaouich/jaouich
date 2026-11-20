@@ -470,6 +470,16 @@
     { id: "d10k", price: 2, dates: 10000 },
     { id: "d25k", price: 5, dates: 25000 },
   ];
+  // Level-up packs: dates + Kombat coins (+ wheel spins, JRY, a legendary camel for the biggest).
+  // Bought points never count toward the weekly rankings.
+  const LEVEL_PACKS = [
+    { id: "l01", e: "🌱", price: 0.1, dates: 1000, coins: 20000 },
+    { id: "l05", e: "🧭", price: 0.5, dates: 5000, coins: 100000, spins: 1 },
+    { id: "l1", e: "🥉", price: 1, dates: 10000, coins: 200000, spins: 3 },
+    { id: "l5", e: "🥈", price: 5, dates: 60000, coins: 1200000, spins: 10 },
+    { id: "l20", e: "🥇", price: 20, dates: 250000, coins: 5000000, jry: 1000, spins: 25 },
+    { id: "l100", e: "👑", price: 100, dates: 1400000, coins: 30000000, jry: 6000, spins: 100, camel: 3 },
+  ];
   // Points market: players sell dates / Kombat coins to each other for Pi at their own price.
   // The buyer's Pi goes to the app wallet; the seller's share shows in their sales balance and
   // can be withdrawn from MIN_WITHDRAW Pi. TAX is kept by the app on every sale.
@@ -498,8 +508,17 @@
   const SPONSOR = { PLANS: [{ id: "d1", days: 1, price: 1 }, { id: "d7", days: 7, price: 5 }, { id: "d30", days: 30, price: 15 }],
     CATS: ["shop", "food", "services", "apps", "education", "travel", "other"], NAME: 40, DESC: 160 };
   // Games still in the works: each one opens when the game reaches this many players
-  const FUTURE = [{ id: "race", e: "🐪", players: 1000 }, { id: "quiz", e: "🧠", players: 2500 }, { id: "chess", e: "♟️", players: 5000 },
+  // Weekly ranking: 100 winners. share = part of the Pi prize pool (adds up to 100%), dates = in-game prize.
+  const WEEK100 = {
+    N: 100,
+    BANDS: [{ from: 1, to: 1, share: 0.2, dates: 50000 }, { from: 2, to: 2, share: 0.12, dates: 30000 }, { from: 3, to: 3, share: 0.08, dates: 20000 },
+      { from: 4, to: 10, share: 0.03, dates: 10000 }, { from: 11, to: 30, share: 0.01, dates: 5000 }, { from: 31, to: 100, share: 0.19 / 70, dates: 2000 }],
+    band: (p) => WEEK100.BANDS.find((b) => p >= b.from && p <= b.to) || null,
+    share: (p) => (WEEK100.band(p) || { share: 0 }).share,
+    dates: (p) => (WEEK100.band(p) || { dates: 0 }).dates,
+  };
+  const FUTURE = [{ id: "falcon", e: "🦅", players: 1000 }, { id: "quiz", e: "🧠", players: 2500 }, { id: "chess", e: "♟️", players: 5000 },
     { id: "kart", e: "🏎️", players: 10000 }, { id: "hunt", e: "🗺️", players: 25000 }, { id: "world", e: "🌍", players: 100000 }];
-  const api = { FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

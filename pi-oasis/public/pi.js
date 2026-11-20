@@ -91,6 +91,19 @@
     if (!pack) return Promise.reject(new Error(I18N.t("e.payment")));
     return pay({ amount: pack.price, memo: `Pi Oasis – ${pack.dates} dates`, metadata: { type: "dates", pack: pack.id } });
   }
+  // Level-up packs
+  function buyLevel(packId) {
+    const pack = window.OasisLogic.LEVEL_PACKS.find((x) => x.id === packId);
+    if (!pack) return Promise.reject(new Error(I18N.t("e.payment")));
+    return pay({ amount: pack.price, memo: `Pi Oasis – level-up pack ${pack.price} Pi`, metadata: { type: "lvl", pack: pack.id } });
+  }
+  // Camel Derby: golden feed or a new racing camel
+  function buyDerby(o) {
+    const D = window.DerbyLogic;
+    const price = o.kind === "feed" ? (D.FEED_PACKS.find((x) => x.id === o.pack) || {}).price : (D.BREEDS.find((x) => x.id === o.breed) || {}).price;
+    if (!price) return Promise.reject(new Error(I18N.t("e.payment")));
+    return pay({ amount: price, memo: `Camel Derby – ${o.kind === "feed" ? o.pack : o.breed}`, metadata: { type: "derby", ...o } });
+  }
   // testJRY store (Testnet): pay Test-Pi, receive testJRY in the saved wallet
   function buyJry(pi) {
     return pay({ amount: pi, memo: `Pi Oasis – testJRY for ${pi} Test-Pi`, metadata: { type: "jry", pi } });
@@ -186,6 +199,13 @@
     login,
     buyVip,
     buyDates,
+    buyDerby,
+    derby: () => api("/api/derby"),
+    derbyTrain: (stat, feed) => api("/api/derby/train", { stat, feed }),
+    derbyRace: (tactic, adId) => api("/api/derby/race", { tactic, adId }),
+    derbySelect: (i) => api("/api/derby/select", { i }),
+    derbyRename: (i, name) => api("/api/derby/rename", { i, name }),
+    buyLevel,
     buyJry,
     buyCoins,
     buyJryPts,

@@ -250,6 +250,11 @@
         <span class="kb-text"><b data-i18n="k.banner.t"></b><small data-i18n="k.banner.d"></small></span>
         <span class="kb-go" data-i18n="k.open"></span>
       </button>
+      <button id="derbyOpen" class="kombat-banner derby-banner" type="button">
+        <span class="kb-fox">🐪</span>
+        <span class="kb-text"><b data-i18n="db.banner.t"></b><small data-i18n="db.banner.d"></small></span>
+        <span class="kb-go" data-i18n="db.banner.go"></span>
+      </button>
       <div class="fun-row">
         <button id="wheelOpen" class="fun-btn" type="button"><i>🎡</i><span><b data-i18n="wh.t"></b><small id="whBadge"></small></span></button>
         <button id="mkOpen" class="fun-btn" type="button"><i>🏪</i><span><b data-i18n="mk.t"></b><small id="mkBadge"></small></span></button>
@@ -317,6 +322,7 @@
         <div><small data-i18n="rank.prize"></small><b><span id="prizePool">—</span> Pi</b><small data-i18n="rank.prizeEnd"></small></div>
         <div class="timer"><small data-i18n="rank.left"></small><b id="weekLeft"></b></div>
       </div>
+      <div id="prizeTable" class="prize-table"></div>
       <div id="podium" class="podium"></div>
       <ol id="leaderboard" class="list rank-list"></ol>
       <p class="hint" data-i18n="rank.hint"></p>
@@ -329,6 +335,11 @@
       <p class="hint" data-i18n="club.sub"></p>
       <div id="tiers" class="tiers"></div>
       <p class="hint fair" data-i18n="club.fair"></p>
+
+      <h2 id="lvTitle" data-i18n="lv.title"></h2>
+      <p class="hint" data-i18n="lv.sub"></p>
+      <div id="lvShop" class="lv-shop"></div>
+      <p class="hint fair" data-i18n="lv.fair"></p>
 
       <h2 id="shopTitle" data-i18n="shop.title"></h2>
       <p class="hint" data-i18n="shop.sub"></p>
@@ -481,6 +492,7 @@
   <div id="arcade" class="media arc hidden"></div>
   <div id="biz" class="media biz hidden"></div>
   <div id="quests" class="media qst hidden"></div>
+  <div id="derby" class="media dby hidden"></div>
   <div id="fun" class="sheet hidden">
     <div class="sheet-bg" id="funBg"></div>
     <div class="sheet-card" id="funCard"></div>
@@ -496,8 +508,10 @@
   <script src="i18n.js"></script>
   <script src="kombat-logic.js"></script>
   <script src="logic.js"></script>
+  <script src="derby-logic.js"></script>
   <script src="pi.js"></script>
   <script src="game.js"></script>
   <script src="kombat.js"></script>
+  <script src="derby.js"></script>
 </body>
 </html>

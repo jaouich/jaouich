@@ -512,7 +512,7 @@
           <div class="k-tour-top"><b>🔥 ${t("k.tour.t")}</b><span>⏳ ${ago(r.ends - G.now())}</span></div>
           <small>${t("k.tour.d")}</small>
           <div class="k-tour-mine">${t("k.tour.mine", { n: big(x.week) })}</div>
-          <div class="k-prizes"><span>🥇 ${big(p[0])}</span><span>🥈 ${big(p[1])}</span><span>🥉 ${big(p[2])}</span><span>4-10 · ${big(p[3])}</span></div>
+          <div class="k-prizes"><span>🥇 ${big(p[0])}</span><span>🥈 ${big(p[1])}</span><span>🥉 ${big(p[2])}</span><span>4-10 · ${big(p[3])}</span><span>11-30 · ${big(p[10])}</span><span>31-100 · ${big(p[30])}</span></div>
           ${r.prize && !r.prize.claimed ? `<button id="kTourClaim" class="btn gold k-wide">${t("k.tour.claim", { place: r.prize.place, n: big(r.prize.prize) })}</button>` : ""}
         </div>`;
         const cb = $("kTourClaim");

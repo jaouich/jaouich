@@ -280,6 +280,8 @@
     try {
       const lb = await Pi.leaderboard();
       $("prizePool").textContent = (+lb.prizePool).toFixed(3);
+      const medal = (b) => (b.from === b.to ? ["🥇", "🥈", "🥉"][b.from - 1] || "#" + b.from : `${b.from}-${b.to}`);
+      $("prizeTable").innerHTML = `<b>${t("rank.bands")}</b>` + (lb.bands || []).map((b) => `<div><span>${medal(b)}</span><span dir="ltr">${+(b.share * 100).toFixed(2)}% · ≈${+(lb.prizePool * b.share).toFixed(3)} π</span><span dir="ltr">+${fmtN(b.dates)} 🌴</span></div>`).join("");
       const me = account.username;
       const pod = (r, place) => r ? `<div class="pod p${place} ${r.username === me ? "me" : ""}">
           <div class="av">${esc(r.username.slice(0, 1).toUpperCase())}</div>
@@ -380,6 +382,25 @@
       burst();
     } catch (err) { toast(err.message); }
     render();
+  });
+  // ---------- 🚀 Level-up packs ----------
+  function renderLevelPacks() {
+    $("lvShop").innerHTML = L.LEVEL_PACKS.map((k) => `<div class="lv-card${k.price >= 20 ? " lv-big" : ""}">
+      <div class="lv-top"><i>${k.e}</i><b>${t("lv.n." + k.id)}</b></div>
+      <ul><li>🌴 ${fmtN(k.dates)}</li><li>🪙 ${fmtN(k.coins)}</li>${k.spins ? `<li>🎡 ${k.spins}</li>` : ""}${k.jry ? `<li>💠 ${fmtN(k.jry)} JRY</li>` : ""}${k.camel ? `<li>🐪 ${t("lv.camel")}</li>` : ""}</ul>
+      <button class="btn small gold" data-lv="${k.id}">${k.price} Pi</button></div>`).join("");
+  }
+  $("lvShop").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-lv]");
+    if (!b) return;
+    if (!account) return toast(t("t.loginFirst"));
+    b.disabled = true;
+    try {
+      const res = await Pi.buyLevel(b.dataset.lv);
+      if (res.account) account = res.account; if (res.state) S = res.state;
+      toast(t("lv.ok")); burst();
+    } catch (err) { toast(err.message); }
+    b.disabled = false; render();
   });
   $("shop").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-pack]");
@@ -1220,7 +1241,7 @@
   // ---------- Guide: first-time tour + help center ----------
   const TOUR = [null, "farm", "camels", "city", "stake", "rank", "vip", null];
   const HELP = ["basics", "farm", "camels", "city", "granary", "events", "shop", "ranking", "club", "referral", "missions",
-    "kombat", "kfun", "kboss", "kleague", "kcollect", "ktribes", "kjry", "kp2p", "earn", "quests", "arcade", "showcase", "pmarket", "wheel", "kvote", "kairdrop", "safety", "faq"];
+    "kombat", "kfun", "kboss", "kleague", "kcollect", "ktribes", "kjry", "kp2p", "earn", "quests", "derby", "arcade", "showcase", "pmarket", "wheel", "kvote", "kairdrop", "safety", "faq"];
   const KOMBAT_HELP = HELP.filter((k) => k[0] === "k");
   let tourI = -1;
   const goTab = (tab) => document.querySelector(`.tabs [data-tab="${tab}"]`).click();
@@ -1443,6 +1464,7 @@
 
   function render() {
     qBadge();
+    renderLevelPacks();
     S = L.normalize(S, now());
     $("dates").textContent = S.dates.toLocaleString("en-US");
     if (account) Pi.setPayOpen(account.payOpen);
@@ -1497,6 +1519,7 @@
     openHelp: () => openHelp(true),
     now, toast, msgText, saveGuest, boost: () => perks().boost + ((account && account.holdBoost) || 0),
     setAccount(a) { account = a; render(); },
+    render: () => render(), burst: () => burst(),
     refLink: () => (account ? `${publicUrl || location.origin + location.pathname}?ref=${encodeURIComponent(account.username)}` : ""),
     piLink: () => piShare(),
   };

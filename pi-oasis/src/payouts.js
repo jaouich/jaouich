@@ -9,9 +9,8 @@
 // - The wallet seed stays in the PI_WALLET_SEED secret and is only used to sign here.
 import { sendPi, publicKeyOf, HORIZON } from "./stellar.js";
 
-export const PRIZE_SPLIT = [0.5, 0.3, 0.2];
 export const MIN_PAYOUT = 0.01; // smaller prizes cost more in fees than they're worth
-const PER_RUN = 5; // payouts handled per run (keeps each run short)
+const PER_RUN = 8; // payouts handled per run (keeps each run short)
 const round = (n) => Math.floor(n * 1e7) / 1e7;
 
 export async function processPayouts(env, d) {
@@ -49,26 +48,19 @@ export async function processPayouts(env, d) {
   const lastWeek = d.weekId(now - 7 * 86400000);
   const w = await d.one(env, "SELECT * FROM weeks WHERE id = ? AND paid = 0", lastWeek);
   if (w) {
-    const top = await d.all(
-      env,
-      "SELECT uid, score FROM week_scores WHERE week_id = ? AND score > 0 ORDER BY score DESC, updated_at ASC LIMIT 3",
-      lastWeek
+    // Up to 100 winners share the pool by place (d.share). A share too small to send
+    // (under MIN_PAYOUT) stays in the pool and rolls into this week's prize.
+    const top = await d.all(env, "SELECT uid, score FROM week_scores WHERE week_id = ? AND score > 0 ORDER BY score DESC, updated_at ASC LIMIT 100", lastWeek);
+    const prizes = top.map((r, i) => ({ uid: r.uid, place: i + 1, amount: round(w.prize_pool * d.share(i + 1)) })).filter((p) => p.amount >= MIN_PAYOUT);
+    const paid = prizes.reduce((a, p) => a + p.amount, 0);
+    const left = Math.max(0, round(w.prize_pool - paid));
+    const stmts = prizes.map((p) =>
+      env.DB.prepare("INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'prize', ?, ?, ?, ?, 'new', ?, ?)")
+        .bind(crypto.randomUUID(), String(lastWeek), p.uid, p.amount, `Pi Oasis weekly prize #${p.place}`, now, now)
     );
-    const prizes = top.map((r, i) => ({ uid: r.uid, amount: round(w.prize_pool * PRIZE_SPLIT[i]) }));
-    if (!top.length || prizes.some((p) => p.amount < MIN_PAYOUT)) {
-      // Pool too small (or nobody played): roll it into this week's pool
-      await env.DB.batch([
-        env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(d.weekId(now), w.prize_pool),
-        env.DB.prepare("UPDATE weeks SET paid = 2 WHERE id = ?").bind(lastWeek), // 2 = rolled over
-      ]);
-    } else {
-      const stmts = prizes.map((p, i) =>
-        env.DB.prepare("INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'prize', ?, ?, ?, ?, 'new', ?, ?)")
-          .bind(crypto.randomUUID(), String(lastWeek), p.uid, p.amount, `Pi Oasis weekly prize #${i + 1}`, now, now)
-      );
-      stmts.push(env.DB.prepare("UPDATE weeks SET paid = 1 WHERE id = ?").bind(lastWeek));
-      await env.DB.batch(stmts);
-    }
+    if (left > 0) stmts.push(env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(d.weekId(now), left));
+    stmts.push(env.DB.prepare("UPDATE weeks SET paid = ? WHERE id = ?").bind(prizes.length ? 1 : 2, lastWeek)); // 2 = all rolled over
+    await env.DB.batch(stmts);
   }
 
   // 3) Referral withdrawals waiting

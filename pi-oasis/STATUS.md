@@ -32,7 +32,9 @@ Farm, camels, city, granary, weekly ranking with Pi prize pool, memberships, ref
 Jerry Kombat (cards, bosses, leagues, tournament, tribes, 20 collectibles, rewarded ads), JRY in-game currency (bought with Pi),
 testJRY token + players' market (Testnet only), points market (25% fee, withdraw from 5 Pi), lucky wheel (prizes in-game only),
 Jerry Media Earnings (unlimited rewarded ads), Jerry Arcade (memory, date catcher, future games by player milestones),
-Business showcase (paid listings reviewed by the owner), gift codes, Task center (owner-made daily / weekly / one-time tasks:
+Business showcase (paid listings reviewed by the owner), gift codes, Level-up packs (0.1 / 0.5 / 1 / 5 / 20 / 100 Pi),
+Camel Derby (3rd game: train racing camels, 8 free races a day + 4 after an ad, Pi buys golden feed and breeds; no entry fee, no bets),
+100 weekly winners (Oasis: Pi pool 20/12/8%, 3% ×7, 1% ×20, 19% shared by 31-100, + dates; Kombat: coins to 100 places; Derby: dates to 100), Task center (owner-made daily / weekly / one-time tasks:
 check-in, open a link, secret word, ads, Arcade, invites, wheel; managed inside the Task center page), Testnet → Mainnet progress carry-over (once, by username).
 
 ## Decisions already made (do not reopen)

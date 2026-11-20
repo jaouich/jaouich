@@ -26,7 +26,9 @@ await cron();
 let c = await chain();
 const prizes = c.txs.slice(before);
 ok(prizes.length === 3, "3 prize transactions sent");
-ok(prizes.map((t) => t.amount).join() === "5000000,3000000,2000000", "amounts 0.5 / 0.3 / 0.2 Pi (50/30/20%)");
+ok(prizes.map((t) => t.amount).join() === "2000000,1200000,800000", "amounts 0.2 / 0.12 / 0.08 Pi (20/12/8%: 100-winner split)");
+{
+  ok(Math.abs((await sql(`SELECT prize_pool FROM weeks WHERE id=${thisWeek}`))[0].prize_pool - 0.6) < 1e-6, "places 4-100 nobody took: 0.6 Pi rolls into this week's pool"); }
 ok(prizes[0].to === c.wallets[uidA] && prizes[1].to === c.wallets[uidB] && prizes[2].to === c.wallets["uC"], "each prize goes to the right player's wallet");
 ok(prizes.every((t) => c.a2u[t.memo] && c.a2u[t.memo].status.developer_completed), "memo = Pi payment id, and Pi payments completed");
 ok((await sql(`SELECT paid FROM weeks WHERE id=${lastWeek}`))[0].paid === 1, "week marked as paid");

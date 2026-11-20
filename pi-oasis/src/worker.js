@@ -3,11 +3,13 @@
 // Static files in /public are served by Workers Static Assets (see wrangler.toml).
 import "../public/kombat-logic.js";
 import "../public/logic.js";
+import "../public/derby-logic.js";
 import { processPayouts } from "./payouts.js";
 import { publicKeyOf, decodeStrKey, assetXdr, opChangeTrust, opPayment, opSetHomeDomain, opCreateAccount, newSeed, submitOp, toStroops, HORIZON } from "./stellar.js";
 
 const KL = globalThis.KombatLogic;
 const L = globalThis.OasisLogic;
+const DL = globalThis.DerbyLogic;
 const PI_API = "https://api.minepi.com/v2";
 // Pi sign-in: the access token is exchanged with App Studio, which checks it with
 // the Pi Platform. Only the identity it returns is trusted.
@@ -20,7 +22,6 @@ const APP_SHARE = 0.7;
 const net = (amount) => amount * APP_SHARE; // e.g. 0.175 Pi of a 0.25 Pi payment
 const REFERRAL_RATE = 0.1; // 10% of NET on every monthly renewal
 const PRIZE_RATE = 0.15; // 15% of NET goes to the weekly prize pool
-const PRIZE_SPLIT = [0.5, 0.3, 0.2];
 const MIN_WITHDRAW = 1;
 const SESSION_DAYS = 30;
 const DAY = 86400000;
@@ -178,6 +179,11 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS quests ( id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, descr TEXT, emoji TEXT NOT NULL, kind TEXT NOT NULL, period TEXT NOT NULL, link TEXT, secret TEXT, goal INTEGER NOT NULL DEFAULT 1, reward_kind TEXT NOT NULL, reward INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0, ends_at INTEGER, done_n INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS quest_done ( quest_id INTEGER NOT NULL, uid TEXT NOT NULL, pkey INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (quest_id, uid, pkey) )",
   "CREATE TABLE IF NOT EXISTS quest_open ( quest_id INTEGER NOT NULL, uid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (quest_id, uid) )",
+  // Camel Derby: one row per player (racing camels), weekly trophies, weekly prizes given once
+  "CREATE TABLE IF NOT EXISTS derby ( uid TEXT PRIMARY KEY, json TEXT NOT NULL, trophies INTEGER NOT NULL DEFAULT 0, power INTEGER NOT NULL DEFAULT 0, ver INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL )",
+  "CREATE INDEX IF NOT EXISTS derby_tr ON derby(trophies)",
+  "CREATE TABLE IF NOT EXISTS derby_weeks ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, pts INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS derby_week_paid ( week_id INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
   // Jerry Arcade: rewarded plays per day and best scores
   "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
   // Business showcase. status: paying → review → live (until ends_at) | rejected (refunded)
@@ -421,16 +427,18 @@ async function auth(req, env) {
 // Server-side luck (breeding, stake bonus): not predictable by players
 const secureRandom = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
 
-// Weekly ranking rewards: #1 legendary camel, #2 epic, #3 rare (given once per week)
+// Weekly ranking rewards (given once per week): #1 legendary camel, #2 epic, #3 rare,
+// and dates for the top 100 (they don't count in the new week's ranking)
 async function grantWeeklyCamels(env) {
   await ensureSchema(env);
   const now = Date.now();
   const lastWeek = L.weekId(now - 7 * DAY);
   const claim = await run(env, "INSERT OR IGNORE INTO week_rewards (week_id, created_at) VALUES (?, ?)", lastWeek, now);
   if (!claim.meta.changes) return 0; // already given
-  const top = await all(env, "SELECT uid FROM week_scores WHERE week_id = ? AND score > 0 ORDER BY score DESC, updated_at ASC LIMIT 3", lastWeek);
+  const top = await all(env, "SELECT uid FROM week_scores WHERE week_id = ? AND score > 0 ORDER BY score DESC, updated_at ASC LIMIT 100", lastWeek);
   const rarity = [3, 2, 1];
-  for (let i = 0; i < top.length; i++) {
+  for (let i = 0; i < top.length; i++) await creditPoints(env, top[i].uid, "dates", L.WEEK100.dates(i + 1), now, "week");
+  for (let i = 0; i < Math.min(3, top.length); i++) {
     const st = await loadState(env, top[i].uid, now);
     L.addAnimal(st, rarity[i], now, `prize-${lastWeek}`);
     await saveState(env, top[i].uid, st, now);
@@ -613,12 +621,13 @@ const routes = {
       `SELECT u.username, s.score, u.vip_until, u.vip_tier,
               EXISTS (SELECT 1 FROM partners p WHERE p.username = u.username) AS partner
        FROM week_scores s JOIN users u ON u.uid = s.uid
-       WHERE s.week_id = ? AND s.score > 0 ORDER BY s.score DESC, s.updated_at ASC LIMIT 20`,
+       WHERE s.week_id = ? AND s.score > 0 ORDER BY s.score DESC, s.updated_at ASC LIMIT 100`,
       wid
     );
     const now = Date.now();
     return {
       prizePool: w ? w.prize_pool : 0,
+      bands: L.WEEK100.BANDS,
       top: top.map((r) => ({ username: r.username, score: r.score, tier: L.TIERS[tierOf(r, now, !!r.partner)].id })),
     };
   },
@@ -684,7 +693,7 @@ const routes = {
     const now = Date.now();
     if (new URL(req.url).searchParams.get("week")) {
       const wid = KL.weekId(now), last = KL.weekId(now - 7 * DAY);
-      const top = await all(env, "SELECT u.username, w.earned AS total FROM kombat_weeks w JOIN users u ON u.uid = w.uid WHERE w.week_id = ? ORDER BY w.earned DESC, w.updated_at ASC LIMIT 50", wid);
+      const top = await all(env, "SELECT u.username, w.earned AS total FROM kombat_weeks w JOIN users u ON u.uid = w.uid WHERE w.week_id = ? ORDER BY w.earned DESC, w.updated_at ASC LIMIT 100", wid);
       let prize = null;
       try {
         const me = await auth(req, env);
@@ -1293,6 +1302,94 @@ const routes = {
     return { list: await all(env, "SELECT * FROM quests ORDER BY active DESC, sort, id") };
   },
 
+  // ---------- 🏁 Camel Derby ----------
+  "GET /api/derby": async (req, env) => {
+    const u = await auth(req, env);
+    const now = Date.now(), wid = L.weekId(now);
+    const { d } = await derbyLoad(env, u.uid, now);
+    const top = await all(env, "SELECT u.username, w.pts FROM derby_weeks w JOIN users u ON u.uid = w.uid WHERE w.week_id = ? ORDER BY w.pts DESC, w.updated_at ASC LIMIT 20", wid);
+    const mine = await one(env, "SELECT pts FROM derby_weeks WHERE week_id = ? AND uid = ?", wid, u.uid);
+    return { ...derbyView(d), top, week: mine ? mine.pts : 0, ends: wid + 7 * DAY };
+  },
+  "POST /api/derby/train": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now();
+    const { d, ver } = await derbyLoad(env, u.uid, now);
+    const i = Math.floor(Number(body.stat));
+    if (!(i >= 0 && i < DL.STATS.length)) bad("badAction");
+    const c = d.camels[d.act], v = c.s[i];
+    if (v >= DL.MAX_STAT) bad("derby.max");
+    let cost = 0;
+    if (body.feed) {
+      if (!(d.feed > 0)) bad("derby.noFeed");
+      d.feed--; c.s[i] = Math.min(DL.MAX_STAT, v + DL.FEED_GAIN);
+    } else {
+      cost = DL.trainCost(v);
+      if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
+      const r = await run(env, "UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') - ?) WHERE uid = ? AND json_extract(json, '$.dates') >= ?", cost, u.uid, cost);
+      if (!r.meta.changes) bad("notEnough");
+      c.s[i] = v + 1;
+    }
+    try { await derbySave(env, u.uid, d, ver, now); }
+    catch (e) { if (cost) await creditPoints(env, u.uid, "dates", cost, now, "refund"); throw e; }
+    return { ...derbyView(d), state: await derbyState(env, u, now) };
+  },
+  "POST /api/derby/race": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now();
+    const { d, ver } = await derbyLoad(env, u.uid, now);
+    const tactic = DL.TACTICS.includes(body.tactic) ? body.tactic : "steady";
+    if (d.used < DL.RACES_PER_DAY) d.used++;
+    else if (body.adId && d.ads < DL.AD_RACES) {
+      if (!(await verifyAd(env, u.uid, body.adId, now))) bad("k.adFail");
+      d.ads++;
+    } else bad("derby.noRaces");
+    const c = d.camels[d.act], cup = DL.cupOf(d.trophies), lvl = DL.power(c);
+    // Rivals: other players' camels with about the same trophies, then computer camels
+    const rows = await all(env, "SELECT d.json, u.username FROM derby d JOIN users u ON u.uid = d.uid WHERE d.uid != ? AND d.trophies BETWEEN ? AND ? ORDER BY RANDOM() LIMIT ?",
+      u.uid, d.trophies - 300, d.trophies + 300, DL.RACERS - 1);
+    const racers = [{ camel: c, tactic, me: true, name: u.username }];
+    for (const r of rows) { const o = DL.norm(JSON.parse(r.json), now); racers.push({ camel: o.camels[o.act], tactic: DL.TACTICS[Math.floor(secureRandom() * 3)], name: r.username }); }
+    for (let i = racers.length; i < DL.RACERS; i++) racers.push(DL.bot(lvl, secureRandom, i));
+    // shuffle lanes
+    for (let i = racers.length - 1; i > 0; i--) { const j = Math.floor(secureRandom() * (i + 1)); [racers[i], racers[j]] = [racers[j], racers[i]]; }
+    const res = DL.race(racers, secureRandom);
+    const meR = res.find((r) => r.me), place = meR.place;
+    const trophies = DL.PLACE_TROPHIES[place - 1], dates = Math.round(DL.PLACE_DATES[place - 1] * DL.CUPS[cup].mult);
+    d.trophies += trophies; d.races++; c.r = (c.r || 0) + 1;
+    if (place === 1) { d.wins++; c.w = (c.w || 0) + 1; }
+    await derbySave(env, u.uid, d, ver, now);
+    await creditPoints(env, u.uid, "dates", dates, now, "derby");
+    await run(env, "INSERT INTO derby_weeks (week_id, uid, pts, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(week_id, uid) DO UPDATE SET pts = pts + excluded.pts, updated_at = excluded.updated_at",
+      L.weekId(now), u.uid, trophies, now);
+    return {
+      ...derbyView(d), place, trophies, dates, cupUp: DL.cupOf(d.trophies) > cup,
+      race: res.map((r) => ({ name: r.name || "", bot: r.bot || "", me: !!r.me, b: r.camel.b, cn: r.camel.n || "", tactic: r.tactic, t: r.t, total: r.total, place: r.place })),
+      state: await derbyState(env, u, now),
+    };
+  },
+  "POST /api/derby/select": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now();
+    const { d, ver } = await derbyLoad(env, u.uid, now);
+    const i = Math.floor(Number(body.i));
+    if (!(i >= 0 && i < d.camels.length)) bad("badAction");
+    d.act = i;
+    await derbySave(env, u.uid, d, ver, now);
+    return derbyView(d);
+  },
+  "POST /api/derby/rename": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now();
+    const { d, ver } = await derbyLoad(env, u.uid, now);
+    const i = Math.floor(Number(body.i)), name = String(body.name || "").trim().replace(/\s+/g, " ");
+    if (!(i >= 0 && i < d.camels.length)) bad("badAction");
+    if (!KL.tribeNameOk(name)) bad("derby.badName");
+    d.camels[i].n = name;
+    await derbySave(env, u.uid, d, ver, now);
+    return derbyView(d);
+  },
+
   // ---------- 🕹️ Jerry Arcade ----------
   "GET /api/arcade": async (req, env) => {
     const u = await auth(req, env);
@@ -1707,7 +1804,7 @@ function admin(req, env) {
 }
 
 const runPayouts = (env) =>
-  ensureSchema(env).then(() => processPayouts(env, { pi, logError, one, all, run, weekId: L.weekId }));
+  ensureSchema(env).then(() => processPayouts(env, { pi, logError, one, all, run, weekId: L.weekId, share: L.WEEK100.share }));
 
 // Checks a Pi payment against what this app sells, at the server's prices. Browser input is never trusted.
 // Products: { type: "vip_month", tier } (30 days of a membership) or { type: "dates", pack } (date shop).
@@ -1740,6 +1837,19 @@ function checkPayment(p, uid) {
     const pack = KL.JRYP.PACKS.find((x) => x.id === p.metadata.pack);
     if (!pack || Number(p.amount) !== pack.price) bad("badPayment");
     return { price: pack.price, jryPts: pack };
+  }
+  if (p.metadata?.type === "derby") {
+    const m = p.metadata;
+    const fp = m.kind === "feed" && DL.FEED_PACKS.find((x) => x.id === m.pack);
+    const br = m.kind === "breed" && DL.BREEDS.find((x) => x.id === m.breed && x.price > 0);
+    const price = fp ? fp.price : br ? br.price : 0;
+    if (!price || Number(p.amount) !== price) bad("badPayment");
+    return { price, derby: fp ? { feed: fp.feed } : { breed: br.id } };
+  }
+  if (p.metadata?.type === "lvl") {
+    const pack = L.LEVEL_PACKS.find((x) => x.id === p.metadata.pack);
+    if (!pack || Number(p.amount) !== pack.price) bad("badPayment");
+    return { price: pack.price, lvl: pack };
   }
   if (p.metadata?.type === "kcoins") {
     const pack = KL.COIN_PACKS.find((x) => x.id === p.metadata.pack);
@@ -1793,6 +1903,14 @@ async function completePayment(env, id, txid, uid) {
     if (item.jryPts) stmts.push(env.DB.prepare("UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(item.jryPts.jry, u.uid));
     if (item.coins) stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, item.coins.coins, now));
     if (item.tier) stmts.push(await applyMembership(env, u, item.tier, now));
+    if (item.lvl) {
+      const k = item.lvl;
+      if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
+      stmts.push(env.DB.prepare("UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?").bind(k.dates, k.dates, u.uid));
+      stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, k.coins, now));
+      if (k.spins) stmts.push(env.DB.prepare("UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?").bind(k.spins, u.uid));
+      if (k.jry) stmts.push(env.DB.prepare("UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(k.jry, u.uid));
+    }
     if (item.pack) {
       // Bought dates go to the balance only: they never count toward the weekly ranking
       if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
@@ -1804,6 +1922,12 @@ async function completePayment(env, id, txid, uid) {
     }
   }
   await env.DB.batch(stmts);
+  if (item.derby && u) await derbyGrant(env, u.uid, item.derby, now);
+  if (item.lvl && item.lvl.camel && u) {
+    const st = await loadState(env, u.uid, now);
+    L.addAnimal(st, item.lvl.camel, now, "pack");
+    await saveState(env, u.uid, st, now);
+  }
   if (item.jry && u) {
     // testJRY at the pool price at the moment of payment, sent from the app wallet
     const m = await jryMarket(env).catch(() => null);
@@ -1818,6 +1942,45 @@ async function completePayment(env, id, txid, uid) {
 const MK = L.MARKET;
 // Adds points to a player without touching a game save that may be running at the same time.
 // Bought / returned / won points never count toward weekly rankings.
+// ---------- Camel Derby helpers ----------
+async function derbyLoad(env, uid, now) {
+  const r = await one(env, "SELECT json, ver FROM derby WHERE uid = ?", uid);
+  return { d: DL.norm(r ? JSON.parse(r.json) : null, now), ver: r ? r.ver : -1 };
+}
+// Saves only if nobody else saved in between (two taps at once can't both count)
+async function derbySave(env, uid, d, ver, now) {
+  const pw = DL.power(d.camels[d.act]);
+  const r = ver < 0
+    ? await run(env, "INSERT OR IGNORE INTO derby (uid, json, trophies, power, ver, updated_at) VALUES (?, ?, ?, ?, 0, ?)", uid, JSON.stringify(d), d.trophies, pw, now)
+    : await run(env, "UPDATE derby SET json = ?, trophies = ?, power = ?, ver = ver + 1, updated_at = ? WHERE uid = ? AND ver = ?", JSON.stringify(d), d.trophies, pw, now, uid, ver);
+  if (!r.meta.changes) bad("derby.busy");
+}
+const derbyView = (d) => ({ derby: d, cup: DL.cupOf(d.trophies), left: Math.max(0, DL.RACES_PER_DAY - d.used), adLeft: Math.max(0, DL.AD_RACES - d.ads) });
+async function derbyState(env, u, now) {
+  const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
+  return stateFor(env, fresh, now, tierOf(fresh, now, await isPartner(env, fresh.username)));
+}
+// A Derby purchase: golden feed, or a new camel (if the stable is full, its price in feed instead)
+async function derbyGrant(env, uid, item, now) {
+  for (let i = 0; i < 4; i++) {
+    const { d, ver } = await derbyLoad(env, uid, now);
+    if (item.feed) d.feed += item.feed;
+    else if (d.camels.length < DL.STABLE) { d.camels.push(DL.newCamel(item.breed, "")); d.act = d.camels.length - 1; }
+    else d.feed += Math.round(DL.breedById(item.breed).price * 70);
+    try { return await derbySave(env, uid, d, ver, now); } catch (e) { if (i === 3) throw e; }
+  }
+}
+// Last week's Derby: dates for the top 100 by trophies (given once)
+async function grantDerbyWeek(env) {
+  await ensureSchema(env);
+  const now = Date.now(), last = L.weekId(now - 7 * DAY);
+  const g = await run(env, "INSERT OR IGNORE INTO derby_week_paid (week_id, at) VALUES (?, ?)", last, now);
+  if (!g.meta.changes) return 0;
+  const top = await all(env, "SELECT uid FROM derby_weeks WHERE week_id = ? AND pts > 0 ORDER BY pts DESC, updated_at ASC LIMIT 100", last);
+  for (let i = 0; i < top.length; i++) await creditPoints(env, top[i].uid, "dates", DL.weekDates(i + 1), now, "derbyweek");
+  return top.length;
+}
+
 // ---------- Tasks center helpers ----------
 const Q = {
   KINDS: ["checkin", "link", "secret", "ads", "arcade", "invite", "spin"],
@@ -2195,6 +2358,8 @@ export default {
     ctx.waitUntil(
       grantWeeklyCamels(env)
         .catch((e) => logError(env, "weekly camels", 0, e.message))
+        .then(() => grantDerbyWeek(env))
+        .catch((e) => logError(env, "derby week", 0, e.message))
         .then(() => runPayouts(env))
         .catch((e) => logError(env, "payouts run", 0, e.message))
     );

@@ -1,2 +1,3 @@
 User-agent: *
 Allow: /
+Sitemap: https://jerry-magazine.jaouich.workers.dev/sitemap.xml

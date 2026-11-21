@@ -3,6 +3,7 @@
 // Static files in /public are served by Workers Static Assets (see wrangler.toml).
 import "../public/kombat-logic.js";
 import "../public/logic.js";
+import "../public/catalog-logic.js";
 import "../public/derby-logic.js";
 import "../public/arena-logic.js";
 import { processPayouts } from "./payouts.js";
@@ -12,6 +13,7 @@ const KL = globalThis.KombatLogic;
 const L = globalThis.OasisLogic;
 const DL = globalThis.DerbyLogic;
 const AR = globalThis.ArenaLogic;
+const CAT = globalThis.CatalogLogic;
 const PI_API = "https://api.minepi.com/v2";
 // Pi sign-in: the access token is exchanged with App Studio, which checks it with
 // the Pi Platform. Only the identity it returns is trusted.
@@ -214,6 +216,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS arena_week ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, pts INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE TABLE IF NOT EXISTS arena_week_paid ( week_id INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS arena_daily ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
+  // Personal catalog: goals already claimed (each once per player)
+  "CREATE TABLE IF NOT EXISTS catalog_claims ( uid TEXT NOT NULL, key TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, key) )",
   "CREATE TABLE IF NOT EXISTS notif_log ( uid TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, kind, ref) )",
   // Jerry Arcade: rewarded plays per day and best scores
   "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
@@ -252,6 +256,7 @@ const ensureSchema = (env) =>
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_streak INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_sday INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN lang TEXT").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN cat_master INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN sup_lvl INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN sup_pi REAL NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN sup_at INTEGER").run().catch(() => {}))
@@ -351,6 +356,8 @@ async function account(env, u) {
     jryPts: Number(u.jry_pts) || 0,
     supLvl: Number(u.sup_lvl) || 0,
     supPi: Number(u.sup_pi) || 0,
+    catMaster: !!u.cat_master,
+    catBoost: await catalogBoost(env, u.uid),
     mkBalance: Number(u.mk_balance) || 0,
     wheelFree: (u.wheel_day ?? -1) !== L.dayId(now),
     wheelSpins: Number(u.wheel_spins) || 0,
@@ -361,7 +368,8 @@ async function account(env, u) {
     // the streak is alive if it was extended today or yesterday
     earnStreak: (u.earn_sday ?? -1) >= L.dayId(now) - 1 ? Number(u.earn_streak) || 0 : 0,
     earnStreakToday: (u.earn_sday ?? -1) === L.dayId(now),
-    holdBoost: holdBoost(held) + (await nftBoost(env, u.uid)),
+    // the same sum the server applies to Kombat profit (JRY held, collectibles, royal cards, catalog)
+    holdBoost: holdBoost(held) + (await nftBoost(env, u.uid)) + (await royalPerks(env, u.uid)).boost + (await catalogBoost(env, u.uid)),
     nftBoost: await nftBoost(env, u.uid),
     jryOn: !!env.JRY_ISSUER_SEED || isTestnet(env),
     invitedBy: inviter ? inviter.username : null,
@@ -575,7 +583,7 @@ const routes = {
     let res;
     try {
       const refs = a.type === "kTask" ? await activeRefs(env, u.uid) : 0;
-      res = L.apply(state, a, { now, tier, adVerified, rand: secureRandom, refs, hold: holdBoost(await jryHeld(env, u)) + (await nftBoost(env, u.uid)) + (await royalPerks(env, u.uid)).boost });
+      res = L.apply(state, a, { now, tier, adVerified, rand: secureRandom, refs, hold: holdBoost(await jryHeld(env, u)) + (await nftBoost(env, u.uid)) + (await royalPerks(env, u.uid)).boost + (await catalogBoost(env, u.uid)) });
     } catch (e) {
       if (e instanceof L.GameError) return json({ error: e.code, vars: e.vars, state, now }, 400);
       throw e;
@@ -662,7 +670,7 @@ const routes = {
     const w = await one(env, "SELECT prize_pool FROM weeks WHERE id = ?", wid);
     const top = await all(
       env,
-      `SELECT u.username, s.score, u.vip_until, u.vip_tier, u.sup_lvl, u.sup_pi,
+      `SELECT u.username, s.score, u.vip_until, u.vip_tier, u.sup_lvl, u.sup_pi, u.cat_master,
               EXISTS (SELECT 1 FROM partners p WHERE p.username = u.username) AS partner
        FROM week_scores s JOIN users u ON u.uid = s.uid
        WHERE s.week_id = ? AND s.score > 0 ORDER BY s.score DESC, s.updated_at ASC LIMIT 100`,
@@ -672,7 +680,7 @@ const routes = {
     return {
       prizePool: w ? w.prize_pool : 0,
       bands: L.WEEK100.BANDS,
-      top: top.map((r) => ({ username: r.username, score: r.score, tier: L.TIERS[tierOf(r, now, !!r.partner)].id, sup: r.sup_lvl || (r.sup_pi > 0 ? 4 : 0) })),
+      top: top.map((r) => ({ username: r.username, score: r.score, tier: L.TIERS[tierOf(r, now, !!r.partner)].id, sup: r.sup_lvl || (r.sup_pi > 0 ? 4 : 0), cm: r.cat_master ? 1 : 0 })),
     };
   },
 
@@ -1703,6 +1711,43 @@ const routes = {
     return { week, trophies: all_, me: await arenaStats(env, u.uid), ends: L.weekId(now) + 7 * DAY };
   },
 
+  // ---------- 📖 Personal catalog ----------
+  "GET /api/catalog": async (req, env) => {
+    const who = new URL(req.url).searchParams.get("u");
+    const now = Date.now();
+    let uid, name, mine = true;
+    if (who) {
+      const x = await one(env, "SELECT uid, username FROM users WHERE username = ? COLLATE NOCASE", who);
+      if (!x) bad("cat.noUser");
+      uid = x.uid; name = x.username; mine = false;
+      try { mine = (await auth(req, env)).uid === uid; } catch (e) {}
+    } else { const u = await auth(req, env); uid = u.uid; name = u.username; }
+    const minted = await all(env, "SELECT kind, COUNT(*) AS n FROM nft_items GROUP BY kind");
+    const out = { name, mine, now, owned: await catalogOwned(env, uid), minted: Object.fromEntries(minted.map((x) => [x.kind, x.n])) };
+    const u2 = await one(env, "SELECT cat_master FROM users WHERE uid = ?", uid);
+    out.master = !!(u2 && u2.cat_master);
+    if (mine) { out.claims = await catalogClaims(env, uid); out.boost = CAT.boostOf(out.claims); }
+    return out;
+  },
+  "POST /api/catalog/claim": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now(), key = String(body.key || "");
+    const claims = await catalogClaims(env, u.uid);
+    const p = CAT.progressOf(await catalogOwned(env, u.uid), now, claims);
+    const g = p.goals.find((x) => x.key === key);
+    if (!g || !g.reached) bad("cat.notYet");
+    if (g.claimed) bad("cat.claimed");
+    const r = await run(env, "INSERT OR IGNORE INTO catalog_claims (uid, key, at) VALUES (?, ?, ?)", u.uid, key, now);
+    if (!r.meta.changes) bad("cat.claimed");
+    const rw = g.reward;
+    if (rw.coins) await giveReward(env, u.uid, "coins", rw.coins, now, "catalog");
+    if (rw.jry) await giveReward(env, u.uid, "jry", rw.jry, now, "catalog");
+    if (key === "master") await run(env, "UPDATE users SET cat_master = 1 WHERE uid = ?", u.uid);
+    const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
+    const acc = await account(env, fresh);
+    return { ok: true, key, reward: { coins: rw.coins || 0, jry: rw.jry || 0, boost: rw.boost || 0 }, claims: await catalogClaims(env, u.uid), account: acc, state: await stateFor(env, fresh, now, acc.tier) };
+  },
+
   // ---------- 🕹️ Jerry Arcade ----------
   "GET /api/arcade": async (req, env) => {
     const u = await auth(req, env);
@@ -2294,6 +2339,7 @@ const NOTE = {
   svcup: { go: "services", en: ["🛠️ Your app request was updated", "Open the services page to see the new status."], ar: ["🛠️ تم تحديث طلب تطبيقك", "افتح صفحة الخدمات لترى الحالة الجديدة."], fr: ["🛠️ Ta demande d'app a été mise à jour", "Ouvre la page des services pour voir le nouveau statut."] },
   aweek: { go: "arena", en: ["⚔️ Jerry Arena: #{p}", "+{d} dates for your place this week."], ar: ["⚔️ جيري أرينا: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["⚔️ Jerry Arena : {p}e", "+{d} dattes pour ta place cette semaine."] },
   ainv: { go: "arena", en: ["⚔️ {u} invites you to a battle", "Tap to join the room."], ar: ["⚔️ ‎{u} يدعوك إلى معركة", "اضغط للانضمام إلى الغرفة."], fr: ["⚔️ {u} t'invite à un combat", "Appuie pour rejoindre le salon."] },
+  catgoal: { go: "catalog", en: ["📖 A catalog reward is ready", "You collected enough items: open your catalog and claim it."], ar: ["📖 مكافأة الكاتالوغ جاهزة", "جمعتَ ما يكفي من العناصر: افتح كاتالوغك واستلمها."], fr: ["📖 Une récompense du catalogue est prête", "Tu as collecté assez d'objets : ouvre ton catalogue et récupère-la."] },
   rstart: { go: "vip", en: ["👑 The Grand Royal Final has started!", "All royal cards are sold. {d} days to earn the most Kombat coins: 1 billion for #1."], ar: ["👑 بدأ النهائي الملكي الكبير!", "بيعت كل البطاقات الملكية. {d} يومًا لجمع أكثر عملات كومبات: مليار للأول."], fr: ["👑 La Grande Finale royale commence !", "Toutes les cartes royales sont vendues. {d} jours pour gagner le plus de pièces Kombat : 1 milliard pour le 1er."] },
   rfinal: { go: "vip", en: ["👑 Grand Royal Final: #{p}", "+{n} Kombat coins for your place!"], ar: ["👑 النهائي الملكي الكبير: المركز {p}", "+{n} عملة كومبات لمركزك!"], fr: ["👑 Grande Finale royale : {p}e", "+{n} pièces Kombat pour ta place !"] },
   jry: { go: "kombat", en: ["💠 +{n} JRY from Jerry Development", "{note}"], ar: ["💠 +{n} JRY من Jerry Development", "{note}"], fr: ["💠 +{n} JRY de Jerry Development", "{note}"] },
@@ -2595,6 +2641,37 @@ async function grantArenaWeek(env) {
   for (let i = 0; i < top.length; i++) await creditPoints(env, top[i].uid, "dates", Math.floor(L.WEEK100.dates(i + 1) / 2), now, "arenaweek");
   await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "aweek", ref: last, vars: { p: i + 1, d: Math.floor(L.WEEK100.dates(i + 1) / 2).toLocaleString("en-US") } })));
   return top.length;
+}
+
+// ---------- Personal catalog helpers ----------
+// Everything a player owns that belongs in the album: { id: { eds: [numbers], since: ms } }
+async function catalogOwned(env, uid) {
+  const out = {};
+  const put = (id, ed, since) => { const o = (out[id] ||= { eds: [], since }); if (ed) o.eds.push(ed); o.since = Math.min(o.since, since); };
+  for (const r of await all(env, `SELECT i.kind, i.edition, COALESCE((SELECT MAX(m.at) FROM nft_moves m WHERE m.item_id = i.id AND m.to_uid = i.owner), i.minted_at) AS since FROM nft_items i WHERE i.owner = ?`, uid)) put(r.kind, r.edition, r.since);
+  for (const r of await all(env, "SELECT tier, ed, at FROM royal_cards WHERE uid = ?", uid)) put(r.tier, r.ed, r.at);
+  const u = await one(env, "SELECT sup_lvl, sup_pi, sup_at FROM users WHERE uid = ?", uid);
+  if (u) {
+    for (const b of CAT.BADGES) if ((b.lvl && u.sup_lvl >= b.lvl) || (b.free && u.sup_pi > 0)) put(b.id, 0, 0);
+    // a Founder (💎) also holds the lower badges; support of any amount holds the 🤍
+  }
+  for (const o of Object.values(out)) o.eds.sort((a, b) => a - b);
+  return out;
+}
+const catalogClaims = async (env, uid) => (await all(env, "SELECT key FROM catalog_claims WHERE uid = ?", uid)).map((r) => r.key);
+// Permanent Kombat profit from the catalog (claimed section goals + Master Collector)
+const catalogBoost = async (env, uid) => CAT.boostOf(await catalogClaims(env, uid));
+// Hourly: tell players once when a goal becomes claimable (items held long enough)
+async function catalogNotify(env) {
+  await ensureSchema(env);
+  const now = Date.now();
+  const owners = await all(env, "SELECT DISTINCT owner AS uid FROM nft_items UNION SELECT DISTINCT uid FROM royal_cards LIMIT 500");
+  const items = [];
+  for (const o of owners) {
+    const p = CAT.progressOf(await catalogOwned(env, o.uid), now, await catalogClaims(env, o.uid));
+    for (const g of p.goals) if (g.reached && !g.claimed) items.push({ uid: o.uid, kind: "catgoal", ref: g.key, vars: {} });
+  }
+  return notify(env, items);
 }
 
 // ---------- Tasks center helpers ----------
@@ -2978,6 +3055,7 @@ export default {
         .then(() => grantDerbyWeek(env))
         .then(() => grantArenaWeek(env))
         .then(() => arenaSweep(env))
+        .then(() => catalogNotify(env))
         .catch((e) => logError(env, "derby week", 0, e.message))
         .then(() => royalFinalPrizes(env))
         .then(() => kombatWeekNotes(env))

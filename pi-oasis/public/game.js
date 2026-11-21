@@ -285,11 +285,11 @@
       const me = account.username;
       const pod = (r, place) => r ? `<div class="pod p${place} ${r.username === me ? "me" : ""}">
           <div class="av">${esc(r.username.slice(0, 1).toUpperCase())}</div>
-          <div class="nm">${esc(r.username)}${r.sup ? " " + SUPN[r.sup] : ""}</div>${chip(r.tier)}
+          <div class="nm">${esc(r.username)}${r.sup ? " " + SUPN[r.sup] : ""}${r.cm ? " 📚" : ""}</div>${chip(r.tier)}
           <div class="sc">${r.score} 🪙</div><div class="step">${place}</div></div>` : `<div></div>`;
       $("podium").innerHTML = lb.top.length ? pod(lb.top[1], 2) + pod(lb.top[0], 1) + pod(lb.top[2], 3) : "";
       $("leaderboard").innerHTML = lb.top.length
-        ? lb.top.slice(3).map((r, i) => `<li class="${r.username === me ? "me" : ""}"><span><span class="pos">${i + 4}</span>${esc(r.username)}${r.sup ? " " + SUPN[r.sup] : ""}${chip(r.tier)}</span><b>${r.score} 🪙</b></li>`).join("")
+        ? lb.top.slice(3).map((r, i) => `<li class="${r.username === me ? "me" : ""}"><span><span class="pos">${i + 4}</span>${esc(r.username)}${r.sup ? " " + SUPN[r.sup] : ""}${r.cm ? " 📚" : ""}${chip(r.tier)}</span><b>${r.score} 🪙</b></li>`).join("")
         : `<li class="hint">${t("rank.empty")}</li>`;
     } catch (e) { toast(e.message); }
   }
@@ -1236,7 +1236,7 @@
     if (goDone) return; goDone = true;
     const go = new URLSearchParams(location.search).get("go");
     if (go === "arena" && new URLSearchParams(location.search).get("watch")) return; // arena.js opens it itself
-    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { arena: "arenaOpen", services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
+    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { arena: "arenaOpen", catalog: "catOpen", services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
     if (tabs[go]) document.querySelector(`.tabs [data-tab="${tabs[go]}"]`).click();
     else if (opens[go]) setTimeout(() => $(opens[go]).click(), 300);
   }

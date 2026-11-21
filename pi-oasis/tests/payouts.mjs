@@ -89,7 +89,9 @@ r = await act({ type: "breed", a: ids[0], b: ids[0] });
 ok(r.error === "badAction", "can't breed a camel with itself");
 await exec(`UPDATE state SET json = json_set(json, '$.animals[0].lastCollect', ${Date.now() - 2 * 3600000}) WHERE uid = '${uidA}'`);
 r = await act({ type: "collect" });
-ok(r.msg && r.msg.key === "t.collected" && r.msg.vars.n === 160, "collect: legendary 80/h x 2 h = 160");
+global.window = global; await import("../public/logic.js");
+const evMult = globalThis.OasisLogic.eventOf(Date.now()).camels || 1; // the daily event (e.g. festival: camels x1.5) changes with the day
+ok(r.msg && r.msg.key === "t.collected" && r.msg.vars.n === Math.round(160 * evMult), "collect: legendary 80/h x 2 h = 160 (x today's event)");
 
 const st = await get("/api/status");
 ok(st.payoutsConfigured === true && Array.isArray(st.payouts), "status shows payouts");

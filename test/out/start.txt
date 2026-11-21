@@ -1,0 +1,7 @@
+Starting: Intent { cmp=app.rekordo/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: app.rekordo/.MainActivity
+TotalTime: 2804
+WaitTime: 2832
+Complete

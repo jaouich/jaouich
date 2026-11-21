@@ -1,0 +1,21 @@
+ACTIVITY MANAGER SERVICES (dumpsys activity services)
+  User 0 active services:
+  * ServiceRecord{b92b064 u0 app.rekordo/.RecorderService}
+    intent={act=app.rekordo.START cmp=app.rekordo/.RecorderService}
+    packageName=app.rekordo
+    processName=app.rekordo
+    baseDir=/data/app/~~IPBfAVFwizPMM1Of32-5Ng==/app.rekordo-yYdoCjDd9j7wcVvAeSMiKA==/base.apk
+    dataDir=/data/user/0/app.rekordo
+    app=ProcessRecord{51375dc 3249:app.rekordo/u0a192}
+    mAllowWhileInUsePermissionInFgsReason=PROC_STATE_TOP
+    allowUiJobScheduling=true
+    recentCallingPackage=app.rekordo
+    recentCallingUid=10192
+    allowStartForeground=PROC_STATE_TOP
+    startForegroundCount=1
+    infoAllowStartForeground=[callingPackage: app.rekordo; callingUid: 10192; uidState: TOP ; uidBFSL: [BFSL]; intent: Intent { act=app.rekordo.START cmp=app.rekordo/.RecorderService (has extras) }; code:PROC_STATE_TOP; tempAllowListReason:<null>; targetSdkVersion:35; callerTargetSdkVersion:35; startForegroundCount:0; bindFromPackage:null: isBindService:false]
+    isForeground=true foregroundId=7 types=000000E0 foregroundNoti=Notification(channel=rec shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x62 color=0xffff3d5a category=service actions=3 vis=PRIVATE)
+    createTime=-9s171ms startingBgTimeout=--
+    lastActivity=-9s170ms restartTime=-9s170ms createdFromFg=true
+    startRequested=true delayedStop=false stopIfKilled=true callStart=true lastStartId=1
+ startCommandResult=2

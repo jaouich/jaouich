@@ -1,0 +1,112 @@
+1
+00:00:00,200 --> 00:00:05,409
+Welcome to Use AI the Right Way, a free course from Jerry Development.
+
+2
+00:00:05,409 --> 00:00:13,000
+In this first lesson you will learn how to stay in control when you work with artificial intelligence.
+
+3
+00:00:13,400 --> 00:00:17,432
+AI tools can write, summarize and explain in seconds.
+
+4
+00:00:17,432 --> 00:00:23,290
+But they can also give an answer that sounds perfect and is completely wrong.
+
+5
+00:00:23,290 --> 00:00:25,800
+That is why we need simple rules.
+
+6
+00:00:26,200 --> 00:00:26,941
+Rule one.
+
+7
+00:00:26,941 --> 00:00:28,341
+You are the boss.
+
+8
+00:00:28,341 --> 00:00:33,282
+Treat AI like a smart assistant, not like a final authority.
+
+9
+00:00:33,282 --> 00:00:40,200
+If you send it, publish it or sign it, you are responsible, so always read it first.
+
+10
+00:00:40,600 --> 00:00:41,299
+Rule two.
+
+11
+00:00:41,299 --> 00:00:41,998
+Be clear.
+
+12
+00:00:41,998 --> 00:00:50,384
+Tell the AI who you are, what you need, the format you want, and the limits, such as length, tone and level.
+
+13
+00:00:50,384 --> 00:00:53,800
+Clear instructions give much better answers.
+
+14
+00:00:54,200 --> 00:00:55,035
+Rule three.
+
+15
+00:00:55,035 --> 00:00:56,251
+Check the facts.
+
+16
+00:00:56,251 --> 00:01:02,251
+Verify numbers, dates and names with an official source that you open yourself.
+
+17
+00:01:02,251 --> 00:01:06,200
+If an answer has no source, do not trust it blindly.
+
+18
+00:01:06,600 --> 00:01:07,303
+Rule four.
+
+19
+00:01:07,303 --> 00:01:08,780
+Protect your secrets.
+
+20
+00:01:08,780 --> 00:01:16,446
+Never paste passwords, private keys, wallet recovery phrases or other people's private data into any AI tool.
+
+21
+00:01:16,446 --> 00:01:19,400
+No real helper will ever ask you for them.
+
+22
+00:01:19,800 --> 00:01:20,636
+Rule five.
+
+23
+00:01:20,636 --> 00:01:21,472
+Be honest.
+
+24
+00:01:21,472 --> 00:01:24,313
+Say when content was made with AI.
+
+25
+00:01:24,313 --> 00:01:31,000
+Do not copy other people's work, and never use AI to cheat or to mislead people.
+
+26
+00:01:31,400 --> 00:01:36,081
+Use AI to learn faster and work better, not to skip thinking.
+
+27
+00:01:36,081 --> 00:01:40,763
+In the next lesson you will learn how to write great prompts.
+
+28
+00:01:40,763 --> 00:01:44,600
+Follow Jerry Development for the full free course.
+

@@ -1,0 +1,73 @@
+{
+ "course": "Work Online the Smart Way",
+ "n": 3,
+ "title": "Build a profile and portfolio",
+ "summary": "How to show your work so a stranger trusts you in under one minute.",
+ "slides": [
+  {
+   "k": "title",
+   "h": "Lesson 3",
+   "sub": "Build a profile and portfolio",
+   "scene": "community",
+   "say": "Lesson three. Clients do not know you. In less than one minute they decide if they trust you. Your profile and your portfolio must answer that question."
+  },
+  {
+   "k": "points",
+   "h": "A strong profile",
+   "pts": [
+    "Clear photo, real name",
+    "One sentence: what you do and for whom",
+    "Languages and tools",
+    "Simple, honest, no exaggeration"
+   ],
+   "scene": "desert",
+   "say": "A strong profile has a clear photo, your real name, and one sentence that says what you do and for whom. Add your languages and tools. Keep it simple and honest, with no exaggeration."
+  },
+  {
+   "k": "statement",
+   "h": "No experience?\nCreate your own samples.",
+   "scene": "night",
+   "say": "No experience yet? Create your own samples. Choose three imaginary clients and do the work for them. Samples you made yourself are enough to start."
+  },
+  {
+   "k": "points",
+   "h": "Portfolio checklist",
+   "pts": [
+    "3 to 5 of your best samples",
+    "Each with a short description",
+    "What was the goal? What did you do?",
+    "Easy to open on a phone"
+   ],
+   "scene": "search",
+   "say": "Your portfolio needs three to five of your best samples. For each one, write a short description. What was the goal, and what did you do. And make sure it opens easily on a phone."
+  },
+  {
+   "k": "points",
+   "h": "Where to put it",
+   "pts": [
+    "A free page or simple website",
+    "Your profile on freelance platforms",
+    "A short link you can send"
+   ],
+   "scene": "tech",
+   "say": "Put it online in a free page or a simple website, and on your profile on freelance platforms. Keep one short link that you can send to any client."
+  },
+  {
+   "k": "points",
+   "h": "Never fake it",
+   "pts": [
+    "Do not copy other people's work",
+    "Do not invent clients or reviews",
+    "Honesty builds long-term trust"
+   ],
+   "scene": "safety",
+   "say": "Never fake it. Do not copy other people's work, and do not invent clients or reviews. Honesty builds long term trust, and platforms close accounts that cheat."
+  },
+  {
+   "k": "statement",
+   "h": "Show real work.\nExplain it clearly.",
+   "scene": "oasis",
+   "say": "Show real work and explain it clearly. This week, create three samples and put them online. Next lesson: how to find your first client and write a proposal."
+  }
+ ]
+}

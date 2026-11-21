@@ -1,0 +1,36 @@
+Use AI the Right Way · Lesson 2: How to write a great prompt
+Length: 100 seconds (1:40)
+
+=== TITLE (YouTube / Facebook) ===
+Use AI the Right Way | Lesson 2: How to write a great prompt
+
+=== DESCRIPTION ===
+A simple five-part formula for prompts that give useful answers on the first try.
+
+Part of the free course "Use AI the Right Way" by Jerry Development. More lessons: https://jerry-magazine.jaouich.workers.dev/courses/
+
+This video was produced with the help of AI (script, slides and illustrations). The information is general and not financial, legal or professional advice.
+
+#AI #ArtificialIntelligence #LearnAI #OnlineWork #Freelance #FreeCourse #JerryDevelopment
+
+=== VOICE-OVER SCRIPT (read it, or paste it into a text-to-speech tool; slides are timed for a calm pace of about 150 words per minute) ===
+[Slide 1 · 12.8s]
+Lesson two. A prompt is simply the instruction you give to an AI. A better prompt gives a better answer. Here is a simple formula you can use every day.
+
+[Slide 2 · 11.6s]
+Look at this prompt: write about marketing. It is too vague. The AI has to guess everything, so the answer will be generic and not very useful.
+
+[Slide 3 · 18.4s]
+Use five parts. One, the role: who should the AI be. Two, the task: what exactly should it do. Three, the context: who is the answer for. Four, the format: a list, a table or an email. Five, the limits: length, tone and level.
+
+[Slide 4 · 15.2s]
+A good prompt looks like this. Act as a friendly teacher. Explain what an online portfolio is, for a beginner with no experience. Use five bullet points, in simple English, under one hundred and twenty words.
+
+[Slide 5 · 15.6s]
+Do not stop at the first answer. Read it, then say exactly what to change. Ask for another version, or ask the AI what it is unsure about. A conversation gets better results than a single question.
+
+[Slide 6 · 12.4s]
+Examples help a lot. Paste a short sample of the style you like, show the result you want, and say what to avoid. The AI follows examples very well.
+
+[Slide 7 · 13.6s]
+Remember: a clear prompt gives a useful answer. Practice the five-part formula today with one real task. In the next lesson we will learn how to check what the AI tells you.

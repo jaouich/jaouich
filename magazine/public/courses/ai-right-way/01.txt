@@ -1,0 +1,39 @@
+Use AI the Right Way · Lesson 1: AI is a helper, not a boss
+Length: 105 seconds (1:45)
+
+=== TITLE (YouTube / Facebook) ===
+Use AI the Right Way | Lesson 1: AI is a helper, not a boss
+
+=== DESCRIPTION ===
+Why AI is powerful but can be confidently wrong, and the five rules that keep you in control.
+
+Part of the free course "Use AI the Right Way" by Jerry Development. More lessons: https://jerry-magazine.jaouich.workers.dev/courses/
+
+This video was produced with the help of AI (script, slides and illustrations). The information is general and not financial, legal or professional advice.
+
+#AI #ArtificialIntelligence #LearnAI #OnlineWork #Freelance #FreeCourse #JerryDevelopment
+
+=== VOICE-OVER SCRIPT (read it, or paste it into a text-to-speech tool; slides are timed for a calm pace of about 150 words per minute) ===
+[Slide 1 · 13.2s]
+Welcome to Use AI the Right Way, a free course from Jerry Development. In this first lesson you will learn how to stay in control when you work with artificial intelligence.
+
+[Slide 2 · 12.8s]
+AI tools can write, summarize and explain in seconds. But they can also give an answer that sounds perfect and is completely wrong. That is why we need simple rules.
+
+[Slide 3 · 14.4s]
+Rule one. You are the boss. Treat AI like a smart assistant, not like a final authority. If you send it, publish it or sign it, you are responsible, so always read it first.
+
+[Slide 4 · 13.6s]
+Rule two. Be clear. Tell the AI who you are, what you need, the format you want, and the limits, such as length, tone and level. Clear instructions give much better answers.
+
+[Slide 5 · 12.4s]
+Rule three. Check the facts. Verify numbers, dates and names with an official source that you open yourself. If an answer has no source, do not trust it blindly.
+
+[Slide 6 · 13.2s]
+Rule four. Protect your secrets. Never paste passwords, private keys, wallet recovery phrases or other people's private data into any AI tool. No real helper will ever ask you for them.
+
+[Slide 7 · 11.6s]
+Rule five. Be honest. Say when content was made with AI. Do not copy other people's work, and never use AI to cheat or to mislead people.
+
+[Slide 8 · 13.6s]
+Use AI to learn faster and work better, not to skip thinking. In the next lesson you will learn how to write great prompts. Follow Jerry Development for the full free course.

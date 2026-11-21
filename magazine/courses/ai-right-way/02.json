@@ -1,0 +1,76 @@
+{
+ "course": "Use AI the Right Way",
+ "n": 2,
+ "title": "How to write a great prompt",
+ "summary": "A simple five-part formula for prompts that give useful answers on the first try.",
+ "slides": [
+  {
+   "k": "title",
+   "h": "Lesson 2",
+   "sub": "How to write a great prompt",
+   "scene": "tech",
+   "say": "Lesson two. A prompt is simply the instruction you give to an AI. A better prompt gives a better answer. Here is a simple formula you can use every day."
+  },
+  {
+   "k": "statement",
+   "h": "Bad prompt: \"Write about marketing.\"",
+   "scene": "night",
+   "say": "Look at this prompt: write about marketing. It is too vague. The AI has to guess everything, so the answer will be generic and not very useful."
+  },
+  {
+   "k": "points",
+   "h": "The five-part formula",
+   "pts": [
+    "1. Role: who should the AI be?",
+    "2. Task: what exactly to do?",
+    "3. Context: who is it for?",
+    "4. Format: list, table, email?",
+    "5. Limits: length, tone, level"
+   ],
+   "scene": "desert",
+   "say": "Use five parts. One, the role: who should the AI be. Two, the task: what exactly should it do. Three, the context: who is the answer for. Four, the format: a list, a table or an email. Five, the limits: length, tone and level."
+  },
+  {
+   "k": "points",
+   "h": "Good prompt example",
+   "pts": [
+    "\"Act as a friendly teacher.\"",
+    "\"Explain what an online portfolio is.\"",
+    "\"For a beginner with no experience.\"",
+    "\"Use 5 bullet points.\"",
+    "\"Simple English, under 120 words.\""
+   ],
+   "scene": "community",
+   "say": "A good prompt looks like this. Act as a friendly teacher. Explain what an online portfolio is, for a beginner with no experience. Use five bullet points, in simple English, under one hundred and twenty words."
+  },
+  {
+   "k": "points",
+   "h": "Improve it step by step",
+   "pts": [
+    "Read the first answer",
+    "Say what to change",
+    "Ask for another version",
+    "Ask: what are you unsure about?"
+   ],
+   "scene": "search",
+   "say": "Do not stop at the first answer. Read it, then say exactly what to change. Ask for another version, or ask the AI what it is unsure about. A conversation gets better results than a single question."
+  },
+  {
+   "k": "points",
+   "h": "Give examples",
+   "pts": [
+    "Paste a sample of the style you like",
+    "Show the result you want",
+    "Say what to avoid"
+   ],
+   "scene": "story",
+   "say": "Examples help a lot. Paste a short sample of the style you like, show the result you want, and say what to avoid. The AI follows examples very well."
+  },
+  {
+   "k": "statement",
+   "h": "Clear prompt =\nuseful answer",
+   "scene": "oasis",
+   "say": "Remember: a clear prompt gives a useful answer. Practice the five-part formula today with one real task. In the next lesson we will learn how to check what the AI tells you."
+  }
+ ]
+}

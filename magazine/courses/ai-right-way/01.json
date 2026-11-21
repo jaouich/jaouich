@@ -1,0 +1,82 @@
+{
+ "course": "Use AI the Right Way",
+ "n": 1,
+ "title": "AI is a helper, not a boss",
+ "summary": "Why AI is powerful but can be confidently wrong, and the five rules that keep you in control.",
+ "slides": [
+  {
+   "k": "title",
+   "h": "Lesson 1",
+   "sub": "AI is a helper, not a boss",
+   "scene": "tech",
+   "say": "Welcome to Use AI the Right Way, a free course from Jerry Development. In this first lesson you will learn how to stay in control when you work with artificial intelligence."
+  },
+  {
+   "k": "statement",
+   "h": "AI is fast.\nBut it can be confidently wrong.",
+   "scene": "night",
+   "say": "AI tools can write, summarize and explain in seconds. But they can also give an answer that sounds perfect and is completely wrong. That is why we need simple rules."
+  },
+  {
+   "k": "points",
+   "h": "Rule 1: You are the boss",
+   "pts": [
+    "AI is an assistant, not an authority",
+    "You are responsible for the final result",
+    "Read before you use or send anything"
+   ],
+   "scene": "desert",
+   "say": "Rule one. You are the boss. Treat AI like a smart assistant, not like a final authority. If you send it, publish it or sign it, you are responsible, so always read it first."
+  },
+  {
+   "k": "points",
+   "h": "Rule 2: Be clear",
+   "pts": [
+    "Say who you are and what you need",
+    "Say the format you want",
+    "Say the limits: length, tone, level"
+   ],
+   "scene": "community",
+   "say": "Rule two. Be clear. Tell the AI who you are, what you need, the format you want, and the limits, such as length, tone and level. Clear instructions give much better answers."
+  },
+  {
+   "k": "points",
+   "h": "Rule 3: Check the facts",
+   "pts": [
+    "Verify numbers, dates and names",
+    "Open the official source yourself",
+    "If it has no source, do not trust it"
+   ],
+   "scene": "search",
+   "say": "Rule three. Check the facts. Verify numbers, dates and names with an official source that you open yourself. If an answer has no source, do not trust it blindly."
+  },
+  {
+   "k": "points",
+   "h": "Rule 4: Protect your secrets",
+   "pts": [
+    "Never paste passwords or private keys",
+    "Never share wallet recovery phrases",
+    "Never paste other people's private data"
+   ],
+   "scene": "safety",
+   "say": "Rule four. Protect your secrets. Never paste passwords, private keys, wallet recovery phrases or other people's private data into any AI tool. No real helper will ever ask you for them."
+  },
+  {
+   "k": "points",
+   "h": "Rule 5: Be honest",
+   "pts": [
+    "Say when content was made with AI",
+    "Do not copy other people's work",
+    "Do not use AI to cheat or mislead"
+   ],
+   "scene": "pi",
+   "say": "Rule five. Be honest. Say when content was made with AI. Do not copy other people's work, and never use AI to cheat or to mislead people."
+  },
+  {
+   "k": "statement",
+   "h": "Use AI to learn faster,\nnot to skip thinking.",
+   "scene": "oasis",
+   "say": "Use AI to learn faster and work better, not to skip thinking. In the next lesson you will learn how to write great prompts. Follow Jerry Development for the full free course."
+  }
+ ]
+}

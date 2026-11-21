@@ -1,0 +1,108 @@
+1
+00:00:00,200 --> 00:00:01,115
+Lesson two.
+
+2
+00:00:01,115 --> 00:00:05,526
+A prompt is simply the instruction you give to an AI.
+
+3
+00:00:05,526 --> 00:00:08,689
+A better prompt gives a better answer.
+
+4
+00:00:08,689 --> 00:00:12,600
+Here is a simple formula you can use every day.
+
+5
+00:00:13,000 --> 00:00:16,416
+Look at this prompt: write about marketing.
+
+6
+00:00:16,416 --> 00:00:17,687
+It is too vague.
+
+7
+00:00:17,687 --> 00:00:24,200
+The AI has to guess everything, so the answer will be generic and not very useful.
+
+8
+00:00:24,600 --> 00:00:25,822
+Use five parts.
+
+9
+00:00:25,822 --> 00:00:28,754
+One, the role: who should the AI be.
+
+10
+00:00:28,754 --> 00:00:32,093
+Two, the task: what exactly should it do.
+
+11
+00:00:32,093 --> 00:00:35,514
+Three, the context: who is the answer for.
+
+12
+00:00:35,514 --> 00:00:39,261
+Four, the format: a list, a table or an email.
+
+13
+00:00:39,261 --> 00:00:42,600
+Five, the limits: length, tone and level.
+
+14
+00:00:43,000 --> 00:00:45,166
+A good prompt looks like this.
+
+15
+00:00:45,166 --> 00:00:47,043
+Act as a friendly teacher.
+
+16
+00:00:47,043 --> 00:00:52,169
+Explain what an online portfolio is, for a beginner with no experience.
+
+17
+00:00:52,169 --> 00:00:57,800
+Use five bullet points, in simple English, under one hundred and twenty words.
+
+18
+00:00:58,200 --> 00:01:00,707
+Do not stop at the first answer.
+
+19
+00:01:00,707 --> 00:01:03,920
+Read it, then say exactly what to change.
+
+20
+00:01:03,920 --> 00:01:08,856
+Ask for another version, or ask the AI what it is unsure about.
+
+21
+00:01:08,856 --> 00:01:13,400
+A conversation gets better results than a single question.
+
+22
+00:01:13,800 --> 00:01:15,444
+Examples help a lot.
+
+23
+00:01:15,444 --> 00:01:23,005
+Paste a short sample of the style you like, show the result you want, and say what to avoid.
+
+24
+00:01:23,005 --> 00:01:25,800
+The AI follows examples very well.
+
+25
+00:01:26,200 --> 00:01:29,828
+Remember: a clear prompt gives a useful answer.
+
+26
+00:01:29,828 --> 00:01:34,151
+Practice the five-part formula today with one real task.
+
+27
+00:01:34,151 --> 00:01:39,400
+In the next lesson we will learn how to check what the AI tells you.
+

@@ -1,0 +1,74 @@
+{
+ "course": "Work Online the Smart Way",
+ "n": 1,
+ "title": "What online work really is",
+ "summary": "A realistic picture of working online: what it is, what it is not, and how to start without being scammed.",
+ "slides": [
+  {
+   "k": "title",
+   "h": "Lesson 1",
+   "sub": "What online work really is",
+   "scene": "tech",
+   "say": "Welcome to Work Online the Smart Way, a free course from Jerry Development. In this first lesson we will look at what working online really is, and what it is not."
+  },
+  {
+   "k": "statement",
+   "h": "Online work is real work.\nNot a shortcut.",
+   "scene": "night",
+   "say": "Online work is real work. You trade a skill or your time for money, just like in any job. Anyone who promises easy money with no skills and no effort is selling a dream, or a scam."
+  },
+  {
+   "k": "points",
+   "h": "Three common ways",
+   "pts": [
+    "Freelancing: services for clients",
+    "Employment: a remote job",
+    "Selling: products, content or courses"
+   ],
+   "scene": "desert",
+   "say": "There are three common ways. Freelancing, where you sell a service to clients. Remote employment, where one company hires you. And selling your own products, content or courses."
+  },
+  {
+   "k": "points",
+   "h": "Skills people pay for",
+   "pts": [
+    "Writing and translation",
+    "Design and video editing",
+    "Customer support",
+    "Programming and data work",
+    "Teaching and tutoring"
+   ],
+   "scene": "community",
+   "say": "People pay for skills. Writing and translation. Design and video editing. Customer support. Programming and data work. And teaching or tutoring. Choose one and get good at it."
+  },
+  {
+   "k": "points",
+   "h": "What you need to start",
+   "pts": [
+    "One clear skill",
+    "A phone or computer, internet",
+    "A simple profile and examples",
+    "Patience: the first month is slow"
+   ],
+   "scene": "oasis",
+   "say": "To start you need one clear skill, a phone or a computer with internet, a simple profile with examples of your work, and patience. The first weeks are usually slow, and that is normal."
+  },
+  {
+   "k": "points",
+   "h": "Be realistic",
+   "pts": [
+    "Income takes time to build",
+    "Quality beats speed",
+    "Never pay to get a job"
+   ],
+   "scene": "safety",
+   "say": "Be realistic. Income takes time to build. Quality matters more than speed. And never pay money to get a job. Real employers pay you, they do not charge you."
+  },
+  {
+   "k": "statement",
+   "h": "Choose one skill.\nBuild it for 30 days.",
+   "scene": "oasis",
+   "say": "Your homework: choose one skill and practise it for thirty days. In the next lesson we will see which skills fit you and how to choose one."
+  }
+ ]
+}

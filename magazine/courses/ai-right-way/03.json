@@ -1,0 +1,72 @@
+{
+ "course": "Use AI the Right Way",
+ "n": 3,
+ "title": "Check before you trust",
+ "summary": "How to spot wrong answers, invented sources and out-of-date facts before they cost you.",
+ "slides": [
+  {
+   "k": "title",
+   "h": "Lesson 3",
+   "sub": "Check before you trust",
+   "scene": "search",
+   "say": "Lesson three. The most important skill with AI is checking. Even the best tools sometimes invent facts. Let us see how to catch mistakes before they cost you."
+  },
+  {
+   "k": "statement",
+   "h": "AI sometimes invents things.\nIt is called a hallucination.",
+   "scene": "night",
+   "say": "When an AI makes up a fact, a name, a number or a source, people call it a hallucination. It sounds confident, so it is easy to believe. You must learn to check."
+  },
+  {
+   "k": "points",
+   "h": "Red flags",
+   "pts": [
+    "Very exact numbers with no source",
+    "Links or books that you cannot find",
+    "Perfect answers to very new events",
+    "Different answers when you ask again"
+   ],
+   "scene": "desert",
+   "say": "Watch for red flags. Very exact numbers without a source. Links or books that you cannot find. Perfect answers about very recent events. And answers that change when you ask the same question again."
+  },
+  {
+   "k": "points",
+   "h": "The 3-step check",
+   "pts": [
+    "1. Ask for the sources",
+    "2. Open them yourself",
+    "3. Compare with a second source"
+   ],
+   "scene": "community",
+   "say": "Use a three step check. Ask for the sources. Open them yourself, because the tool can invent a link. Then compare with a second, independent source before you decide."
+  },
+  {
+   "k": "points",
+   "h": "Best sources",
+   "pts": [
+    "Official websites and documentation",
+    "Original reports and data",
+    "Experts who sign their name"
+   ],
+   "scene": "pi",
+   "say": "Prefer official websites and documentation, original reports and data, and experts who sign their name. A random post on social media is not a source."
+  },
+  {
+   "k": "points",
+   "h": "Be extra careful with",
+   "pts": [
+    "Money, health and legal topics",
+    "Prices and predictions",
+    "News from the last few days"
+   ],
+   "scene": "safety",
+   "say": "Be extra careful with money, health and legal topics, with prices and predictions, and with news from the last few days. In these cases, ask a real professional or use the official source."
+  },
+  {
+   "k": "statement",
+   "h": "Trust, but verify.",
+   "scene": "oasis",
+   "say": "Trust, but verify. This habit will protect you more than any tool. Next lesson: how to protect your privacy and your accounts while you use AI."
+  }
+ ]
+}

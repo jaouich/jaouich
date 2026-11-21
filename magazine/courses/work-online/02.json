@@ -1,0 +1,77 @@
+{
+ "course": "Work Online the Smart Way",
+ "n": 2,
+ "title": "Choose a skill that fits you",
+ "summary": "How to pick one marketable skill using your strengths, your time and the demand.",
+ "slides": [
+  {
+   "k": "title",
+   "h": "Lesson 2",
+   "sub": "Choose a skill that fits you",
+   "scene": "search",
+   "say": "Lesson two. Many beginners try everything and master nothing. Today you will choose one skill using a simple method."
+  },
+  {
+   "k": "points",
+   "h": "Three questions",
+   "pts": [
+    "What am I already good at?",
+    "What do people pay for?",
+    "What can I practise every day?"
+   ],
+   "scene": "desert",
+   "say": "Ask yourself three questions. What am I already good at? What do people pay for? And what can I practise every day without getting bored?"
+  },
+  {
+   "k": "points",
+   "h": "List your strengths",
+   "pts": [
+    "Languages you speak",
+    "Tools you already use",
+    "Things friends ask you for help with"
+   ],
+   "scene": "community",
+   "say": "Make a list of your strengths. The languages you speak, the tools you already use, and the things friends ask you to help with. Your first skill is often hidden in that list."
+  },
+  {
+   "k": "points",
+   "h": "Check the demand",
+   "pts": [
+    "Search the skill on job platforms",
+    "Count the real offers",
+    "Read what clients ask for"
+   ],
+   "scene": "tech",
+   "say": "Then check the demand. Search for the skill on job and freelance platforms, count the real offers, and read what clients ask for. If nobody is asking, choose another skill."
+  },
+  {
+   "k": "points",
+   "h": "Pick a small niche",
+   "pts": [
+    "Not just \"design\"",
+    "But \"logos for small shops\"",
+    "Not just \"writing\"",
+    "But \"product descriptions\""
+   ],
+   "scene": "story",
+   "say": "Pick a small niche. Not just design, but logos for small shops. Not just writing, but product descriptions. A small niche is easier to explain, and easier to sell."
+  },
+  {
+   "k": "points",
+   "h": "Learn with a plan",
+   "pts": [
+    "30 minutes every day",
+    "One small project a week",
+    "Use free official tutorials"
+   ],
+   "scene": "oasis",
+   "say": "Learn with a plan. Thirty minutes every day, one small project every week, and free official tutorials. Use AI as a tutor, but always check what it tells you."
+  },
+  {
+   "k": "statement",
+   "h": "One skill.\nOne niche.\nOne plan.",
+   "scene": "night",
+   "say": "One skill, one niche, one plan. Write them down today. Next lesson: how to build a simple profile and portfolio that make clients trust you."
+  }
+ ]
+}

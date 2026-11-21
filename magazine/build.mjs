@@ -9,10 +9,13 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 const SECTIONS = {
   pi: { name: "Pi Network", icon: "🪙", scene: "pi" }, tech: { name: "تقنية وذكاء اصطناعي", icon: "🤖", scene: "tech" },
   safety: { name: "نصائح وأمان", icon: "🛡️", scene: "safety" }, community: { name: "المجتمع", icon: "👥", scene: "community" },
-  stories: { name: "قصص", icon: "📖", scene: "story" }, manga: { name: "مانغا", icon: "🎨", scene: "oasis" },
+  stories: { name: "قصص", icon: "📖", scene: "story" }, courses: { name: "دورات (English)", icon: "🎓", scene: "tech" }, manga: { name: "مانغا", icon: "🎨", scene: "oasis" },
 };
 const write = (p, s) => { fs.mkdirSync(path.dirname(path.join(OUT, p)), { recursive: true }); fs.writeFileSync(path.join(OUT, p), s); };
+const KEEP = "/tmp/mag-courses-keep"; fs.rmSync(KEEP, { recursive: true, force: true });
+if (fs.existsSync(path.join(OUT, "courses"))) fs.cpSync(path.join(OUT, "courses"), KEEP, { recursive: true });
 fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(OUT, { recursive: true });
+if (fs.existsSync(KEEP)) fs.cpSync(KEEP, path.join(OUT, "courses"), { recursive: true });
 
 // ---- tiny markdown: headings, lists, bold/italic, links, paragraphs ----
 const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>").replace(/\[(.+?)\]\((.+?)\)/g, (m, a, u) => `<a href="${u.replace(/&amp;/g, "&")}"${/^https?:/.test(u) ? ' rel="noopener" target="_blank"' : ""}>${a}</a>`);
@@ -45,7 +48,7 @@ for (const s of series) { write(`img/manga-${s.id}.svg`, cover(s.scene, s.id)); 
 const imgOf = (p) => `/img/${p.kind}-${p.slug}.svg`;
 
 // ---- layout ----
-const nav = Object.entries(SECTIONS).map(([k, s]) => `<a href="${k === "manga" ? "/manga/" : `/s/${k}/`}">${s.icon} ${s.name}</a>`).join("");
+const nav = Object.entries(SECTIONS).map(([k, s]) => `<a href="${k === "manga" ? "/manga/" : k === "courses" ? "/courses/" : `/s/${k}/`}">${s.icon} ${s.name}</a>`).join("");
 const layout = ({ title, desc, body, path: pth = "/", og, script = "" }) => `<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}${pth === "/" ? "" : " · " + SITE.name}</title><meta name="description" content="${esc(desc || SITE.tagline)}">
@@ -63,12 +66,12 @@ const voteBox = `<section class="votebox" data-vote data-week="${vote.week}"><h2
 const hero = posts[0], rest = posts.slice(1);
 write("index.html", layout({ title: SITE.name, desc: SITE.tagline, og: imgOf(hero), body: `
 <section class="hero"><a href="${hero.url}"><img src="${imgOf(hero)}" alt=""><div><span class="tag">${SECTIONS[hero.section].icon} ${SECTIONS[hero.section].name}</span><h1>${esc(hero.title)}</h1><p>${esc(hero.excerpt)}</p></div></a></section>
-<section class="chips">${Object.entries(SECTIONS).map(([k, s]) => `<a href="${k === "manga" ? "/manga/" : `/s/${k}/`}"><img src="/img/sec-${k}.svg" alt=""><span>${s.icon} ${s.name}</span></a>`).join("")}</section>
+<section class="chips">${Object.entries(SECTIONS).map(([k, s]) => `<a href="${k === "manga" ? "/manga/" : k === "courses" ? "/courses/" : `/s/${k}/`}"><img src="/img/sec-${k}.svg" alt=""><span>${s.icon} ${s.name}</span></a>`).join("")}</section>
 ${series.length ? `<section><h2>🎨 مانغا</h2><div class="grid">${series.map((s) => `<a class="card" href="/manga/${s.id}/"><img src="/img/manga-${s.id}.svg" alt=""><div><span class="tag">🎨 مانغا</span><h3>${esc(s.title)}</h3><p>${esc(s.blurb)}</p><small>${s.chapters.length} فصل</small></div></a>`).join("")}</div></section>` : ""}
 <section><h2>أحدث ما نُشر</h2><div class="grid">${rest.map(card).join("")}</div></section>
 ${voteBox}${subscribe}` }));
 for (const [k, s] of Object.entries(SECTIONS)) {
-  if (k === "manga") continue;
+  if (k === "manga" || k === "courses") continue;
   const list = posts.filter((p) => p.section === k);
   write(`s/${k}/index.html`, layout({ title: s.name, path: `/s/${k}/`, og: `/img/sec-${k}.svg`, body: `<h1 class="sec"><img src="/img/sec-${k}.svg" alt="">${s.icon} ${s.name}</h1><div class="grid">${list.length ? list.map(card).join("") : "<p>لا يوجد شيء هنا بعد، عُد قريبًا.</p>"}</div>${subscribe}` }));
 }
@@ -86,6 +89,21 @@ for (const s of series) {
     write(`manga/${s.id}/${c.n}/index.html`, layout({ title: `${s.title} · الفصل ${c.n}`, desc: c.title, path: `/manga/${s.id}/${c.n}/`, og: `/img/manga/${s.id}-${c.n}-1.svg`, body: `<h1>${esc(s.title)}<small>الفصل ${c.n}: ${esc(c.title)}</small></h1><div class="manga">${c.panels.map((p, i) => `<img src="/img/manga/${s.id}-${c.n}-${i + 1}.svg" alt="${esc(p.note || "")}" loading="${i < 2 ? "eager" : "lazy"}">`).join("")}</div><p class="nextprev">${prev ? `<a href="/manga/${s.id}/${prev.n}/">→ الفصل السابق</a>` : "<span></span>"}${next ? `<a href="/manga/${s.id}/${next.n}/">الفصل التالي ←</a>` : "<span>الفصل التالي قريبًا</span>"}</p>
 <section class="comments" data-comments data-slug="manga-${s.id}-${c.n}"><h2>💬 التعليقات</h2><div class="list"></div><form><input name="name" maxlength="30" placeholder="اسمك (اختياري)"><textarea name="text" required maxlength="500" rows="3" placeholder="رأيك في الفصل…"></textarea><button>أرسل</button><p class="msg" role="status"></p></form></section>${subscribe}` }));
   }
+}
+
+// ---- courses (English video lessons; the MP4/SRT/TXT files are made by courses/make.mjs) ----
+const CD = path.join(ROOT, "courses");
+const courses = fs.readdirSync(CD).filter((d) => fs.statSync(path.join(CD, d)).isDirectory()).map((d) => { const lessons = fs.readdirSync(path.join(CD, d)).filter((f) => f.endsWith(".json")).sort().map((f) => ({ id: f.replace(".json", ""), ...JSON.parse(fs.readFileSync(path.join(CD, d, f), "utf8")) })).filter((l) => fs.existsSync(path.join(OUT, "courses", d, l.id + ".mp4"))); return { id: d, title: lessons[0] ? lessons[0].course : d, lessons }; }).filter((c) => c.lessons.length);
+const mb = (p) => { const f = path.join(OUT, p); return fs.existsSync(f) ? (fs.statSync(f).size / 1048576).toFixed(1) : "0"; };
+write("courses/index.html", layout({ title: "Free video courses (English)", desc: "Free English video courses: use AI the right way and work online the smart way.", path: "/courses/", og: "/img/sec-courses.svg", body: `<h1 class="sec" dir="ltr"><img src="/img/sec-courses.svg" alt="">🎓 Free video courses</h1><p dir="ltr">Short English video lessons with subtitles. Download the video, the subtitles and the voice-over script to share or republish.</p>${courses.map((c) => `<h2 dir="ltr">${esc(c.title)}</h2><div class="grid">${c.lessons.map((l) => `<a class="card" dir="ltr" href="/courses/${c.id}/${l.id}/"><img src="/img/course-${c.id}-${l.id}.svg" alt="" loading="lazy"><div><span class="tag">Lesson ${l.n}</span><h3>${esc(l.title)}</h3><p>${esc(l.summary)}</p></div></a>`).join("")}</div>`).join("")}${subscribe}` }));
+for (const c of courses) for (const l of c.lessons) {
+  write(`img/course-${c.id}-${l.id}.svg`, cover(l.slides[0].scene || "tech", c.id + l.id));
+  const dir = `/courses/${c.id}/${l.id}`, nxt = c.lessons.find((x) => x.n === l.n + 1), prv = c.lessons.find((x) => x.n === l.n - 1);
+  write(`courses/${c.id}/${l.id}/index.html`, layout({ title: `${c.title} · Lesson ${l.n}: ${l.title}`, desc: l.summary, path: `${dir}/`, og: `/img/course-${c.id}-${l.id}.svg`, body: `<article class="post" dir="ltr" lang="en"><a class="tag" href="/courses/">🎓 ${esc(c.title)}</a><h1>Lesson ${l.n}: ${esc(l.title)}</h1><p class="meta">${esc(l.summary)}</p>
+<video class="vid" controls preload="metadata" playsinline poster="/img/course-${c.id}-${l.id}.svg"><source src="${dir}.mp4" type="video/mp4"><track kind="subtitles" src="${dir}.srt" srclang="en" label="English"></video>
+<p class="dl"><a class="btn" href="${dir}.mp4" download>⬇ Video (MP4, ${mb(`courses/${c.id}/${l.id}.mp4`)} MB)</a> <a class="btn" href="${dir}.srt" download>⬇ Subtitles (SRT)</a> <a class="btn" href="${dir}.txt" download>⬇ Script + title and description</a></p>
+<h2>What you will learn</h2><ul>${l.slides.filter((s) => s.k === "points").map((s) => `<li>${esc(s.h)}</li>`).join("")}</ul><h2>Transcript</h2>${l.slides.map((s) => `<p>${esc(s.say)}</p>`).join("")}
+<p class="meta">Made with the help of AI. General information, not financial, legal or professional advice.</p><p class="nextprev">${prv ? `<a href="/courses/${c.id}/${prv.id}/">← Previous lesson</a>` : "<span></span>"}${nxt ? `<a href="/courses/${c.id}/${nxt.id}/">Next lesson →</a>` : "<span>More lessons soon</span>"}</p></article>${subscribe}` }));
 }
 write("about/index.html", layout({ title: "عن المجلة وقواعدها", path: "/about/", body: `<article class="post"><h1>عن المجلة وقواعد المجتمع</h1>${md(`## ما هي مجلة جيري؟
 
@@ -112,6 +130,6 @@ write("about/index.html", layout({ title: "عن المجلة وقواعدها", 
 write("404.html", layout({ title: "الصفحة غير موجودة", body: `<h1>الصفحة غير موجودة</h1><p><a href="/">العودة للرئيسية</a></p>` }));
 write("feed.xml", `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${SITE.name}</title><link>${SITE.baseUrl}/</link><description>${SITE.tagline}</description><language>ar</language>${posts.slice(0, 30).map((p) => `<item><title>${esc(p.title)}</title><link>${SITE.baseUrl}${p.url}</link><guid>${SITE.baseUrl}${p.url}</guid><pubDate>${new Date(p.date + "T12:00:00Z").toUTCString()}</pubDate><description>${esc(p.excerpt || "")}</description></item>`).join("")}</channel></rss>`);
 write("robots.txt", `User-agent: *\nAllow: /\n${SITE.baseUrl ? `Sitemap: ${SITE.baseUrl}/sitemap.xml\n` : ""}`);
-if (SITE.baseUrl) write("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${["/", "/manga/", "/about/", ...Object.keys(SECTIONS).filter((k) => k !== "manga").map((k) => `/s/${k}/`), ...posts.map((p) => p.url), ...series.flatMap((s) => [`/manga/${s.id}/`, ...s.chapters.map((c) => `/manga/${s.id}/${c.n}/`)])].map((u) => `<url><loc>${SITE.baseUrl}${u}</loc></url>`).join("")}</urlset>`);
+if (SITE.baseUrl) write("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${["/", "/manga/", "/about/", ...Object.keys(SECTIONS).filter((k) => k !== "manga" && k !== "courses").map((k) => `/s/${k}/`), ...posts.map((p) => p.url), ...courses.flatMap((c) => ["/courses/", ...c.lessons.map((l) => `/courses/${c.id}/${l.id}/`)]), ...series.flatMap((s) => [`/manga/${s.id}/`, ...s.chapters.map((c) => `/manga/${s.id}/${c.n}/`)])].map((u) => `<url><loc>${SITE.baseUrl}${u}</loc></url>`).join("")}</urlset>`);
 fs.copyFileSync(path.join(ROOT, "src/style.css"), path.join(OUT, "style.css")); fs.copyFileSync(path.join(ROOT, "src/app.js"), path.join(OUT, "app.js"));
 console.log("built", posts.length, "posts,", series.reduce((n, s) => n + s.chapters.length, 0), "chapters");

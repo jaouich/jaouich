@@ -81,7 +81,7 @@
     const bonus = Math.min(CITY.HAPPY_MAX, happy * CITY.HAPPY_PER_POINT);
     return { pop, happy, happyBonus: bonus, taxPerHour: pop * CITY.TAX_PER_POP * (1 + bonus) };
   }
-  // Taxes pile up (up to 8 h of the current rate). Settled before anything changes the rate.
+  // Taxes pile up (up to 6 h of the current rate). Settled before anything changes the rate.
   function settleTax(city, now) {
     const st = cityStats(city);
     const hours = Math.max(0, now - city.taxAt) / 3600000;

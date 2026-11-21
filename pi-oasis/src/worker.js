@@ -3135,6 +3135,9 @@ export default {
       return new Response(toml, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600", "Access-Control-Allow-Origin": "*" } });
     }
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
+    // The Testnet game is closed (the real game runs on Mainnet): signing in still works so players see
+    // the notice, but nothing can be played, bought or changed. Progress is read by the Mainnet game directly.
+    if (/^pi-oasis\.|^oasisgame6033\./.test(url.hostname) && req.method === "POST" && url.pathname !== "/api/auth") return json({ error: "testnetClosed" }, 403);
     const handler = routes[`${req.method} ${url.pathname}`];
     if (!handler) return json({ error: "notFound" }, 404);
     try {

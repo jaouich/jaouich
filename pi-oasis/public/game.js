@@ -1759,7 +1759,15 @@
   $("inviteTile").addEventListener("click", () => toClub("#refLink"));
 
   // Testnet game: point players to the real game on Mainnet (their progress moves with them)
-  if (/^(pi-oasis\.|oasisgame6033\.)/.test(location.hostname)) $("mainnetBar").classList.remove("hidden");
+  if (/^(pi-oasis\.|oasisgame6033\.)/.test(location.hostname)) {
+    $("mainnetBar").classList.remove("hidden");
+    // The Testnet game is closed: cover it with a notice that sends players to the real game
+    const cl = document.createElement("div");
+    cl.id = "tnClosed"; cl.className = "tn-closed";
+    const draw = () => { cl.innerHTML = `<div class="tn-card"><div class="pg-logo">🚀</div><h2>${esc(t("tn.t"))}</h2><p>${esc(t("tn.d"))}</p><a class="btn gold" href="https://jerryoasis9559.pinet.com" target="_top">${esc(t("tn.go"))}</a></div>`; };
+    draw(); document.body.appendChild(cl);
+    document.addEventListener("langchange", draw);
+  }
 
   window.OasisGame = {
     get S() { return S; },

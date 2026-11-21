@@ -1235,7 +1235,8 @@
   function goFromLink() {
     if (goDone) return; goDone = true;
     const go = new URLSearchParams(location.search).get("go");
-    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
+    if (go === "arena" && new URLSearchParams(location.search).get("watch")) return; // arena.js opens it itself
+    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { arena: "arenaOpen", services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
     if (tabs[go]) document.querySelector(`.tabs [data-tab="${tabs[go]}"]`).click();
     else if (opens[go]) setTimeout(() => $(opens[go]).click(), 300);
   }
@@ -1279,6 +1280,7 @@
   (function piBrowserGate() {
     const ua = navigator.userAgent || "";
     if (/PiBrowser/i.test(ua) || window.PI_SANDBOX) return; // Pi Browser, or the Pi Sandbox on a computer
+    if (/[?&]watch=\d/.test(location.search)) return; // a link to watch a battle opens it directly
     try { if (sessionStorage.getItem("oasis.stay")) return; } catch (e) {}
     const piUrl = "pi://" + location.host + location.pathname + location.search;
     const android = /Android/i.test(ua);

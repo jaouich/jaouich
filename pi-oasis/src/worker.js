@@ -4,12 +4,14 @@
 import "../public/kombat-logic.js";
 import "../public/logic.js";
 import "../public/derby-logic.js";
+import "../public/arena-logic.js";
 import { processPayouts } from "./payouts.js";
 import { publicKeyOf, decodeStrKey, assetXdr, opChangeTrust, opPayment, opSetHomeDomain, opCreateAccount, newSeed, submitOp, toStroops, HORIZON } from "./stellar.js";
 
 const KL = globalThis.KombatLogic;
 const L = globalThis.OasisLogic;
 const DL = globalThis.DerbyLogic;
+const AR = globalThis.ArenaLogic;
 const PI_API = "https://api.minepi.com/v2";
 // Pi sign-in: the access token is exchanged with App Studio, which checks it with
 // the Pi Platform. Only the identity it returns is trusted.
@@ -200,6 +202,18 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS sup_surprise ( uid TEXT NOT NULL, month INTEGER NOT NULL, kind TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, month) )",
   // Requests for Jerry Development services (app building). status: new | talking | done | closed
   "CREATE TABLE IF NOT EXISTS svc_requests ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, username TEXT NOT NULL, pkg TEXT NOT NULL, name TEXT NOT NULL, idea TEXT NOT NULL, budget TEXT, contact TEXT, status TEXT NOT NULL, note TEXT, at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
+  // Jerry Arena: matches (status waiting | live | done), their players, secret moves of the current round,
+  // trophies, the matchmaking queue, weekly points and the daily reward cap
+  "CREATE TABLE IF NOT EXISTS arena_matches ( id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT, mode TEXT NOT NULL, host TEXT, status TEXT NOT NULL, ranked INTEGER NOT NULL DEFAULT 1, state TEXT, ver INTEGER NOT NULL DEFAULT 0, round_at INTEGER NOT NULL DEFAULT 0, result TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )",
+  "CREATE INDEX IF NOT EXISTS arena_m_status ON arena_matches(status, id)",
+  "CREATE TABLE IF NOT EXISTS arena_players ( match_id INTEGER NOT NULL, slot INTEGER NOT NULL, uid TEXT, name TEXT NOT NULL, bot INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (match_id, slot) )",
+  "CREATE INDEX IF NOT EXISTS arena_p_uid ON arena_players(uid)",
+  "CREATE TABLE IF NOT EXISTS arena_moves ( match_id INTEGER NOT NULL, round INTEGER NOT NULL, slot INTEGER NOT NULL, act TEXT NOT NULL, target INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (match_id, round, slot) )",
+  "CREATE TABLE IF NOT EXISTS arena_stats ( uid TEXT PRIMARY KEY, trophies INTEGER NOT NULL DEFAULT 0, wins INTEGER NOT NULL DEFAULT 0, losses INTEGER NOT NULL DEFAULT 0, draws INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0 )",
+  "CREATE TABLE IF NOT EXISTS arena_queue ( uid TEXT PRIMARY KEY, mode TEXT NOT NULL, trophies INTEGER NOT NULL, at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS arena_week ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, pts INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS arena_week_paid ( week_id INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS arena_daily ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS notif_log ( uid TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, kind, ref) )",
   // Jerry Arcade: rewarded plays per day and best scores
   "CREATE TABLE IF NOT EXISTS arcade ( uid TEXT NOT NULL, day INTEGER NOT NULL, game TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, best INTEGER, PRIMARY KEY (uid, day, game) )",
@@ -1556,6 +1570,139 @@ const routes = {
     return { list: await all(env, "SELECT * FROM svc_requests ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'talking' THEN 1 ELSE 2 END, id DESC LIMIT 100") };
   },
 
+  // ---------- ⚔️ Jerry Arena ----------
+  "GET /api/arena": async (req, env) => {
+    const u = await auth(req, env);
+    const now = Date.now();
+    const q = await one(env, "SELECT * FROM arena_queue WHERE uid = ?", u.uid);
+    if (q) await arenaMatchmake(env, q.mode, now);
+    let act = await arenaActive(env, u.uid, now);
+    if (act && act.status === "live") { await arenaTick(env, act.id, now); act = await arenaActive(env, u.uid, now); }
+    const day = L.dayId(now), used = await one(env, "SELECT n FROM arena_daily WHERE uid = ? AND day = ?", u.uid, day);
+    const wk = await one(env, "SELECT pts FROM arena_week WHERE week_id = ? AND uid = ?", L.weekId(now), u.uid);
+    const live = await all(env, `SELECT m.id, m.mode, (SELECT GROUP_CONCAT(name, ' · ') FROM arena_players p WHERE p.match_id = m.id) AS names FROM arena_matches m
+      WHERE m.status = 'live' AND m.updated_at > ? AND EXISTS (SELECT 1 FROM arena_players p WHERE p.match_id = m.id AND p.bot = 0) ORDER BY m.id DESC LIMIT 6`, now - 60000);
+    return { stats: await arenaStats(env, u.uid), queue: (await one(env, "SELECT mode, at FROM arena_queue WHERE uid = ?", u.uid)) || null, active: act || null,
+      week: wk ? wk.pts : 0, rewardsLeft: Math.max(0, ARENA_REWARD.DAILY - (used ? used.n : 0)), live, now };
+  },
+  "POST /api/arena/queue": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now(), mode = AR.MODES[body.mode] ? body.mode : "1v1";
+    if (body.action === "leave") { await run(env, "DELETE FROM arena_queue WHERE uid = ?", u.uid); return { ok: true }; }
+    const act = await arenaActive(env, u.uid, now);
+    if (act) return { ok: true, match: act.id };
+    if (body.action === "bot") {
+      // a friendly fight against bots (2v2: with a bot teammate)
+      const M = AR.MODES[mode], me = [{ uid: u.uid, name: u.username }];
+      const seats = mode === "2v2" ? [me[0], ...arenaBots(3, [])] : [me[0], ...arenaBots(M.n - 1, [])];
+      return { ok: true, match: await arenaCreate(env, mode, seats) };
+    }
+    const st = await arenaStats(env, u.uid);
+    await run(env, "INSERT OR REPLACE INTO arena_queue (uid, mode, trophies, at) VALUES (?, ?, ?, ?)", u.uid, mode, st.trophies, now);
+    const id = await arenaMatchmake(env, mode, now);
+    const mine = await arenaActive(env, u.uid, now);
+    return { ok: true, queued: !mine, match: mine ? mine.id : null };
+  },
+  // Private rooms: create, join with the code, invite a friend, start (empty seats are filled with bots)
+  "POST /api/arena/room": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now(), A_ = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    if (body.action === "create") {
+      const mode = AR.MODES[body.mode] ? body.mode : "1v1";
+      if (await arenaActive(env, u.uid, now)) bad("ar.busy");
+      await run(env, "DELETE FROM arena_queue WHERE uid = ?", u.uid);
+      let code = "";
+      for (let i = 0; i < 8; i++) {
+        const c = Array.from({ length: 5 }, () => A_[Math.floor(secureRandom() * A_.length)]).join("");
+        if (!(await one(env, "SELECT 1 AS x FROM arena_matches WHERE code = ? AND status != 'done'", c))) { code = c; break; }
+      }
+      if (!code) bad("server");
+      const m = await one(env, "INSERT INTO arena_matches (code, mode, host, status, ranked, created_at, updated_at) VALUES (?, ?, ?, 'waiting', 1, ?, ?) RETURNING id", code, mode, u.uid, now, now);
+      await run(env, "INSERT INTO arena_players (match_id, slot, uid, name, bot) VALUES (?, 0, ?, ?, 0)", m.id, u.uid, u.username);
+      return { ok: true, id: m.id, code };
+    }
+    const code = String(body.code || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+    const m = body.id ? await one(env, "SELECT * FROM arena_matches WHERE id = ?", Number(body.id)) : await one(env, "SELECT * FROM arena_matches WHERE code = ? AND status = 'waiting'", code);
+    if (!m) bad("ar.noRoom");
+    const rows = await all(env, "SELECT * FROM arena_players WHERE match_id = ? ORDER BY slot", m.id);
+    const M = AR.MODES[m.mode];
+    if (body.action === "join") {
+      if (m.status !== "waiting" || m.created_at < now - 30 * 60000) bad("ar.noRoom");
+      if (rows.some((r) => r.uid === u.uid)) return { ok: true, id: m.id };
+      if (await arenaActive(env, u.uid, now)) bad("ar.busy");
+      const team = body.team === "b" ? 1 : body.team === "a" ? 0 : null;
+      const free = M.teams.map((t, s) => ({ t, s })).filter((x) => !rows.some((r) => r.slot === x.s) && (team === null || m.mode !== "2v2" || x.t === team));
+      const seat = free[0] || M.teams.map((t, s) => ({ t, s })).find((x) => !rows.some((r) => r.slot === x.s));
+      if (!seat) bad("ar.full");
+      const r = await run(env, "INSERT OR IGNORE INTO arena_players (match_id, slot, uid, name, bot) VALUES (?, ?, ?, ?, 0)", m.id, seat.s, u.uid, u.username);
+      if (!r.meta.changes) bad("ar.full");
+      await run(env, "DELETE FROM arena_queue WHERE uid = ?", u.uid);
+      return { ok: true, id: m.id };
+    }
+    const me = rows.find((r) => r.uid === u.uid);
+    if (!me) bad("ar.noRoom");
+    if (body.action === "leave") {
+      if (m.status !== "waiting") return { ok: true };
+      if (m.host === u.uid) await run(env, "UPDATE arena_matches SET status = 'done', result = '[]', updated_at = ? WHERE id = ?", now, m.id);
+      await run(env, "DELETE FROM arena_players WHERE match_id = ? AND uid = ?", m.id, u.uid);
+      return { ok: true };
+    }
+    if (body.action === "invite") {
+      const f = await one(env, "SELECT uid FROM users WHERE username = ? COLLATE NOCASE", String(body.username || "").trim().replace(/^@/, ""));
+      if (!f || f.uid === u.uid) bad("ar.noUser");
+      await notify(env, [{ uid: f.uid, kind: "ainv", ref: m.code + ":" + f.uid + ":" + Math.floor(now / 60000), vars: { u: u.username }, q: "room=" + m.code }]);
+      return { ok: true };
+    }
+    if (body.action === "start") {
+      if (m.host !== u.uid || m.status !== "waiting") bad("ar.noRoom");
+      const humans = rows.length;
+      if (humans < 2 && !body.fill) bad("ar.alone");
+      const seats = M.teams.map((t, s) => { const r = rows.find((x) => x.slot === s); return r ? { uid: r.uid, name: r.name, bot: !!r.bot } : null; });
+      const botsFor = arenaBots(seats.filter((x) => !x).length, []);
+      const full = seats.map((x) => x || botsFor.shift());
+      const st = AR.newState(m.mode, full, Math.floor(secureRandom() * 2147483647));
+      const r = await run(env, "UPDATE arena_matches SET status = 'live', state = ?, ranked = ?, ver = 0, round_at = ?, updated_at = ? WHERE id = ? AND status = 'waiting'", JSON.stringify(st), humans >= 2 ? 1 : 0, now, now, m.id);
+      if (!r.meta.changes) bad("ar.noRoom");
+      await env.DB.batch(full.map((p, i) => env.DB.prepare("INSERT OR REPLACE INTO arena_players (match_id, slot, uid, name, bot) VALUES (?, ?, ?, ?, ?)").bind(m.id, i, p.uid || null, p.name, p.bot ? 1 : 0)));
+      return { ok: true, id: m.id };
+    }
+    bad("badAction");
+  },
+  "POST /api/arena/move": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now(), id = Number(body.id);
+    let m = await arenaTick(env, id, now);
+    if (!m || m.status !== "live") bad("ar.over");
+    const me = await one(env, "SELECT slot FROM arena_players WHERE match_id = ? AND uid = ?", id, u.uid);
+    if (!me) bad("forbidden");
+    const st = JSON.parse(m.state);
+    // an answer for a round that is already over: just show the current state
+    if (body.round && Number(body.round) !== st.round) return await arenaView(env, m, u.uid, now);
+    if (!st.players[me.slot].alive) bad("ar.out");
+    const mv = { act: String(body.act || ""), target: Number(body.target) };
+    if (!AR.validMove(st, me.slot, mv)) bad("ar.move");
+    const r = await run(env, "INSERT OR IGNORE INTO arena_moves (match_id, round, slot, act, target, at) VALUES (?, ?, ?, ?, ?, ?)", id, st.round, me.slot, mv.act, mv.target, now);
+    if (!r.meta.changes) bad("ar.moved");
+    m = await arenaTick(env, id, now);
+    return await arenaView(env, m, u.uid, now);
+  },
+  // Players (and anybody with the link, to watch) see a match. Secret moves of the round in progress stay hidden.
+  "GET /api/arena/match": async (req, env) => {
+    const q = new URL(req.url).searchParams, now = Date.now();
+    let uid = null;
+    try { uid = (await auth(req, env)).uid; } catch (e) {}
+    let m = q.get("code") ? await one(env, "SELECT * FROM arena_matches WHERE code = ? ORDER BY id DESC LIMIT 1", String(q.get("code")).toUpperCase()) : await one(env, "SELECT * FROM arena_matches WHERE id = ?", Number(q.get("id")));
+    if (!m) bad("ar.noRoom");
+    if (m.status === "live") m = await arenaTick(env, m.id, now);
+    return await arenaView(env, m, uid, now);
+  },
+  "GET /api/arena/top": async (req, env) => {
+    const u = await auth(req, env), now = Date.now();
+    const week = await all(env, "SELECT u.username, w.pts FROM arena_week w JOIN users u ON u.uid = w.uid WHERE w.week_id = ? AND w.pts > 0 ORDER BY w.pts DESC, w.updated_at ASC LIMIT 20", L.weekId(now));
+    const all_ = await all(env, "SELECT u.username, s.trophies, s.wins FROM arena_stats s JOIN users u ON u.uid = s.uid WHERE s.trophies > 0 ORDER BY s.trophies DESC LIMIT 20");
+    return { week, trophies: all_, me: await arenaStats(env, u.uid), ends: L.weekId(now) + 7 * DAY };
+  },
+
   // ---------- 🕹️ Jerry Arcade ----------
   "GET /api/arcade": async (req, env) => {
     const u = await auth(req, env);
@@ -2145,6 +2292,8 @@ const NOTE = {
   week: { go: "rank", en: ["🏆 Weekly ranking: #{p}", "Well done! +{d} dates and +{j} JRY for your place. Pi prizes are sent to your wallet."], ar: ["🏆 ترتيب الأسبوع: المركز {p}", "أحسنت! +{d} تمرة و+{j} JRY لمركزك. جوائز Pi تُرسل إلى محفظتك."], fr: ["🏆 Classement : {p}e place", "Bravo ! +{d} dattes et +{j} JRY pour ta place. Les prix en Pi arrivent dans ton portefeuille."] },
   svc: { go: "services", en: ["🛠️ New app request", "{p} from @{u}: open the services page to answer."], ar: ["🛠️ طلب تطبيق جديد", "{p} من ‎@{u}: افتح صفحة الخدمات للرد."], fr: ["🛠️ Nouvelle demande d'app", "{p} de @{u} : ouvre la page des services pour répondre."] },
   svcup: { go: "services", en: ["🛠️ Your app request was updated", "Open the services page to see the new status."], ar: ["🛠️ تم تحديث طلب تطبيقك", "افتح صفحة الخدمات لترى الحالة الجديدة."], fr: ["🛠️ Ta demande d'app a été mise à jour", "Ouvre la page des services pour voir le nouveau statut."] },
+  aweek: { go: "arena", en: ["⚔️ Jerry Arena: #{p}", "+{d} dates for your place this week."], ar: ["⚔️ جيري أرينا: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["⚔️ Jerry Arena : {p}e", "+{d} dattes pour ta place cette semaine."] },
+  ainv: { go: "arena", en: ["⚔️ {u} invites you to a battle", "Tap to join the room."], ar: ["⚔️ ‎{u} يدعوك إلى معركة", "اضغط للانضمام إلى الغرفة."], fr: ["⚔️ {u} t'invite à un combat", "Appuie pour rejoindre le salon."] },
   rstart: { go: "vip", en: ["👑 The Grand Royal Final has started!", "All royal cards are sold. {d} days to earn the most Kombat coins: 1 billion for #1."], ar: ["👑 بدأ النهائي الملكي الكبير!", "بيعت كل البطاقات الملكية. {d} يومًا لجمع أكثر عملات كومبات: مليار للأول."], fr: ["👑 La Grande Finale royale commence !", "Toutes les cartes royales sont vendues. {d} jours pour gagner le plus de pièces Kombat : 1 milliard pour le 1er."] },
   rfinal: { go: "vip", en: ["👑 Grand Royal Final: #{p}", "+{n} Kombat coins for your place!"], ar: ["👑 النهائي الملكي الكبير: المركز {p}", "+{n} عملة كومبات لمركزك!"], fr: ["👑 Grande Finale royale : {p}e", "+{n} pièces Kombat pour ta place !"] },
   jry: { go: "kombat", en: ["💠 +{n} JRY from Jerry Development", "{note}"], ar: ["💠 +{n} JRY من Jerry Development", "{note}"], fr: ["💠 +{n} JRY de Jerry Development", "{note}"] },
@@ -2162,7 +2311,7 @@ async function notify(env, items) {
     const u = await one(env, "SELECT lang FROM users WHERE uid = ?", it.uid);
     const n = NOTE[it.kind], m = n[(u && n[u.lang]) ? u.lang : "en"];
     const fill = (s) => s.replace(/\{(\w+)\}/g, (_, k) => (it.vars && it.vars[k] != null ? String(it.vars[k]) : ""));
-    send.push({ title: fill(m[0]), body: fill(m[1]), user_uid: it.uid, subroute: "/?go=" + n.go });
+    send.push({ title: fill(m[0]), body: fill(m[1]), user_uid: it.uid, subroute: "/?go=" + n.go + (it.q ? "&" + it.q : "") });
   }
   let sent = 0;
   for (let i = 0; i < send.length; i += 256) {
@@ -2307,6 +2456,145 @@ async function supSurprise(env, uid, now) {
   if (s.jry) await giveReward(env, uid, "jry", s.jry, now, "surprise");
   if (s.dates) await giveReward(env, uid, "dates", s.dates, now, "surprise");
   return s;
+}
+
+// ---------- Jerry Arena helpers ----------
+const ARENA_REWARD = { WIN: 80, OTHER: 20, DAILY: 10, MIN_ROUNDS: 3, QUEUE_BOT_MS: 15000, STALE_MS: 5 * 60000 };
+const arenaStats = async (env, uid) => (await one(env, "SELECT * FROM arena_stats WHERE uid = ?", uid)) || { uid, trophies: 0, wins: 0, losses: 0, draws: 0 };
+// The unfinished match a player is in (if any)
+const arenaActive = (env, uid, now = Date.now()) => one(env, "SELECT m.id, m.status, m.mode, m.code FROM arena_matches m JOIN arena_players p ON p.match_id = m.id WHERE p.uid = ? AND (m.status = 'live' OR (m.status = 'waiting' AND m.created_at > ?)) ORDER BY m.id DESC LIMIT 1", uid, now - 30 * 60000);
+// Cron: abandoned matches and old rooms are closed
+async function arenaSweep(env) {
+  await ensureSchema(env);
+  const now = Date.now();
+  await run(env, "UPDATE arena_matches SET status = 'done', result = '[]', updated_at = ? WHERE status = 'live' AND updated_at < ?", now, now - ARENA_REWARD.STALE_MS);
+  await run(env, "UPDATE arena_matches SET status = 'done', result = '[]', updated_at = ? WHERE status = 'waiting' AND created_at < ?", now, now - 30 * 60000);
+  await run(env, "DELETE FROM arena_queue WHERE at < ?", now - 120000);
+}
+// Creates a live match from [{ uid, name, bot }] (already in slot order)
+async function arenaCreate(env, mode, players, o = {}) {
+  const now = Date.now(), seed = Math.floor(secureRandom() * 2147483647);
+  const st = AR.newState(mode, players, seed);
+  const humans = players.filter((p) => !p.bot).length;
+  const m = await one(env, "INSERT INTO arena_matches (code, mode, host, status, ranked, state, ver, round_at, created_at, updated_at) VALUES (?, ?, ?, 'live', ?, ?, 0, ?, ?, ?) RETURNING id",
+    o.code || null, mode, o.host || null, humans >= 2 ? 1 : 0, JSON.stringify(st), now, now, now);
+  await env.DB.batch(players.map((p, i) => env.DB.prepare("INSERT OR REPLACE INTO arena_players (match_id, slot, uid, name, bot) VALUES (?, ?, ?, ?, ?)").bind(m.id, i, p.uid || null, p.name, p.bot ? 1 : 0)));
+  return m.id;
+}
+const arenaBots = (n, used) => {
+  const names = AR.BOT_NAMES.filter((x) => !used.includes(x)), out = [];
+  for (let i = 0; i < n; i++) out.push({ uid: null, bot: true, name: "🤖 " + names.splice(Math.floor(secureRandom() * names.length), 1)[0] });
+  return out;
+};
+// Advances a live match: when everybody has played (or the 15 s are over) the round is resolved
+async function arenaTick(env, id, now) {
+  for (let g = 0; g < 20; g++) {
+    const m = await one(env, "SELECT * FROM arena_matches WHERE id = ?", id);
+    if (!m || m.status !== "live") return m;
+    if (now - m.updated_at > ARENA_REWARD.STALE_MS) {
+      // nobody has done anything for 5 minutes: the match is abandoned
+      await run(env, "UPDATE arena_matches SET status = 'done', updated_at = ?, result = '[]' WHERE id = ? AND status = 'live'", now, id);
+      return { ...m, status: "done" };
+    }
+    const st = JSON.parse(m.state);
+    const by = {};
+    for (const x of await all(env, "SELECT slot, act, target FROM arena_moves WHERE match_id = ? AND round = ?", id, st.round)) by[x.slot] = x;
+    const living = AR.alive(st), humans = living.filter((p) => !p.bot);
+    if (!humans.every((p) => by[p.slot]) && now < m.round_at + AR.ROUND_MS) return m;
+    const mv = {};
+    for (const p of living) {
+      const sp = st.players[p.slot];
+      if (by[p.slot]) { mv[p.slot] = { act: by[p.slot].act, target: by[p.slot].target }; sp.afk = 0; }
+      else if (p.bot) mv[p.slot] = AR.botMove(st, p.slot);
+      else { mv[p.slot] = { act: "guard", target: p.slot }; sp.afk = (sp.afk || 0) + 1; }
+    }
+    let next = AR.resolveRound(st, mv);
+    // away for two rounds in a row: out of the match
+    for (const p of next.players) if (p.alive && !p.bot && (st.players[p.slot].afk || 0) >= AR.AFK_LIMIT) next = AR.forfeit(next, p.slot);
+    for (const p of next.players) p.afk = st.players[p.slot].afk;
+    const r = await run(env, "UPDATE arena_matches SET state = ?, ver = ver + 1, round_at = ?, status = ?, updated_at = ? WHERE id = ? AND ver = ?",
+      JSON.stringify(next), now, next.over ? "done" : "live", now, id, m.ver);
+    if (!r.meta.changes) continue; // another request resolved it first: look again
+    if (next.over) await arenaFinish(env, id, next, now);
+  }
+  return one(env, "SELECT * FROM arena_matches WHERE id = ?", id);
+}
+// Trophies, weekly points and the small capped reward (real opponents only, never between linked accounts)
+async function arenaFinish(env, id, st, now) {
+  const humans = st.players.filter((p) => !p.bot && p.uid);
+  const nets = [];
+  for (const p of humans) { const u = await one(env, "SELECT net FROM users WHERE uid = ?", p.uid); nets.push(u && u.net); }
+  const linked = new Set(nets.filter(Boolean)).size < nets.filter(Boolean).length;
+  const day = L.dayId(now), wid = L.weekId(now), out = [];
+  for (const p of humans) {
+    const d = AR.trophyDelta(st, p.slot, humans.length);
+    const win = st.winnerTeam === p.team, draw = st.winnerTeam === null;
+    const cur = await arenaStats(env, p.uid), t = Math.max(0, cur.trophies + d);
+    await run(env, "INSERT INTO arena_stats (uid, trophies, wins, losses, draws, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET trophies = ?, wins = wins + ?, losses = losses + ?, draws = draws + ?, updated_at = ?",
+      p.uid, t, win ? 1 : 0, !win && !draw ? 1 : 0, draw ? 1 : 0, now, t, win ? 1 : 0, !win && !draw ? 1 : 0, draw ? 1 : 0, now);
+    let reward = 0;
+    if (humans.length >= 2 && !linked && st.round >= ARENA_REWARD.MIN_ROUNDS) {
+      await run(env, "INSERT OR IGNORE INTO arena_daily (uid, day, n) VALUES (?, ?, 0)", p.uid, day);
+      const g = await run(env, "UPDATE arena_daily SET n = n + 1 WHERE uid = ? AND day = ? AND n < ?", p.uid, day, ARENA_REWARD.DAILY);
+      if (g.meta.changes) { reward = win ? ARENA_REWARD.WIN : ARENA_REWARD.OTHER; await creditPoints(env, p.uid, "dates", reward, now, "arena"); }
+      if (d > 0) await run(env, "INSERT INTO arena_week (week_id, uid, pts, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(week_id, uid) DO UPDATE SET pts = pts + excluded.pts, updated_at = excluded.updated_at", wid, p.uid, d, now);
+    }
+    out.push({ slot: p.slot, uid: p.uid, d: t - cur.trophies, reward, trophies: t }); // d = the real change (never below 0 trophies)
+  }
+  await run(env, "UPDATE arena_matches SET result = ? WHERE id = ?", JSON.stringify(out), id);
+}
+// Forms matches from the queue: nearest trophies first; after 15 s waiting, bots fill the empty seats
+async function arenaMatchmake(env, mode, now) {
+  const M = AR.MODES[mode];
+  if (!M) return null;
+  await run(env, "DELETE FROM arena_queue WHERE at < ?", now - 120000);
+  const rows = await all(env, "SELECT * FROM arena_queue WHERE mode = ? ORDER BY at ASC LIMIT 60", mode);
+  if (!rows.length) return null;
+  const anchor = rows[0];
+  const others = rows.slice(1).sort((a, b) => Math.abs(a.trophies - anchor.trophies) - Math.abs(b.trophies - anchor.trophies));
+  let pick = [anchor, ...others.slice(0, M.n - 1)];
+  if (pick.length < M.n) { if (now - anchor.at < ARENA_REWARD.QUEUE_BOT_MS) return null; pick = [anchor]; }
+  // claim the players: if somebody else took one of them first, give up (the next call retries)
+  const claimed = [];
+  for (const q of pick) { const r = await run(env, "DELETE FROM arena_queue WHERE uid = ?", q.uid); if (r.meta.changes) claimed.push(q); }
+  if (claimed.length !== pick.length) { for (const q of claimed) await run(env, "INSERT OR REPLACE INTO arena_queue (uid, mode, trophies, at) VALUES (?, ?, ?, ?)", q.uid, q.mode, q.trophies, q.at); return null; }
+  const humans = [];
+  for (const q of claimed.sort((a, b) => b.trophies - a.trophies)) { const u = await one(env, "SELECT username FROM users WHERE uid = ?", q.uid); humans.push({ uid: q.uid, name: u ? u.username : "player" }); }
+  // 2v2: the strongest and the weakest together against the two in the middle
+  let seats = humans;
+  if (mode === "2v2" && humans.length === 4) seats = [humans[0], humans[3], humans[1], humans[2]];
+  const bots = arenaBots(M.n - humans.length, []);
+  return arenaCreate(env, mode, [...seats, ...bots]);
+}
+// What a player or a spectator sees. Secret moves of the round in progress are never included.
+async function arenaView(env, m, uid, now) {
+  const st = m.state ? JSON.parse(m.state) : null;
+  const rows = await all(env, "SELECT slot, uid, name, bot FROM arena_players WHERE match_id = ? ORDER BY slot", m.id);
+  const me = rows.find((r) => uid && r.uid === uid);
+  let moved = {}, mine = null;
+  if (st && m.status === "live") {
+    for (const x of await all(env, "SELECT slot, act, target FROM arena_moves WHERE match_id = ? AND round = ?", m.id, st.round)) { moved[x.slot] = true; if (me && x.slot === me.slot) mine = { act: x.act, target: x.target }; }
+  }
+  const M = AR.MODES[m.mode];
+  const players = st ? st.players.map((p) => ({ slot: p.slot, name: p.name, team: p.team, hp: p.hp, en: p.en, alive: p.alive, bot: p.bot, moved: !!moved[p.slot] || p.bot, forfeit: !!p.forfeit }))
+    : M.teams.map((team, slot) => { const r = rows.find((x) => x.slot === slot); return { slot, team, name: r ? r.name : null, bot: r ? !!r.bot : false, hp: AR.HP, en: AR.EN_START, alive: true, moved: false }; });
+  return {
+    id: m.id, code: m.code, mode: m.mode, status: m.status, isHost: !!(uid && m.host === uid), ranked: !!m.ranked, now,
+    round: st ? st.round : 0, max: AR.MAX_ROUNDS, deadline: m.round_at + AR.ROUND_MS, over: st ? st.over : false, winnerTeam: st ? st.winnerTeam : null,
+    placements: st && st.over ? AR.placements(st) : null, log: st ? st.log.slice(-8) : [], players,
+    me: me ? me.slot : null, mine, result: m.result ? JSON.parse(m.result) : null,
+  };
+}
+// Last week's Arena: dates for the top 100 (half of the Oasis ranking's), once
+async function grantArenaWeek(env) {
+  await ensureSchema(env);
+  const now = Date.now(), last = L.weekId(now - 7 * DAY);
+  const g = await run(env, "INSERT OR IGNORE INTO arena_week_paid (week_id, at) VALUES (?, ?)", last, now);
+  if (!g.meta.changes) return 0;
+  const top = await all(env, "SELECT uid FROM arena_week WHERE week_id = ? AND pts > 0 ORDER BY pts DESC, updated_at ASC LIMIT 100", last);
+  for (let i = 0; i < top.length; i++) await creditPoints(env, top[i].uid, "dates", Math.floor(L.WEEK100.dates(i + 1) / 2), now, "arenaweek");
+  await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "aweek", ref: last, vars: { p: i + 1, d: Math.floor(L.WEEK100.dates(i + 1) / 2).toLocaleString("en-US") } })));
+  return top.length;
 }
 
 // ---------- Tasks center helpers ----------
@@ -2688,6 +2976,8 @@ export default {
       grantWeeklyCamels(env)
         .catch((e) => logError(env, "weekly camels", 0, e.message))
         .then(() => grantDerbyWeek(env))
+        .then(() => grantArenaWeek(env))
+        .then(() => arenaSweep(env))
         .catch((e) => logError(env, "derby week", 0, e.message))
         .then(() => royalFinalPrizes(env))
         .then(() => kombatWeekNotes(env))

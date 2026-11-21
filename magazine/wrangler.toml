@@ -1,0 +1,17 @@
+name = "jerry-magazine"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+# The pages are plain files built by `node build.mjs` and committed in ./public (no build step on Cloudflare).
+# Only /api/* runs the Worker (comments, votes, newsletter); everything else is served as static files.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+not_found_handling = "404-page"
+
+# No database_id: Cloudflare creates the D1 database on the first deploy; the Worker creates its own tables.
+[[d1_databases]]
+binding = "DB"
+database_name = "jerry-magazine-db"

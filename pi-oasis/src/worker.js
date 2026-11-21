@@ -4,6 +4,7 @@
 import "../public/kombat-logic.js";
 import "../public/logic.js";
 import "../public/catalog-logic.js";
+import "../public/castle-logic.js";
 import "../public/derby-logic.js";
 import "../public/arena-logic.js";
 import { processPayouts } from "./payouts.js";
@@ -14,6 +15,7 @@ const L = globalThis.OasisLogic;
 const DL = globalThis.DerbyLogic;
 const AR = globalThis.ArenaLogic;
 const CAT = globalThis.CatalogLogic;
+const CASTLE = globalThis.CastleLogic;
 const PI_API = "https://api.minepi.com/v2";
 // Pi sign-in: the access token is exchanged with App Studio, which checks it with
 // the Pi Platform. Only the identity it returns is trusted.
@@ -29,6 +31,8 @@ const PRIZE_RATE = 0.15; // 15% of NET goes to the weekly prize pool
 const MIN_WITHDRAW = 1;
 const SESSION_DAYS = 30;
 const DAY = 86400000;
+// Jerry Castle rewards: first clear per map (stars add 25% each), more stars later pay the difference, replays are small and capped per day
+const CASTLE_REWARD = { MAPS: [{ coins: 20000, dates: 300, replay: 3000 }, { coins: 40000, dates: 600, replay: 6000 }, { coins: 80000, dates: 1200, replay: 10000 }], REPLAYS: 3 };
 
 const round = (n) => Math.round(n * 1e7) / 1e7;
 const json = (o, status = 200) =>
@@ -167,6 +171,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS tribe_left ( uid TEXT PRIMARY KEY, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS nft_items ( id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, edition INTEGER NOT NULL, owner TEXT NOT NULL, price INTEGER, minted_at INTEGER NOT NULL, UNIQUE (kind, edition) )",
   "CREATE INDEX IF NOT EXISTS nft_owner ON nft_items(owner)",
+  "CREATE TABLE IF NOT EXISTS castle_runs ( uid TEXT NOT NULL, map INTEGER NOT NULL, stars INTEGER NOT NULL DEFAULT 0, best_wave INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL, PRIMARY KEY (uid, map) )",
+  "CREATE TABLE IF NOT EXISTS castle_day ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
   "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
   "CREATE TABLE IF NOT EXISTS chat_reads ( uid TEXT NOT NULL, room TEXT NOT NULL, last_id INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, room) )",
@@ -1292,6 +1298,42 @@ const routes = {
     }
     const reported = await all(env, "SELECT m.id, m.text, m.at, m.del, x.username, (SELECT COUNT(*) FROM chat_reports r WHERE r.msg_id = m.id) AS n FROM chat_msgs m JOIN users x ON x.uid = m.uid WHERE m.id IN (SELECT msg_id FROM chat_reports) ORDER BY m.id DESC LIMIT 30");
     return { reported };
+  },
+
+  // ---------- Jerry Castle (tower defense): the server replays the player's actions and pays the rewards ----------
+  "GET /api/castle": async (req, env) => {
+    const u = await auth(req, env);
+    const rows = await all(env, "SELECT map, stars, best_wave FROM castle_runs WHERE uid = ?", u.uid);
+    const day = Math.floor(Date.now() / DAY);
+    const d = await one(env, "SELECT n FROM castle_day WHERE uid = ? AND day = ?", u.uid, day);
+    const maps = CASTLE.MAPS.map((m, i) => { const r = rows.find((x) => x.map === i); return { stars: r ? r.stars : 0, best: r ? r.best_wave : 0, open: i === 0 || rows.some((x) => x.map === i - 1 && x.stars > 0) }; });
+    return { maps, replaysLeft: Math.max(0, CASTLE_REWARD.REPLAYS - ((d && d.n) || 0)), reward: CASTLE_REWARD, now: Date.now() };
+  },
+
+  // body: { map, log: [[tick, action], ...] } -> verified result
+  "POST /api/castle/finish": async (req, env, body) => {
+    const u = await auth(req, env);
+    const map = Number(body.map);
+    if (!Number.isInteger(map) || !CASTLE.MAPS[map]) bad("badAction");
+    const rows = await all(env, "SELECT map, stars, best_wave FROM castle_runs WHERE uid = ?", u.uid);
+    if (map > 0 && !rows.some((x) => x.map === map - 1 && x.stars > 0)) bad("castle.locked");
+    const g = CASTLE.simulate(map, body.log);
+    if (g.error) bad("castle.log");
+    const now = Date.now(), day = Math.floor(now / DAY), stars = CASTLE.stars(g), prev = rows.find((x) => x.map === map);
+    let coins = 0, dates = 0, kind = "none";
+    if (g.won) {
+      const R = CASTLE_REWARD.MAPS[Math.min(map, CASTLE_REWARD.MAPS.length - 1)];
+      if (!prev || prev.stars === 0) { coins = Math.floor(R.coins * (1 + 0.25 * (stars - 1))); dates = R.dates; kind = "first"; }
+      else if (stars > prev.stars) { coins = Math.floor(R.coins * 0.25 * (stars - prev.stars)); kind = "stars"; }
+      else {
+        const d = await one(env, "SELECT n FROM castle_day WHERE uid = ? AND day = ?", u.uid, day);
+        if (((d && d.n) || 0) < CASTLE_REWARD.REPLAYS) { await run(env, "INSERT INTO castle_day (uid, day, n) VALUES (?, ?, 1) ON CONFLICT(uid, day) DO UPDATE SET n = n + 1", u.uid, day); coins = R.replay; kind = "replay"; }
+      }
+    }
+    await run(env, "INSERT INTO castle_runs (uid, map, stars, best_wave, at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(uid, map) DO UPDATE SET stars = MAX(stars, excluded.stars), best_wave = MAX(best_wave, excluded.best_wave), at = excluded.at", u.uid, map, stars, g.wave, now);
+    if (coins) await giveReward(env, u.uid, "coins", coins, now, "castle");
+    if (dates) await giveReward(env, u.uid, "dates", dates, now, "castle");
+    return { won: g.won, wave: g.wave, hp: g.hp, stars, kills: g.kills, coins, dates, kind, now };
   },
 
   // ---------- Jerry community: votes, top holders, chat link ----------

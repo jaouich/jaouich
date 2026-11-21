@@ -35,13 +35,13 @@ ok(r.state.kombat.cards.well === 2 && r.state.kombat.coins === 9900 - 155, "leve
 ok((await act({ type: "kCard", id: "carpets" })).error === "k.locked", "Carpet loom locked below Bronze league");
 ok((await act({ type: "kCard", id: "inn" })).error === "k.locked", "Caravanserai locked until Palm grove lvl 5");
 ok((await act({ type: "kCard", id: "nope" })).s === 400, "unknown card refused");
-// passive income while away: 3 hours max
+// passive income while away: 6 hours max
 await setK("last", Date.now() - 10 * 3600e3);
 const before = (await act({ type: "kSync" })).state.kombat;
-// well lvl2 = 10 + 11.2 = 21/h -> 3h = 63
+// well lvl2 = 10 + 11.2 = 21/h -> 6h = 126
 await setK("last", Date.now() - 10 * 3600e3);
 r = await act({ type: "kSync" });
-ok(r.state.kombat.coins - before.coins === 63 && r.msg && r.msg.key === "k.away", "away 10h: paid only 3h of profit (63) and told the player");
+ok(r.state.kombat.coins - before.coins === 126 && r.msg && r.msg.key === "k.away", "away 10h: paid only 6h of profit (126) and told the player");
 // boosts
 r = await act({ type: "kBoost", id: "tap" });
 ok(r.state.kombat.tap === 1, "Multitap lvl 1");

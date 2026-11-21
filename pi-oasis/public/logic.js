@@ -23,7 +23,7 @@
   ];
   const A = {
     BUY_COST: 300, BREED_COST: 200, BREED_COOLDOWN: 86400, // 24 h
-    MAX_FREE: 6, MAX_VIP: 12, STORE_HOURS: 8, // production waits up to 8 h
+    MAX_FREE: 6, MAX_VIP: 12, STORE_HOURS: 6, // production waits up to 6 h
     UPGRADE_CHANCE: 0.12, MAX_BRED_RARITY: 2, // breeding can reach epic, never legendary
     STAKE_CAMEL_CHANCE: 0.3, // 7-day stake: chance of a rare camel
   };
@@ -51,7 +51,7 @@
     { id: "fountain", kind: "deco", unlock: 4, cost: [400], happy: [8] },
   ];
   const CITY = {
-    SIZE: 5, TILES: 25, MAX_LEVEL: 10, TAX_PER_POP: 2, TAX_CAP_HOURS: 8,
+    SIZE: 5, TILES: 25, MAX_LEVEL: 10, TAX_PER_POP: 2, TAX_CAP_HOURS: 6,
     ORDER_SLOTS: 4, ORDER_COOLDOWN: 90, ORDER_MULT: 1.4, MAX_QTY: 3,
     CAP_BASE: 20, CAP_PER_LEVEL: 5, SELL_REFUND: 0.5,
     HAPPY_PER_POINT: 0.01, HAPPY_MAX: 0.3, CRAFT_SPEEDUP: 0.2,

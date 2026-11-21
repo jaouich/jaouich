@@ -262,6 +262,8 @@
     chatBlock: (user, on) => api("/api/chat/block", { user, on }),
     chatReport: (msg) => api("/api/chat/report", { msg }),
     adminChat: (o) => api("/api/admin/chat", o),
+    castle: () => api("/api/castle"),
+    castleFinish: (map, log) => api("/api/castle/finish", { map, log }),
     box: () => api("/api/box"),
     gift: (o) => api("/api/gift", o),
     catalog: (u) => api("/api/catalog" + (u ? "?u=" + encodeURIComponent(u) : "")),

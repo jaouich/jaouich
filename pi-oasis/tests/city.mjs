@@ -72,7 +72,7 @@ ok((await act({ type: "cityTax" })).error === "notReady", "no taxes right after 
 await exec(`UPDATE state SET json = json_set(json, '$.city.taxAt', ${Date.now() - 100 * 3600000}, '$.city.taxStore', 0) WHERE uid='${uidC}'`);
 const t1 = await st();
 r = await act({ type: "cityTax" });
-ok(Math.abs((r.state.dates - t1.dates) - rate * 8) <= 1, "taxes stop piling up after 8 hours", r.state.dates - t1.dates);
+ok(Math.abs((r.state.dates - t1.dates) - rate * 6) <= 1, "taxes stop piling up after 6 hours", r.state.dates - t1.dates);
 
 // --- Level up, building, demolishing ---
 await setJson("$.city.xp", 60);

@@ -9,7 +9,7 @@
     MAX_TPS: 20,        // fastest believable tapping
     BURST: 40,          // taps allowed on top of MAX_TPS (network delay)
     MAX_BATCH: 600,     // taps per request
-    OFFLINE_H: 3,       // passive income stored while away, in hours
+    OFFLINE_H: 6,       // passive income stored while away, in hours
     REFILLS: 6,         // free full-energy refills per day
     AD_REFILLS: 5,      // extra full-energy refills per day, each after a rewarded Pi ad
     REFILL_GAP: 3600e3, // between two refills

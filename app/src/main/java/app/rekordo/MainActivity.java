@@ -106,14 +106,6 @@ public class MainActivity extends Activity {
         shot.setOnClickListener(v -> onShot());
         LinearLayout side = Ui.col(this);
         side.addView(shot, new LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48)));
-        TextView liveBtn = Ui.text(this, "LIVE", 11, Color.WHITE, true);
-        liveBtn.setGravity(Gravity.CENTER);
-        Ui.press(liveBtn, Ui.round(0xFFE5202E, Ui.dp(this, 24)));
-        liveBtn.setContentDescription(getString(R.string.live_title));
-        liveBtn.setOnClickListener(v -> startActivity(new Intent(this, LiveActivity.class)));
-        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48));
-        llp.topMargin = Ui.dp(this, 8);
-        side.addView(liveBtn, llp);
         card.addView(side);
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
         clp.setMargins(Ui.dp(this, 16), Ui.dp(this, 8), Ui.dp(this, 16), Ui.dp(this, 8));
@@ -170,7 +162,7 @@ public class MainActivity extends Activity {
             boolean rec = RecorderService.recording || RecorderService.counting;
             recIcon.setImageDrawable(new Icons(rec ? Icons.STOP : Icons.REC, Color.WHITE));
             if (RecorderService.recording) {
-                recLabel.setText((RecorderService.live ? "● LIVE" : getString(RecorderService.paused ? R.string.paused : R.string.recording_now)) + " · " + Store.dur(RecorderService.elapsed()));
+                recLabel.setText(getString(RecorderService.paused ? R.string.paused : R.string.recording_now) + " · " + Store.dur(RecorderService.elapsed()));
                 recSub.setText(R.string.stop);
             } else if (RecorderService.counting) {
                 recLabel.setText(R.string.starting);

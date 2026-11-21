@@ -72,7 +72,7 @@
     <string name="tile_label">Enregistrer l\'écran</string>
     <string name="notif_channel">Enregistrement</string>
     <string name="starting">Préparation…</string>
-    <string name="privacy_note">Rekordo n\'a ni compte ni publicité. Les vidéos restent sur votre téléphone ; seul un direct que vous lancez part vers la plateforme choisie.</string>
+    <string name="privacy_note">Rekordo fonctionne hors ligne : pas de compte, pas de publicité, pas d\'Internet. Vos vidéos restent sur votre téléphone.</string>
     <string name="version" formatted="true">Version %s</string>
     <string name="take_shot">Faire une capture</string>
     <string name="stats" formatted="true">%1$d · %2$s</string>

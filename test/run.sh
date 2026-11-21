@@ -85,19 +85,6 @@ adb shell input swipe 60 200 260 400 400; adb shell input swipe 260 200 60 400 4
 tap_text "Save"; sleep 4; shot 24-dessin-enregistre
 adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:width:height > $OUT/videos2.txt 2>&1
 adb shell content query --uri content://media/external/images/media --projection _display_name:_size > $OUT/images2.txt 2>&1
-# --- Direct vers le serveur local (10.0.2.2 = l'ordinateur qui fait tourner l'émulateur)
-adb shell am start -W -n $PKG/.MainActivity; sleep 3
-tap_text "LIVE" "290 210"; sleep 3; shot 25-direct
-tap_text "Other"; sleep 1
-tap_text "rtmp://…"; sleep 1; adb shell input text "rtmp://10.0.2.2:1935/live"; sleep 1
-tap_text "Paste your stream key"; sleep 1; adb shell input text "rekordotest"; adb shell input keyevent 111; sleep 1; shot 26-direct-rempli
-adb shell input swipe 160 550 160 150 300; sleep 1; adb shell input swipe 160 550 160 150 300; sleep 1; shot 26b-bas
-tap_text "● Go live" "160 520"; sleep 4
-tap_text "Start now"; sleep 30; shot 27-en-direct
-curl -s http://127.0.0.1:9997/v3/paths/list > $OUT/live-api.txt 2>&1 || true
-adb shell cmd statusbar expand-notifications; sleep 2; shot 28-notif-direct
-tap_text "Stop" "82 394"; sleep 8
-adb shell content query --uri content://media/external/video/media --projection _display_name:_size:duration:width:height > $OUT/videos3.txt 2>&1
 adb logcat -d > $OUT/logcat-full.txt
 grep -E "AndroidRuntime|FATAL|rekordo|Rekordo|MediaCodec.*rror|MediaProjection" $OUT/logcat-full.txt | tail -250 > $OUT/logcat.txt
 true

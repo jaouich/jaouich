@@ -596,7 +596,7 @@
         G.S = r.state; G.setClock(r.now);
         G.toast(t("n.bought")); sfx.chest(); coinRain(20);
       } else if (b.dataset.list) {
-        const p = prompt(t(b.dataset.cur === "jry" ? "n.askPriceJry" : "n.askPrice"));
+        const p = await OasisAsk(t(b.dataset.cur === "jry" ? "n.askPriceJry" : "n.askPrice"), "", { number: true });
         if (!p) return;
         await Pi.nftList(+b.dataset.list, Math.floor(Number(String(p).replace(/[^0-9]/g, ""))), b.dataset.cur || "coins");
         G.toast(t("n.listedOk")); sfx.coin();

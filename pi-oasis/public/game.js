@@ -958,7 +958,7 @@
         if (/^(https:\/\/|pi:\/\/)/i.test(link)) window.open(link, "_blank", "noopener");
       } else {
         let answer;
-        if (a === "secret") { answer = prompt(t("q.ask")); if (!answer) { b.disabled = false; return; } }
+        if (a === "secret") { answer = await OasisAsk(t("q.ask")); if (!answer) { b.disabled = false; return; } }
         const r = await Pi.questClaim(id, answer);
         account = r.account; S = r.state; render(); burst();
         toast(t("q.ok", { n: fmtN(r.amount), i: codeIco[r.kind] }));
@@ -1167,7 +1167,7 @@
       } else if (a === "adm") {
         bizAdmin = await Pi.sponsorAdmin("list");
       } else if (a === "ok" || a === "no" || a === "stop") {
-        const note = a === "no" ? prompt(t("biz.why")) || "" : "";
+        const note = a === "no" ? (await OasisAsk(t("biz.why"))) || "" : "";
         bizAdmin = await Pi.sponsorAdmin(a === "ok" ? "approve" : a === "no" ? "reject" : "stop", Number(b.dataset.id), note);
       }
     } catch (err) { toast(err.message); }
@@ -1745,7 +1745,7 @@
         toast(t("svc.sent")); await svLoad();
       } else if (a === "adm") svAdmin = await Pi.adminSvc({ action: "list" });
       else if (a === "st") {
-        const note = prompt(t("svc.noteAsk")) || "";
+        const note = (await OasisAsk(t("svc.noteAsk"))) || "";
         svAdmin = await Pi.adminSvc({ action: "status", id: Number(b.dataset.id), status: b.dataset.st, note });
       }
     } catch (err) { toast(err.message); }

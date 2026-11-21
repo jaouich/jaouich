@@ -137,7 +137,7 @@
         apply(r); result = r; view = "race"; playing = true;
       } else if (a === "select") apply(await Pi.derbySelect(i));
       else if (a === "rename") {
-        const n = prompt(t("db.nameAsk"), data.derby.camels[i].n || "");
+        const n = await OasisAsk(t("db.nameAsk"), data.derby.camels[i].n || "");
         if (n != null) apply(await Pi.derbyRename(i, n));
       } else if (a === "buyfeed") { const r = await Pi.buyDerby({ kind: "feed", pack: b.dataset.x }); if (r.state) { G.S = r.state; G.render(); } G.toast(t("db.bought")); await load(); }
       else if (a === "buybreed") {

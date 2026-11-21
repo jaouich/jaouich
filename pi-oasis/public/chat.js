@@ -39,7 +39,7 @@
       body = `<div class="ch-msgs" id="chMsgs"></div><form class="ch-in" id="chForm"><input id="chText" autocomplete="off" maxlength="400" dir="auto" placeholder="${t("chat.type")}"><button class="btn gold" type="submit">➤</button></form>`;
     }
     el.innerHTML = `<header class="jm-head"><button class="jm-back" data-ch="${screen === "list" ? "close" : "back"}">‹ ${screen === "list" ? t("jm.back") : t("chat.t")}</button><b>${screen === "list" ? "💬 " + t("chat.t") : esc(title(room))}</b>${screen !== "list" && room !== "main" ? `<button class="jm-back" data-ch="gift">🎁</button>` : "<span></span>"}</header><div class="jm-body ${screen === "chat" ? "ch-body" : ""}">${body}</div>${sheet ? sheetHtml() : ""}`;
-    if (screen === "chat") { paintMsgs(false); $("chForm").addEventListener("submit", send); }
+    if (screen === "chat") { paintMsgs(false); $("chForm").addEventListener("submit", send); $("chText").addEventListener("focus", () => setTimeout(() => $("chForm").scrollIntoView({ block: "end" }), 300)); }
   }
   function paintMsgs(stick) {
     const box = $("chMsgs"); if (!box) return;

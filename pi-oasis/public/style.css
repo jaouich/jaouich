@@ -1425,3 +1425,8 @@ small.n-want { display: block; font-size: .7rem; }
 .ch-m { max-width: 82%; align-self: flex-start; background: rgba(255,255,255,.14); border-radius: 14px 14px 14px 4px; padding: 6px 10px; display: flex; flex-direction: column; gap: 1px; word-break: break-word; } .ch-m.me { align-self: flex-end; background: #0f7a4a; border-radius: 14px 14px 4px 14px; } .ch-m b { font-size: .72rem; color: #ffd34d; } .ch-m small { opacity: .6; font-size: .62rem; align-self: flex-end; }
 .ch-in { display: flex; gap: 8px; padding-top: 8px; } .ch-in input { flex: 1; font: inherit; border-radius: 99px; padding: 10px 14px; border: 0; } .ch-in .btn { border-radius: 99px; padding: 0 18px; }
 .ch-in { align-items: center; } .ch-in input { flex: 1 1 auto; min-width: 0; width: auto; } .ch-in .btn { flex: 0 0 auto; width: 52px; height: 44px; padding: 0; }
+/* Phones whose bottom bar covers the page: use the visible height and keep controls clear of the bar */
+.media.chat, .media.box, .media.cat { height: 100dvh; bottom: auto; }
+.jm-body.ch-body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); overflow-y: auto; }
+.ch-msgs { min-height: 0; }
+.media.box .jm-body, .media.cat .jm-body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }

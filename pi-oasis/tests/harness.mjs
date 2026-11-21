@@ -12,7 +12,7 @@ const mkStmt = (d) => { const stmt = (sql, p = []) => ({
   bind: (...b) => stmt(sql, b),
   first: async () => d.prepare(sql).get(...p) ?? null,
   all: async () => ({ results: d.prepare(sql).all(...p) }),
-  run: async () => { const r = d.prepare(sql).run(...p); return { meta: { changes: Number(r.changes) } }; },
+  run: async () => { const r = d.prepare(sql).run(...p); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
 }); return stmt; };
 const stmt = mkStmt(db);
 const DB = { prepare: (sql) => stmt(sql), batch: async (list) => Promise.all(list.map((s) => s.run())) };

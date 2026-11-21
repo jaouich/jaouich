@@ -167,6 +167,12 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS tribe_left ( uid TEXT PRIMARY KEY, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS nft_items ( id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, edition INTEGER NOT NULL, owner TEXT NOT NULL, price INTEGER, minted_at INTEGER NOT NULL, UNIQUE (kind, edition) )",
   "CREATE INDEX IF NOT EXISTS nft_owner ON nft_items(owner)",
+  "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
+  "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
+  "CREATE TABLE IF NOT EXISTS chat_reads ( uid TEXT NOT NULL, room TEXT NOT NULL, last_id INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, room) )",
+  "CREATE TABLE IF NOT EXISTS chat_blocks ( uid TEXT NOT NULL, other TEXT NOT NULL, PRIMARY KEY (uid, other) )",
+  "CREATE TABLE IF NOT EXISTS chat_reports ( id INTEGER PRIMARY KEY AUTOINCREMENT, msg_id INTEGER NOT NULL, reporter TEXT NOT NULL, at INTEGER NOT NULL, UNIQUE (msg_id, reporter) )",
+  "CREATE TABLE IF NOT EXISTS chat_mutes ( uid TEXT PRIMARY KEY, until INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS transfers ( id INTEGER PRIMARY KEY AUTOINCREMENT, from_uid TEXT NOT NULL, to_uid TEXT NOT NULL, what TEXT NOT NULL, n INTEGER NOT NULL, fee INTEGER NOT NULL DEFAULT 0, item_id INTEGER, at INTEGER NOT NULL )",
   "CREATE INDEX IF NOT EXISTS transfers_from ON transfers(from_uid, at)",
   "CREATE TABLE IF NOT EXISTS jry_ledger ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, delta INTEGER NOT NULL, kind TEXT NOT NULL, ref TEXT, at INTEGER NOT NULL )",
@@ -1194,6 +1200,98 @@ const routes = {
     notify(env, [{ uid: to.uid, kind: "gift", ref: String(now) + ":" + u.uid, vars: { u: u.username } }]).catch(() => {});
     const me = await account(env, await one(env, "SELECT * FROM users WHERE uid = ?", u.uid));
     return { ok: true, fee, n, to: to.username, account: me, now };
+  },
+
+  // ---------- Chat: one public room ("main") and private chats between two members ----------
+  "GET /api/chat/rooms": async (req, env) => {
+    const u = await auth(req, env);
+    const readOf = async (room) => ((await one(env, "SELECT last_id FROM chat_reads WHERE uid = ? AND room = ?", u.uid, room)) || { last_id: 0 }).last_id;
+    const last = async (room) => one(env, "SELECT m.id, m.text, m.at, x.username FROM chat_msgs m JOIN users x ON x.uid = m.uid WHERE m.room = ? AND m.del = 0 ORDER BY m.id DESC LIMIT 1", room);
+    const unread = async (room, from) => (await one(env, "SELECT COUNT(*) AS n FROM chat_msgs m WHERE m.room = ? AND m.id > ? AND m.del = 0 AND m.uid != ? AND m.uid NOT IN (SELECT other FROM chat_blocks WHERE uid = ?)", room, from, u.uid, u.uid)).n;
+    const rooms = [{ room: "main", last: await last("main"), unread: await unread("main", await readOf("main")) }];
+    const dms = await all(env, "SELECT DISTINCT room FROM chat_msgs WHERE room LIKE 'dm:%' AND (room LIKE ? OR room LIKE ?)", "dm:" + u.uid + ":%", "dm:%:" + u.uid);
+    for (const d of dms) {
+      const other = d.room.split(":").filter((x, i) => i > 0 && x !== u.uid)[0];
+      const ou = await one(env, "SELECT username FROM users WHERE uid = ?", other);
+      if (!ou) continue;
+      rooms.push({ room: "dm:" + ou.username, user: ou.username, last: await last(d.room), unread: await unread(d.room, await readOf(d.room)) });
+    }
+    rooms.sort((a, b) => (b.last ? b.last.at : 0) - (a.last ? a.last.at : 0));
+    const total = rooms.reduce((n, r) => n + r.unread, 0);
+    const blocked = await all(env, "SELECT x.username FROM chat_blocks b JOIN users x ON x.uid = b.other WHERE b.uid = ?", u.uid);
+    return { rooms, unread: total, blocked: blocked.map((x) => x.username), now: Date.now() };
+  },
+
+  "GET /api/chat/msgs": async (req, env) => {
+    const u = await auth(req, env);
+    const q = new URL(req.url).searchParams, since = Number(q.get("since")) || 0;
+    const room = await chatRoom(env, u, q.get("room"));
+    const rows = since
+      ? await all(env, "SELECT m.id, m.text, m.at, m.uid, x.username FROM chat_msgs m JOIN users x ON x.uid = m.uid WHERE m.room = ? AND m.id > ? AND m.del = 0 AND m.uid NOT IN (SELECT other FROM chat_blocks WHERE uid = ?) ORDER BY m.id ASC LIMIT 100", room, since, u.uid)
+      : (await all(env, "SELECT m.id, m.text, m.at, m.uid, x.username FROM chat_msgs m JOIN users x ON x.uid = m.uid WHERE m.room = ? AND m.del = 0 AND m.uid NOT IN (SELECT other FROM chat_blocks WHERE uid = ?) ORDER BY m.id DESC LIMIT 50", room, u.uid)).reverse();
+    const lastId = rows.length ? rows[rows.length - 1].id : since;
+    if (rows.length) await run(env, "INSERT INTO chat_reads (uid, room, last_id) VALUES (?, ?, ?) ON CONFLICT(uid, room) DO UPDATE SET last_id = MAX(last_id, excluded.last_id)", u.uid, room, lastId);
+    return { msgs: rows.map((m) => ({ id: m.id, text: m.text, at: m.at, user: m.username, mine: m.uid === u.uid })), last: lastId, now: Date.now() };
+  },
+
+  "POST /api/chat/send": async (req, env, body) => {
+    const u = await auth(req, env);
+    const room = await chatRoom(env, u, body.room);
+    const text = String(body.text || "").replace(/\s+/g, " ").trim();
+    if (!text) bad("badAction");
+    if (text.length > 400) bad("chat.long");
+    if (/https?:\/\/|www\.|t\.me\/|wa\.me\//i.test(text)) bad("chat.links");
+    const now = Date.now();
+    if (now - Number(u.created_at) < 3600000) bad("chat.young");
+    const mute = await one(env, "SELECT until FROM chat_mutes WHERE uid = ?", u.uid);
+    if (mute && mute.until > now) bad("chat.muted");
+    const recent = await one(env, "SELECT COUNT(*) AS n, MAX(at) AS last FROM chat_msgs WHERE uid = ? AND at > ?", u.uid, now - 60000);
+    if ((recent.last && now - recent.last < 2000) || recent.n >= 30) bad("chat.fast");
+    const dup = await one(env, "SELECT 1 AS x FROM chat_msgs WHERE uid = ? AND room = ? AND text = ? AND at > ?", u.uid, room, text, now - 30000);
+    if (dup) bad("chat.fast");
+    let target = null;
+    if (room !== "main") {
+      target = room.split(":").filter((x, i) => i > 0 && x !== u.uid)[0];
+      if (await one(env, "SELECT 1 AS x FROM chat_blocks WHERE uid = ? AND other = ?", target, u.uid)) bad("chat.blocked");
+    }
+    const r = await run(env, "INSERT INTO chat_msgs (room, uid, text, at) VALUES (?, ?, ?, ?)", room, u.uid, text, now);
+    await run(env, "INSERT INTO chat_reads (uid, room, last_id) VALUES (?, ?, ?) ON CONFLICT(uid, room) DO UPDATE SET last_id = MAX(last_id, excluded.last_id)", u.uid, room, r.meta.last_row_id);
+    if (target) notify(env, [{ uid: target, kind: "chatdm", ref: room + ":" + Math.floor(now / 3600000), vars: { u: u.username }, q: "with=" + encodeURIComponent(u.username) }]).catch(() => {});
+    return { ok: true, id: r.meta.last_row_id, now };
+  },
+
+  "POST /api/chat/block": async (req, env, body) => {
+    const u = await auth(req, env);
+    const o = await one(env, "SELECT uid FROM users WHERE username = ? COLLATE NOCASE", String(body.user || ""));
+    if (!o || o.uid === u.uid) bad("chat.noUser");
+    if (body.on === false) await run(env, "DELETE FROM chat_blocks WHERE uid = ? AND other = ?", u.uid, o.uid);
+    else await run(env, "INSERT OR IGNORE INTO chat_blocks (uid, other) VALUES (?, ?)", u.uid, o.uid);
+    return { ok: true };
+  },
+
+  "POST /api/chat/report": async (req, env, body) => {
+    const u = await auth(req, env);
+    const m = await one(env, "SELECT id, uid FROM chat_msgs WHERE id = ?", Number(body.msg) || 0);
+    if (!m || m.uid === u.uid) bad("badAction");
+    await run(env, "INSERT OR IGNORE INTO chat_reports (msg_id, reporter, at) VALUES (?, ?, ?)", m.id, u.uid, Date.now());
+    // three different reporters hide the message until the owner looks at it
+    const n = (await one(env, "SELECT COUNT(*) AS n FROM chat_reports WHERE msg_id = ?", m.id)).n;
+    if (n >= 3) await run(env, "UPDATE chat_msgs SET del = 1 WHERE id = ?", m.id);
+    return { ok: true };
+  },
+
+  // Owner: reported messages, delete a message, mute a member
+  "POST /api/admin/chat": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    if (body.action === "delete") await run(env, "UPDATE chat_msgs SET del = 1 WHERE id = ?", Number(body.id) || 0);
+    if (body.action === "mute") {
+      const o = await one(env, "SELECT uid FROM users WHERE username = ? COLLATE NOCASE", String(body.user || ""));
+      if (!o) bad("chat.noUser");
+      await run(env, "INSERT INTO chat_mutes (uid, until) VALUES (?, ?) ON CONFLICT(uid) DO UPDATE SET until = excluded.until", o.uid, Date.now() + (Math.min(Number(body.hours) || 24, 24 * 365)) * 3600000);
+    }
+    const reported = await all(env, "SELECT m.id, m.text, m.at, m.del, x.username, (SELECT COUNT(*) FROM chat_reports r WHERE r.msg_id = m.id) AS n FROM chat_msgs m JOIN users x ON x.uid = m.uid WHERE m.id IN (SELECT msg_id FROM chat_reports) ORDER BY m.id DESC LIMIT 30");
+    return { reported };
   },
 
   // ---------- Jerry community: votes, top holders, chat link ----------
@@ -2450,6 +2548,7 @@ const MK = L.MARKET;
 // ---------- Pi Notification Center ----------
 // Messages in the player's language (saved at sign-in). {x} are filled from vars.
 const NOTE = {
+  chatdm: { go: "chat", en: ["💬 {u} sent you a message", "Open the chat to reply."], ar: ["💬 رسالة من ‎{u}", "افتح الدردشة لتردّ."], fr: ["💬 Message de {u}", "Ouvrez le chat pour répondre."] },
   gift: { go: "box", en: ["🎁 You received a gift", "{u} sent you a gift. Open your box to see it."], ar: ["🎁 وصلتك هدية", "أرسل لك ‎{u} هدية. افتح صندوقك لتراها."], fr: ["🎁 Vous avez reçu un cadeau", "{u} vous a envoyé un cadeau. Ouvrez votre boîte."] },
   nftswap: { go: "kombat", en: ["🔁 Your card was swapped", "Someone accepted your swap offer. Open your collection to see the new card."], ar: ["🔁 تمت مبادلة بطاقتك", "قَبِل أحدهم عرض المبادلة. افتح مجموعتك لترى البطاقة الجديدة."], fr: ["🔁 Votre carte a été échangée", "Quelqu'un a accepté votre offre d'échange. Ouvrez votre collection."] },
   daily: { go: "farm", en: ["🌴 Your oasis is waiting", "Your camels made dates and your free Derby races are ready."], ar: ["🌴 واحتك في انتظارك", "جِمالك جمعت التمر، وسباقاتك المجانية جاهزة."], fr: ["🌴 Ton oasis t'attend", "Tes chameaux ont produit des dattes et tes courses gratuites sont prêtes."] },
@@ -2853,6 +2952,20 @@ function questInput(b, now) {
     sort: Math.floor(Number(b.sort)) || 0, ends_at: days > 0 ? now + days * 86400000 : null };
 }
 // Gives an in-game reward: dates, Kombat coins, JRY or wheel spins
+
+// Chat room name from what the app sends: "main", or "dm:<username>" -> "dm:<uidA>:<uidB>" (sorted ids)
+async function chatRoom(env, u, raw) {
+  raw = String(raw || "main");
+  if (raw === "main") return "main";
+  if (!raw.startsWith("dm:")) bad("badAction");
+  const o = await one(env, "SELECT uid FROM users WHERE username = ? COLLATE NOCASE", raw.slice(3));
+  if (!o || o.uid === u.uid) bad("chat.noUser");
+  return "dm:" + [u.uid, o.uid].sort().join(":");
+}
+async function chatClean(env) {
+  const now = Date.now();
+  await run(env, "DELETE FROM chat_msgs WHERE (room = 'main' AND at < ?) OR (room != 'main' AND at < ?)", now - 7 * DAY, now - 30 * DAY);
+}
 async function giveReward(env, uid, kind, n, now, src) {
   if (kind === "dates" || kind === "coins") return creditPoints(env, uid, kind, n, now, src);
   if (kind === "jry") return run(env, "UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?", n, uid);
@@ -3175,6 +3288,7 @@ export default {
         .then(() => grantArenaWeek(env))
         .then(() => arenaSweep(env))
         .then(() => catalogNotify(env))
+        .then(() => chatClean(env))
         .catch((e) => logError(env, "derby week", 0, e.message))
         .then(() => royalFinalPrizes(env))
         .then(() => kombatWeekNotes(env))

@@ -546,19 +546,33 @@
     let html = "";
     if (nTab === "mint") {
       html = KL.COLLECTIBLES.map((c) => {
-        const n = d.minted[c.id] || 0, left = c.max - n;
+        const n = d.minted[c.id] || 0, left = c.max - n, cost = KL.mintPrice(c, n);
         return nCard(c, `<small>${t("n.left", { n: left, max: c.max })}</small>${left > 0
-          ? `<button class="k-buy" data-mint="${c.id}" ${coins >= c.price ? "" : "disabled"}><b><i class="kcoin s"></i>${big(c.price)}</b><small>${t("n.mintBtn")}</small></button>`
+          ? `<button class="k-buy" data-mint="${c.id}" ${coins >= cost ? "" : "disabled"}><b><i class="kcoin s"></i>${big(cost)}</b><small>${t("n.mintBtn")}</small></button>`
           : `<span class="n-out">${t("n.soldOut")}</span>`}`);
       }).join("");
     } else if (nTab === "market") {
-      html = d.market.length ? d.market.map((it) => nCard(KL.nftById(it.kind), `<small>${t("n.seller", { name: esc(it.seller) })}</small>
-        ${G.account && it.seller === G.account.username ? `<span class="n-out">${t("n.yours")}</span>` : `<button class="k-buy" data-buy-nft="${it.id}" data-price="${it.price}" ${coins >= it.price ? "" : "disabled"}><b><i class="kcoin s"></i>${big(it.price)}</b><small>${t("n.buyBtn")}</small></button>`}`, it.edition)).join("")
+      const mineKinds = new Set((d.mine || []).filter((x) => x.price == null && !x.swap_want).map((x) => x.kind));
+      html = d.market.length ? d.market.map((it) => {
+        const c = KL.nftById(it.kind), own = G.account && it.seller === G.account.username;
+        if (it.swap_want) {
+          const w = KL.nftById(it.swap_want);
+          return nCard(c, `<small>${t("n.seller", { name: esc(it.seller) })}</small><small class="n-want">🔁 ${t("n.wants")}: ${w.e} ${t("n.c." + w.id)}</small>
+            ${own ? `<span class="n-out">${t("n.yours")}</span>` : `<button class="k-buy" data-swap="${it.id}" data-want="${it.swap_want}" ${mineKinds.has(it.swap_want) ? "" : "disabled"}><b>🔁 ${t("n.swapBtn")}</b><small>${mineKinds.has(it.swap_want) ? t("n.swapHave") : t("n.swapNone")}</small></button>`}`, it.edition);
+        }
+        const jry = it.cur === "jry", can = jry ? ((G.account && G.account.jryPts) || 0) >= it.price : coins >= it.price;
+        return nCard(c, `<small>${t("n.seller", { name: esc(it.seller) })}</small>
+          ${own ? `<span class="n-out">${t("n.yours")}</span>` : `<button class="k-buy" data-buy-nft="${it.id}" data-price="${it.price}" data-cur="${it.cur}" ${can || jry ? "" : "disabled"}><b>${jry ? "💠 " : `<i class="kcoin s"></i>`}${big(it.price)}</b><small>${t("n.buyBtn")}</small></button>`}`, it.edition);
+      }).join("")
         : `<div class="k-note">${t("n.emptyMarket")}</div>`;
     } else {
-      html = !G.account ? `<div class="k-note">${t("k.league.offline")}</div>` : d.mine.length ? d.mine.map((it) => nCard(KL.nftById(it.kind), it.price != null
-        ? `<small>${t("n.listed", { n: big(it.price) })}</small><button class="k-goal-share" data-unlist="${it.id}">${t("n.unlist")}</button>`
-        : `<button class="k-goal-share" data-list="${it.id}">${t("n.sell")}</button>`, it.edition)).join("") : `<div class="k-note">${t("n.none")}</div>`;
+      const opts = KL.COLLECTIBLES.map((x) => `<option value="${x.id}">${x.e} ${t("n.c." + x.id)}</option>`).join("");
+      html = !G.account ? `<div class="k-note">${t("k.league.offline")}</div>` : d.mine.length ? d.mine.map((it) => nCard(KL.nftById(it.kind), it.swap_want
+        ? `<small>🔁 ${t("n.wants")}: ${KL.nftById(it.swap_want).e} ${t("n.c." + it.swap_want)}</small><button class="k-goal-share" data-unlist="${it.id}">${t("n.unlist")}</button>`
+        : it.price != null
+        ? `<small>${t("n.listed", { n: (it.cur === "jry" ? "💠 " : "") + big(it.price) })}</small><button class="k-goal-share" data-unlist="${it.id}">${t("n.unlist")}</button>`
+        : `<div class="n-sellrow"><button class="k-goal-share" data-list="${it.id}">🪙 ${t("n.sell")}</button><button class="k-goal-share" data-list="${it.id}" data-cur="jry">💠 ${t("n.sell")}</button></div>
+           <div class="n-sellrow"><select class="n-want" data-for="${it.id}">${opts.replace(`<option value="${it.kind}">`, `<option value="${it.kind}" disabled>`)}</select><button class="k-goal-share" data-wantbtn="${it.id}">🔁</button></div>`, it.edition)).join("") : `<div class="k-note">${t("n.none")}</div>`;
     }
     $("nList").innerHTML = html;
     $("nRecent").innerHTML = d.recent.length ? d.recent.map((r) => `<div><span>${KL.nftById(r.kind).e}</span><b>#${r.edition} ${esc(r.seller || "")} → ${esc(r.buyer)}</b><small></small><span><i class="kcoin s"></i>${big(r.price)}</span></div>`).join("") : `<p class="k-note">${t("n.noSales")}</p>`;
@@ -566,7 +580,7 @@
   document.querySelector('[data-kp="collect"]').addEventListener("click", async (e) => {
     const tab = e.target.closest("[data-ntab]");
     if (tab) { nTab = tab.dataset.ntab; return renderNft(); }
-    const b = e.target.closest("[data-mint],[data-buy-nft],[data-list],[data-unlist]");
+    const b = e.target.closest("[data-mint],[data-buy-nft],[data-list],[data-unlist],[data-swap],[data-wantbtn]");
     if (!b) return;
     if (!G.account) return G.toast(t("t.loginFirst"));
     try {
@@ -577,15 +591,25 @@
         const c = KL.nftById(r.item.kind);
         G.toast(t("n.minted", { e: c.e, name: t("n.c." + c.id), n: r.item.edition, max: c.max })); sfx.level(); coinRain(30);
       } else if (b.dataset.buyNft) {
-        if (!confirm(t("n.confirmBuy", { n: big(+b.dataset.price) }))) return;
-        const r = await Pi.nftBuy(+b.dataset.buyNft, +b.dataset.price);
+        if (!confirm(t("n.confirmBuy", { n: (b.dataset.cur === "jry" ? "💠 " : "") + big(+b.dataset.price) }))) return;
+        const r = await Pi.nftBuy(+b.dataset.buyNft, +b.dataset.price, b.dataset.cur);
         G.S = r.state; G.setClock(r.now);
         G.toast(t("n.bought")); sfx.chest(); coinRain(20);
       } else if (b.dataset.list) {
-        const p = prompt(t("n.askPrice"));
+        const p = prompt(t(b.dataset.cur === "jry" ? "n.askPriceJry" : "n.askPrice"));
         if (!p) return;
-        await Pi.nftList(+b.dataset.list, Math.floor(Number(String(p).replace(/[^0-9]/g, ""))));
+        await Pi.nftList(+b.dataset.list, Math.floor(Number(String(p).replace(/[^0-9]/g, ""))), b.dataset.cur || "coins");
         G.toast(t("n.listedOk")); sfx.coin();
+      } else if (b.dataset.wantbtn) {
+        const sel = document.querySelector(`.n-want[data-for="${b.dataset.wantbtn}"]`);
+        await Pi.nftWant(+b.dataset.wantbtn, sel.value);
+        G.toast(t("n.listedOk"));
+      } else if (b.dataset.swap) {
+        const mine = (nData.mine || []).find((x) => x.kind === b.dataset.want && x.price == null && !x.swap_want);
+        if (!mine) return G.toast(t("n.swapNone"));
+        if (!confirm(t("n.confirmSwap"))) return;
+        await Pi.nftSwap(+b.dataset.swap, mine.id);
+        G.toast(t("n.swapped")); sfx.chest();
       } else if (b.dataset.unlist) {
         await Pi.nftList(+b.dataset.unlist, null);
         G.toast(t("n.unlisted"));

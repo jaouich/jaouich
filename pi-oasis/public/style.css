@@ -1396,3 +1396,9 @@ body.k-open { overflow: hidden; }
 .cat-modal { position: fixed; inset: 0; z-index: 5; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; padding: 20px; }
 .cat-card { width: min(320px, 100%); background: #0e2a1f; border: 1px solid rgba(255,255,255,.2); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 6px; text-align: center; align-items: stretch; }
 .cat-card .cc { width: 60%; margin: 0 auto; pointer-events: none; } .cat-card .cc-emb { font-size: 4rem; } .cat-hint { font-size: .8rem; opacity: .85; }
+
+.n-sellrow { display: flex; gap: 4px; margin-top: 4px; } .n-sellrow .k-goal-share { flex: 1; }
+.n-want { flex: 1; min-width: 0; font: inherit; font-size: .72rem; border-radius: 8px; padding: 3px; }
+small.n-want { display: block; font-size: .7rem; }
+.n-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .n-card { min-width: 0; }
+.n-sellrow { flex-wrap: wrap; } .n-sellrow .n-want { flex: 1 1 100%; } .n-sellrow .k-goal-share { padding: 6px 4px; font-size: .78rem; }

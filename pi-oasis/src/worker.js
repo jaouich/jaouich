@@ -167,6 +167,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS tribe_left ( uid TEXT PRIMARY KEY, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS nft_items ( id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, edition INTEGER NOT NULL, owner TEXT NOT NULL, price INTEGER, minted_at INTEGER NOT NULL, UNIQUE (kind, edition) )",
   "CREATE INDEX IF NOT EXISTS nft_owner ON nft_items(owner)",
+  "CREATE INDEX IF NOT EXISTS nft_kind ON nft_items(kind)",
   "CREATE TABLE IF NOT EXISTS nft_moves ( item_id INTEGER NOT NULL, from_uid TEXT, to_uid TEXT NOT NULL, price INTEGER NOT NULL, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS nft_credits ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, amount INTEGER NOT NULL, at INTEGER NOT NULL )",
   // Players' testJRY market. kind 'sell': a lot offered for Pi; kind 'redeem': testJRY swapped
@@ -243,6 +244,8 @@ const ensureSchema = (env) =>
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_bal REAL").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_at INTEGER").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE nft_credits ADD COLUMN src TEXT").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE nft_items ADD COLUMN cur TEXT NOT NULL DEFAULT 'coins'").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE nft_items ADD COLUMN swap_want TEXT").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_pts INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN mk_balance REAL NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN wheel_day INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
@@ -1023,8 +1026,8 @@ const routes = {
     let me = null;
     try { me = await auth(req, env); } catch {}
     const minted = await all(env, "SELECT kind, COUNT(*) AS n FROM nft_items GROUP BY kind");
-    const market = await all(env, "SELECT i.id, i.kind, i.edition, i.price, u.username AS seller FROM nft_items i JOIN users u ON u.uid = i.owner WHERE i.price IS NOT NULL ORDER BY i.price ASC LIMIT 100");
-    const mine = me ? await all(env, "SELECT id, kind, edition, price FROM nft_items WHERE owner = ? ORDER BY kind, edition", me.uid) : [];
+    const market = await all(env, "SELECT i.id, i.kind, i.edition, i.price, i.cur, i.swap_want, u.username AS seller FROM nft_items i JOIN users u ON u.uid = i.owner WHERE i.price IS NOT NULL OR i.swap_want IS NOT NULL ORDER BY i.kind, CASE WHEN i.cur = 'jry' THEN i.price * 220 ELSE COALESCE(i.price, 0) END ASC LIMIT 300");
+    const mine = me ? await all(env, "SELECT id, kind, edition, price, cur, swap_want FROM nft_items WHERE owner = ? ORDER BY kind, edition", me.uid) : [];
     const recent = await all(env, "SELECT m.price, m.at, i.kind, i.edition, f.username AS seller, t.username AS buyer FROM nft_moves m JOIN nft_items i ON i.id = m.item_id LEFT JOIN users f ON f.uid = m.from_uid JOIN users t ON t.uid = m.to_uid WHERE m.from_uid IS NOT NULL ORDER BY m.at DESC LIMIT 10");
     return { minted: Object.fromEntries(minted.map((x) => [x.kind, x.n])), market, mine, recent, boost: me ? await nftBoost(env, me.uid) : 0 };
   },
@@ -1037,49 +1040,89 @@ const routes = {
     const now = Date.now();
     const st = await stateFor(env, u, now, tierOf(u, now, await isPartner(env, u.username)));
     st.kombat = KL.norm(st.kombat, now);
-    if (st.kombat.coins < c.price) bad("k.noCoins", { n: c.price - Math.floor(st.kombat.coins) });
     const n = (await one(env, "SELECT COUNT(*) AS n FROM nft_items WHERE kind = ?", c.id)).n;
     if (n >= c.max) bad("k.nftSoldOut");
+    const cost = KL.mintPrice(c, n);
+    if (st.kombat.coins < cost) bad("k.noCoins", { n: cost - Math.floor(st.kombat.coins) });
     const ins = await run(env, "INSERT OR IGNORE INTO nft_items (kind, edition, owner, minted_at) VALUES (?, ?, ?, ?)", c.id, n + 1, u.uid, now);
     if (!ins.meta.changes) bad("k.nftBusy"); // someone minted the same number a moment ago: try again
     const item = await one(env, "SELECT id, edition FROM nft_items WHERE kind = ? AND edition = ?", c.id, n + 1);
-    st.kombat.coins -= c.price;
+    st.kombat.coins -= cost;
     await saveState(env, u.uid, st, now);
-    await run(env, "INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, NULL, ?, ?, ?)", item.id, u.uid, c.price, now);
+    await run(env, "INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, NULL, ?, ?, ?)", item.id, u.uid, cost, now);
     return { state: st, item: { id: item.id, kind: c.id, edition: item.edition }, now };
   },
 
-  // List my copy for sale at my price, or take it off the market
+  // List my copy for sale (Kombat coins or JRY), offer it for a swap, or take it off the market.
+  // body: { id, price: null } = unlist; { id, price, cur: "coins"|"jry" } = sell; { id, want: "<kind>" } = swap for that card.
   "POST /api/nft/list": async (req, env, body) => {
     const u = await auth(req, env);
     const id = Number(body.id) || 0;
+    if (body.want) {
+      if (!KL.nftById(String(body.want))) bad("badAction");
+      const r = await run(env, "UPDATE nft_items SET price = NULL, cur = 'coins', swap_want = ? WHERE id = ? AND owner = ? AND kind != ?", String(body.want), id, u.uid, String(body.want));
+      if (!r.meta.changes) bad("k.nftNotYours");
+      return { ok: true };
+    }
     const price = body.price == null ? null : Math.floor(Number(body.price));
-    if (price != null && !(price >= 1 && price <= 1e12)) bad("k.nftPrice");
-    const r = await run(env, "UPDATE nft_items SET price = ? WHERE id = ? AND owner = ?", price, id, u.uid);
+    const cur = body.cur === "jry" ? "jry" : "coins";
+    if (price != null && !(price >= 1 && price <= (cur === "jry" ? 1e8 : 1e12))) bad("k.nftPrice");
+    const r = await run(env, "UPDATE nft_items SET price = ?, cur = ?, swap_want = NULL WHERE id = ? AND owner = ?", price, cur, id, u.uid);
     if (!r.meta.changes) bad("k.nftNotYours");
     return { ok: true };
   },
 
-  // Buy a listed copy: the item is reserved first, then coins move (5% burned)
+  // Buy a listed copy: the item is reserved first, then the price moves (5% burned)
   "POST /api/nft/buy": async (req, env, body) => {
     const u = await auth(req, env);
     const id = Number(body.id) || 0, price = Math.floor(Number(body.price));
     const item = await one(env, "SELECT * FROM nft_items WHERE id = ?", id);
-    if (!item || item.price == null || item.price !== price) bad("k.nftGone");
+    if (!item || item.price == null || item.price !== price || (body.cur && body.cur !== item.cur)) bad("k.nftGone");
     if (item.owner === u.uid) bad("k.nftOwn");
     const now = Date.now();
     const st = await stateFor(env, u, now, tierOf(u, now, await isPartner(env, u.username)));
     st.kombat = KL.norm(st.kombat, now);
-    if (st.kombat.coins < price) bad("k.noCoins", { n: price - Math.floor(st.kombat.coins) });
-    const r = await run(env, "UPDATE nft_items SET owner = ?, price = NULL WHERE id = ? AND owner = ? AND price = ?", u.uid, id, item.owner, price);
+    if (item.cur === "jry") {
+      const me = await one(env, "SELECT jry_pts FROM users WHERE uid = ?", u.uid);
+      if (((me && me.jry_pts) || 0) < price) bad("k.noJry", { n: price - ((me && me.jry_pts) || 0) });
+    } else if (st.kombat.coins < price) bad("k.noCoins", { n: price - Math.floor(st.kombat.coins) });
+    const r = await run(env, "UPDATE nft_items SET owner = ?, price = NULL, swap_want = NULL, cur = 'coins' WHERE id = ? AND owner = ? AND price = ? AND cur = ?", u.uid, id, item.owner, price, item.cur);
     if (!r.meta.changes) bad("k.nftGone");
-    st.kombat.coins -= price;
-    await saveState(env, u.uid, st, now);
-    await env.DB.batch([
-      env.DB.prepare("INSERT INTO nft_credits (uid, amount, at) VALUES (?, ?, ?)").bind(item.owner, Math.floor(price * (1 - KL.NFT_FEE)), now),
-      env.DB.prepare("INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, ?, ?, ?, ?)").bind(id, item.owner, u.uid, price, now),
-    ]);
+    const net = Math.floor(price * (1 - KL.NFT_FEE));
+    if (item.cur === "jry") {
+      await run(env, "UPDATE users SET jry_pts = jry_pts - ? WHERE uid = ? AND jry_pts >= ?", price, u.uid, price);
+      await giveReward(env, item.owner, "jry", net, now, "nft");
+    } else {
+      st.kombat.coins -= price;
+      await saveState(env, u.uid, st, now);
+      await run(env, "INSERT INTO nft_credits (uid, amount, at) VALUES (?, ?, ?)", item.owner, net, now);
+    }
+    await run(env, "INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, ?, ?, ?, ?)", id, item.owner, u.uid, item.cur === "jry" ? price * 220 : price, now);
     return { state: st, now };
+  },
+
+  // Swap: give one of my copies for a listed copy whose owner asked for my card (1 for 1, no fee, no coins)
+  "POST /api/nft/swap": async (req, env, body) => {
+    const u = await auth(req, env);
+    const targetId = Number(body.id) || 0, giveId = Number(body.give) || 0;
+    const target = await one(env, "SELECT * FROM nft_items WHERE id = ?", targetId);
+    const mine = await one(env, "SELECT * FROM nft_items WHERE id = ?", giveId);
+    if (!target || !target.swap_want) bad("k.nftGone");
+    if (!mine || mine.owner !== u.uid || mine.kind !== target.swap_want) bad("k.swapWrong");
+    if (target.owner === u.uid) bad("k.nftOwn");
+    const now = Date.now(), other = target.owner;
+    // both copies change hands only if neither moved in the meantime
+    const a = await run(env, "UPDATE nft_items SET owner = ?, price = NULL, swap_want = NULL, cur = 'coins' WHERE id = ? AND owner = ? AND swap_want = ?", u.uid, targetId, other, target.swap_want);
+    if (!a.meta.changes) bad("k.nftGone");
+    const b = await run(env, "UPDATE nft_items SET owner = ?, price = NULL, swap_want = NULL, cur = 'coins' WHERE id = ? AND owner = ?", other, giveId, u.uid);
+    if (!b.meta.changes) { await run(env, "UPDATE nft_items SET owner = ? WHERE id = ?", other, targetId); bad("k.nftGone"); }
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, ?, ?, 0, ?)").bind(targetId, other, u.uid, now),
+      env.DB.prepare("INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, ?, ?, 0, ?)").bind(giveId, u.uid, other, now),
+    ]);
+    const kind = target.kind;
+    notify(env, [{ uid: other, kind: "nftswap", ref: String(targetId), vars: {} }]).catch(() => {});
+    return { ok: true, got: { id: targetId, kind, edition: target.edition }, now };
   },
 
   // ---------- Jerry community: votes, top holders, chat link ----------
@@ -2333,6 +2376,7 @@ const MK = L.MARKET;
 // ---------- Pi Notification Center ----------
 // Messages in the player's language (saved at sign-in). {x} are filled from vars.
 const NOTE = {
+  nftswap: { go: "kombat", en: ["🔁 Your card was swapped", "Someone accepted your swap offer. Open your collection to see the new card."], ar: ["🔁 تمت مبادلة بطاقتك", "قَبِل أحدهم عرض المبادلة. افتح مجموعتك لترى البطاقة الجديدة."], fr: ["🔁 Votre carte a été échangée", "Quelqu'un a accepté votre offre d'échange. Ouvrez votre collection."] },
   daily: { go: "farm", en: ["🌴 Your oasis is waiting", "Your camels made dates and your free Derby races are ready."], ar: ["🌴 واحتك في انتظارك", "جِمالك جمعت التمر، وسباقاتك المجانية جاهزة."], fr: ["🌴 Ton oasis t'attend", "Tes chameaux ont produit des dattes et tes courses gratuites sont prêtes."] },
   week: { go: "rank", en: ["🏆 Weekly ranking: #{p}", "Well done! +{d} dates and +{j} JRY for your place. Pi prizes are sent to your wallet."], ar: ["🏆 ترتيب الأسبوع: المركز {p}", "أحسنت! +{d} تمرة و+{j} JRY لمركزك. جوائز Pi تُرسل إلى محفظتك."], fr: ["🏆 Classement : {p}e place", "Bravo ! +{d} dattes et +{j} JRY pour ta place. Les prix en Pi arrivent dans ton portefeuille."] },
   svc: { go: "services", en: ["🛠️ New app request", "{p} from @{u}: open the services page to answer."], ar: ["🛠️ طلب تطبيق جديد", "{p} من ‎@{u}: افتح صفحة الخدمات للرد."], fr: ["🛠️ Nouvelle demande d'app", "{p} de @{u} : ouvre la page des services pour répondre."] },

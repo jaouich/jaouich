@@ -113,28 +113,32 @@
   // Jerry Collectibles: limited editions, numbered copies, tradable between players for Kombat coins.
   // Owning a design (any copy) adds Kombat profit per hour; perks add up to NFT_MAX.
   const COLLECTIBLES = [
-    { id: "scorpion", e: "🦂", r: "common", max: 500, price: 20000, perk: 0.01 },
-    { id: "palm", e: "🌴", r: "common", max: 500, price: 20000, perk: 0.01 },
-    { id: "lamp", e: "🪔", r: "rare", max: 200, price: 100000, perk: 0.03 },
-    { id: "caravan", e: "🐪", r: "rare", max: 200, price: 100000, perk: 0.03 },
-    { id: "dagger", e: "🗡️", r: "epic", max: 50, price: 500000, perk: 0.06 },
-    { id: "crown", e: "👑", r: "epic", max: 50, price: 500000, perk: 0.06 },
-    { id: "origins", e: "🦊", r: "legendary", max: 10, price: 3000000, perk: 0.12 },
+    { id: "scorpion", e: "🦂", r: "common", max: 10000, price: 20000, perk: 0.01 },
+    { id: "palm", e: "🌴", r: "common", max: 10000, price: 20000, perk: 0.01 },
+    { id: "lamp", e: "🪔", r: "rare", max: 10000, price: 100000, perk: 0.03 },
+    { id: "caravan", e: "🐪", r: "rare", max: 10000, price: 100000, perk: 0.03 },
+    { id: "dagger", e: "🗡️", r: "epic", max: 10000, price: 500000, perk: 0.06 },
+    { id: "crown", e: "👑", r: "epic", max: 10000, price: 500000, perk: 0.06 },
+    { id: "origins", e: "🦊", r: "legendary", max: 10000, price: 3000000, perk: 0.12 },
     { id: "star", e: "⭐", r: "mythic", max: 1, price: 20000000, perk: 0.25 },
     // second series
-    { id: "jar", e: "🏺", r: "common", max: 1000, price: 15000, perk: 0.01 },
-    { id: "moon", e: "🌙", r: "common", max: 1000, price: 15000, perk: 0.01 },
-    { id: "tea", e: "🍵", r: "common", max: 1000, price: 15000, perk: 0.01 },
-    { id: "drum", e: "🪘", r: "rare", max: 500, price: 80000, perk: 0.03 },
-    { id: "eye", e: "🧿", r: "rare", max: 500, price: 80000, perk: 0.03 },
-    { id: "dune", e: "🏜️", r: "rare", max: 500, price: 80000, perk: 0.03 },
-    { id: "falcon", e: "🦅", r: "epic", max: 200, price: 400000, perk: 0.06 },
-    { id: "gate", e: "🕌", r: "epic", max: 200, price: 400000, perk: 0.06 },
-    { id: "gem", e: "💎", r: "epic", max: 200, price: 400000, perk: 0.06 },
-    { id: "cup", e: "🏆", r: "legendary", max: 50, price: 2500000, perk: 0.12 },
-    { id: "dragon", e: "🐉", r: "legendary", max: 50, price: 2500000, perk: 0.12 },
+    { id: "jar", e: "🏺", r: "common", max: 10000, price: 15000, perk: 0.01 },
+    { id: "moon", e: "🌙", r: "common", max: 10000, price: 15000, perk: 0.01 },
+    { id: "tea", e: "🍵", r: "common", max: 10000, price: 15000, perk: 0.01 },
+    { id: "drum", e: "🪘", r: "rare", max: 10000, price: 80000, perk: 0.03 },
+    { id: "eye", e: "🧿", r: "rare", max: 10000, price: 80000, perk: 0.03 },
+    { id: "dune", e: "🏜️", r: "rare", max: 10000, price: 80000, perk: 0.03 },
+    { id: "falcon", e: "🦅", r: "epic", max: 10000, price: 400000, perk: 0.06 },
+    { id: "gate", e: "🕌", r: "epic", max: 10000, price: 400000, perk: 0.06 },
+    { id: "gem", e: "💎", r: "epic", max: 10000, price: 400000, perk: 0.06 },
+    { id: "cup", e: "🏆", r: "legendary", max: 10000, price: 2500000, perk: 0.12 },
+    { id: "dragon", e: "🐉", r: "legendary", max: 10000, price: 2500000, perk: 0.12 },
     { id: "sun", e: "☀️", r: "mythic", max: 3, price: 15000000, perk: 0.2 },
   ];
+  // Mint price rises 10% for every 1,000 copies already made, so early collectors pay less
+  const MINT_STEP = 1000, MINT_RISE = 0.1;
+  const mintPrice = (c, minted) => Math.round(c.price * (1 + MINT_RISE * Math.floor((minted || 0) / MINT_STEP)));
+  const JRY_PER_COIN = 1 / 220; // 1 JRY point is worth 220 Kombat coins (same as the JRY swap)
   const NFT_FEE = 0.05; // 5% of each sale is burned (fewer coins in the game)
   const NFT_MAX = 0.5;
   const nftById = (id) => COLLECTIBLES.find((x) => x.id === id);
@@ -388,5 +392,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { JRYP, COINS_PER_PI, COIN_PACKS, P2P, TRIBE, tribeNameOk, COLLECTIBLES, NFT_FEE, NFT_MAX, nftById, nftBoostOf, JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { JRYP, COINS_PER_PI, COIN_PACKS, P2P, TRIBE, tribeNameOk, COLLECTIBLES, MINT_STEP, MINT_RISE, mintPrice, NFT_FEE, NFT_MAX, nftById, nftBoostOf, JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

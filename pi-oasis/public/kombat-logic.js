@@ -139,6 +139,8 @@
   const MINT_STEP = 1000, MINT_RISE = 0.1;
   const mintPrice = (c, minted) => Math.round(c.price * (1 + MINT_RISE * Math.floor((minted || 0) / MINT_STEP)));
   const JRY_PER_COIN = 1 / 220; // 1 JRY point is worth 220 Kombat coins (same as the JRY swap)
+  // Gifts between members (coins, dates, JRY, collectibles). Fees are burned. Gift coins never count toward the airdrop or ranking.
+  const GIFT = { FEE: { coins: 0.05, dates: 0.05, jry: 0.02 }, MIN: { coins: 1000, dates: 100, jry: 1 }, DAILY_MAX: { coins: 5000000, dates: 50000, jry: 5000 }, COINS_SHARE: 0.2, MAX_PER_DAY: 10, MIN_AGE_MS: 86400000 };
   const NFT_FEE = 0.05; // 5% of each sale is burned (fewer coins in the game)
   const NFT_MAX = 0.5;
   const nftById = (id) => COLLECTIBLES.find((x) => x.id === id);
@@ -392,5 +394,5 @@
     fail("badAction");
   }
 
-  root.KombatLogic = { JRYP, COINS_PER_PI, COIN_PACKS, P2P, TRIBE, tribeNameOk, COLLECTIBLES, MINT_STEP, MINT_RISE, mintPrice, NFT_FEE, NFT_MAX, nftById, nftBoostOf, JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
+  root.KombatLogic = { JRYP, COINS_PER_PI, COIN_PACKS, P2P, TRIBE, tribeNameOk, COLLECTIBLES, GIFT, MINT_STEP, MINT_RISE, mintPrice, NFT_FEE, NFT_MAX, nftById, nftBoostOf, JRY_PACKS, voteWeight, HOLD_TIERS, holdTier, golden, goldenStart, weekId, WEEK_PRIZES, AIRDROP_GOAL: 300000, flags, SUS, AIRDROP_DAYS: 7, BOSSES, bossOf, bossHp, KILL_BONUS, SKINS, TASKS, chestReward, furyOn, K, LEAGUES, LEAGUE_ICON, DAILY, CATS, CARDS, BOOSTS, cardById, cardCost, cardProfit, boostCost, league, tapValue, maxEnergy, fresh, norm, pph, energyNow, unlocked, view, applyTo, day };
 })(typeof globalThis !== "undefined" ? globalThis : this);

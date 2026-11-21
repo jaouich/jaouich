@@ -1236,7 +1236,7 @@
     if (goDone) return; goDone = true;
     const go = new URLSearchParams(location.search).get("go");
     if (go === "arena" && new URLSearchParams(location.search).get("watch")) return; // arena.js opens it itself
-    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { arena: "arenaOpen", catalog: "catOpen", services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
+    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { arena: "arenaOpen", catalog: "catOpen", box: "boxOpen", services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
     if (tabs[go]) document.querySelector(`.tabs [data-tab="${tabs[go]}"]`).click();
     else if (opens[go]) setTimeout(() => $(opens[go]).click(), 300);
   }

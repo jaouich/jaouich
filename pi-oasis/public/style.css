@@ -1409,3 +1409,10 @@ small.n-want { display: block; font-size: .7rem; }
 
 .tn-closed { position: fixed; inset: 0; z-index: 900; background: radial-gradient(120% 70% at 50% 0%, #34d399 0%, #0f6b4a 50%, #04170f 100%); display: flex; align-items: center; justify-content: center; padding: 20px; color: #fff; }
 .tn-card { max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; } .tn-card h2 { margin: 0; } .tn-card p { margin: 0; line-height: 1.6; opacity: .95; }
+
+/* 🎁 My box */
+.media.box { background: radial-gradient(120% 60% at 50% 0%, #ec4899 0%, #7a1d52 45%, #1a0612 100%); z-index: 70; }
+.bx-bal { display: flex; gap: 12px; align-items: center; background: rgba(0,0,0,.25); border-radius: 16px; padding: 12px; } .bx-bal b { font-size: 1.8rem; display: block; direction: ltr; } .bx-bal small { opacity: .8; }
+.bx-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; } .bx-tabs button { border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; border-radius: 10px; padding: 8px 2px; font: inherit; font-size: .72rem; cursor: pointer; } .bx-tabs button.on { border: 2px solid #ffd34d; background: rgba(255,211,77,.2); }
+.bx-items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; } .bx-items button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; font: inherit; font-size: 1.8rem; cursor: pointer; } .bx-items small { font-size: .65rem; text-align: center; }
+.bx-list > div { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,.1); font-size: .85rem; } .bx-list small { opacity: .7; }

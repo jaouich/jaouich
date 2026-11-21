@@ -167,6 +167,10 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS tribe_left ( uid TEXT PRIMARY KEY, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS nft_items ( id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, edition INTEGER NOT NULL, owner TEXT NOT NULL, price INTEGER, minted_at INTEGER NOT NULL, UNIQUE (kind, edition) )",
   "CREATE INDEX IF NOT EXISTS nft_owner ON nft_items(owner)",
+  "CREATE TABLE IF NOT EXISTS transfers ( id INTEGER PRIMARY KEY AUTOINCREMENT, from_uid TEXT NOT NULL, to_uid TEXT NOT NULL, what TEXT NOT NULL, n INTEGER NOT NULL, fee INTEGER NOT NULL DEFAULT 0, item_id INTEGER, at INTEGER NOT NULL )",
+  "CREATE INDEX IF NOT EXISTS transfers_from ON transfers(from_uid, at)",
+  "CREATE TABLE IF NOT EXISTS jry_ledger ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, delta INTEGER NOT NULL, kind TEXT NOT NULL, ref TEXT, at INTEGER NOT NULL )",
+  "CREATE INDEX IF NOT EXISTS jry_ledger_uid ON jry_ledger(uid, at)",
   "CREATE INDEX IF NOT EXISTS nft_kind ON nft_items(kind)",
   "CREATE TABLE IF NOT EXISTS nft_moves ( item_id INTEGER NOT NULL, from_uid TEXT, to_uid TEXT NOT NULL, price INTEGER NOT NULL, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS nft_credits ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, amount INTEGER NOT NULL, at INTEGER NOT NULL )",
@@ -246,6 +250,7 @@ const ensureSchema = (env) =>
     .then(() => env.DB.prepare("ALTER TABLE nft_credits ADD COLUMN src TEXT").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE nft_items ADD COLUMN cur TEXT NOT NULL DEFAULT 'coins'").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE nft_items ADD COLUMN swap_want TEXT").run().catch(() => {}))
+    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_bought INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_pts INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN mk_balance REAL NOT NULL DEFAULT 0").run().catch(() => {}))
     .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN wheel_day INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
@@ -357,6 +362,7 @@ async function account(env, u) {
     partnerReq: tier === PARTNER ? "approved" : ((await one(env, "SELECT status FROM partner_requests WHERE uid = ?", u.uid)) || {}).status || null,
     jryHeld: held,
     jryPts: Number(u.jry_pts) || 0,
+    jryBought: Number(u.jry_bought) || 0,
     supLvl: Number(u.sup_lvl) || 0,
     supPi: Number(u.sup_pi) || 0,
     catMaster: !!u.cat_master,
@@ -1123,6 +1129,71 @@ const routes = {
     const kind = target.kind;
     notify(env, [{ uid: other, kind: "nftswap", ref: String(targetId), vars: {} }]).catch(() => {});
     return { ok: true, got: { id: targetId, kind, edition: target.edition }, now };
+  },
+
+  // ---------- JRY box and gifts between members ----------
+  "GET /api/box": async (req, env) => {
+    const u = await auth(req, env);
+    const history = await all(env, "SELECT delta, kind, ref, at FROM jry_ledger WHERE uid = ? ORDER BY id DESC LIMIT 30", u.uid);
+    const sent = await all(env, "SELECT t.what, t.n, t.fee, t.at, t.item_id, x.username AS other, 'out' AS dir FROM transfers t JOIN users x ON x.uid = t.to_uid WHERE t.from_uid = ? ORDER BY t.id DESC LIMIT 15", u.uid);
+    const got = await all(env, "SELECT t.what, t.n, t.fee, t.at, t.item_id, x.username AS other, 'in' AS dir FROM transfers t JOIN users x ON x.uid = t.from_uid WHERE t.to_uid = ? ORDER BY t.id DESC LIMIT 15", u.uid);
+    const day = Date.now() - DAY, used = await all(env, "SELECT what, SUM(n) AS n, COUNT(*) AS c FROM transfers WHERE from_uid = ? AND at > ? GROUP BY what", u.uid, day);
+    return { jry: Number(u.jry_pts) || 0, bought: Number(u.jry_bought) || 0, wallet: u.jry_wallet || "", history, transfers: [...sent, ...got].sort((a, b) => b.at - a.at).slice(0, 20), used, now: Date.now() };
+  },
+
+  // Gift to another member. body: { to, what: "coins"|"dates"|"jry"|"item", n, id }
+  "POST /api/gift": async (req, env, body) => {
+    const u = await auth(req, env);
+    const G = KL.GIFT, now = Date.now(), what = String(body.what || "");
+    const to = await one(env, "SELECT uid, username FROM users WHERE username = ? COLLATE NOCASE", String(body.to || "").trim().replace(/^@/, ""));
+    if (!to) bad("gift.noUser");
+    if (to.uid === u.uid) bad("gift.self");
+    if (now - Number(u.created_at) < G.MIN_AGE_MS) bad("gift.young");
+    const day = now - DAY;
+    const done = await one(env, "SELECT COUNT(*) AS c FROM transfers WHERE from_uid = ? AND at > ?", u.uid, day);
+    if (done.c >= G.MAX_PER_DAY) bad("gift.daily");
+    const usedN = async () => Number((await one(env, "SELECT COALESCE(SUM(n), 0) AS n FROM transfers WHERE from_uid = ? AND what = ? AND at > ?", u.uid, what, day)).n);
+    let fee = 0, n = 0, itemId = null;
+    if (what === "item") {
+      itemId = Number(body.id) || 0;
+      const it = await one(env, "SELECT * FROM nft_items WHERE id = ? AND owner = ?", itemId, u.uid);
+      if (!it) bad("k.nftNotYours");
+      const r = await run(env, "UPDATE nft_items SET owner = ?, price = NULL, swap_want = NULL, cur = 'coins' WHERE id = ? AND owner = ?", to.uid, itemId, u.uid);
+      if (!r.meta.changes) bad("k.nftGone");
+      await run(env, "INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, ?, ?, 0, ?)", itemId, u.uid, to.uid, now);
+      n = 1;
+    } else if (what === "coins" || what === "dates" || what === "jry") {
+      n = Math.floor(Number(body.n));
+      if (!(n >= G.MIN[what])) bad("gift.min", { n: G.MIN[what] });
+      if ((await usedN()) + n > G.DAILY_MAX[what]) bad("gift.limit", { n: G.DAILY_MAX[what] });
+      fee = Math.floor(n * G.FEE[what]);
+      if (what === "jry") {
+        const r = await run(env, "UPDATE users SET jry_pts = jry_pts - ? WHERE uid = ? AND jry_pts >= ?", n, u.uid, n);
+        if (!r.meta.changes) bad("k.noJry", { n });
+        await giveReward(env, to.uid, "jry", n - fee, now, "gift");
+        await env.DB.batch([
+          env.DB.prepare("INSERT INTO jry_ledger (uid, delta, kind, ref, at) VALUES (?, ?, 'gift-out', ?, ?)").bind(u.uid, -n, to.username, now),
+          env.DB.prepare("INSERT INTO jry_ledger (uid, delta, kind, ref, at) VALUES (?, ?, 'gift-in', ?, ?)").bind(to.uid, n - fee, u.username, now),
+        ]);
+      } else {
+        const st = await stateFor(env, u, now, tierOf(u, now, await isPartner(env, u.username)));
+        st.kombat = KL.norm(st.kombat, now);
+        if (what === "coins") {
+          if (st.kombat.coins < n) bad("k.noCoins", { n: n - Math.floor(st.kombat.coins) });
+          if (n > st.kombat.coins * G.COINS_SHARE) bad("gift.share", { p: Math.round(G.COINS_SHARE * 100) });
+          st.kombat.coins -= n;
+        } else {
+          if (st.dates < n) bad("mk.notEnough");
+          st.dates -= n;
+        }
+        await saveState(env, u.uid, st, now);
+        await creditPoints(env, to.uid, what, n - fee, now, "gift");
+      }
+    } else bad("badAction");
+    await run(env, "INSERT INTO transfers (from_uid, to_uid, what, n, fee, item_id, at) VALUES (?, ?, ?, ?, ?, ?, ?)", u.uid, to.uid, what, n, fee, itemId, now);
+    notify(env, [{ uid: to.uid, kind: "gift", ref: String(now) + ":" + u.uid, vars: { u: u.username } }]).catch(() => {});
+    const me = await account(env, await one(env, "SELECT * FROM users WHERE uid = ?", u.uid));
+    return { ok: true, fee, n, to: to.username, account: me, now };
   },
 
   // ---------- Jerry community: votes, top holders, chat link ----------
@@ -2317,7 +2388,10 @@ async function completePayment(env, id, txid, uid) {
     // Bought Kombat coins: credited on the next load (never lost to a game save running at the same time)
     if (item.sponsor) stmts.push(env.DB.prepare("UPDATE sponsors SET status = 'review', pay_id = ? WHERE id = ? AND uid = ? AND status = 'paying'").bind(id, item.sponsor, u.uid));
     if (item.spins) stmts.push(env.DB.prepare("UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?").bind(item.spins, u.uid));
-    if (item.jryPts) stmts.push(env.DB.prepare("UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(item.jryPts.jry, u.uid));
+    if (item.jryPts) {
+      stmts.push(env.DB.prepare("UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ?, jry_bought = COALESCE(jry_bought, 0) + ? WHERE uid = ?").bind(item.jryPts.jry, item.jryPts.jry, u.uid));
+      stmts.push(env.DB.prepare("INSERT INTO jry_ledger (uid, delta, kind, ref, at) VALUES (?, ?, 'bought', ?, ?)").bind(u.uid, item.jryPts.jry, id, now));
+    }
     if (item.coins) stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, item.coins.coins, now));
     if (item.tier) stmts.push(await applyMembership(env, u, item.tier, now));
     if (item.supFree) {
@@ -2376,6 +2450,7 @@ const MK = L.MARKET;
 // ---------- Pi Notification Center ----------
 // Messages in the player's language (saved at sign-in). {x} are filled from vars.
 const NOTE = {
+  gift: { go: "box", en: ["🎁 You received a gift", "{u} sent you a gift. Open your box to see it."], ar: ["🎁 وصلتك هدية", "أرسل لك ‎{u} هدية. افتح صندوقك لتراها."], fr: ["🎁 Vous avez reçu un cadeau", "{u} vous a envoyé un cadeau. Ouvrez votre boîte."] },
   nftswap: { go: "kombat", en: ["🔁 Your card was swapped", "Someone accepted your swap offer. Open your collection to see the new card."], ar: ["🔁 تمت مبادلة بطاقتك", "قَبِل أحدهم عرض المبادلة. افتح مجموعتك لترى البطاقة الجديدة."], fr: ["🔁 Votre carte a été échangée", "Quelqu'un a accepté votre offre d'échange. Ouvrez votre collection."] },
   daily: { go: "farm", en: ["🌴 Your oasis is waiting", "Your camels made dates and your free Derby races are ready."], ar: ["🌴 واحتك في انتظارك", "جِمالك جمعت التمر، وسباقاتك المجانية جاهزة."], fr: ["🌴 Ton oasis t'attend", "Tes chameaux ont produit des dattes et tes courses gratuites sont prêtes."] },
   week: { go: "rank", en: ["🏆 Weekly ranking: #{p}", "Well done! +{d} dates and +{j} JRY for your place. Pi prizes are sent to your wallet."], ar: ["🏆 ترتيب الأسبوع: المركز {p}", "أحسنت! +{d} تمرة و+{j} JRY لمركزك. جوائز Pi تُرسل إلى محفظتك."], fr: ["🏆 Classement : {p}e place", "Bravo ! +{d} dattes et +{j} JRY pour ta place. Les prix en Pi arrivent dans ton portefeuille."] },

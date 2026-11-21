@@ -256,6 +256,8 @@
     arenaMove: (o) => api("/api/arena/move", o),
     arenaMatch: (o) => api("/api/arena/match?" + (o.code ? "code=" + encodeURIComponent(o.code) : "id=" + o.id)),
     arenaTop: () => api("/api/arena/top"),
+    box: () => api("/api/box"),
+    gift: (o) => api("/api/gift", o),
     catalog: (u) => api("/api/catalog" + (u ? "?u=" + encodeURIComponent(u) : "")),
     catalogClaim: (key) => api("/api/catalog/claim", { key }),
     svcRequest: (o) => api("/api/svc/request", o),

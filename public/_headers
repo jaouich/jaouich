@@ -1,0 +1,9 @@
+/*
+  Content-Security-Policy: frame-ancestors 'self' https://*.pinet.com https://*.minepi.com; default-src 'self'; script-src 'self' https://sdk.minepi.com https://*.minepi.com; connect-src 'self' https://socialchain.app https://*.minepi.com https://*.pinet.com; img-src 'self' data: blob: https://*.minepi.com; media-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; frame-src https://*.minepi.com https://*.pinet.com; worker-src 'self' blob:
+  Permissions-Policy: camera=(self), microphone=(self)
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Content-Type-Options: nosniff
+
+/rekordo.apk
+  Content-Type: application/vnd.android.package-archive
+  Content-Disposition: attachment; filename="Rekordo.apk"

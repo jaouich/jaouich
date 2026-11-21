@@ -175,6 +175,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS castle_day ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
   "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
+  "CREATE TABLE IF NOT EXISTS chat_members ( uid TEXT NOT NULL, room TEXT NOT NULL, PRIMARY KEY (uid, room) )",
+  "CREATE INDEX IF NOT EXISTS chat_msgs_uid ON chat_msgs(uid, at)",
   "CREATE TABLE IF NOT EXISTS chat_reads ( uid TEXT NOT NULL, room TEXT NOT NULL, last_id INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, room) )",
   "CREATE TABLE IF NOT EXISTS chat_blocks ( uid TEXT NOT NULL, other TEXT NOT NULL, PRIMARY KEY (uid, other) )",
   "CREATE TABLE IF NOT EXISTS chat_reports ( id INTEGER PRIMARY KEY AUTOINCREMENT, msg_id INTEGER NOT NULL, reporter TEXT NOT NULL, at INTEGER NOT NULL, UNIQUE (msg_id, reporter) )",
@@ -247,40 +249,59 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS boss ( id INTEGER PRIMARY KEY AUTOINCREMENT, lvl INTEGER NOT NULL, hp INTEGER NOT NULL, max_hp INTEGER NOT NULL, started_at INTEGER NOT NULL, killed_at INTEGER, killer TEXT )",
   "CREATE TABLE IF NOT EXISTS boss_hits ( boss_id INTEGER NOT NULL, uid TEXT NOT NULL, dmg INTEGER NOT NULL, claimed INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (boss_id, uid) )",
   "CREATE TABLE IF NOT EXISTS payouts ( id TEXT PRIMARY KEY, kind TEXT NOT NULL, ref TEXT NOT NULL, uid TEXT NOT NULL, amount REAL NOT NULL, memo TEXT, pi_payment_id TEXT, txid TEXT, status TEXT NOT NULL, error TEXT, tries INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE (kind, ref, uid) )",
+  "CREATE INDEX IF NOT EXISTS nft_credits_uid ON nft_credits(uid)",
+  "CREATE INDEX IF NOT EXISTS nft_moves_at ON nft_moves(at)",
+  "CREATE INDEX IF NOT EXISTS nft_moves_item ON nft_moves(item_id)",
+  "CREATE INDEX IF NOT EXISTS users_name_nc ON users(username COLLATE NOCASE)",
+  "CREATE INDEX IF NOT EXISTS chat_msgs_at ON chat_msgs(at)",
+  "CREATE INDEX IF NOT EXISTS ads_uid ON ads(uid, created_at)",
 ];
 let schemaReady = null;
+// Columns added after launch (each fails harmlessly once it exists)
+const ALTERS = [
+  "INSERT OR IGNORE INTO chat_members (uid, room) SELECT DISTINCT substr(room, 4, instr(substr(room, 4), ':') - 1), room FROM chat_msgs WHERE room LIKE 'dm:%'",
+  "INSERT OR IGNORE INTO chat_members (uid, room) SELECT DISTINCT substr(room, 4 + instr(substr(room, 4), ':')), room FROM chat_msgs WHERE room LIKE 'dm:%'",
+  "ALTER TABLE users ADD COLUMN vip_tier TEXT",
+  "ALTER TABLE users ADD COLUMN net TEXT",
+  "ALTER TABLE users ADD COLUMN jry_wallet TEXT",
+  "ALTER TABLE users ADD COLUMN jry_bal REAL",
+  "ALTER TABLE users ADD COLUMN jry_at INTEGER",
+  "ALTER TABLE nft_credits ADD COLUMN src TEXT",
+  "ALTER TABLE nft_items ADD COLUMN cur TEXT NOT NULL DEFAULT 'coins'",
+  "ALTER TABLE nft_items ADD COLUMN swap_want TEXT",
+  "ALTER TABLE users ADD COLUMN jry_bought INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN jry_pts INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN mk_balance REAL NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN wheel_day INTEGER NOT NULL DEFAULT -1",
+  "ALTER TABLE users ADD COLUMN wheel_spins INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE withdrawals ADD COLUMN src TEXT",
+  "ALTER TABLE users ADD COLUMN earn_day INTEGER NOT NULL DEFAULT -1",
+  "ALTER TABLE users ADD COLUMN earn_n INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN earn_at INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN earn_total INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN earn_ads INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN earn_streak INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN earn_sday INTEGER NOT NULL DEFAULT -1",
+  "ALTER TABLE users ADD COLUMN lang TEXT",
+  "ALTER TABLE users ADD COLUMN cat_master INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN sup_lvl INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN sup_pi REAL NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN sup_at INTEGER",
+];
+// A short fingerprint of the whole schema. When the database already holds it, nothing is re-run:
+// one cheap read per Worker start instead of ~110 statements (D1 bills the rows each statement reads).
+const SCHEMA_V = (() => { let h = 5381; for (const c of SCHEMA.join("|") + ALTERS.join("|")) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0; return String(h); })();
 const ensureSchema = (env) =>
-  (schemaReady ||= env.DB.batch(SCHEMA.map((q) => env.DB.prepare(q)))
-    // Column added after launch; fails harmlessly once it exists
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN vip_tier TEXT").run().catch(() => {}))
-    // Hashed network fingerprint (never the IP itself), to spot many accounts from one place
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN net TEXT").run().catch(() => {}))
-    // Player's Pi Testnet wallet address (public G...), to receive test JRY
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_wallet TEXT").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_bal REAL").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_at INTEGER").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE nft_credits ADD COLUMN src TEXT").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE nft_items ADD COLUMN cur TEXT NOT NULL DEFAULT 'coins'").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE nft_items ADD COLUMN swap_want TEXT").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_bought INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN jry_pts INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN mk_balance REAL NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN wheel_day INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN wheel_spins INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE withdrawals ADD COLUMN src TEXT").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_day INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_n INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_at INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_total INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_ads INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_streak INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN earn_sday INTEGER NOT NULL DEFAULT -1").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN lang TEXT").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN cat_master INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN sup_lvl INTEGER NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN sup_pi REAL NOT NULL DEFAULT 0").run().catch(() => {}))
-    .then(() => env.DB.prepare("ALTER TABLE users ADD COLUMN sup_at INTEGER").run().catch(() => {}))
-    .catch((e) => { schemaReady = null; throw e; }));
+  (schemaReady ||= (async () => {
+    try { const r = await env.DB.prepare("SELECT v FROM schema_meta LIMIT 1").first(); if (r && r.v === SCHEMA_V) return; } catch (e) { /* first run: the table does not exist yet */ }
+    await env.DB.batch(SCHEMA.map((q) => env.DB.prepare(q)));
+    for (const q of ALTERS) await env.DB.prepare(q).run().catch(() => {});
+    await env.DB.batch([
+      env.DB.prepare("CREATE TABLE IF NOT EXISTS schema_meta ( v TEXT NOT NULL )"),
+      env.DB.prepare("DELETE FROM schema_meta"),
+      env.DB.prepare("INSERT INTO schema_meta (v) VALUES (?)").bind(SCHEMA_V),
+    ]);
+  })().catch((e) => { schemaReady = null; throw e; }));
 
 const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
 const all = async (env, sql, ...p) => (await env.DB.prepare(sql).bind(...p).all()).results;
@@ -1215,7 +1236,7 @@ const routes = {
     const last = async (room) => one(env, "SELECT m.id, m.text, m.at, x.username FROM chat_msgs m JOIN users x ON x.uid = m.uid WHERE m.room = ? AND m.del = 0 ORDER BY m.id DESC LIMIT 1", room);
     const unread = async (room, from) => (await one(env, "SELECT COUNT(*) AS n FROM chat_msgs m WHERE m.room = ? AND m.id > ? AND m.del = 0 AND m.uid != ? AND m.uid NOT IN (SELECT other FROM chat_blocks WHERE uid = ?)", room, from, u.uid, u.uid)).n;
     const rooms = [{ room: "main", last: await last("main"), unread: await unread("main", await readOf("main")) }];
-    const dms = await all(env, "SELECT DISTINCT room FROM chat_msgs WHERE room LIKE 'dm:%' AND (room LIKE ? OR room LIKE ?)", "dm:" + u.uid + ":%", "dm:%:" + u.uid);
+    const dms = await all(env, "SELECT room FROM chat_members WHERE uid = ? AND room LIKE 'dm:%' LIMIT 60", u.uid);
     for (const d of dms) {
       const other = d.room.split(":").filter((x, i) => i > 0 && x !== u.uid)[0];
       const ou = await one(env, "SELECT username FROM users WHERE uid = ?", other);
@@ -1261,6 +1282,7 @@ const routes = {
       if (await one(env, "SELECT 1 AS x FROM chat_blocks WHERE uid = ? AND other = ?", target, u.uid)) bad("chat.blocked");
     }
     const r = await run(env, "INSERT INTO chat_msgs (room, uid, text, at) VALUES (?, ?, ?, ?)", room, u.uid, text, now);
+    if (room !== "main") await env.DB.batch([env.DB.prepare("INSERT OR IGNORE INTO chat_members (uid, room) VALUES (?, ?)").bind(u.uid, room), env.DB.prepare("INSERT OR IGNORE INTO chat_members (uid, room) VALUES (?, ?)").bind(target, room)]);
     await run(env, "INSERT INTO chat_reads (uid, room, last_id) VALUES (?, ?, ?) ON CONFLICT(uid, room) DO UPDATE SET last_id = MAX(last_id, excluded.last_id)", u.uid, room, r.meta.last_row_id);
     if (target) notify(env, [{ uid: target, kind: "chatdm", ref: room + ":" + Math.floor(now / 3600000), vars: { u: u.username }, q: "with=" + encodeURIComponent(u.username) }]).catch(() => {});
     return { ok: true, id: r.meta.last_row_id, now };
@@ -3323,6 +3345,7 @@ async function verifyAd(env, uid, adId, now) {
 export default {
   // Hourly: weekly prizes and referral withdrawals (see wrangler.toml [triggers])
   async scheduled(event, env, ctx) {
+    if (env.TESTNET_CLOSED === "1") return; // the Testnet game is closed: no hourly work on the shared database
     ctx.waitUntil(
       grantWeeklyCamels(env)
         .catch((e) => logError(env, "weekly camels", 0, e.message))
@@ -3368,7 +3391,7 @@ export default {
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     // The Testnet game is closed (the real game runs on Mainnet): signing in still works so players see
     // the notice, but nothing can be played, bought or changed. Progress is read by the Mainnet game directly.
-    if (/^pi-oasis\.|^oasisgame6033\./.test(url.hostname) && req.method === "POST" && url.pathname !== "/api/auth") return json({ error: "testnetClosed" }, 403);
+    if (/^pi-oasis\.|^oasisgame6033\./.test(url.hostname)) return json({ error: "testnetClosed" }, 403);
     const handler = routes[`${req.method} ${url.pathname}`];
     if (!handler) return json({ error: "notFound" }, 404);
     try {
@@ -3389,6 +3412,7 @@ export default {
         return json(e.vars ? { error: e.code, vars: e.vars } : { error: e.code }, e.status);
       }
       if (e instanceof SyntaxError) return json({ error: "badAction" }, 400);
+      if (/exceeded|row read limit|D1_ERROR.*limit|too many requests/i.test((e && e.message) || "")) return json({ error: "busy" }, 503);
       console.error(e && e.stack);
       await logError(env, `${req.method} ${url.pathname}`, 500, (e && e.message) || "error");
       return json({ error: "server" }, 500);

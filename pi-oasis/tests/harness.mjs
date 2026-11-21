@@ -8,7 +8,9 @@ import { encodeStrKey, decodeStrKey } from "../src/stellar.js";
 const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const db = new DatabaseSync(":memory:");
 // empty DB: worker must create tables
-const mkStmt = (d) => { const stmt = (sql, p = []) => ({
+const SEEN = new Set();
+const note = (d, sql) => { if (process.env.EXPLAIN && /^\s*(SELECT|UPDATE|DELETE)/i.test(sql) && !SEEN.has(sql)) { SEEN.add(sql); try { const plan = d.prepare("EXPLAIN QUERY PLAN " + sql).all(...Array((sql.match(/\?/g) || []).length).fill(null)).map((x) => x.detail).filter((x) => /^SCAN /.test(x) && !/USING (COVERING )?INDEX/.test(x)); if (plan.length) console.log("SCAN", plan.join(" | "), "::", sql.slice(0, 150).replace(/\s+/g, " ")); } catch (e) {} } };
+const mkStmt = (d) => { const stmt = (sql, p = []) => (note(d, sql), {
   bind: (...b) => stmt(sql, b),
   first: async () => d.prepare(sql).get(...p) ?? null,
   all: async () => ({ results: d.prepare(sql).all(...p) }),

@@ -19,12 +19,13 @@
   function paintBadge(n) { const el = $("chatBadge"); if (el) el.textContent = n ? "💬 " + n : t("chat.badge"); }
   async function poll() {
     if (!open) return;
-    if (screen === "list") { await loadRooms(); return setT(poll, 6000); }
+    if (document.hidden) return setT(poll, 8000); // nothing is read while the app is in the background
+    if (screen === "list") { await loadRooms(); return setT(poll, 20000); }
     try {
       const r = await Pi.chatMsgs(room, last);
       if (r.msgs.length) { msgs = msgs.concat(r.msgs); last = r.last; paintMsgs(true); }
     } catch (e) {}
-    setT(poll, 2500);
+    setT(poll, 5000);
   }
   function render() {
     const el = $("chat");
@@ -59,7 +60,7 @@
   async function enter(r) {
     room = r; screen = "chat"; msgs = []; last = 0; sheet = null; render();
     try { const x = await Pi.chatMsgs(room, 0); msgs = x.msgs; last = x.last; } catch (e) { G.toast(e.message); }
-    paintMsgs(false); setT(poll, 2500); loadRooms();
+    paintMsgs(false); setT(poll, 5000); loadRooms();
   }
   async function send(e) {
     e.preventDefault(); if (busy) return;
@@ -73,7 +74,7 @@
     const a = b.dataset.ch;
     try {
       if (a === "close") { open = false; clearTimeout(timer); $("chat").classList.add("hidden"); loadRooms(); }
-      else if (a === "back") { screen = "list"; render(); loadRooms(); setT(poll, 6000); }
+      else if (a === "back") { screen = "list"; render(); loadRooms(); setT(poll, 20000); }
       else if (a === "room") enter(b.dataset.r);
       else if (a === "new") { const u = ($("chTo").value || "").trim().replace(/^@/, ""); if (u) enter("dm:" + u); }
       else if (a === "msg") { sheet = Number(b.dataset.id); render(); }
@@ -91,13 +92,13 @@
   function openChat(withUser) {
     open = true; $("chat").classList.remove("hidden");
     if (withUser) return enter("dm:" + withUser);
-    screen = "list"; render(); loadRooms(); setT(poll, 6000);
+    screen = "list"; render(); loadRooms(); setT(poll, 20000);
   }
   $("chatOpen").addEventListener("click", () => openChat());
   window.OasisChat = { open: openChat };
   document.addEventListener("langchange", () => { render(); paintBadge(rooms ? rooms.unread : 0); });
   // unread badge on the Farm hub (checked now and every minute while signed in)
-  setInterval(() => { if (G.account && !open) loadRooms(); }, 60000);
+  setInterval(() => { if (G.account && !open && !document.hidden) loadRooms(); }, 180000);
   setTimeout(loadRooms, 3500);
   const w = new URLSearchParams(location.search).get("with"); if (w) setTimeout(() => G.account && openChat(w), 1500);
   paintBadge(0);

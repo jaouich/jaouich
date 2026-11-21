@@ -30,6 +30,8 @@ JRY_CODE = "testJRY"
 JRY_HOME = "pi-oasis.jaouich.workers.dev"
 # Link to the Jerry community chat room in Pi Chat (from the Developer Portal: "Create Chat Room"). Empty = hidden.
 COMMUNITY_CHAT_URL = ""
+# The Testnet game is closed (Mainnet is live): no hourly work on the shared database
+TESTNET_CLOSED = "1"
 
 # Hourly run: weekly prizes and referral withdrawals (App-to-User payments)
 [triggers]

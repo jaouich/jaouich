@@ -619,7 +619,7 @@
     const list = adData.players.filter((p) => f === "all" || (f === "eligible" && p.eligible) || (f === "flagged" && p.flags.length) || (f === "blocked" && p.blocked));
     $("adStats").innerHTML = [["ad.sCount", adData.count], ["ad.sOk", adData.eligible], ["ad.sFlag", adData.flagged], ["ad.sBlocked", adData.blocked]]
       .map(([k, n]) => `<div><b>${nf(n)}</b><small>${t(k)}</small></div>`).join("");
-    const src = (e) => Object.entries(e || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, n]) => `${t("ad.src." + k)} ${nf(n)}`).join(" · ");
+    const src = (e) => Object.entries(e || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, n]) => `${t("ad.src." + k).startsWith("ad.src.") ? k : t("ad.src." + k)} ${nf(n)}`).join(" · ");
     $("adList").innerHTML = list.length ? list.slice(0, 100).map((p) => `<div class="pl">
         <span><b>${esc(p.username)}</b> ${p.eligible ? "✅" : p.blocked ? "⛔" : ""} ${p.flags.map((x) => `<span title="${esc(t("ad.flag." + x))}">${AD_FLAG[x] || "⚠️"}</span>`).join("")}
           <br><small class="hint">${t("ad.days", { n: p.days, need: adData.minDays })}${p.sameNet ? " · " + t("ad.net", { n: p.sameNet }) : ""}</small>

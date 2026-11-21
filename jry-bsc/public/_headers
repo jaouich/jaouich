@@ -1,0 +1,5 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://bsc-dataseed.bnb.chain.org https://bsc-dataseed.binance.org https://bsc-dataseed1.defibit.io https://bsc-rpc.publicnode.com; frame-ancestors 'none'

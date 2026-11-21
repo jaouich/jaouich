@@ -1,0 +1,11 @@
+{
+  "name": "jry-bsc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes serve public -l 8080",
+    "test": "node --test tests/*.test.mjs",
+    "deploy": "npx --yes wrangler pages deploy public --project-name jry-bsc"
+  }
+}

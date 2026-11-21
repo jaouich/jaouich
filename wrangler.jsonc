@@ -1,5 +1,7 @@
 {
   "name": "rekordo",
+  "main": "src/index.js",
   "compatibility_date": "2025-06-01",
-  "assets": { "directory": "./public", "not_found_handling": "404-page" }
+  "assets": { "directory": "./public", "binding": "ASSETS", "not_found_handling": "404-page", "run_worker_first": ["/validation-key.txt"] },
+  "d1_databases": [{ "binding": "DB", "database_name": "rekordo-pi", "database_id": "021bc7ce-b805-4436-b666-c5ef231de5dc" }]
 }

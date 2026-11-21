@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>JRY · BNB Smart Chain</title>
+  <meta name="description" content="Jerry Token (JRY) on BNB Smart Chain: token info, wallet balance and transfers.">
+  <meta name="theme-color" content="#120e28">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><img src="jry-256.png" alt="" width="36" height="36"><b>JRY</b></div>
+    <div class="top-actions">
+      <button id="install" class="ghost" hidden data-i18n="install">تثبيت التطبيق</button>
+      <button id="lang" class="ghost" aria-label="Language">EN</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <img src="jry-256.png" alt="JRY" width="120" height="120">
+      <h1><span id="t-name">Jerry Token</span> <small id="t-symbol">JRY</small></h1>
+      <p class="chain"><span class="dot"></span> BNB Smart Chain (BEP-20)</p>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="info">معلومات التوكن</h2>
+      <dl class="info">
+        <dt data-i18n="supply">العرض الكلي</dt><dd id="t-supply" class="num">…</dd>
+        <dt data-i18n="decimals">الكسور العشرية</dt><dd id="t-decimals" class="num">…</dd>
+        <dt data-i18n="contract">عنوان العقد</dt>
+        <dd class="addr"><a id="t-contract" target="_blank" rel="noopener"></a>
+          <button class="icon" id="copy" data-i18n-title="copy" title="نسخ">⧉</button></dd>
+        <dt data-i18n="owner">المالك</dt><dd id="t-owner" class="addr">…</dd>
+      </dl>
+      <p id="mint-note" class="note warn" hidden data-i18n="mintNote">هاد العقد فيه دالة mint: المالك يقدر يطبع توكنات جديدة.</p>
+      <p id="renounced-note" class="note ok" hidden data-i18n="renounced">الملكية متخلّى عليها: ماكاينش لي يقدر يطبع توكنات جديدة.</p>
+      <p id="info-error" class="note err" hidden data-i18n="rpcError">ماقدرناش نقراو البيانات من الشبكة. عاود من بعد.</p>
+      <button id="watch" class="secondary" data-i18n="addToWallet">زيد JRY للمحفظة</button>
+    </section>
+
+    <section class="card" id="wallet-card">
+      <h2 data-i18n="wallet">المحفظة</h2>
+      <div id="no-wallet" hidden>
+        <p data-i18n="noWallet">ماكاينش محفظة فهاد المتصفح. حل الموقع من داخل المحفظة ديالك:</p>
+        <div class="row">
+          <a id="open-mm" class="btn secondary" target="_blank" rel="noopener">MetaMask</a>
+          <a id="open-tw" class="btn secondary" target="_blank" rel="noopener">Trust Wallet</a>
+        </div>
+      </div>
+      <button id="connect" data-i18n="connect">ربط المحفظة</button>
+      <div id="account" hidden>
+        <p class="acct"><span class="dot"></span> <a id="acct-addr" target="_blank" rel="noopener"></a></p>
+        <p id="wrong-chain" class="note warn" hidden>
+          <span data-i18n="wrongChain">المحفظة ماشي على BNB Smart Chain.</span>
+          <button id="switch" class="link" data-i18n="switch">بدّل الشبكة</button>
+        </p>
+        <div class="balance"><span data-i18n="balance">الرصيد</span><b id="bal" class="num">…</b><span class="sym">JRY</span></div>
+      </div>
+    </section>
+
+    <section class="card" id="send-card" hidden>
+      <h2 data-i18n="send">صيفط JRY</h2>
+      <form id="send-form" novalidate>
+        <label><span data-i18n="to">العنوان ديال المستقبل</span>
+          <input name="to" dir="ltr" placeholder="0x…" autocomplete="off" spellcheck="false" required></label>
+        <label><span data-i18n="amount">الكمية</span>
+          <span class="amount-row"><input name="amount" dir="ltr" inputmode="decimal" placeholder="0.0" autocomplete="off" required>
+          <button type="button" id="max" class="link">MAX</button></span></label>
+        <button type="submit" data-i18n="sendBtn">صيفط</button>
+      </form>
+    </section>
+
+    <section class="card owner" id="owner-card" hidden>
+      <h2 data-i18n="ownerPanel">لوحة المالك</h2>
+      <p class="note" data-i18n="ownerHint">كتبان غير للمالك. كل توكن جديد كيزيد فالعرض الكلي، وكيبان للجميع فـ BscScan.</p>
+      <form id="mint-form" novalidate>
+        <label><span data-i18n="to">العنوان ديال المستقبل</span>
+          <input name="to" dir="ltr" placeholder="0x…" autocomplete="off" spellcheck="false" required></label>
+        <label><span data-i18n="amount">الكمية</span>
+          <input name="amount" dir="ltr" inputmode="decimal" placeholder="0.0" autocomplete="off" required></label>
+        <button type="submit" class="danger" data-i18n="mintBtn">اطبع (mint)</button>
+      </form>
+    </section>
+
+    <div id="status" role="status" aria-live="polite" hidden></div>
+
+    <footer>
+      <p data-i18n="disclaimer">JRY توكن ديال المجتمع. هاد الموقع ماكيوعدش بحتى ربح ولا ثمن، وماشي نصيحة استثمار. ديما تأكد من العنوان قبل ما تصيفط.</p>
+      <p data-i18n="notPi">JRY على BNB Smart Chain مشروع منفصل، ماعندو حتى علاقة بـ JRY ديال اللعبة على شبكة Pi.</p>
+    </footer>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -6,3 +6,4 @@ Site: https://jaouich6.wordpress.com (blog id 257964560). Daily scheduled task: 
 - 2026-11-22 | docs | 3 documentary episodes (Sahara, How the Internet Works, Ibn Battuta), Arabic + English, plus in-app Documentaries tab and daily manga notification | no problems
 - 2026-11-22 | design | magazine layout v2: organised adaptive home (hero + latest, rails for manga/documentaries/courses, grid of posts, vote + newsletter), 3-column footer | no problems
 - 2026-11-22 | security | videos are served only to the page's own player; downloads, subtitles and scripts need the owner key (OWNER_KEY secret, /api/owner?key=) | owner must set OWNER_KEY
+- 2026-11-22 | watermark | all 12 videos re-rendered with a corner watermark (courses and documentaries) | no problems

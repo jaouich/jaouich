@@ -22,11 +22,12 @@ h1{font-size:${s.k === "title" ? 84 : 58}px;line-height:1.15;margin:0 0 20px;fon
 ul{list-style:none;margin:6px 0 0;padding:0}li{font-size:38px;line-height:1.35;margin:10px 0;padding-${L.rtl ? "right" : "left"}:46px;position:relative;text-shadow:0 2px 8px rgba(0,0,0,.6)}
 li:before{content:"";position:absolute;${L.rtl ? "right" : "left"}:0;top:14px;width:26px;height:26px;border-radius:50%;background:#2b9d7a;box-shadow:0 0 0 4px rgba(43,157,122,.35)}
 .bar{position:absolute;left:0;right:0;bottom:0;height:62px;background:rgba(12,7,1,.92);display:flex;align-items:center;justify-content:space-between;padding:0 48px;font-size:22px;color:#e8d6b0}
+.wm{position:absolute;z-index:9;padding:6px 14px;border-radius:10px;background:rgba(0,0,0,.28);color:rgba(255,255,255,.62);font-size:21px;font-weight:700;letter-spacing:.3px;direction:ltr;text-shadow:0 1px 3px rgba(0,0,0,.5)}
 .prog{position:absolute;left:0;bottom:62px;height:6px;width:${Math.round(((i + 1) / total) * 100)}%;background:#ffd34d}
 </style></head><body><div class="bg">${cover(s.scene || "desert", L.course + i).replace("<svg ", '<svg preserveAspectRatio="xMidYMid slice" ')}</div><div class="shade"></div>
 <div class="top"><span><b>${esc(L.course)}</b></span><span>${L.rtl ? "الحلقة" : L.label || "Lesson"} ${L.n} · ${i + 1}/${total}</span></div>
 <div class="main">${s.k === "title" ? `<div style="font-size:34px;color:#ffd34d;margin-bottom:10px">${esc(s.h)}</div><h1>${esc(s.sub)}</h1><div style="font-size:30px;opacity:.9">${esc(L.course)} · Jerry Development</div>` : s.k === "statement" ? `<h1>${esc(s.h)}</h1>` : `<h1 style="font-size:50px">${esc(s.h)}</h1><ul>${(s.pts || []).map((p) => `<li>${esc(p)}</li>`).join("")}</ul>`}</div>
-<div class="prog"></div><div class="bar"><span>${L.rtl ? "Jerry Development · وثائقيات جيري" : L.footer || "Jerry Development · Free course"}</span><span>jerry-magazine.jaouich.workers.dev</span></div></body></html>`;
+<div class="wm" style="${["top:78px;left:48px", "top:78px;right:48px", "bottom:84px;right:48px", "bottom:84px;left:48px"][i % 4]}">© Jerry Development · jerry-magazine.jaouich.workers.dev</div><div class="prog"></div><div class="bar"><span>${L.rtl ? "Jerry Development · وثائقيات جيري" : L.footer || "Jerry Development · Free course"}</span><span>jerry-magazine.jaouich.workers.dev</span></div></body></html>`;
 
 const ts = (t) => { const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = Math.floor(t % 60), ms = Math.round((t - Math.floor(t)) * 1000); return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")},${String(ms).padStart(3, "0")}`; };
 function srt(slides) { // each narration sentence is a subtitle, timed in proportion to its length inside its slide

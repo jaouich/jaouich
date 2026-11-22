@@ -1473,3 +1473,5 @@ main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 .mg-t { margin: 4px 0; } .mg-panels { display: flex; flex-direction: column; gap: 8px; max-width: 520px; margin: 8px auto; } .mg-panels img { width: 100%; background: #fff; border-radius: 6px; display: block; min-height: 120px; }
 .mg-nav { display: flex; justify-content: space-between; gap: 8px; max-width: 520px; margin: 10px auto; } .mg-nav button { flex: 1; border: 0; border-radius: 12px; padding: 10px; font: inherit; font-weight: 800; background: #ffd34d; color: #3a2614; } .mg-web { display: block; margin: 8px auto 20px; }
 .mg-tabs button { font-size: .8rem; }
+
+.bx-pi { background: rgba(255,211,77,.14); border: 1px solid rgba(255,211,77,.45); border-radius: 16px; padding: 10px 14px; margin: 12px 0; } .bx-pih { display: flex; gap: 12px; align-items: center; } .bx-pih > span { width: 46px; height: 46px; border-radius: 50%; background: #f5b82e; color: #8a5a12; font: 900 1.7rem/46px serif; text-align: center; flex: none; } .bx-pih b { font-size: 1.7rem; display: block; } .bx-pih small { opacity: .85; }

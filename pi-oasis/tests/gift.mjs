@@ -47,6 +47,9 @@ const row = (await sql(`SELECT owner, price FROM nft_items WHERE id=${gid}`))[0]
 ok(r.ok && row.owner === uD && row.price === null, "the collectible changes owner and its listing is cleared");
 ok((await post("/api/gift", { to: "dina", what: "item", id: gid }, HC)).error === "k.nftNotYours", "can't give it twice");
 
+await exec(`INSERT INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES ('p-a', 'prize', '1', '${uC}', 0.5, 'Pi Oasis weekly prize #1', 'new', ${Date.now()}, ${Date.now()}), ('p-b', 'prize', '2', '${uC}', 0.25, 'Pi Oasis weekly prize #2', 'completed', ${Date.now() - 1000}, ${Date.now()}), ('p-c', 'prize', '3', '${uD}', 9, 'x', 'new', ${Date.now()}, ${Date.now()})`);
+const pb = (await get("/api/box", HC)).piBox;
+ok(pb && pb.waiting === 0.5 && pb.paid === 0.25 && pb.items.length === 2 && pb.items.some((x) => x.done) && typeof pb.held === "boolean", "the Pi prize box shows what waits (0.5) and what was already sent (0.25), only the player's own");
 const box = await get("/api/box", HC);
 ok(box.jry === 900 && box.transfers.length >= 4 && box.transfers[0].dir, "box shows balance and transfers");
 

@@ -1171,7 +1171,12 @@ const routes = {
     const sent = await all(env, "SELECT t.what, t.n, t.fee, t.at, t.item_id, x.username AS other, 'out' AS dir FROM transfers t JOIN users x ON x.uid = t.to_uid WHERE t.from_uid = ? ORDER BY t.id DESC LIMIT 15", u.uid);
     const got = await all(env, "SELECT t.what, t.n, t.fee, t.at, t.item_id, x.username AS other, 'in' AS dir FROM transfers t JOIN users x ON x.uid = t.from_uid WHERE t.to_uid = ? ORDER BY t.id DESC LIMIT 15", u.uid);
     const day = Date.now() - DAY, used = await all(env, "SELECT what, SUM(n) AS n, COUNT(*) AS c FROM transfers WHERE from_uid = ? AND at > ? GROUP BY what", u.uid, day);
-    return { jry: Number(u.jry_pts) || 0, bought: Number(u.jry_bought) || 0, wallet: u.jry_wallet || "", history, transfers: [...sent, ...got].sort((a, b) => b.at - a.at).slice(0, 20), used, now: Date.now() };
+    // Pi prizes and payouts: kept safe in the box until the app's outgoing wallet is approved, then sent automatically
+    const pays = await all(env, "SELECT kind, amount, memo, status, created_at, updated_at FROM payouts WHERE uid = ? ORDER BY created_at DESC LIMIT 30", u.uid);
+    const waitingPi = pays.filter((p) => p.status !== "completed").reduce((a, p) => a + Number(p.amount), 0);
+    const paidPi = pays.filter((p) => p.status === "completed").reduce((a, p) => a + Number(p.amount), 0);
+    return { piBox: { waiting: Math.round(waitingPi * 1e7) / 1e7, paid: Math.round(paidPi * 1e7) / 1e7, held: env.A2U_LIVE === "0", items: pays.map((p) => ({ kind: p.kind, amount: Number(p.amount), done: p.status === "completed", at: p.created_at })) },
+      jry: Number(u.jry_pts) || 0, bought: Number(u.jry_bought) || 0, wallet: u.jry_wallet || "", history, transfers: [...sent, ...got].sort((a, b) => b.at - a.at).slice(0, 20), used, now: Date.now() };
   },
 
   // Gift to another member. body: { to, what: "coins"|"dates"|"jry"|"item", n, id }
@@ -2635,7 +2640,7 @@ const NOTE = {
   gift: { go: "box", en: ["🎁 You received a gift", "{u} sent you a gift. Open your box to see it."], ar: ["🎁 وصلتك هدية", "أرسل لك ‎{u} هدية. افتح صندوقك لتراها."], fr: ["🎁 Vous avez reçu un cadeau", "{u} vous a envoyé un cadeau. Ouvrez votre boîte."] },
   nftswap: { go: "kombat", en: ["🔁 Your card was swapped", "Someone accepted your swap offer. Open your collection to see the new card."], ar: ["🔁 تمت مبادلة بطاقتك", "قَبِل أحدهم عرض المبادلة. افتح مجموعتك لترى البطاقة الجديدة."], fr: ["🔁 Votre carte a été échangée", "Quelqu'un a accepté votre offre d'échange. Ouvrez votre collection."] },
   daily: { go: "farm", en: ["🌴 Your oasis is waiting", "Your camels made dates and your free Derby races are ready."], ar: ["🌴 واحتك في انتظارك", "جِمالك جمعت التمر، وسباقاتك المجانية جاهزة."], fr: ["🌴 Ton oasis t'attend", "Tes chameaux ont produit des dattes et tes courses gratuites sont prêtes."] },
-  week: { go: "rank", en: ["🏆 Weekly ranking: #{p}", "Well done! +{d} dates and +{j} JRY for your place. Pi prizes are sent to your wallet."], ar: ["🏆 ترتيب الأسبوع: المركز {p}", "أحسنت! +{d} تمرة و+{j} JRY لمركزك. جوائز Pi تُرسل إلى محفظتك."], fr: ["🏆 Classement : {p}e place", "Bravo ! +{d} dattes et +{j} JRY pour ta place. Les prix en Pi arrivent dans ton portefeuille."] },
+  week: { go: "rank", en: ["🏆 Weekly ranking: #{p}", "Well done! +{d} dates and +{j} JRY for your place. Your Pi prize is kept safe in your box and sent to your wallet as soon as sending opens."], ar: ["🏆 ترتيب الأسبوع: المركز {p}", "أحسنت! +{d} تمرة و+{j} JRY لمركزك. جائزتك بـ Pi محفوظة في صندوقك وتُرسل إلى محفظتك فور فتح الإرسال."], fr: ["🏆 Classement : {p}e place", "Bravo ! +{d} dattes et +{j} JRY pour ta place. Ton prix en Pi est gardé dans ta boîte et part vers ton portefeuille dès que l'envoi ouvre."] },
   svc: { go: "services", en: ["🛠️ New app request", "{p} from @{u}: open the services page to answer."], ar: ["🛠️ طلب تطبيق جديد", "{p} من ‎@{u}: افتح صفحة الخدمات للرد."], fr: ["🛠️ Nouvelle demande d'app", "{p} de @{u} : ouvre la page des services pour répondre."] },
   svcup: { go: "services", en: ["🛠️ Your app request was updated", "Open the services page to see the new status."], ar: ["🛠️ تم تحديث طلب تطبيقك", "افتح صفحة الخدمات لترى الحالة الجديدة."], fr: ["🛠️ Ta demande d'app a été mise à jour", "Ouvre la page des services pour voir le nouveau statut."] },
   aweek: { go: "arena", en: ["⚔️ Jerry Arena: #{p}", "+{d} dates for your place this week."], ar: ["⚔️ جيري أرينا: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["⚔️ Jerry Arena : {p}e", "+{d} dattes pour ta place cette semaine."] },

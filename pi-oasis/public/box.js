@@ -26,6 +26,10 @@
       const GF = KL.GIFT, usedOf = (w) => ((data.used || []).find((x) => x.what === w) || {}).n || 0;
       const fee = what === "item" ? 0 : Math.round(GF.FEE[what] * 100);
       body = `<div class="bx-bal"><span class="jp-ico">JRY</span><div><b>${fmtN(data.jry)}</b><small>${t("box.bought", { n: fmtN(data.bought) })}</small></div></div>
+        ${data.piBox ? `<div class="bx-pi"><div class="bx-pih"><span>π</span><div><b dir="ltr">${data.piBox.waiting}</b><small>${t("box.pi.waiting")}</small></div></div>
+          <p class="jm-note">${data.piBox.held ? t("box.pi.held") : t("box.pi.auto")}</p>
+          ${data.piBox.items.length ? `<div class="bx-list">${data.piBox.items.map((x) => `<div><span>${t("box.pi.k." + x.kind) === "box.pi.k." + x.kind ? esc(x.kind) : t("box.pi.k." + x.kind)}</span><b dir="ltr">${x.amount} π</b><small>${x.done ? "✅ " + t("box.pi.sent") : "⏳ " + t("box.pi.wait")} · ${dt(x.at)}</small></div>`).join("")}</div>` : `<p class="jm-note">${t("box.pi.none")}</p>`}
+          ${data.piBox.paid ? `<p class="jm-note">${t("box.pi.paid", { n: data.piBox.paid })}</p>` : ""}</div>` : ""}
         <p class="jm-note">${t("box.note")}</p>
         <h4>🎁 ${t("box.send")}</h4>
         <div class="bx-tabs">${["coins", "dates", "jry", "item"].map((w) => `<button type="button" data-bx="what" data-w="${w}" class="${w === what ? "on" : ""}">${ICON[w]} ${t("box.w." + w)}</button>`).join("")}</div>

@@ -1485,7 +1485,9 @@ main { overflow-x: hidden; }
 .club-nav button.on { background: linear-gradient(135deg,#f5c542,#e59a1a); color: #3a2400; border-color: transparent; }
 .club-grp { display: none; }
 .club-grp.on { display: block; animation: fadeUp .2s ease; }
-#tab-vip .tiers, #tab-vip .rc-shop, #tab-vip .sup-shop, #tab-vip .lv-shop, #tab-vip .shop { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+#tab-vip .tiers { display: grid; grid-template-columns: 1fr; gap: 14px; }
+#tab-vip .sup-shop, #tab-vip .lv-shop, #tab-vip .shop { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+@media (max-width: 380px) { .tier ul { grid-template-columns: 1fr; } }
 #tab-vip input, #tab-vip select, #tab-vip textarea { min-width: 0; max-width: 100%; }
 #tab-vip .ref-row, #tab-vip .row { flex-wrap: wrap; }
 #tab-vip .panel, #tab-vip p, #tab-vip .list > * { overflow-wrap: anywhere; }

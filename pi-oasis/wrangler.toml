@@ -57,7 +57,13 @@ crons = ["23 * * * *"]
 name = "jaouich"
 workers_dev = true
 
+# The magazine (manga, posts, lessons) is another Worker; the app reads its /feed.json through this binding.
+[[env.main.services]]
+binding = "MAG"
+service = "jerry-magazine"
+
 [env.main.vars]
+MAG_URL = "https://jerry-magazine.jaouich.workers.dev"
 VALIDATION_KEY = "cfb33204e47b668bdf431d538a789aee8d5c9ad41e8776add3badba149589757ed2624b7483fcfa080e4a303b76e13805a954244fb95e966be6fa5d9049c21f3"
 PUBLIC_URL = "https://jerryoasis9559.pinet.com"
 # Purchases with real Pi: open. Incoming wallet = the owner's personal wallet (set in Pi Developers).

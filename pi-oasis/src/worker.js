@@ -1322,6 +1322,24 @@ const routes = {
     return { reported };
   },
 
+  // ---------- Magazine feed (manga, posts, lessons) from the Jerry Magazine Worker, cached for 10 minutes ----------
+  "GET /api/mag": async (req, env) => {
+    const empty = { manga: [], posts: [], courses: [], site: env.MAG_URL || "" };
+    try {
+      const key = new Request("https://mag-cache.invalid/feed");
+      const cache = typeof caches !== "undefined" ? caches.default : null;
+      const hit = cache ? await cache.match(key) : null;
+      if (hit) return new Response(hit.body, { headers: { "Content-Type": "application/json; charset=utf-8" } });
+      const r = env.MAG ? await env.MAG.fetch("https://magazine/feed.json") : env.MAG_URL ? await fetch(env.MAG_URL + "/feed.json") : null;
+      if (!r || !r.ok) return json(empty);
+      const text = await r.text();
+      JSON.parse(text); // refuse anything that is not JSON
+      const res = new Response(text, { headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=600" } });
+      if (cache) await cache.put(key, res.clone());
+      return res;
+    } catch (e) { return json(empty); }
+  },
+
   // ---------- Jerry Castle (tower defense): the server replays the player's actions and pays the rewards ----------
   "GET /api/castle": async (req, env) => {
     const u = await auth(req, env);

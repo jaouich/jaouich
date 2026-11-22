@@ -1462,3 +1462,13 @@ small.n-want { display: block; font-size: .7rem; }
 .hub-jry { background: linear-gradient(#e3f1ff, #c6e0fb); border-color: #3b82c4; box-shadow: 0 3px 0 #2b6aa6; }
 .hub-tile:focus-visible, .hub-big:focus-visible { outline: 3px solid #ffd34d; outline-offset: 2px; }
 main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+
+/* 🎨 Manga and magazine */
+.hub-mag { background: radial-gradient(120% 160% at 0% 0%, #ff8a5b 0%, #b5370f 55%, #3a0f04 100%); box-shadow: 0 5px 0 #5a1a08; }
+.hub-mag em { font-style: normal; font-weight: 800; background: #ffd34d; color: #3a2614; padding: 4px 10px; border-radius: 99px; margin-inline-start: auto; position: relative; z-index: 1; font-size: .8rem; } .hub-mag em:empty { display: none; }
+.media.mag { background: radial-gradient(120% 60% at 50% 0%, #c0561f 0%, #5a1d08 45%, #1a0804 100%); z-index: 70; height: 100dvh; bottom: auto; }
+.mg-tabs { display: flex; gap: 8px; padding: 0 14px 8px; } .mg-tabs button { flex: 1; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; border-radius: 99px; padding: 8px 4px; font: inherit; } .mg-tabs button.on { background: #ffd34d; color: #3a2614; font-weight: 800; }
+.mg-card { display: flex; gap: 12px; width: 100%; text-align: start; margin: 8px 0; padding: 8px; border-radius: 16px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.25); color: #fff; font: inherit; cursor: pointer; } .mg-card img { width: 96px; height: 72px; object-fit: cover; border-radius: 10px; flex: none; } .mg-card div { min-width: 0; } .mg-card b { display: block; line-height: 1.4; } .mg-card p { margin: 2px 0; opacity: .8; font-size: .8rem; line-height: 1.5; max-height: 3em; overflow: hidden; } .mg-card small { opacity: .7; }
+.mg-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px; margin: 6px 0; border-radius: 14px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.25); color: #fff; font: inherit; text-align: start; cursor: pointer; } .mg-row span { flex: 1; opacity: .9; } .mg-row em { font-style: normal; background: #ffd34d; color: #3a2614; border-radius: 99px; padding: 1px 8px; font-size: .72rem; font-weight: 800; } .mg-row small { opacity: .7; }
+.mg-t { margin: 4px 0; } .mg-panels { display: flex; flex-direction: column; gap: 8px; max-width: 520px; margin: 8px auto; } .mg-panels img { width: 100%; background: #fff; border-radius: 6px; display: block; min-height: 120px; }
+.mg-nav { display: flex; justify-content: space-between; gap: 8px; max-width: 520px; margin: 10px auto; } .mg-nav button { flex: 1; border: 0; border-radius: 12px; padding: 10px; font: inherit; font-weight: 800; background: #ffd34d; color: #3a2614; } .mg-web { display: block; margin: 8px auto 20px; }

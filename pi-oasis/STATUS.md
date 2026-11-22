@@ -74,3 +74,5 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - Club tab: split into 5 sub-tabs (Membership, Cards, Shop, Invite & codes, Owner tools) via public/clubnav.js; adaptive grids, wrap fixes, safe-area bottom padding.
 
 - Royal cards: 3 premium tiers (500/1000/5000 Pi, 500 copies each, in-game perks only), resale between players with 10% seller tax (mk_offers kind=card), Club cards layout rebuilt. Grand Final still opens at the 2,000 original cards; boost cap 100%. Auctions not built yet.
+
+- Date Palm tap game replaces crop plots (palm.js, logic.js pTap/pUp; old plots paid out once). Yield multipliers x2 10 Pi/60 d, x3 20 Pi/30 d, x10 100 Pi/30 d (apply to oasis income + Kombat profit). Premium royal cards numbers raised (boost cap 800%). Catalog album still counts the 4 original cards only.

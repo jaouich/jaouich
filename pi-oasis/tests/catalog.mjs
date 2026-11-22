@@ -91,7 +91,7 @@ ok(lb.top.find((x) => x.username === "emad").cm === 1, "the 📚 Master Collecto
 await giveNft("uF", "jar", 1, OLD); await giveNft("uF", "moon", 1, OLD); await giveNft("uF", "tea", 1, OLD);
 const n0 = (await notifs()).filter((x) => x.user_uid === "uF").length;
 await fetch(B + "/__test/cron"); await fetch(B + "/__test/cron");
-const nf = (await notifs()).filter((x) => x.user_uid === "uF").slice(n0);
+const nf = (await notifs()).filter((x) => x.user_uid === "uF").slice(n0).filter((x) => x.subroute === "/?go=catalog");
 ok(nf.length === 1 && nf[0].subroute === "/?go=catalog", "3 items held long enough: one Pi notification that opens the catalog (not repeated)");
 ok(!(await notifs()).some((x) => x.user_uid === "uE" && x.subroute === "/?go=catalog"), "no notification for goals already claimed");
 console.log(`\n${pass} passed, ${fail} failed`);

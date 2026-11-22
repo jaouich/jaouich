@@ -131,8 +131,8 @@
   // Three missions per day, picked from a pool by a seed that depends on the day, so the
   // server and the screen always agree. Finishing all three grows a streak with a bonus.
   const MISSION_POOL = [
-    { k: "harvest", n: 15, r: 120 },
-    { k: "plant", n: 20, r: 100 },
+    { k: "tap", n: 300, r: 120 },
+    { k: "golden", n: 5, r: 100 },
     { k: "deliver", n: 3, r: 220 },
     { k: "craft", n: 4, r: 150 },
     { k: "stake", n: 1, r: 80 },
@@ -178,6 +178,18 @@
     MAX_STAKE: 1e9, DAILY: 25, START_DATES: 50, AD_MIN_LEFT: 20,
   };
 
+  // The Date Palm: hit it to knock dates down. Energy refills with time; levels give more per hit.
+  const P = { E_BASE: 60, E_STEP: 10, REGEN_MS: 4000, MAX_LV: 20, MAX_BATCH: 15, CRIT_EVERY: 10, CRIT: 3,
+    upCost: (lv) => Math.round(60 * Math.pow(1.55, lv)), perHit: (lv) => 1 + lv, maxEnergy: (lv) => 60 + 10 * lv };
+  const freshPalm = (now) => ({ lv: 0, energy: P.E_BASE, eAt: now, hits: 0, tapAt: 0 });
+  const palmEnergy = (p, now) => Math.min(P.maxEnergy(p.lv), p.energy + Math.floor(Math.max(0, now - p.eAt) / P.REGEN_MS));
+  // Yield multipliers (bought with Pi): they multiply the oasis income and the Kombat profit
+  const MULT = [
+    { id: "x2", f: 2, price: 10, days: 60 },
+    { id: "x3", f: 3, price: 20, days: 30 },
+    { id: "x10", f: 10, price: 100, days: 30 },
+  ];
+  const multById = (id) => MULT.find((x) => x.id === id) || null;
   // Weeks start Monday 00:00 UTC
   function weekId(t) {
     const d = new Date(t);
@@ -187,12 +199,18 @@
   const dayId = (t) => Math.floor(t / 86400000);
 
   function fresh(now) {
-    return { v: 1, dates: C.START_DATES, plots: Array(C.PLOTS).fill(null), stakes: [], week: { id: weekId(now), score: 0 }, lastDaily: -1, rare: 0, animals: [], nextAnimal: 1, city: freshCity(now) };
+    return { v: 1, dates: C.START_DATES, plots: Array(C.PLOTS).fill(null), stakes: [], week: { id: weekId(now), score: 0 }, palm: freshPalm(now), lastDaily: -1, rare: 0, animals: [], nextAnimal: 1, city: freshCity(now) };
   }
 
   function normalize(s, now) {
     if (!s || s.v !== 1) s = fresh(now);
     if (s.week.id !== weekId(now)) s.week = { id: weekId(now), score: 0 };
+    if (!s.palm) {
+      s.palm = freshPalm(now);
+      // the old crop plots are gone: whatever was planted is paid out once (not counted for the ranking)
+      (s.plots || []).forEach((pl) => { const sd = pl && SEEDS.find((x) => x.id === pl.seed); if (sd) s.dates += sd.yield; });
+      s.plots = Array(C.PLOTS).fill(null);
+    }
     if (!Array.isArray(s.animals)) { s.animals = []; s.nextAnimal = 1; }
     if (!s.city) s.city = freshCity(now);
     if (!s.missions || s.missions.day !== Math.floor(now / 86400000)) s.missions = newMissions(s.missions, now);
@@ -243,12 +261,46 @@
     const now = ctx.now;
     const rand = ctx.rand || Math.random;
     const tier = ctx.tier || 0, perks = TIERS[tier];
+    const mult = Math.max(1, Number(ctx.mult) || 1);
     const s = normalize(JSON.parse(JSON.stringify(state)), now);
     a = a || {};
     tickCity(s, now, rand);
     // Jerry Kombat actions (kombat-logic.js)
     if (typeof a.type === "string" && /^k[A-Z]/.test(a.type) && root.KombatLogic) return root.KombatLogic.applyTo(s, a, { now, rand, boost: perks.boost + (ctx.hold || 0), member: perks.boost > 0, cityLevel, refs: ctx.refs || 0, adVerified: !!ctx.adVerified }, fail);
     switch (a.type) {
+      case "pTap": {
+        const p = s.palm, max = P.maxEnergy(p.lv);
+        const want = int(a.n);
+        if (!(want >= 1)) fail("badAction");
+        const e = palmEnergy(p, now);
+        if (e <= 0) fail("noEnergy");
+        // no faster than 10 hits a second, whatever the phone sends
+        const fastest = Math.max(1, Math.floor((now - (p.tapAt || 0)) / 100));
+        const k = Math.min(want, P.MAX_BATCH, e, fastest);
+        const gained = Math.floor(Math.max(0, now - p.eAt) / P.REGEN_MS);
+        p.eAt = e >= max ? now : p.eAt + gained * P.REGEN_MS;
+        p.energy = e - k; p.tapAt = now;
+        if (p.energy < max && e >= max) p.eAt = now;
+        let got = 0, gold = 0;
+        for (let i = 0; i < k; i++) {
+          p.hits++;
+          const crit = p.hits % P.CRIT_EVERY === 0;
+          if (crit) gold++;
+          got += P.perHit(p.lv) * (crit ? P.CRIT : 1);
+        }
+        earn(s, got, Math.floor(got * (perks.boost + mult - 1)));
+        track(s, "tap", k);
+        if (gold) track(s, "golden", gold);
+        return { s, msg: { key: "t.palmHit", vars: { n: got } }, palm: { hits: k, got, gold } };
+      }
+      case "pUp": {
+        const p = s.palm;
+        if (p.lv >= P.MAX_LV) fail("badAction");
+        const c = P.upCost(p.lv);
+        if (s.dates < c) fail("notEnough");
+        s.dates -= c; p.lv++;
+        return { s, msg: { key: "t.palmUp", vars: { n: p.lv } } };
+      }
       case "plant": {
         const i = int(a.plot), seed = seedById(a.seed);
         if (!(i >= 0 && i < C.PLOTS) || !seed) fail("badAction");
@@ -329,7 +381,7 @@
           if (n > 0) { total += n; if (i < TIERS[0].camels) scored += n; an.lastCollect = now; }
         });
         if (!total) fail("notReady");
-        earn(s, scored, total - scored);
+        earn(s, scored, total - scored + Math.floor(total * (mult - 1)));
         track(s, "collect", 1);
         return { s, msg: { key: "t.collected", vars: { n: total } } };
       }
@@ -451,7 +503,7 @@
         for (const g in o.need) if ((city.goods[g] || 0) < o.need[g]) fail("cityMissing");
         for (const g in o.need) city.goods[g] -= o.need[g];
         const reward = Math.floor(o.reward * (eventOf(now).orders || 1));
-        const bonus = Math.floor(reward * perks.boost);
+        const bonus = Math.floor(reward * (perks.boost + mult - 1));
         earn(s, reward, bonus);
         city.orders[i] = { wait: now + CITY.ORDER_COOLDOWN * 1000 };
         track(s, "deliver", 1);
@@ -493,9 +545,9 @@
       { id: "r50", e: "🥇", price: 50, boost: 0.18, races: 3, gift: { dates: 1800, coins: 150000, jry: 12 }, color: "#e2a918" },
       { id: "r100", e: "💎", price: 100, boost: 0.3, races: 5, gift: { dates: 4000, coins: 400000, jry: 30 }, color: "#7c5cff" },
       // Premium cards: bigger perks and daily gifts (in-game only). They do not delay the Grand Final.
-      { id: "r500", e: "🔮", price: 500, boost: 0.5, races: 8, gift: { dates: 12000, coins: 1200000, jry: 80 }, color: "#d6336c", premium: true },
-      { id: "r1000", e: "👑", price: 1000, boost: 0.8, races: 12, gift: { dates: 30000, coins: 3000000, jry: 200 }, color: "#0ca678", premium: true },
-      { id: "r5000", e: "🌟", price: 5000, boost: 1.2, races: 20, gift: { dates: 200000, coins: 20000000, jry: 1500 }, color: "#111827", premium: true },
+      { id: "r500", e: "🔮", price: 500, boost: 0.8, races: 10, gift: { dates: 30000, coins: 3000000, jry: 250 }, color: "#d6336c", premium: true },
+      { id: "r1000", e: "👑", price: 1000, boost: 1.6, races: 15, gift: { dates: 80000, coins: 8000000, jry: 600 }, color: "#0ca678", premium: true },
+      { id: "r5000", e: "🌟", price: 5000, boost: 6, races: 25, gift: { dates: 600000, coins: 60000000, jry: 4000 }, color: "#111827", premium: true },
     ],
     RESALE_TAX: 0.1, RESALE_MIN: 1, RESALE_MAX: 100000, // owners may resell a card; the app keeps 10% of the price
     FINAL_TIERS: ["r10", "r25", "r50", "r100"],          // the Grand Final opens when these 4 sell out (2,000 cards)
@@ -509,7 +561,7 @@
       { id: "flame", e: "🔥", coins: 0.5 },       // +50% coins in the daily gift
       { id: "gem", e: "💠", jry: 1 },             // +100% JRY in the daily gift
     ],
-    BOOST_MAX: 1.0,
+    BOOST_MAX: 8,
     PRIZES: [1e9, 3e8, 1e8, 2e7, 2e7, 2e7, 2e7, 2e7, 2e7, 2e7], // Grand Royal Final, Kombat coins
     FINAL_DAYS: 30,
   };
@@ -599,6 +651,6 @@
   };
   const FUTURE = [{ id: "falcon", e: "🦅", players: 1000 }, { id: "quiz", e: "🧠", players: 2500 }, { id: "chess", e: "♟️", players: 5000 },
     { id: "kart", e: "🏎️", players: 10000 }, { id: "hunt", e: "🗺️", players: 25000 }, { id: "world", e: "🌍", players: 100000 }];
-  const api = { SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

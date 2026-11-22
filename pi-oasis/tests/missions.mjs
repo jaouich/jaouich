@@ -13,7 +13,7 @@ const uidC = (await sql("SELECT uid FROM users WHERE username='carol'"))[0].uid;
 const act = (a, tok = C) => post("/api/action", { action: a }, tok);
 const st = async (uid = uidC) => JSON.parse((await sql(`SELECT json FROM state WHERE uid='${uid}'`))[0].json);
 const setJson = (path, value, uid = uidC) => exec(`UPDATE state SET json = json_set(json, '${path}', json('${JSON.stringify(value)}')) WHERE uid='${uid}'`);
-const POOL = ["harvest", "plant", "deliver", "craft", "stake", "collect"];
+const POOL = ["tap", "golden", "deliver", "craft", "stake", "collect"];
 
 let me = await get("/api/me", C);
 let m = me.state.missions;

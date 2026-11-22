@@ -55,6 +55,6 @@ ok((await get("/api/royal", HC)).market.length === 0, "unlisted card is not for 
 // perk cap
 await exec(`INSERT INTO royal_cards (tier, ed, uid, at) VALUES ('r5000', 1, 'uB', 1), ('r5000', 2, 'uB', 1), ('r1000', 1, 'uB', 1)`);
 const dv = await get("/api/derby", HB);
-ok(dv.max <= 8 + 20, "Derby races stay capped");
+ok(dv.max <= 8 + 40, "Derby races stay capped");
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

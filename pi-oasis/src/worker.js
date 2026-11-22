@@ -262,6 +262,8 @@ const ALTERS = [
   "INSERT OR IGNORE INTO chat_members (uid, room) SELECT DISTINCT substr(room, 4, instr(substr(room, 4), ':') - 1), room FROM chat_msgs WHERE room LIKE 'dm:%'",
   "INSERT OR IGNORE INTO chat_members (uid, room) SELECT DISTINCT substr(room, 4 + instr(substr(room, 4), ':')), room FROM chat_msgs WHERE room LIKE 'dm:%'",
   "ALTER TABLE users ADD COLUMN vip_tier TEXT",
+  "ALTER TABLE users ADD COLUMN mult_id TEXT",
+  "ALTER TABLE users ADD COLUMN mult_until INTEGER",
   "ALTER TABLE users ADD COLUMN net TEXT",
   "ALTER TABLE users ADD COLUMN jry_wallet TEXT",
   "ALTER TABLE users ADD COLUMN jry_bal REAL",
@@ -332,6 +334,18 @@ async function applyMembership(env, u, tier, now) {
   return env.DB.prepare("UPDATE users SET vip_until = ?, vip_tier = ? WHERE uid = ?").bind(until, id, u.uid);
 }
 
+// Active yield multiplier of a player: { id, f, until } or null
+function multOf(u, now) {
+  const m = u && u.mult_id && u.mult_until > now ? L.multById(u.mult_id) : null;
+  return m ? { id: m.id, f: m.f, until: u.mult_until } : null;
+}
+// Buying a multiplier: same one extends it; a bigger one replaces it (a smaller one is refused while one runs)
+async function applyMult(env, u, m, now) {
+  const cur = multOf(u, now);
+  const until = cur && cur.id === m.id ? cur.until + m.days * DAY : now + m.days * DAY;
+  return env.DB.prepare("UPDATE users SET mult_id = ?, mult_until = ? WHERE uid = ?").bind(m.id, until, u.uid);
+}
+
 // Loads the game and gives a new partner their welcome gift (a legendary camel, once)
 async function stateFor(env, u, now, tier) {
   const st = await loadState(env, u.uid, now);
@@ -388,6 +402,7 @@ async function account(env, u) {
     payOpen: isTestnet(env) || env.PAYMENTS_LIVE === "1",
     testGifts: isAdmin(env, u) && isTestnet(env),
     vipUntil: u.vip_until,
+    mult: multOf(u, now),
     referralBalance: u.ref_balance,
     referralCount: c.n,
     activeRefs: await activeRefs(env, u.uid),
@@ -411,7 +426,7 @@ async function account(env, u) {
     earnStreak: (u.earn_sday ?? -1) >= L.dayId(now) - 1 ? Number(u.earn_streak) || 0 : 0,
     earnStreakToday: (u.earn_sday ?? -1) === L.dayId(now),
     // the same sum the server applies to Kombat profit (JRY held, collectibles, royal cards, catalog)
-    holdBoost: holdBoost(held) + (await nftBoost(env, u.uid)) + (await royalPerks(env, u.uid)).boost + (await catalogBoost(env, u.uid)),
+    holdBoost: holdBoost(held) + ((multOf(u, now) || { f: 1 }).f - 1) + (await nftBoost(env, u.uid)) + (await royalPerks(env, u.uid)).boost + (await catalogBoost(env, u.uid)),
     nftBoost: await nftBoost(env, u.uid),
     jryOn: !!env.JRY_ISSUER_SEED || isTestnet(env),
     invitedBy: inviter ? inviter.username : null,
@@ -625,14 +640,14 @@ const routes = {
     let res;
     try {
       const refs = a.type === "kTask" ? await activeRefs(env, u.uid) : 0;
-      res = L.apply(state, a, { now, tier, adVerified, rand: secureRandom, refs, hold: holdBoost(await jryHeld(env, u)) + (await nftBoost(env, u.uid)) + (await royalPerks(env, u.uid)).boost + (await catalogBoost(env, u.uid)) });
+      res = L.apply(state, a, { now, tier, adVerified, rand: secureRandom, refs, mult: (multOf(u, now) || { f: 1 }).f, hold: holdBoost(await jryHeld(env, u)) + ((multOf(u, now) || { f: 1 }).f - 1) + (await nftBoost(env, u.uid)) + (await royalPerks(env, u.uid)).boost + (await catalogBoost(env, u.uid)) });
     } catch (e) {
       if (e instanceof L.GameError) return json({ error: e.code, vars: e.vars, state, now }, 400);
       throw e;
     }
     await saveState(env, u.uid, res.s, now);
     if (a.type === "kTap" && res.dmg > 0) await bossHit(env, u.uid, res.dmg, now).catch((e) => logError(env, "boss hit", 0, e.message));
-    return { state: res.s, msg: res.msg, now };
+    return { state: res.s, msg: res.msg, palm: res.palm, now };
   },
 
   // ---------- Payments (User → App) ----------
@@ -646,6 +661,7 @@ const routes = {
     const item = checkPayment(p, u.uid);
     // A lower tier than the active one would be a downgrade: stop before any Pi moves
     const nowT = Date.now();
+    if (item.mult) { const cur = multOf(u, nowT); if (cur && item.mult.f < cur.f) bad("multLower"); }
     if (item.tier && u.vip_until > nowT && item.price < L.TIERS[paidTier(u, nowT)].price) bad("lowerTier");
     if (item.jry) {
       if (!isTestnet(env)) bad("badPayment");
@@ -2522,6 +2538,11 @@ function checkPayment(p, uid) {
     if (!Number.isInteger(offer) || offer <= 0 || !(Number(p.amount) > 0)) bad("badPayment");
     return { price: Number(p.amount), mk: offer };
   }
+  if (p.metadata?.type === "mult") {
+    const m = L.multById(p.metadata.mult);
+    if (!m || Number(p.amount) !== m.price) bad("badPayment");
+    return { price: m.price, mult: m };
+  }
   if (p.metadata?.type === "jrypts") {
     const pack = KL.JRYP.PACKS.find((x) => x.id === p.metadata.pack);
     if (!pack || Number(p.amount) !== pack.price) bad("badPayment");
@@ -2610,6 +2631,7 @@ async function completePayment(env, id, txid, uid) {
     }
     if (item.coins) stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, item.coins.coins, now));
     if (item.tier) stmts.push(await applyMembership(env, u, item.tier, now));
+    if (item.mult) stmts.push(await applyMult(env, u, item.mult, now));
     if (item.supFree) {
       const F = L.SUPPORT_FREE, n = item.supFree;
       stmts.push(env.DB.prepare("UPDATE users SET sup_pi = ROUND(COALESCE(sup_pi, 0) + ?, 7), sup_at = COALESCE(sup_at, ?), jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(n, now, n * F.JRY, u.uid));
@@ -2778,7 +2800,7 @@ async function royalPerks(env, uid) {
     if (!t) continue;
     boost += t.boost + (s.boost || 0); races += t.races + (s.races || 0);
   }
-  return { boost: Math.min(L.ROYAL.BOOST_MAX, boost), races: Math.min(20, races), count: cards.length };
+  return { boost: Math.min(L.ROYAL.BOOST_MAX, boost), races: Math.min(40, races), count: cards.length };
 }
 // A paid card: the copy shown to the buyer, or the next free one if someone else took it at the same
 // moment; if the tier sold out meanwhile, the Pi goes back to the buyer.

@@ -266,6 +266,8 @@ const ALTERS = [
   "INSERT OR IGNORE INTO chat_members (uid, room) SELECT DISTINCT substr(room, 4 + instr(substr(room, 4), ':')), room FROM chat_msgs WHERE room LIKE 'dm:%'",
   "ALTER TABLE users ADD COLUMN vip_tier TEXT",
   "ALTER TABLE users ADD COLUMN mult_id TEXT",
+  "ALTER TABLE codes ADD COLUMN kind2 TEXT",
+  "ALTER TABLE codes ADD COLUMN amount2 INTEGER",
   "ALTER TABLE users ADD COLUMN vipc_until INTEGER",
   "ALTER TABLE users ADD COLUMN mult_until INTEGER",
   "ALTER TABLE users ADD COLUMN net TEXT",
@@ -1582,6 +1584,21 @@ const routes = {
     return { top, ads: tot.ads, viewers: tot.viewers };
   },
 
+  // ---------- 🎁 The code of the day: one code a day, one use, valid 24 h (10,000 JRY + 5,000 dates) ----------
+  "GET /api/daily-code": async (req, env) => {
+    const now = Date.now(), day = Math.floor(now / DAY), note = "daily:" + day;
+    const cors = { "Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=15", "Content-Type": "application/json; charset=utf-8" };
+    let c = await one(env, "SELECT * FROM codes WHERE note = ? ORDER BY created_at ASC LIMIT 1", note);
+    if (!c) {
+      const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", b = crypto.getRandomValues(new Uint8Array(8));
+      const code = "DAY-" + [...b].map((x) => abc[x % abc.length]).join("");
+      await run(env, "INSERT OR IGNORE INTO codes (code, kind, amount, kind2, amount2, max_uses, used, expires_at, note, created_at) VALUES (?, 'jry', 10000, 'dates', 5000, 1, 0, ?, ?, ?)", code, now + DAY, note, now);
+      c = await one(env, "SELECT * FROM codes WHERE note = ? ORDER BY created_at ASC LIMIT 1", note);
+    }
+    const taken = c.used >= c.max_uses, expired = c.expires_at && c.expires_at < now;
+    return new Response(JSON.stringify({ code: taken || expired ? null : c.code, taken: !!taken, expiresAt: c.expires_at, jry: c.amount, dates: c.amount2 }), { headers: cors });
+  },
+
   // ---------- 🎟️ Gift codes ----------
   "POST /api/code/redeem": async (req, env, body) => {
     const u = await auth(req, env);
@@ -1598,9 +1615,10 @@ const routes = {
     const ins = await run(env, "INSERT OR IGNORE INTO code_uses (code, uid, at) VALUES (?, ?, ?)", code, u.uid, now);
     if (!ins.meta.changes) { await run(env, "UPDATE codes SET used = used - 1 WHERE code = ?", code); bad("code.used"); }
     await giveReward(env, u.uid, c.kind, c.amount, now, "code");
+    if (c.kind2 && c.amount2) await giveReward(env, u.uid, c.kind2, c.amount2, now, "code");
     const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
     const acc = await account(env, fresh);
-    return { ok: true, kind: c.kind, amount: c.amount, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
+    return { ok: true, kind: c.kind, amount: c.amount, kind2: c.kind2 || null, amount2: c.amount2 || 0, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
   },
   "POST /api/admin/codes": async (req, env, body) => {
     const u = await auth(req, env);

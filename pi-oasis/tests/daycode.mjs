@@ -1,0 +1,24 @@
+// The code of the day. Fresh harness.
+const B = "http://localhost:3457";
+const post = (p, b, h = {}) => fetch(B + p, { method: "POST", headers: { "Content-Type": "application/json", ...h }, body: JSON.stringify(b) }).then((r) => r.json());
+const sql = (q) => fetch(B + "/__test/sql", { method: "POST", body: q }).then((r) => r.json());
+let pass = 0, fail = 0;
+const ok = (c, m, x) => { console.log((c ? "PASS  " : "FAIL  ") + m + (c || x === undefined ? "" : " -> " + JSON.stringify(x))); c ? pass++ : fail++; };
+const H = async (tok) => ({ Authorization: "Bearer " + (await post("/api/auth", { accessToken: tok })).session });
+const HB = await H("tokB"), HC = await H("tokC");
+const rr = await fetch(B + "/api/daily-code"); let d = await rr.json();
+ok(rr.headers.get("access-control-allow-origin") === "*", "public, readable from the magazine (CORS)");
+ok(/^DAY-[A-Z0-9]{8}$/.test(d.code) && d.jry === 10000 && d.dates === 5000 && !d.taken, "today's code: 10,000 JRY + 5,000 dates", d);
+ok(Math.abs(d.expiresAt - Date.now() - 86400000) < 60000, "valid for one day");
+ok((await (await fetch(B + "/api/daily-code")).json()).code === d.code, "the same code all day");
+const j0 = (await sql("SELECT jry_pts FROM users WHERE username='bob'"))[0].jry_pts || 0;
+const d0 = (await post("/api/me", {}, HB), (await fetch(B + "/api/me", { headers: HB }).then((r) => r.json())).state.dates);
+let r = await post("/api/code/redeem", { code: d.code }, HB);
+ok(r.ok && r.amount === 10000 && r.amount2 === 5000 && r.kind2 === "dates", "bob redeems: both gifts", r);
+ok((await sql("SELECT jry_pts FROM users WHERE username='bob'"))[0].jry_pts === j0 + 10000, "10,000 JRY added");
+ok(r.state.dates === d0 + 5000, "5,000 dates added");
+ok((await post("/api/code/redeem", { code: d.code }, HC)).error === "code.empty", "one use only: carol is too late");
+d = await (await fetch(B + "/api/daily-code")).json();
+ok(d.taken && d.code === null, "after use the page shows it was taken (code hidden)");
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

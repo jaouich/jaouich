@@ -492,7 +492,13 @@
       { id: "r25", e: "🥈", price: 25, boost: 0.1, races: 2, gift: { dates: 800, coins: 60000, jry: 5 }, color: "#9aa7b8" },
       { id: "r50", e: "🥇", price: 50, boost: 0.18, races: 3, gift: { dates: 1800, coins: 150000, jry: 12 }, color: "#e2a918" },
       { id: "r100", e: "💎", price: 100, boost: 0.3, races: 5, gift: { dates: 4000, coins: 400000, jry: 30 }, color: "#7c5cff" },
+      // Premium cards: bigger perks and daily gifts (in-game only). They do not delay the Grand Final.
+      { id: "r500", e: "🔮", price: 500, boost: 0.5, races: 8, gift: { dates: 12000, coins: 1200000, jry: 80 }, color: "#d6336c", premium: true },
+      { id: "r1000", e: "👑", price: 1000, boost: 0.8, races: 12, gift: { dates: 30000, coins: 3000000, jry: 200 }, color: "#0ca678", premium: true },
+      { id: "r5000", e: "🌟", price: 5000, boost: 1.2, races: 20, gift: { dates: 200000, coins: 20000000, jry: 1500 }, color: "#111827", premium: true },
     ],
+    RESALE_TAX: 0.1, RESALE_MIN: 1, RESALE_MAX: 100000, // owners may resell a card; the app keeps 10% of the price
+    FINAL_TIERS: ["r10", "r25", "r50", "r100"],          // the Grand Final opens when these 4 sell out (2,000 cards)
     // One signature perk per copy, all of similar value
     SIGS: [
       { id: "moon", e: "🌙", spins: 1 },          // +1 wheel spin with the daily gift
@@ -503,7 +509,7 @@
       { id: "flame", e: "🔥", coins: 0.5 },       // +50% coins in the daily gift
       { id: "gem", e: "💠", jry: 1 },             // +100% JRY in the daily gift
     ],
-    BOOST_MAX: 0.6,
+    BOOST_MAX: 1.0,
     PRIZES: [1e9, 3e8, 1e8, 2e7, 2e7, 2e7, 2e7, 2e7, 2e7, 2e7], // Grand Royal Final, Kombat coins
     FINAL_DAYS: 30,
   };

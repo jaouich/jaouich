@@ -272,6 +272,8 @@
     svcRequest: (o) => api("/api/svc/request", o),
     adminSvc: (o) => api("/api/admin/svc", o),
     royalClaim: () => api("/api/royal/claim", {}),
+    royalList: (card, pi) => api("/api/royal/list", { card, pi }),
+    royalUnlist: (card) => api("/api/royal/unlist", { card }),
     supporters: () => api("/api/supporters"),
     buyJry,
     buyCoins,

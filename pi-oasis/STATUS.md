@@ -72,3 +72,5 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - Pi prize box: 🎁 My box now shows each player's Pi prizes and payouts (waiting vs already sent) from the payouts table; while A2U_LIVE="0" it says sending is not open yet and that prizes are sent automatically when it opens. Weekly prize notification text updated. Test: tests/gift.mjs.
 
 - Club tab: split into 5 sub-tabs (Membership, Cards, Shop, Invite & codes, Owner tools) via public/clubnav.js; adaptive grids, wrap fixes, safe-area bottom padding.
+
+- Royal cards: 3 premium tiers (500/1000/5000 Pi, 500 copies each, in-game perks only), resale between players with 10% seller tax (mk_offers kind=card), Club cards layout rebuilt. Grand Final still opens at the 2,000 original cards; boost cap 100%. Auctions not built yet.

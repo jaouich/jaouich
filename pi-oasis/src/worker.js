@@ -1442,8 +1442,8 @@ const routes = {
   "GET /api/mk": async (req, env) => {
     const u = await auth(req, env);
     const open = await all(env, `SELECT o.*, s.username AS seller FROM mk_offers o JOIN users s ON s.uid = o.uid
-      WHERE o.status IN ('open', 'reserved') ORDER BY o.pi / o.amount ASC, o.id ASC LIMIT 60`);
-    const mine = await all(env, "SELECT * FROM mk_offers WHERE uid = ? ORDER BY id DESC LIMIT 15", u.uid);
+      WHERE o.status IN ('open', 'reserved') AND o.kind != 'card' ORDER BY o.pi / o.amount ASC, o.id ASC LIMIT 60`);
+    const mine = await all(env, "SELECT * FROM mk_offers WHERE uid = ? AND kind != 'card' ORDER BY id DESC LIMIT 15", u.uid);
     const view = (o) => ({ id: o.id, kind: o.kind, amount: o.amount, pi: o.pi, status: o.status, seller: o.seller, mine: o.uid === u.uid });
     const pend = await one(env, "SELECT amount FROM withdrawals WHERE uid = ? AND src = 'mk' AND status IN ('pending', 'processing')", u.uid);
     return { offers: open.map(view), mine: mine.map(view), balance: Number(u.mk_balance) || 0, pending: pend ? pend.amount : 0,
@@ -1807,13 +1807,44 @@ const routes = {
     } catch (e) {}
     const fin = await one(env, "SELECT * FROM royal_final WHERE id = 1");
     const contest = fin ? (await royalContest(env, fin, 20)).map((r) => ({ username: r.username, earned: r.earned })) : [];
-    const sold = tiers.reduce((n, t) => n + t.sold, 0);
-    return { tiers, mine, contest, sold, total: R.MAX * R.TIERS.length, final: fin ? { start: fin.start_at, end: fin.end_at, done: !!fin.paid } : null };
+    const sold = tiers.filter((t) => R.FINAL_TIERS.includes(t.id)).reduce((n, t) => n + t.sold, 0);
+    const listings = await all(env, `SELECT o.id AS offer, o.pi, o.uid, o.status, c.id AS card, c.tier, c.ed, s.username AS seller FROM mk_offers o
+      JOIN royal_cards c ON c.id = o.amount JOIN users s ON s.uid = o.uid WHERE o.kind = 'card' AND o.status IN ('open', 'reserved') ORDER BY o.pi ASC, o.id ASC LIMIT 60`);
+    let me = null; try { me = (await auth(req, env)).uid; } catch (e) {}
+    const market = listings.map((o) => ({ offer: o.offer, card: o.card, tier: o.tier, ed: o.ed, sig: R.sigOf(o.tier, o.ed).id, pi: o.pi, seller: o.seller, mine: o.uid === me, busy: o.status === "reserved" }));
+    const listed = new Map(listings.filter((o) => o.uid === me).map((o) => [o.card, o.offer]));
+    for (const c of mine) c.offer = listed.get(c.id) || 0;
+    return { tiers, mine, market, tax: R.RESALE_TAX, contest, sold, total: R.MAX * R.FINAL_TIERS.length, final: fin ? { start: fin.start_at, end: fin.end_at, done: !!fin.paid } : null };
+  },
+  // Resell a card: fixed price in Pi. The card stays with its owner (locked) until it is sold or unlisted.
+  "POST /api/royal/list": async (req, env, body) => {
+    const u = await auth(req, env);
+    const R = L.ROYAL, pi = round(Number(body.pi)), now = Date.now();
+    if (!(pi >= R.RESALE_MIN && pi <= R.RESALE_MAX)) bad("rc.price");
+    const card = await one(env, "SELECT id FROM royal_cards WHERE id = ? AND uid = ?", Number(body.card), u.uid);
+    if (!card) bad("rc.notYours");
+    if (await one(env, "SELECT 1 AS x FROM mk_offers WHERE kind = 'card' AND amount = ? AND status IN ('open', 'reserved')", card.id)) bad("rc.listed");
+    await run(env, "INSERT INTO mk_offers (uid, kind, amount, pi, status, created_at, updated_at) VALUES (?, 'card', ?, ?, 'open', ?, ?)", u.uid, card.id, pi, now, now);
+    return { ok: true };
+  },
+  "POST /api/royal/unlist": async (req, env, body) => {
+    const u = await auth(req, env);
+    const o = await one(env, "SELECT * FROM mk_offers WHERE kind = 'card' AND amount = ? AND uid = ? AND status IN ('open', 'reserved')", Number(body.card), u.uid);
+    if (!o) bad("mk.gone");
+    const now = Date.now();
+    if (o.status === "reserved") {
+      let stale = now - o.reserved_at > MK.HOLD_MS;
+      if (stale) { try { const { p } = await findPayment(env, o.pay_id); stale = !p.transaction; } catch (e) {} }
+      if (!stale) bad("mk.busy");
+    }
+    const r = await run(env, "UPDATE mk_offers SET status = 'cancelled', updated_at = ? WHERE id = ? AND status IN ('open', 'reserved') AND COALESCE(pay_id, '') = ?", now, o.id, o.pay_id || "");
+    if (!r.meta.changes) bad("mk.busy");
+    return { ok: true };
   },
   "POST /api/royal/claim": async (req, env) => {
     const u = await auth(req, env);
     const now = Date.now(), day = L.dayId(now);
-    const cards = await all(env, "SELECT id, tier, ed FROM royal_cards WHERE uid = ?", u.uid);
+    const cards = await all(env, "SELECT id, tier, ed FROM royal_cards WHERE uid = ? AND id NOT IN (SELECT amount FROM mk_offers WHERE kind = 'card' AND status IN ('open', 'reserved'))", u.uid);
     if (!cards.length) bad("rc.none");
     const total = { dates: 0, coins: 0, jry: 0, spins: 0, feed: 0 };
     for (const c of cards) {
@@ -2740,7 +2771,7 @@ async function royalNext(env, tier) {
 }
 // What a player's royal cards add: Kombat profit and Derby races
 async function royalPerks(env, uid) {
-  const cards = await all(env, "SELECT tier, ed FROM royal_cards WHERE uid = ?", uid);
+  const cards = await all(env, "SELECT tier, ed FROM royal_cards WHERE uid = ? AND id NOT IN (SELECT amount FROM mk_offers WHERE kind = 'card' AND status IN ('open', 'reserved'))", uid);
   let boost = 0, races = 0;
   for (const c of cards) {
     const t = L.ROYAL.tierById(c.tier), s = L.ROYAL.sigOf(c.tier, c.ed);
@@ -2775,8 +2806,8 @@ async function royalContest(env, fin, limit) {
 }
 // All 2,000 copies sold: the final opens (once) and every holder is told
 async function royalMaybeFinal(env, now) {
-  const sold = (await one(env, "SELECT COUNT(*) AS n FROM royal_cards")).n;
-  if (sold < L.ROYAL.MAX * L.ROYAL.TIERS.length) return;
+  const sold = (await one(env, `SELECT COUNT(*) AS n FROM royal_cards WHERE tier IN (${L.ROYAL.FINAL_TIERS.map(() => "?").join(",")})`, ...L.ROYAL.FINAL_TIERS)).n;
+  if (sold < L.ROYAL.MAX * L.ROYAL.FINAL_TIERS.length) return;
   const r = await run(env, "INSERT OR IGNORE INTO royal_final (id, start_at, end_at, paid) VALUES (1, ?, ?, 0)", now, now + L.ROYAL.FINAL_DAYS * DAY);
   if (!r.meta.changes) return;
   const holders = await all(env, "SELECT DISTINCT uid FROM royal_cards");
@@ -3107,8 +3138,16 @@ async function mkSettle(env, item, payId, buyerUid, now) {
       crypto.randomUUID(), payId, buyerUid, item.price, now, now);
     return runPayouts(env).catch((e) => logError(env, "mk refund", 0, e.message));
   }
-  await creditPoints(env, buyerUid, o.kind, o.amount, now, "market");
-  const tax = round(o.pi * MK.TAX);
+  const isCard = o.kind === "card";
+  if (isCard) {
+    // the card changes hands with its number and signature; it is only given if the seller still owns it
+    const mv = await run(env, "UPDATE royal_cards SET uid = ? WHERE id = ? AND uid = ?", buyerUid, o.amount, o.uid);
+    if (!mv.meta.changes) {
+      await run(env, "INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'refund', ?, ?, ?, 'Pi Oasis card refund', 'new', ?, ?)", crypto.randomUUID(), payId, buyerUid, item.price, now, now);
+      return runPayouts(env).catch((e) => logError(env, "card refund", 0, e.message));
+    }
+  } else await creditPoints(env, buyerUid, o.kind, o.amount, now, "market");
+  const tax = round(o.pi * (isCard ? L.ROYAL.RESALE_TAX : MK.TAX));
   await env.DB.batch([
     env.DB.prepare("UPDATE users SET mk_balance = ROUND(COALESCE(mk_balance, 0) + ?, 7) WHERE uid = ?").bind(round(o.pi - tax), o.uid),
     // part of the tax feeds the weekly prize pool

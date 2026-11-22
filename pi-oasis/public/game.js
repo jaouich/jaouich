@@ -391,15 +391,25 @@
   function renderRoyal() {
     const d = rcData;
     if (!d) { $("rcShop").innerHTML = `<p class="hint">…</p>`; return; }
-    $("rcShop").innerHTML = RC.TIERS.map((tt) => { const x = d.tiers.find((y) => y.id === tt.id) || {}; return `<div class="rc-card" style="--c:${tt.color}">
-      <div class="rc-top"><i>${tt.e}</i><b>${t("rc.n." + tt.id)}</b><em dir="ltr">${x.sold || 0}/${RC.MAX}</em></div>
-      ${x.next ? `<div class="rc-next">${t("rc.next", { n: x.next })}</div>` : `<div class="rc-next">${t("rc.soldout")}</div>`}
+    const card = (tt) => { const x = d.tiers.find((y) => y.id === tt.id) || {}; return `<div class="rc-card${tt.premium ? " rc-prem" : ""}" style="--c:${tt.color}">
+      <div class="rc-top"><i>${tt.e}</i><b>${t("rc.n." + tt.id)}</b></div>
+      <div class="rc-meta"><em dir="ltr">${x.sold || 0}/${RC.MAX}</em><span class="rc-next">${x.next ? t("rc.next", { n: x.next }) : t("rc.soldout")}</span></div>
       <ul>${rcPerks(tt.id, x.sig)}</ul>
-      <button class="btn small gold" data-rc="${tt.id}" data-ed="${x.next || 0}" ${x.next ? "" : "disabled"}>${tt.price} Pi</button></div>`; }).join("");
+      <button class="btn small gold" data-rc="${tt.id}" data-ed="${x.next || 0}" ${x.next ? "" : "disabled"}>${fmtN(tt.price)} Pi</button></div>`; };
+    $("rcShop").innerHTML = `<div class="rc-grid">${RC.TIERS.filter((x) => !x.premium).map(card).join("")}</div>
+      <h3 class="rc-sub">💎 ${t("rc.premium")}</h3><p class="hint">${t("rc.premiumSub", { tax: Math.round(RC.RESALE_TAX * 100) })}</p>
+      <div class="rc-grid">${RC.TIERS.filter((x) => x.premium).map(card).join("")}</div>`;
     const mine = d.mine || [];
     $("rcMine").innerHTML = mine.length ? `<div class="rc-mine"><b>👑 ${t("rc.mine", { n: mine.length })}</b>
-      <div>${mine.map((c) => { const tt = RC.tierById(c.tier), s = RC.SIGS.find((x) => x.id === c.sig); return `<span style="--c:${tt.color}">${tt.e} #${c.ed} ${s.e}</span>`; }).join("")}</div>
-      <button class="btn small gold" data-rcclaim="1" ${mine.every((c) => c.got) ? "disabled" : ""}>${mine.every((c) => c.got) ? t("rc.claimed") : "🎁 " + t("rc.claim")}</button></div>` : "";
+      ${mine.map((c) => { const tt = RC.tierById(c.tier), sg = RC.SIGS.find((x) => x.id === c.sig); return `<div class="rc-own" style="--c:${tt.color}"><span>${tt.e} ${t("rc.n." + tt.id)} #${c.ed} ${sg.e}</span>
+        ${c.offer ? `<button class="btn small secondary" data-rcunlist="${c.id}">${t("rc.unlist")}</button>` : `<button class="btn small secondary" data-rcsell="${c.id}" data-rcname="${tt.id}">${t("rc.sell")}</button>`}</div>`; }).join("")}
+      <button class="btn small gold" data-rcclaim="1" ${mine.every((c) => c.got || c.offer) ? "disabled" : ""}>${mine.every((c) => c.got || c.offer) ? t("rc.claimed") : "🎁 " + t("rc.claim")}</button></div>` : "";
+    const mk = d.market || [];
+    $("rcMarket").innerHTML = `<h3 class="rc-sub">🏪 ${t("rc.market")}</h3>` + (mk.length ? `<div class="rc-grid">${mk.map((o) => { const tt = RC.tierById(o.tier), sg = RC.SIGS.find((x) => x.id === o.sig); return `<div class="rc-card" style="--c:${tt.color}">
+      <div class="rc-top"><i>${tt.e}</i><b>${t("rc.n." + tt.id)} #${o.ed}</b></div>
+      <div class="rc-meta"><span class="rc-next">${esc(o.seller)}</span></div>
+      <ul>${rcPerks(tt.id, o.sig)}</ul>
+      <button class="btn small gold" data-rcbuy="${o.offer}" ${o.mine || o.busy ? "disabled" : ""}>${fmtN(o.pi)} Pi</button></div>`; }).join("")}</div>` : `<p class="hint">${t("rc.marketEmpty")}</p>`);
     const P = RC.PRIZES;
     const fin = d.final, pct = Math.min(100, (100 * (d.sold || 0)) / (d.total || 2000));
     const finTxt = !fin ? `<small>${t("rc.waitD")}</small><div class="rc-bar"><i style="width:${pct}%"></i></div><small dir="ltr">${fmtN(d.sold || 0)} / ${fmtN(d.total || 2000)}</small>`
@@ -410,12 +420,26 @@
   }
   async function rcLoad() { try { rcData = await Pi.royal(); } catch (e) {} renderRoyal(); }
   $("tab-vip").addEventListener("click", async (e) => {
-    const b = e.target.closest("[data-rc], [data-rcclaim]");
+    const b = e.target.closest("[data-rc], [data-rcclaim], [data-rcsell], [data-rcunlist], [data-rcbuy]");
     if (!b) return;
     if (!account) return toast(t("t.loginFirst"));
     b.disabled = true;
     try {
-      if (b.dataset.rcclaim) {
+      if (b.dataset.rcsell) {
+        const v = await OasisAsk(t("rc.sellAsk", { min: RC.RESALE_MIN, max: fmtN(RC.RESALE_MAX), tax: Math.round(RC.RESALE_TAX * 100) }), "", { number: true });
+        const pi = Number(String(v || "").replace(",", "."));
+        if (!v || !(pi >= RC.RESALE_MIN)) { b.disabled = false; return; }
+        await Pi.royalList(Number(b.dataset.rcsell), pi); toast(t("rc.listedOk"));
+      } else if (b.dataset.rcunlist) {
+        await Pi.royalUnlist(Number(b.dataset.rcunlist)); toast(t("rc.unlistedOk"));
+      } else if (b.dataset.rcbuy) {
+        const o = (rcData.market || []).find((x) => x.offer === Number(b.dataset.rcbuy));
+        const tt = RC.tierById(o.tier);
+        if (!confirm(t("rc.confirm", { name: t("rc.n." + tt.id), n: o.ed, sig: t("rc.sig." + o.sig), p: fmtN(o.pi) }))) { b.disabled = false; return; }
+        const r = await Pi.buyMk({ id: o.offer, pi: o.pi });
+        if (r.account) account = r.account; if (r.state) S = r.state;
+        toast(t("rc.bought")); burst(); render();
+      } else if (b.dataset.rcclaim) {
         const r = await Pi.royalClaim();
         account = r.account; S = r.state; render(); burst();
         toast(t("rc.got", { d: fmtN(r.gift.dates), c: fmtN(r.gift.coins), j: r.gift.jry }));

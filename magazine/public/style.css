@@ -48,3 +48,19 @@ section { margin-bottom: 4px; }
 footer { background: var(--card); border-top: 1px solid var(--line); text-align: start; padding: 28px 16px 44px; } .fcols { max-width: var(--maxw); margin: 0 auto 14px; display: grid; gap: 22px; grid-template-columns: 1fr; } @media (min-width: 700px) { .fcols { grid-template-columns: 1.5fr 1fr 1fr; } } .fcols b { display: block; margin-bottom: 6px; font-size: 1rem; color: var(--ink); } .fcols a { display: block; padding: 2px 0; color: var(--mut); } .fcols p { margin: 0; color: var(--mut); } footer .ai { max-width: var(--maxw); margin: 0 auto; text-align: start; }
 .post { max-width: 760px; } @media (min-width: 900px) { .post h1 { font-size: 2.1rem; } .manga { max-width: 560px; } }
 .sec { margin-top: 6px; }
+
+.share { margin: 22px 0; padding: 14px; border-radius: 16px; background: var(--card, #f7f3ea); }
+.share-b { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.sb { display: inline-flex; align-items: center; min-height: 42px; padding: 0 14px; border-radius: 99px; border: 0; font: inherit; font-weight: 700; color: #fff; background: #555; text-decoration: none; cursor: pointer; }
+.sb-f { background: #1877f2; } .sb-w { background: #1faa59; } .sb-t { background: #229ed9; } .sb-x { background: #111; } .sb-c, .sb-m { background: #7c5cff; }
+.cardpromo { display: flex; gap: 16px; margin: 24px 0; padding: 18px; border-radius: 20px; background: linear-gradient(135deg, #2a1162, #7c5cff); color: #fff; align-items: flex-start; }
+.cardpromo .cp-e { font-size: 64px; line-height: 1; }
+.cardpromo h3 { margin: 6px 0; } .cardpromo ul { padding-inline-start: 20px; line-height: 1.7; } .cardpromo small { display: block; margin-top: 10px; opacity: .8; }
+.cardpromo .tag { background: rgba(255,255,255,.2); color: #fff; }
+.cardpromo .btn { display: inline-block; background: #ffd86b; color: #2a1c00; font-weight: 800; padding: 12px 20px; border-radius: 99px; text-decoration: none; }
+.daycode { margin: 24px 0; padding: 18px; border-radius: 20px; background: linear-gradient(135deg, #fff1c2, #ffd86b); color: #3a2400; }
+.daycode h2 { margin-top: 0; } .dc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0; }
+.dc-row code { font-size: 1.3rem; font-weight: 800; background: #fff; padding: 8px 14px; border-radius: 10px; letter-spacing: .08em; }
+.dc-row .btn { background: #3a2400; color: #ffd86b; padding: 10px 18px; border-radius: 99px; text-decoration: none; font-weight: 700; }
+.char img { background: #000; }
+@media (max-width: 560px) { .cardpromo { flex-direction: column; } }

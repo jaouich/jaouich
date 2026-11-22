@@ -1588,6 +1588,10 @@ const routes = {
   "GET /api/daily-code": async (req, env) => {
     const now = Date.now(), day = Math.floor(now / DAY), note = "daily:" + day;
     const cors = { "Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=15", "Content-Type": "application/json; charset=utf-8" };
+    // the magazine and the app both read this: keep an answer for 15 s so visitors don't hit the database
+    const ck = new Request("https://daycode-cache.invalid/" + day), cache = typeof caches !== "undefined" ? caches.default : null;
+    const hit = cache ? await cache.match(ck) : null;
+    if (hit) return new Response(hit.body, { headers: cors });
     let c = await one(env, "SELECT * FROM codes WHERE note = ? ORDER BY created_at ASC LIMIT 1", note);
     if (!c) {
       const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", b = crypto.getRandomValues(new Uint8Array(8));
@@ -1596,7 +1600,9 @@ const routes = {
       c = await one(env, "SELECT * FROM codes WHERE note = ? ORDER BY created_at ASC LIMIT 1", note);
     }
     const taken = c.used >= c.max_uses, expired = c.expires_at && c.expires_at < now;
-    return new Response(JSON.stringify({ code: taken || expired ? null : c.code, taken: !!taken, expiresAt: c.expires_at, jry: c.amount, dates: c.amount2 }), { headers: cors });
+    const out = JSON.stringify({ code: taken || expired ? null : c.code, taken: !!taken, expiresAt: c.expires_at, jry: c.amount, dates: c.amount2 });
+    if (cache) await cache.put(ck, new Response(out, { headers: cors }));
+    return new Response(out, { headers: cors });
   },
 
   // ---------- 🎟️ Gift codes ----------

@@ -1,1 +1,7 @@
-{ "name": "مجلة جيري", "tagline": "مقالات ومانغا وقصص من مجتمع Jerry Development", "baseUrl": "https://jerry-magazine.jaouich.workers.dev" }
+{
+ "name": "مجلة جيري",
+ "tagline": "مقالات ومانغا وقصص من مجتمع Jerry Development",
+ "baseUrl": "https://jerry-magazine.jaouich.workers.dev",
+ "appUrl": "https://jerryoasis9559.pinet.com",
+ "gameApi": "https://jaouich.jaouich.workers.dev"
+}

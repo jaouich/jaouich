@@ -44,7 +44,7 @@ const vote = JSON.parse(fs.readFileSync(path.join(C, "vote.json"), "utf8"));
 // ---- art files ----
 for (const p of posts) write(`img/${p.kind}-${p.slug}.svg`, cover(p.cover || SECTIONS[p.section].scene, p.slug));
 for (const k of Object.keys(SECTIONS)) write(`img/sec-${k}.svg`, cover(SECTIONS[k].scene, k));
-for (const s of series) { write(`img/manga-${s.id}.svg`, cover(s.scene, s.id)); for (const c of s.chapters) c.panels.forEach((p, i) => write(`img/manga/${s.id}-${c.n}-${i + 1}.svg`, panel(p, i + 1))); }
+for (const s of series) { for (const ch of s.characters || []) write(`img/manga/${s.id}-char-${ch.who}.svg`, panel({ scene: s.scene, chars: [{ who: ch.who, x: 200, y: 120, s: 1.5, e: "happy" }], note: ch.name }, 1)); write(`img/manga-${s.id}.svg`, cover(s.scene, s.id)); for (const c of s.chapters) c.panels.forEach((p, i) => write(`img/manga/${s.id}-${c.n}-${i + 1}.svg`, panel(p, i + 1))); }
 const imgOf = (p) => `/img/${p.kind}-${p.slug}.svg`;
 
 // ---- layout ----
@@ -62,6 +62,21 @@ const card = (p) => `<a class="card" href="${p.url}"><img src="${imgOf(p)}" alt=
 const subscribe = `<form class="sub" data-sub><h3>✉️ اشترك ليصلك جديد المجلة</h3><div><input type="email" name="email" required placeholder="بريدك الإلكتروني" autocomplete="email"><button>اشترك</button></div><p class="msg" role="status"></p></form>`;
 const voteBox = `<section class="votebox" data-vote data-week="${vote.week}"><h2>🗳️ صوّت على موضوع الأسبوع القادم</h2><p>اضغط على الموضوع الذي تريده. الأكثر أصواتًا نكتب عنه.</p>${vote.topics.map((t) => `<button class="vt" data-id="${t.id}"><span>${esc(t.text)}</span><i></i><b>0</b></button>`).join("")}<p class="msg" role="status"></p></section>`;
 
+const CARDS = {
+  origins: { e: "🦊", name: "بطاقة جيري: الأصول", rar: "أسطورية", price: 3000000, max: 10000, perk: 12 },
+  caravan: { e: "🐪", name: "بطاقة نور: القافلة", rar: "نادرة", price: 100000, max: 10000, perk: 3 },
+  lamp: { e: "🪔", name: "بطاقة الساحر: المصباح", rar: "نادرة", price: 100000, max: 10000, perk: 3 },
+  falcon: { e: "🦅", name: "بطاقة الصقر", rar: "ملحمية", price: 400000, max: 10000, perk: 6 },
+  dragon: { e: "🐉", name: "بطاقة التنين", rar: "أسطورية", price: 2500000, max: 10000, perk: 12 },
+  sun: { e: "☀️", name: "بطاقة الشمس", rar: "خرافية (3 نسخ فقط)", price: 15000000, max: 3, perk: 20 },
+  star: { e: "⭐", name: "بطاقة النجمة", rar: "خرافية (نسخة واحدة فقط)", price: 20000000, max: 1, perk: 25 },
+};
+const nf = (n) => Number(n).toLocaleString("en-US");
+const shareBar = (title) => `<div class="share" data-share data-title="${esc(title)}"><b>📣 شارك مع أصدقائك</b><div class="share-b"></div></div>`;
+const cardPromo = (c) => { const k = c && c.card && CARDS[c.card.id]; if (!k) return ""; return `<aside class="cardpromo"><div class="cp-e">${k.e}</div><div><span class="tag">🃏 بطاقة هذا الفصل · ${k.rar}</span><h3>${esc(k.name)}</h3><p>${esc(c.card.pitch || "")}</p><ul><li>${k.max <= 3 ? `لا توجد إلا ${k.max} نسخة في العالم كله` : `${nf(k.max)} نسخة فقط في العالم`}</li><li>سعر الإصدار يبدأ من ${nf(k.price)} عملة كومبات، ويرتفع 10٪ مع كل 1,000 نسخة تُصدر: من يأتي مبكرًا يدفع أقل</li><li>تمنح صاحبها +${k.perk}٪ أرباح كومبات داخل اللعبة، ويمكنه بيعها أو مبادلتها مع لاعبين آخرين</li></ul><a class="btn" href="${SITE.appUrl}" target="_blank" rel="noopener">افتح Pi Oasis واحصل عليها</a><small>أغراض رقمية داخل اللعبة. لا نعد بأي ربح مالي ولا بارتفاع قيمتها، والسعر المذكور هو سعر الإصدار فقط.</small></div></aside>`; };
+const chars = (s) => (s.characters || []).length ? `<h2>👥 شخصيات المانغا وبطاقاتها</h2><p>كل شخصية في القصة لها بطاقة نادرة داخل Pi Oasis. هذا تعريف بهم:</p><div class="grid">${s.characters.map((c) => { const k = CARDS[c.card] || {}; return `<div class="card char"><img src="/img/manga/${s.id}-char-${c.who}.svg" alt="${esc(c.name)}" loading="lazy"><div><span class="tag">${k.e || ""} ${k.rar || ""}</span><h3>${esc(c.name)}</h3><p>${esc(c.bio)}</p><p><b>بطاقته:</b> ${esc(k.name || "")}: ${nf(k.max || 0)} نسخة، من ${nf(k.price || 0)} عملة، ويرتفع السعر مع كل 1,000 نسخة تُصدر.</p></div></div>`; }).join("")}</div>` : "";
+const dayCodeBox = `<section class="daycode" data-daycode data-api="${SITE.gameApi}/api/daily-code" data-app="${SITE.appUrl}"><h2>🎁 كود الهدية اليومي</h2><p class="dc-msg">يُستخدم مرة واحدة فقط: أول لاعب يُدخله في Pi Oasis يحصل على 10,000 نقطة JRY و5,000 تمرة. صالح 24 ساعة.</p><div class="dc-body">…</div></section>`;
+
 // ---- pages ----
 const hero = posts[0], rest = posts.slice(1);
 for (const [k, s] of Object.entries(SECTIONS)) {
@@ -72,15 +87,17 @@ for (const [k, s] of Object.entries(SECTIONS)) {
 for (const p of posts) {
   const more = posts.filter((x) => x.slug !== p.slug && x.section === p.section).slice(0, 2).concat(posts.filter((x) => x.slug !== p.slug && x.section !== p.section)).slice(0, 3);
   write(`${p.kind === "a" ? "a" : "story"}/${p.slug}/index.html`, layout({ title: p.title, desc: p.excerpt, path: p.url, og: imgOf(p), body: `<article class="post"><a class="tag" href="/s/${p.section}/">${SECTIONS[p.section].icon} ${SECTIONS[p.section].name}</a><h1>${esc(p.title)}</h1><p class="meta">${fdate(p.date)} · ${Math.max(1, Math.round(words(p.body) / 180))} دقائق قراءة</p><img class="cov" src="${imgOf(p)}" alt="">${md(p.body)}</article>
+${shareBar(p.title)}
 <section class="comments" data-comments data-slug="${p.kind}-${p.slug}"><h2>💬 التعليقات</h2><div class="list"></div><form><input name="name" maxlength="30" placeholder="اسمك (اختياري)"><textarea name="text" required maxlength="500" rows="3" placeholder="اكتب تعليقك… (بدون روابط)"></textarea><button>أرسل</button><p class="msg" role="status"></p></form></section>
 ${subscribe}<section><h2>اقرأ أيضًا</h2><div class="grid">${more.map(card).join("")}</div></section>` }));
 }
 write("manga/index.html", layout({ title: "مانغا", path: "/manga/", og: "/img/sec-manga.svg", body: `<h1 class="sec"><img src="/img/sec-manga.svg" alt="">🎨 مانغا</h1><p>مانغا مرسومة بالكامل داخل المجلة. تُقرأ من اليمين إلى اليسار ومن الأعلى إلى الأسفل.</p><div class="grid">${series.map((s) => `<a class="card" href="/manga/${s.id}/"><img src="/img/manga-${s.id}.svg" alt=""><div><h3>${esc(s.title)}</h3><p>${esc(s.blurb)}</p><small>${s.chapters.length} فصل</small></div></a>`).join("")}</div>${subscribe}` }));
 for (const s of series) {
-  write(`manga/${s.id}/index.html`, layout({ title: s.title, desc: s.blurb, path: `/manga/${s.id}/`, og: `/img/manga-${s.id}.svg`, body: `<h1 class="sec"><img src="/img/manga-${s.id}.svg" alt="">${esc(s.title)}</h1><p>${esc(s.blurb)}</p><ol class="chap">${s.chapters.map((c) => `<li><a href="/manga/${s.id}/${c.n}/">الفصل ${c.n}: ${esc(c.title)}</a></li>`).join("")}</ol>${subscribe}` }));
+  write(`manga/${s.id}/index.html`, layout({ title: s.title, desc: s.blurb, path: `/manga/${s.id}/`, og: `/img/manga-${s.id}.svg`, body: `<h1 class="sec"><img src="/img/manga-${s.id}.svg" alt="">${esc(s.title)}</h1><p>${esc(s.blurb)}</p><ol class="chap">${s.chapters.map((c) => `<li><a href="/manga/${s.id}/${c.n}/">الفصل ${c.n}: ${esc(c.title)}</a></li>`).join("")}</ol>${chars(s)}${shareBar(s.title)}${subscribe}` }));
   for (const c of s.chapters) {
     const prev = s.chapters.find((x) => x.n === c.n - 1), next = s.chapters.find((x) => x.n === c.n + 1);
     write(`manga/${s.id}/${c.n}/index.html`, layout({ title: `${s.title} · الفصل ${c.n}`, desc: c.title, path: `/manga/${s.id}/${c.n}/`, og: `/img/manga/${s.id}-${c.n}-1.svg`, body: `<h1>${esc(s.title)}<small>الفصل ${c.n}: ${esc(c.title)}</small></h1><div class="manga">${c.panels.map((p, i) => `<img src="/img/manga/${s.id}-${c.n}-${i + 1}.svg" alt="${esc(p.note || "")}" loading="${i < 2 ? "eager" : "lazy"}">`).join("")}</div><p class="nextprev">${prev ? `<a href="/manga/${s.id}/${prev.n}/">→ الفصل السابق</a>` : "<span></span>"}${next ? `<a href="/manga/${s.id}/${next.n}/">الفصل التالي ←</a>` : "<span>الفصل التالي قريبًا</span>"}</p>
+${cardPromo(c)}${shareBar(`${s.title} · الفصل ${c.n}`)}
 <section class="comments" data-comments data-slug="manga-${s.id}-${c.n}"><h2>💬 التعليقات</h2><div class="list"></div><form><input name="name" maxlength="30" placeholder="اسمك (اختياري)"><textarea name="text" required maxlength="500" rows="3" placeholder="رأيك في الفصل…"></textarea><button>أرسل</button><p class="msg" role="status"></p></form></section>${subscribe}` }));
   }
 }
@@ -120,6 +137,7 @@ const mini = (p) => `<a class="mini" href="${p.url}"><img src="${imgOf(p)}" alt=
 const home = `
 <section class="top-grid"><div class="hero"><a href="${hero.url}"><img src="${imgOf(hero)}" alt=""><div><span class="tag">${SECTIONS[hero.section].icon} ${SECTIONS[hero.section].name}</span><h1>${esc(hero.title)}</h1><p>${esc(hero.excerpt)}</p></div></a></div>
 <div class="side"><h2 class="sh-s">الآن في المجلة</h2>${latestManga ? `<a class="mini new" href="/manga/${latestManga.s.id}/${latestManga.c.n}/"><img src="/img/manga/${latestManga.s.id}-${latestManga.c.n}-1.svg" alt="" loading="lazy"><div><span class="tag">🎨 مانغا · جديد</span><h3>${esc(latestManga.s.title)}: ${esc(latestManga.c.title)}</h3><small>الفصل ${latestManga.c.n}</small></div></a>` : ""}${side.map(mini).join("")}</div></section>
+${dayCodeBox}
 ${series.length ? `<section>${sh("🎨", "مانغا", "/manga/")}<div class="rail">${series.map((s) => `<a class="card" href="/manga/${s.id}/"><img src="/img/manga-${s.id}.svg" alt="" loading="lazy"><div><span class="tag">🎨 ${s.chapters.length} فصل</span><h3>${esc(s.title)}</h3><p>${esc(s.blurb)}</p></div></a>`).join("")}${series.flatMap((s) => s.chapters.slice().reverse().slice(0, 3).map((c) => `<a class="card" href="/manga/${s.id}/${c.n}/"><img src="/img/manga/${s.id}-${c.n}-1.svg" alt="" loading="lazy"><div><span class="tag">الفصل ${c.n}</span><h3>${esc(c.title)}</h3></div></a>`)).join("")}</div></section>` : ""}
 ${docs.length ? `<section>${sh("🎬", "وثائقيات جيري", "/docs/")}<div class="rail">${docs.slice().reverse().map((d) => `<a class="card" href="/docs/${d.id}/"><img src="/img/doc-${d.id}.svg" alt="" loading="lazy"><div><span class="tag">🎬 ${d.n} · AR / EN</span><h3>${esc(d.title.ar)}</h3><p dir="ltr" style="text-align:left">${esc(d.title.en)}</p></div></a>`).join("")}</div></section>` : ""}
 <section>${sh("📰", "أحدث المقالات والقصص", "/s/community/", "كل الأقسام")}<div class="grid">${posts.slice(1).map(card).join("")}</div></section>

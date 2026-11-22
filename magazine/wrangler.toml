@@ -4,11 +4,12 @@ compatibility_date = "2025-09-01"
 workers_dev = true
 
 # The pages are plain files built by `node build.mjs` and committed in ./public (no build step on Cloudflare).
-# Only /api/* runs the Worker (comments, votes, newsletter); everything else is served as static files.
+# /api/* runs the Worker (comments, votes, newsletter) and so do the video, subtitle and script files, which the Worker only
+# hands out to the on-page player (or to the owner with the OWNER_KEY secret). Everything else is served as static files.
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = ["/api/*"]
+run_worker_first = ["/api/*", "/courses/*.mp4", "/courses/*.srt", "/courses/*.txt", "/docs/*.mp4", "/docs/*.srt", "/docs/*.txt"]
 not_found_handling = "404-page"
 
 # No database_id: Cloudflare creates the D1 database on the first deploy; the Worker creates its own tables.

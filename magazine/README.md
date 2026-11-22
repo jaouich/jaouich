@@ -15,3 +15,8 @@ Static pages (articles, stories, manga) in `public/` plus a tiny API (`src/worke
 
 ## Documentaries (Arabic + English)
 `docs/<slug>.json` holds one episode with both languages (`slides[].en` / `.ar`). `node courses/make.mjs doc:<slug>` (or `doc:all`) renders `public/docs/<slug>/{en,ar}.{mp4,srt,txt}`; `node build.mjs` builds `/docs/`. Silent videos with subtitles and a timed voice-over script (no text-to-speech engine in the build environment).
+
+## Protecting the videos (owner-only downloads)
+- The player pages have no download buttons (`controlsList="nodownload"`, no right-click menu). `.mp4`, `.srt` and `.txt` under `/courses/` and `/docs/` run through the Worker (`run_worker_first` in `wrangler.toml`): a video is only served when the request comes from the page's own `<video>` (`Sec-Fetch-Dest: video`, `Sec-Fetch-Site: same-origin`), subtitles only to the `<track>`, and the `.txt` scripts never.
+- The owner downloads with the Cloudflare secret **`OWNER_KEY`** (Worker → Settings → Variables and Secrets → add a *Secret*; choose a long random value and never share it): open `/api/owner?key=<OWNER_KEY>` for the list of files. With no `OWNER_KEY` set, nobody can download.
+- Honest limit: anything a browser can play can be copied by a determined person (screen recording, scripts that fake the headers). This stops casual saving, direct links, hotlinking and bots.

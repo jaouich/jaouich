@@ -71,9 +71,41 @@ const routes = {
   },
 };
 
+
+// ---- Video protection: the files are only handed to the page's own video player; downloads need the owner's key ----
+const safeEq = (a, b) => { a = String(a); b = String(b); if (a.length !== b.length) return false; let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; };
+async function protectedFile(req, env, url) {
+  const ext = url.pathname.split(".").pop();
+  const h = (n) => req.headers.get(n) || "";
+  const key = url.searchParams.get("key") || "";
+  if (env.OWNER_KEY && key && safeEq(key, env.OWNER_KEY)) { // the owner: any file, as a download
+    const clean = new URL(url); clean.search = "";
+    const r = await env.ASSETS.fetch(new Request(clean, { method: "GET", headers: req.headers }));
+    if (!r.ok) return r;
+    const out = new Response(r.body, r); out.headers.set("Content-Disposition", `attachment; filename="${url.pathname.slice(1).replace(/\//g, "-")}"`); out.headers.set("Cache-Control", "private, no-store"); out.headers.set("X-Robots-Tag", "noindex");
+    return out;
+  }
+  const dest = h("Sec-Fetch-Dest"), site = h("Sec-Fetch-Site");
+  const okDest = ext === "mp4" ? dest === "video" : ext === "srt" ? dest === "track" : false; // scripts (.txt) are never public
+  if (!okDest || !(site === "same-origin")) return new Response("Downloads are for the owner only.", { status: 403, headers: { "Cache-Control": "no-store" } });
+  const r = await env.ASSETS.fetch(req);
+  const out = new Response(r.body, r); out.headers.set("Cache-Control", "private, max-age=3600"); out.headers.set("Content-Disposition", "inline"); out.headers.set("X-Robots-Tag", "noindex");
+  return out;
+}
+async function ownerPage(req, env, url) {
+  const key = url.searchParams.get("key") || "";
+  if (!env.OWNER_KEY || !key || !safeEq(key, env.OWNER_KEY)) return new Response("Not found", { status: 404 });
+  const files = await (await env.ASSETS.fetch(new Request(new URL("/files.json", url)))).json().catch(() => []);
+  const k = encodeURIComponent(key);
+  const rows = files.map((f) => `<li><b>${f.label.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</b><br>${f.files.map((x) => `<a href="${x}?key=${k}">${x.split(".").pop().toUpperCase()}</a>`).join(" · ")}</li>`).join("");
+  return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Owner downloads</title><body style="font-family:system-ui;max-width:640px;margin:20px auto;padding:0 14px;line-height:1.9"><h2>⬇ Owner downloads</h2><p>Only you can download the videos, subtitles and scripts. Do not share this link.</p><ul>${rows}</ul>`, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url), h = routes[`${req.method} ${url.pathname}`];
+    if (url.pathname === "/api/owner") return ownerPage(req, env, url);
+    if (/^\/(courses|docs)\/.+\.(mp4|srt|txt)$/.test(url.pathname)) return protectedFile(req, env, url);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(req);
     if (!h) return bad("notFound", 404);
     try {

@@ -1475,3 +1475,20 @@ main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 .mg-tabs button { font-size: .8rem; }
 
 .bx-pi { background: rgba(255,211,77,.14); border: 1px solid rgba(255,211,77,.45); border-radius: 16px; padding: 10px 14px; margin: 12px 0; } .bx-pih { display: flex; gap: 12px; align-items: center; } .bx-pih > span { width: 46px; height: 46px; border-radius: 50%; background: #f5b82e; color: #8a5a12; font: 900 1.7rem/46px serif; text-align: center; flex: none; } .bx-pih b { font-size: 1.7rem; display: block; } .bx-pih small { opacity: .85; }
+
+/* ---- Adaptive pages + Club sub-navigation ---- */
+.tab { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+main { overflow-x: hidden; }
+.club-nav { position: sticky; top: 0; z-index: 5; display: flex; gap: 6px; overflow-x: auto; padding: 8px 2px; margin: 0 0 10px; background: var(--bg, #fff8e8); scrollbar-width: none; }
+.club-nav::-webkit-scrollbar { display: none; }
+.club-nav button { flex: 0 0 auto; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #e6c787; background: #fff; font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.club-nav button.on { background: linear-gradient(135deg,#f5c542,#e59a1a); color: #3a2400; border-color: transparent; }
+.club-grp { display: none; }
+.club-grp.on { display: block; animation: fadeUp .2s ease; }
+#tab-vip .tiers, #tab-vip .rc-shop, #tab-vip .sup-shop, #tab-vip .lv-shop, #tab-vip .shop { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+#tab-vip input, #tab-vip select, #tab-vip textarea { min-width: 0; max-width: 100%; }
+#tab-vip .ref-row, #tab-vip .row { flex-wrap: wrap; }
+#tab-vip .panel, #tab-vip p, #tab-vip .list > * { overflow-wrap: anywhere; }
+#tab-vip .pl-list, #tab-vip #caList, #tab-vip #jdList, #tab-vip #adList { max-height: 60dvh; overflow: auto; }
+@media (max-height: 600px) { .tab { padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); } .club-nav { padding: 4px 2px; } .club-nav button { min-height: 38px; } }
+@media (prefers-color-scheme: dark) { .club-nav { background: var(--bg, #1b1710); } .club-nav button { background: #2a2418; color: inherit; } }

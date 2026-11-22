@@ -7,3 +7,4 @@ Site: https://jaouich6.wordpress.com (blog id 257964560). Daily scheduled task: 
 - 2026-11-22 | design | magazine layout v2: organised adaptive home (hero + latest, rails for manga/documentaries/courses, grid of posts, vote + newsletter), 3-column footer | no problems
 - 2026-11-22 | security | videos are served only to the page's own player; downloads, subtitles and scripts need the owner key (OWNER_KEY secret, /api/owner?key=) | owner must set OWNER_KEY
 - 2026-11-22 | watermark | all 12 videos re-rendered with a corner watermark (courses and documentaries) | no problems
+- 2026-11-22 | daily | manga ch3 'طائر في البحيرة'; article pi-beginner-checklist (sources weak: third-party guides only, so a cautious checklist); lesson ai-right-way/04; vote week W49 (no votes were cast for W48, rotated freely); no documentary today (docs 1-3 were added today) | no problems

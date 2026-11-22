@@ -1,0 +1,39 @@
+Use AI the Right Way · Lesson 4: Protect your privacy and accounts
+Length: 116 seconds (1:56)
+
+=== TITLE (YouTube / Facebook) ===
+Use AI the Right Way | Lesson 4: Protect your privacy and accounts
+
+=== DESCRIPTION ===
+What never to share with an AI tool, how to protect your accounts, and how to avoid fake AI apps and sites.
+
+Part of the free course "Use AI the Right Way" by Jerry Development. More lessons: https://jerry-magazine.jaouich.workers.dev/courses/
+
+This video was produced with the help of AI (script, slides and illustrations). The information is general and not financial, legal or professional advice.
+
+#AI #ArtificialIntelligence #LearnAI #OnlineWork #Freelance #FreeCourse #JerryDevelopment
+
+=== VOICE-OVER SCRIPT (read it, or paste it into a text-to-speech tool; slides are timed for a calm pace of about 150 words per minute) ===
+[Slide 1 · 14s]
+Lesson four. AI tools are useful, but they are also online services. In this lesson you will learn what never to share, and how to keep your accounts safe while you use them.
+
+[Slide 2 · 15.6s]
+A good rule is to treat every AI chat like a public place. Depending on the tool, your messages may be stored or reviewed. So never type anything that would hurt you if someone else read it.
+
+[Slide 3 · 14.4s]
+Never share passwords or one time codes, wallet recovery phrases and private keys, or ID numbers, bank cards and your home address. No honest service needs these things in a chat with an AI.
+
+[Slide 4 · 13.2s]
+Be careful with other people's data too. Do not paste private messages. Remove names and details before you ask for help, and ask permission before you upload someone's photo or document.
+
+[Slide 5 · 15.6s]
+Build safer habits. Use strong and different passwords, turn on two step login, and look at the privacy settings of each tool, such as chat history and whether your data can be used to improve the service.
+
+[Slide 6 · 14.4s]
+Beware of fake AI websites and apps. Copy cat apps can steal your login. Install apps only from official stores, and type the official address yourself instead of clicking links from messages or ads.
+
+[Slide 7 · 14s]
+At work or at school, follow the rules. Do not upload confidential documents or customer data to a public AI tool unless you are allowed to. When you are not sure, ask first.
+
+[Slide 8 · 14.8s]
+A simple rule to remember: if anything asks you for a secret, stop. Next lesson: how to use AI to learn faster, without losing your own thinking. Follow Jerry Development for the full free course.

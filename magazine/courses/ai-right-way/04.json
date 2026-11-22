@@ -1,0 +1,82 @@
+{
+ "course": "Use AI the Right Way",
+ "n": 4,
+ "title": "Protect your privacy and accounts",
+ "summary": "What never to share with an AI tool, how to protect your accounts, and how to avoid fake AI apps and sites.",
+ "slides": [
+  {
+   "k": "title",
+   "h": "Lesson 4",
+   "sub": "Protect your privacy and accounts",
+   "scene": "safety",
+   "say": "Lesson four. AI tools are useful, but they are also online services. In this lesson you will learn what never to share, and how to keep your accounts safe while you use them."
+  },
+  {
+   "k": "statement",
+   "h": "Treat every AI chat\nlike a public place",
+   "scene": "night",
+   "say": "A good rule is to treat every AI chat like a public place. Depending on the tool, your messages may be stored or reviewed. So never type anything that would hurt you if someone else read it."
+  },
+  {
+   "k": "points",
+   "h": "Never share",
+   "pts": [
+    "Passwords and one-time codes",
+    "Wallet recovery phrases and private keys",
+    "ID numbers, bank cards, addresses"
+   ],
+   "scene": "safety",
+   "say": "Never share passwords or one time codes, wallet recovery phrases and private keys, or ID numbers, bank cards and your home address. No honest service needs these things in a chat with an AI."
+  },
+  {
+   "k": "points",
+   "h": "Other people's data",
+   "pts": [
+    "Do not paste private messages",
+    "Remove names before you ask for help",
+    "Ask permission for photos and documents"
+   ],
+   "scene": "community",
+   "say": "Be careful with other people's data too. Do not paste private messages. Remove names and details before you ask for help, and ask permission before you upload someone's photo or document."
+  },
+  {
+   "k": "points",
+   "h": "Safer habits",
+   "pts": [
+    "Use strong, different passwords",
+    "Turn on two-step login",
+    "Check settings: history and training"
+   ],
+   "scene": "tech",
+   "say": "Build safer habits. Use strong and different passwords, turn on two step login, and look at the privacy settings of each tool, such as chat history and whether your data can be used to improve the service."
+  },
+  {
+   "k": "points",
+   "h": "Fake AI sites and apps",
+   "pts": [
+    "Copy-cat apps steal logins",
+    "Install only from official stores",
+    "Type the official address yourself"
+   ],
+   "scene": "desert",
+   "say": "Beware of fake AI websites and apps. Copy cat apps can steal your login. Install apps only from official stores, and type the official address yourself instead of clicking links from messages or ads."
+  },
+  {
+   "k": "points",
+   "h": "Work and school",
+   "pts": [
+    "Follow your company or school rules",
+    "Do not upload secret documents",
+    "When unsure, ask first"
+   ],
+   "scene": "story",
+   "say": "At work or at school, follow the rules. Do not upload confidential documents or customer data to a public AI tool unless you are allowed to. When you are not sure, ask first."
+  },
+  {
+   "k": "statement",
+   "h": "If it asks for a secret,\nstop.",
+   "scene": "oasis",
+   "say": "A simple rule to remember: if anything asks you for a secret, stop. Next lesson: how to use AI to learn faster, without losing your own thinking. Follow Jerry Development for the full free course."
+  }
+ ]
+}

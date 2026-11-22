@@ -749,7 +749,7 @@
   const fmtN = (n) => Number(n).toLocaleString("en-US");
   const shortN = (n) => (n >= 1e6 ? n / 1e6 + "M" : n >= 1000 ? n / 1000 + "K" : String(n));
   const W = L.WHEEL, MKT = L.MARKET;
-  const prizeLabel = (p) => (p.t === "dates" ? "🌴 " + shortN(p.n) : p.t === "coins" ? "🪙 " + shortN(p.n) : p.t === "jry" ? "JRY " + p.n : p.t === "respin" ? "🔄" : p.t === "energy" ? "⚡" : "🐪");
+  const prizeLabel = (p) => (p.t === "dates" ? "🌴 " + shortN(p.n) : p.t === "coins" ? "🪙 " + shortN(p.n) : p.t === "jry" ? "JRY " + p.n : p.t === "respin" ? "🔄" : p.t === "energy" ? "⚡" : p.t === "vipc" ? "👑" : "🐪");
   let funPage = "", whRot = 0, whBusy = false, mkData = null;
   const closeFun = () => { if (!whBusy) { $("fun").classList.add("hidden"); funPage = ""; } };
   $("funBg").addEventListener("click", closeFun);
@@ -882,7 +882,7 @@
   });
 
   // ---------- 🎟️ Gift codes ----------
-  const codeIco = { dates: "🌴", coins: "🪙", jry: "JRY", spins: "🎡" };
+  const codeIco = { dates: "🌴", coins: "🪙", jry: "JRY", spins: "🎡" , vipclub: "👑"};
   let caMade = [];
   $("codeGo").addEventListener("click", async () => {
     if (!account) return toast(t("t.loginFirst"));
@@ -1259,7 +1259,7 @@
   function goFromLink() {
     if (goDone) return; goDone = true;
     const go = new URLSearchParams(location.search).get("go");
-    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { catalog: "catOpen", box: "boxOpen", castle: "castleOpen", mag: "magOpen", chat: "chatOpen", services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
+    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { catalog: "catOpen", box: "boxOpen", castle: "castleOpen", vipc: "vipcOpen", mag: "magOpen", chat: "chatOpen", services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
     if (tabs[go]) document.querySelector(`.tabs [data-tab="${tabs[go]}"]`).click();
     else if (opens[go]) setTimeout(() => $(opens[go]).click(), 300);
   }

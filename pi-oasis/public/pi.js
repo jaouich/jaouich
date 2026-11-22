@@ -100,6 +100,10 @@
     if (!(n >= F.MIN && n <= F.MAX)) return Promise.reject(new Error(I18N.t("e.sf.amount")));
     return pay({ amount: n, memo: `Jerry Development – support ${n} Pi`, metadata: { type: "supfree", amt: n } });
   }
+  // VIP Club: 30 days for 5 Pi
+  function buyVipc() {
+    return pay({ amount: window.VipLogic.VIPC.PRICE, memo: "Pi Oasis VIP Club - 30 days", metadata: { type: "vipclub" } });
+  }
   // Yield multiplier: x2 / x3 / x10 for a fixed number of days
   function buyMult(id) {
     const m = window.OasisLogic.multById(id);
@@ -270,6 +274,9 @@
     adminChat: (o) => api("/api/admin/chat", o),
     mag: () => api("/api/mag"),
     castle: () => api("/api/castle"),
+    vipc: () => api("/api/vipc"),
+    adminVipc: (username, days) => api("/api/admin/vipc", { username, days }),
+    vipcVoyage: (b) => api("/api/vipc/voyage", b),
     castleFinish: (map, log) => api("/api/castle/finish", { map, log }),
     box: () => api("/api/box"),
     gift: (o) => api("/api/gift", o),
@@ -288,6 +295,7 @@
     setPayOpen: (v) => { payOpen = v !== false; },
     buyMk,
     buyMult,
+    buyVipc,
     wheelSpin: () => api("/api/wheel/spin", {}),
     earnAd: (adId) => api("/api/earn/ad", { adId }),
     earnTop: () => api("/api/earn/top"),

@@ -253,6 +253,7 @@
         <div class="hub-grid">
           <button id="kombatOpen" class="hub-big hub-k" type="button"><i>🦊</i><span><b>Jerry Kombat</b><small data-i18n="hub.k"></small></span></button>
           <button id="derbyOpen" class="hub-big hub-d" type="button"><i>🐪</i><span><b data-i18n="db.t"></b><small data-i18n="hub.d"></small></span></button>
+          <button id="vipcOpen" class="hub-big hub-wide hub-vipc" type="button"><i>👑</i><span><b data-i18n="vc.t"></b><small data-i18n="vc.bar.d"></small></span></button>
           <button id="castleOpen" class="hub-big hub-wide hub-castle" type="button"><i>🏰</i><span><b data-i18n="cs.t"></b><small data-i18n="cs.bar.d"></small></span><em data-i18n="cs.go"></em></button>
         </div>
         <h3 class="hub-sec" data-i18n="hub.sec.read"></h3>
@@ -430,7 +431,7 @@
       <div id="codeAdmin" class="panel admin hidden">
         <h3>🎟️ <span data-i18n="code.admin"></span></h3>
         <div class="code-form">
-          <label><small data-i18n="code.f.kind"></small><select id="caKind"><option value="dates">🌴</option><option value="coins">🪙</option><option value="jry">JRY</option><option value="spins">🎡</option></select></label>
+          <label><small data-i18n="code.f.kind"></small><select id="caKind"><option value="dates">🌴</option><option value="coins">🪙</option><option value="jry">JRY</option><option value="spins">🎡</option><option value="vipclub">👑</option></select></label>
           <label><small data-i18n="code.amount"></small><input id="caAmount" type="number" min="1"></label>
           <label><small data-i18n="code.f.uses"></small><input id="caUses" type="number" min="1" value="1"></label>
           <label><small data-i18n="code.f.count"></small><input id="caCount" type="number" min="1" max="200" value="10"></label>
@@ -440,6 +441,7 @@
         <small class="hint" data-i18n="code.formHint"></small>
         <button id="caMake" class="btn small gold" data-i18n="code.make"></button>
         <button id="caCopy" class="btn small secondary hidden" data-i18n="code.copy"></button>
+        <div class="ref-row" style="margin-top:8px"><input id="vgUser" dir="ltr" placeholder="username" autocapitalize="off"><input id="vgDays" type="number" min="1" max="365" value="30" style="max-width:80px"><button id="vgGo" class="btn small gold" type="button">👑 VIP</button></div>
         <div id="caList" class="list"></div>
       </div>
 
@@ -563,6 +565,7 @@
   <div id="box" class="media box hidden"></div>
   <div id="chat" class="media chat hidden"></div>
   <div id="castle" class="media castle hidden"></div>
+  <div id="vipc" class="media vipc hidden"></div>
   <div id="mag" class="media mag hidden"></div>
   <div id="fun" class="sheet hidden">
     <div class="sheet-bg" id="funBg"></div>
@@ -579,6 +582,7 @@
   <script src="i18n.js"></script>
   <script src="kombat-logic.js"></script>
   <script src="castle-logic.js"></script>
+  <script src="vip-logic.js"></script>
   <script src="logic.js"></script>
   <script src="derby-logic.js"></script>
   <script src="catalog-logic.js"></script>
@@ -588,6 +592,7 @@
   <script src="game.js"></script>
   <script src="clubnav.js"></script>
   <script src="palm.js"></script>
+  <script src="vipc.js"></script>
   <script src="kombat.js"></script>
   <script src="derby.js"></script>
   <script src="catalog.js"></script>

@@ -5,6 +5,7 @@ import "../public/kombat-logic.js";
 import "../public/logic.js";
 import "../public/catalog-logic.js";
 import "../public/castle-logic.js";
+import "../public/vip-logic.js";
 import "../public/derby-logic.js";
 import "../public/arena-logic.js";
 import { processPayouts } from "./payouts.js";
@@ -218,6 +219,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS royal_cards ( id INTEGER PRIMARY KEY AUTOINCREMENT, tier TEXT NOT NULL, ed INTEGER NOT NULL, uid TEXT NOT NULL, pay_id TEXT, at INTEGER NOT NULL, UNIQUE (tier, ed) )",
   "CREATE INDEX IF NOT EXISTS royal_owner ON royal_cards(uid)",
   "CREATE TABLE IF NOT EXISTS royal_gifts ( card_id INTEGER NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (card_id, day) )",
+  "CREATE TABLE IF NOT EXISTS vipc_game ( uid TEXT PRIMARY KEY, gold INTEGER NOT NULL, profit INTEGER NOT NULL DEFAULT 0, day INTEGER NOT NULL DEFAULT -1, used INTEGER NOT NULL DEFAULT 0 )",
+  "CREATE TABLE IF NOT EXISTS vipc_month ( uid TEXT NOT NULL, month INTEGER NOT NULL, profit INTEGER NOT NULL, PRIMARY KEY (uid, month) )",
   "CREATE TABLE IF NOT EXISTS royal_final ( id INTEGER PRIMARY KEY, start_at INTEGER NOT NULL, end_at INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0 )",
   // Monthly surprise for free supporters: once per player per month
   "CREATE TABLE IF NOT EXISTS sup_surprise ( uid TEXT NOT NULL, month INTEGER NOT NULL, kind TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, month) )",
@@ -263,6 +266,7 @@ const ALTERS = [
   "INSERT OR IGNORE INTO chat_members (uid, room) SELECT DISTINCT substr(room, 4 + instr(substr(room, 4), ':')), room FROM chat_msgs WHERE room LIKE 'dm:%'",
   "ALTER TABLE users ADD COLUMN vip_tier TEXT",
   "ALTER TABLE users ADD COLUMN mult_id TEXT",
+  "ALTER TABLE users ADD COLUMN vipc_until INTEGER",
   "ALTER TABLE users ADD COLUMN mult_until INTEGER",
   "ALTER TABLE users ADD COLUMN net TEXT",
   "ALTER TABLE users ADD COLUMN jry_wallet TEXT",
@@ -334,6 +338,24 @@ async function applyMembership(env, u, tier, now) {
   return env.DB.prepare("UPDATE users SET vip_until = ?, vip_tier = ? WHERE uid = ?").bind(until, id, u.uid);
 }
 
+// VIP Club: members have vipc_until in the future
+const VC = globalThis.VipLogic;
+const isVipc = (u, now) => !!(u && u.vipc_until && u.vipc_until > now);
+async function addVipcDays(env, uid, days, now) {
+  const u = await one(env, "SELECT vipc_until FROM users WHERE uid = ?", uid);
+  const from = Math.max(now, (u && u.vipc_until) || 0);
+  return run(env, "UPDATE users SET vipc_until = ? WHERE uid = ?", from + days * DAY, uid);
+}
+async function vipcState(env, uid, now) {
+  let r = await one(env, "SELECT * FROM vipc_game WHERE uid = ?", uid);
+  if (!r) { const f = VC.fresh(); await run(env, "INSERT OR IGNORE INTO vipc_game (uid, gold, profit, day, used) VALUES (?, ?, 0, -1, 0)", uid, f.gold); r = await one(env, "SELECT * FROM vipc_game WHERE uid = ?", uid); }
+  const st = { gold: r.gold, profit: r.profit, day: r.day, used: r.used };
+  if (st.day !== VC.dayId(now)) { // a new day: voyages reset and the stipend tops the gold up
+    st.day = VC.dayId(now); st.used = 0; st.gold = Math.max(st.gold, VC.GAME.STIPEND);
+    await run(env, "UPDATE vipc_game SET gold = ?, day = ?, used = 0 WHERE uid = ?", st.gold, st.day, uid);
+  }
+  return st;
+}
 // Active yield multiplier of a player: { id, f, until } or null
 function multOf(u, now) {
   const m = u && u.mult_id && u.mult_until > now ? L.multById(u.mult_id) : null;
@@ -403,6 +425,7 @@ async function account(env, u) {
     testGifts: isAdmin(env, u) && isTestnet(env),
     vipUntil: u.vip_until,
     mult: multOf(u, now),
+    vipcUntil: isVipc(u, now) ? u.vipc_until : 0,
     referralBalance: u.ref_balance,
     referralCount: c.n,
     activeRefs: await activeRefs(env, u.uid),
@@ -834,7 +857,8 @@ const routes = {
     st.kombat.coins += p.prize; st.kombat.total += p.prize;
     st.kombat.earn.tourney = (st.kombat.earn.tourney || 0) + p.prize; // not counted in the new week
     await saveState(env, u.uid, st, now);
-    return { state: st, n: p.prize, place: p.place, now };
+    if (p.place <= 3) await addVipcDays(env, u.uid, VC.VIPC.WEEK_DAYS, now); // a month in the VIP Club for the podium
+    return { state: st, n: p.prize, place: p.place, vipc: p.place <= 3, now };
   },
 
   // Community goal: total players vs the airdrop goal (cached for a minute)
@@ -1583,9 +1607,9 @@ const routes = {
     if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
     const now = Date.now(), made = [];
     if (body.action === "create") {
-      const kind = ["dates", "coins", "jry", "spins"].includes(body.kind) ? body.kind : "dates";
+      const kind = ["dates", "coins", "jry", "spins", "vipclub"].includes(body.kind) ? body.kind : "dates";
       const amount = Math.floor(Number(body.amount)), uses = Math.floor(Number(body.uses)) || 1, count = Math.min(200, Math.max(1, Math.floor(Number(body.count)) || 1));
-      const lim = { dates: 1e6, coins: 1e8, jry: 1e5, spins: 100 }[kind];
+      const lim = { dates: 1e6, coins: 1e8, jry: 1e5, spins: 100, vipclub: 365 }[kind];
       if (!(amount > 0 && amount <= lim) || !(uses >= 1 && uses <= 1e6)) bad("badAction");
       const days = Number(body.days) || 0, exp = days > 0 ? now + days * 86400000 : null;
       const custom = String(body.code || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
@@ -1831,6 +1855,48 @@ const routes = {
     const listed = new Map(listings.filter((o) => o.uid === me).map((o) => [o.card, o.offer]));
     for (const c of mine) c.offer = listed.get(c.id) || 0;
     return { tiers, mine, market, tax: R.RESALE_TAX, contest, sold, total: R.MAX * R.FINAL_TIERS.length, final: fin ? { start: fin.start_at, end: fin.end_at, done: !!fin.paid } : null };
+  },
+  // ---------- 👑 VIP Club ----------
+  "GET /api/vipc": async (req, env) => {
+    const u = await auth(req, env);
+    const now = Date.now(), member = isVipc(u, now);
+    const hallRows = await all(env, `SELECT u.username, ROUND(SUM(p.amount), 2) AS paid FROM payments p JOIN users u ON u.uid = p.uid
+      WHERE p.status = 'completed' GROUP BY p.uid HAVING paid > 0 ORDER BY paid DESC, MIN(p.created_at) ASC LIMIT 50`);
+    const out = { price: VC.VIPC.PRICE, days: VC.VIPC.DAYS, member, until: member ? u.vipc_until : 0, hallCount: hallRows.length,
+      hall: member ? hallRows : hallRows.slice(0, 3).map((r) => ({ username: r.username, paid: null })) };
+    if (member) {
+      const st = await vipcState(env, u.uid, now);
+      const mon = VC.monthId(now);
+      const top = await all(env, "SELECT u.username, m.profit FROM vipc_month m JOIN users u ON u.uid = m.uid WHERE m.month = ? ORDER BY m.profit DESC LIMIT 10", mon);
+      const mine = await one(env, "SELECT profit FROM vipc_month WHERE uid = ? AND month = ?", u.uid, mon);
+      const lv = VC.levelOf(st.profit);
+      out.game = { gold: st.gold, profit: st.profit, level: lv, cap: VC.capOf(lv), left: VC.GAME.DAILY_VOYAGES - st.used, market: VC.market(VC.dayId(now)), top, month: mine ? mine.profit : 0 };
+    }
+    return out;
+  },
+  "POST /api/vipc/voyage": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now();
+    if (!isVipc(u, now)) bad("vc.locked");
+    const st = await vipcState(env, u.uid, now);
+    const prevUsed = st.used;
+    let r;
+    try { r = VC.voyage(st, body, now); } catch (e) { bad(String(e.message || "badAction")); }
+    const ok = await run(env, "UPDATE vipc_game SET gold = ?, profit = ?, day = ?, used = ? WHERE uid = ? AND used = ? AND day = ?", st.gold, st.profit, st.day, st.used, u.uid, prevUsed, st.day);
+    if (!ok.meta.changes) bad("busy");
+    if (r.profit > 0) await run(env, "INSERT INTO vipc_month (uid, month, profit) VALUES (?, ?, ?) ON CONFLICT(uid, month) DO UPDATE SET profit = profit + excluded.profit", u.uid, VC.monthId(now), r.profit);
+    if (r.coins) await creditPoints(env, u.uid, "coins", r.coins, now, "vipc");
+    return { ok: true, profit: r.profit, income: r.income, cost: r.cost, guardCost: r.guardCost, lossPct: r.lossPct, kept: r.kept, coins: r.coins, gold: st.gold, level: VC.levelOf(st.profit), left: VC.GAME.DAILY_VOYAGES - st.used };
+  },
+  "POST /api/admin/vipc": async (req, env, body) => {
+    const u = await auth(req, env);
+    if (!isAdmin(env, u)) throw new HttpError(403, "forbidden");
+    const days = Math.floor(Number(body.days));
+    if (!(days >= 1 && days <= 365)) bad("badAction");
+    const t = await one(env, "SELECT uid, username FROM users WHERE username = ? COLLATE NOCASE", String(body.username || "").trim());
+    if (!t) bad("badAction");
+    await addVipcDays(env, t.uid, days, Date.now());
+    return { ok: true, username: t.username };
   },
   // Resell a card: fixed price in Pi. The card stays with its owner (locked) until it is sold or unlisted.
   "POST /api/royal/list": async (req, env, body) => {
@@ -2206,6 +2272,7 @@ const routes = {
     const prize = P[i];
     if (prize.t === "dates" || prize.t === "coins") await creditPoints(env, u.uid, prize.t, prize.n, now, "wheel");
     else if (prize.t === "jry") await run(env, "UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?", prize.n, u.uid);
+    else if (prize.t === "vipc") await addVipcDays(env, u.uid, prize.n, now);
     else if (prize.t === "respin") await run(env, "UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + 1 WHERE uid = ?", u.uid);
     const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
     const acc = await account(env, fresh);
@@ -2538,6 +2605,10 @@ function checkPayment(p, uid) {
     if (!Number.isInteger(offer) || offer <= 0 || !(Number(p.amount) > 0)) bad("badPayment");
     return { price: Number(p.amount), mk: offer };
   }
+  if (p.metadata?.type === "vipclub") {
+    if (Number(p.amount) !== VC.VIPC.PRICE) bad("badPayment");
+    return { price: VC.VIPC.PRICE, vipc: true };
+  }
   if (p.metadata?.type === "mult") {
     const m = L.multById(p.metadata.mult);
     if (!m || Number(p.amount) !== m.price) bad("badPayment");
@@ -2632,6 +2703,7 @@ async function completePayment(env, id, txid, uid) {
     if (item.coins) stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, item.coins.coins, now));
     if (item.tier) stmts.push(await applyMembership(env, u, item.tier, now));
     if (item.mult) stmts.push(await applyMult(env, u, item.mult, now));
+    if (item.vipc) stmts.push(env.DB.prepare("UPDATE users SET vipc_until = ? WHERE uid = ?").bind(Math.max(now, u.vipc_until || 0) + VC.VIPC.DAYS * DAY, u.uid));
     if (item.supFree) {
       const F = L.SUPPORT_FREE, n = item.supFree;
       stmts.push(env.DB.prepare("UPDATE users SET sup_pi = ROUND(COALESCE(sup_pi, 0) + ?, 7), sup_at = COALESCE(sup_at, ?), jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(n, now, n * F.JRY, u.uid));
@@ -3124,6 +3196,7 @@ async function chatClean(env) {
 async function giveReward(env, uid, kind, n, now, src) {
   if (kind === "dates" || kind === "coins") return creditPoints(env, uid, kind, n, now, src);
   if (kind === "jry") return run(env, "UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?", n, uid);
+  if (kind === "vipclub") return addVipcDays(env, uid, n, now);
   if (kind === "spins") return run(env, "UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?", n, uid);
 }
 async function creditPoints(env, uid, kind, n, now, src) {

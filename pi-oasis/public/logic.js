@@ -620,7 +620,7 @@
   const WHEEL = { PRICE: 0.5, SPINS: 10, PRIZES: [
     { t: "dates", n: 100, w: 18 }, { t: "coins", n: 40000, w: 6 }, { t: "jry", n: 10, w: 8 }, { t: "dates", n: 300, w: 12 },
     { t: "coins", n: 3000, w: 18 }, { t: "camel", n: 1, w: 1 }, { t: "respin", n: 1, w: 10 }, { t: "dates", n: 1000, w: 7 },
-    { t: "coins", n: 10000, w: 12 }, { t: "jry", n: 50, w: 2.5 }, { t: "energy", n: 1, w: 5 }, { t: "coins", n: 250000, w: 0.5 },
+    { t: "coins", n: 10000, w: 12 }, { t: "jry", n: 50, w: 2.5 }, { t: "energy", n: 1, w: 5 }, { t: "vipc", n: 3, w: 0.5 },
   ] };
   // Earn page: watch rewarded Pi ads for points (which can be sold on the points market).
   // DATES[i] = reward of the (i+1)th ad of the day; BONUS at the 5th and 10th ad; GAP between ads.

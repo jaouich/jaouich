@@ -1,0 +1,191 @@
+{
+ "id": "internet",
+ "n": 2,
+ "title": {
+  "en": "How the Internet Works",
+  "ar": "كيف يعمل الإنترنت؟"
+ },
+ "summary": {
+  "en": "What happens when you open a web page: packets, addresses, servers, cables and the people who built it.",
+  "ar": "ماذا يحدث عندما تفتح صفحة ويب: الحزم والعناوين والخوادم والكابلات ومن بنوا هذه الشبكة."
+ },
+ "sources": [
+  "CERN: A short history of the Web",
+  "Internet Society: Brief history of the Internet",
+  "Cloudflare Learning Center: What is DNS?"
+ ],
+ "slides": [
+  {
+   "k": "title",
+   "scene": "tech",
+   "en": {
+    "h": "Episode 2",
+    "sub": "How the Internet Works",
+    "say": "Welcome back to Jerry Documentaries. Every day we open pages, send messages and watch videos, but how does the internet really work? Let us follow one click from your phone to the world."
+   },
+   "ar": {
+    "h": "الحلقة 2",
+    "sub": "كيف يعمل الإنترنت؟",
+    "say": "أهلًا بكم من جديد في وثائقيات جيري. كل يوم نفتح صفحات ونرسل رسائل ونشاهد فيديوهات، لكن كيف يعمل الإنترنت فعلًا؟ لنتتبع نقرة واحدة من هاتفك إلى العالم."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "tech",
+   "en": {
+    "h": "The internet is a network\nof networks",
+    "say": "The internet is not one big computer. It is a network of networks: millions of smaller networks of homes, companies, schools and phone operators, all agreeing to talk to each other using the same rules."
+   },
+   "ar": {
+    "h": "الإنترنت شبكة\nمن الشبكات",
+    "say": "الإنترنت ليس حاسوبًا ضخمًا واحدًا. إنه شبكة من الشبكات: ملايين الشبكات الصغيرة للبيوت والشركات والمدارس ومشغلي الهاتف، وكلها تتفق على التحدث معًا بنفس القواعد."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "tech",
+   "en": {
+    "h": "Step 1: the address",
+    "pts": [
+     "You type a name: example.com",
+     "DNS is like a phone book",
+     "It returns a number: an IP address"
+    ],
+    "say": "First, the address. You type a name like example dot com. A system called DNS works like a phone book: it turns that name into a number, an IP address, that tells computers where the website lives."
+   },
+   "ar": {
+    "h": "الخطوة 1: العنوان",
+    "pts": [
+     "تكتب اسمًا: example.com",
+     "نظام DNS مثل دليل الهاتف",
+     "يعيد رقمًا: عنوان IP"
+    ],
+    "say": "أولًا العنوان. تكتب اسمًا مثل example.com. ونظام اسمه DNS يعمل مثل دليل الهاتف: يحوّل هذا الاسم إلى رقم، هو عنوان IP، يخبر الحواسيب بمكان الموقع."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "tech",
+   "en": {
+    "h": "Step 2: packets",
+    "pts": [
+     "Data is cut into small packets",
+     "Each packet finds its own way",
+     "They are rebuilt at the end"
+    ],
+    "say": "Second, packets. Your request and the answer are cut into many small pieces called packets. Each packet can take a different route, and at the end they are put back together in the right order."
+   },
+   "ar": {
+    "h": "الخطوة 2: الحزم",
+    "pts": [
+     "تُقطَّع البيانات إلى حزم صغيرة",
+     "كل حزمة تجد طريقها",
+     "تُجمَّع في النهاية"
+    ],
+    "say": "ثانيًا الحزم. يُقطَّع طلبك وردُّه إلى قطع صغيرة كثيرة تسمى حزمًا. وكل حزمة قد تسلك طريقًا مختلفًا، ثم تُجمَّع في النهاية بالترتيب الصحيح."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "night",
+   "en": {
+    "h": "Step 3: the journey",
+    "pts": [
+     "Wi-Fi or mobile signal",
+     "Your provider, then big backbones",
+     "Undersea cables between continents"
+    ],
+    "say": "Third, the journey. Your phone sends the packets through Wi-Fi or a mobile signal to your provider, then through large cables on land and under the sea. Most international internet traffic travels through undersea cables."
+   },
+   "ar": {
+    "h": "الخطوة 3: الرحلة",
+    "pts": [
+     "واي فاي أو إشارة الهاتف",
+     "مزوّدك ثم الشبكات الكبرى",
+     "كابلات بحرية بين القارات"
+    ],
+    "say": "ثالثًا الرحلة. يرسل هاتفك الحزم عبر الواي فاي أو إشارة الهاتف إلى مزوّد الخدمة، ثم عبر كابلات كبيرة في البر وتحت البحر. ومعظم حركة الإنترنت الدولية تسافر عبر الكابلات البحرية."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "tech",
+   "en": {
+    "h": "Step 4: the server",
+    "pts": [
+     "A server is a computer that answers",
+     "It stores pages, videos and apps",
+     "It sends the answer back"
+    ],
+    "say": "Fourth, the server. A server is simply a computer that is always on and answers requests. It stores web pages, videos and apps, and sends the answer back along the same kind of path in a fraction of a second."
+   },
+   "ar": {
+    "h": "الخطوة 4: الخادم",
+    "pts": [
+     "الخادم حاسوب يجيب الطلبات",
+     "يخزّن صفحات وفيديوهات وتطبيقات",
+     "يرسل الجواب إليك"
+    ],
+    "say": "رابعًا الخادم. الخادم ببساطة حاسوب يعمل دائمًا ويجيب عن الطلبات. يخزّن صفحات الويب والفيديوهات والتطبيقات، ويرسل الجواب بطريق مماثل في جزء من الثانية."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "story",
+   "en": {
+    "h": "1969: the first message\nbetween two computers",
+    "say": "The story began in 1969, when researchers connected computers in the United States on a network called ARPANET and sent the first message between them. It was the seed of what we use today."
+   },
+   "ar": {
+    "h": "1969: أول رسالة\nبين حاسوبين",
+    "say": "بدأت القصة عام ألف وتسعمئة وتسعة وستين، حين ربط باحثون في الولايات المتحدة حواسيب بشبكة اسمها أربانت، وأرسلوا أول رسالة بينها. كانت تلك بذرة ما نستعمله اليوم."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "community",
+   "en": {
+    "h": "The Web is not the Internet",
+    "say": "The web is different from the internet. The internet is the network. The World Wide Web is a system of pages and links that runs on it, proposed by Tim Berners-Lee at CERN in 1989, with the first website appearing in 1991."
+   },
+   "ar": {
+    "h": "الويب ليس هو الإنترنت",
+    "say": "الويب يختلف عن الإنترنت. الإنترنت هو الشبكة. أما الشبكة العنكبوتية فهي نظام من الصفحات والروابط يعمل فوقها، اقترحه تيم بيرنرز لي في سيرن عام ألف وتسعمئة وتسعة وثمانين، وظهر أول موقع عام ألف وتسعمئة وواحد وتسعين."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "safety",
+   "en": {
+    "h": "Stay safe online",
+    "pts": [
+     "Check the address before you log in",
+     "Use strong, different passwords",
+     "Never share recovery phrases"
+    ],
+    "say": "A last word about safety. Check the address before you log in, use strong and different passwords, and never share secret recovery phrases or passwords with anyone, even if they say they are support."
+   },
+   "ar": {
+    "h": "ابقَ آمنًا على الإنترنت",
+    "pts": [
+     "تحقق من العنوان قبل الدخول",
+     "كلمات سر قوية ومختلفة",
+     "لا تشارك عبارات الاسترداد"
+    ],
+    "say": "كلمة أخيرة عن الأمان. تحقق من العنوان قبل تسجيل الدخول، واستعمل كلمات سر قوية ومختلفة، ولا تشارك عبارات الاسترداد السرية أو كلمات السر مع أي أحد، حتى لو ادّعى أنه الدعم الفني."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "oasis",
+   "en": {
+    "h": "Thanks for watching.\nNext: Ibn Battuta",
+    "say": "Thank you for watching. In the next episode we go back in time to follow the greatest Moroccan traveler of the Middle Ages, Ibn Battuta."
+   },
+   "ar": {
+    "h": "شكرًا لمشاهدتكم.\nالقادم: ابن بطوطة",
+    "say": "شكرًا لمشاهدتكم. في الحلقة القادمة نعود بالزمن لنتبع أعظم رحالة مغربي في العصور الوسطى، ابن بطوطة."
+   }
+  }
+ ]
+}

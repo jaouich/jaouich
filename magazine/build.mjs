@@ -9,13 +9,13 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 const SECTIONS = {
   pi: { name: "Pi Network", icon: "🪙", scene: "pi" }, tech: { name: "تقنية وذكاء اصطناعي", icon: "🤖", scene: "tech" },
   safety: { name: "نصائح وأمان", icon: "🛡️", scene: "safety" }, community: { name: "المجتمع", icon: "👥", scene: "community" },
-  stories: { name: "قصص", icon: "📖", scene: "story" }, courses: { name: "دورات (English)", icon: "🎓", scene: "tech" }, manga: { name: "مانغا", icon: "🎨", scene: "oasis" },
+  stories: { name: "قصص", icon: "📖", scene: "story" }, courses: { name: "دورات (English)", icon: "🎓", scene: "tech" }, docs: { name: "وثائقيات", icon: "🎬", scene: "desert" }, manga: { name: "مانغا", icon: "🎨", scene: "oasis" },
 };
 const write = (p, s) => { fs.mkdirSync(path.dirname(path.join(OUT, p)), { recursive: true }); fs.writeFileSync(path.join(OUT, p), s); };
-const KEEP = "/tmp/mag-courses-keep"; fs.rmSync(KEEP, { recursive: true, force: true });
-if (fs.existsSync(path.join(OUT, "courses"))) fs.cpSync(path.join(OUT, "courses"), KEEP, { recursive: true });
+const KEEPS = ["courses", "docs"].map((d) => [d, "/tmp/mag-keep-" + d]);
+for (const [d, k] of KEEPS) { fs.rmSync(k, { recursive: true, force: true }); if (fs.existsSync(path.join(OUT, d))) fs.cpSync(path.join(OUT, d), k, { recursive: true }); }
 fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(OUT, { recursive: true });
-if (fs.existsSync(KEEP)) fs.cpSync(KEEP, path.join(OUT, "courses"), { recursive: true });
+for (const [d, k] of KEEPS) if (fs.existsSync(k)) fs.cpSync(k, path.join(OUT, d), { recursive: true });
 
 // ---- tiny markdown: headings, lists, bold/italic, links, paragraphs ----
 const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\*(.+?)\*/g, "<em>$1</em>").replace(/\[(.+?)\]\((.+?)\)/g, (m, a, u) => `<a href="${u.replace(/&amp;/g, "&")}"${/^https?:/.test(u) ? ' rel="noopener" target="_blank"' : ""}>${a}</a>`);
@@ -48,7 +48,7 @@ for (const s of series) { write(`img/manga-${s.id}.svg`, cover(s.scene, s.id)); 
 const imgOf = (p) => `/img/${p.kind}-${p.slug}.svg`;
 
 // ---- layout ----
-const nav = Object.entries(SECTIONS).map(([k, s]) => `<a href="${k === "manga" ? "/manga/" : k === "courses" ? "/courses/" : `/s/${k}/`}">${s.icon} ${s.name}</a>`).join("");
+const nav = Object.entries(SECTIONS).map(([k, s]) => `<a href="${k === "manga" ? "/manga/" : k === "courses" ? "/courses/" : k === "docs" ? "/docs/" : `/s/${k}/`}">${s.icon} ${s.name}</a>`).join("");
 const layout = ({ title, desc, body, path: pth = "/", og, script = "" }) => `<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}${pth === "/" ? "" : " · " + SITE.name}</title><meta name="description" content="${esc(desc || SITE.tagline)}">
@@ -66,12 +66,12 @@ const voteBox = `<section class="votebox" data-vote data-week="${vote.week}"><h2
 const hero = posts[0], rest = posts.slice(1);
 write("index.html", layout({ title: SITE.name, desc: SITE.tagline, og: imgOf(hero), body: `
 <section class="hero"><a href="${hero.url}"><img src="${imgOf(hero)}" alt=""><div><span class="tag">${SECTIONS[hero.section].icon} ${SECTIONS[hero.section].name}</span><h1>${esc(hero.title)}</h1><p>${esc(hero.excerpt)}</p></div></a></section>
-<section class="chips">${Object.entries(SECTIONS).map(([k, s]) => `<a href="${k === "manga" ? "/manga/" : k === "courses" ? "/courses/" : `/s/${k}/`}"><img src="/img/sec-${k}.svg" alt=""><span>${s.icon} ${s.name}</span></a>`).join("")}</section>
+<section class="chips">${Object.entries(SECTIONS).map(([k, s]) => `<a href="${k === "manga" ? "/manga/" : k === "courses" ? "/courses/" : k === "docs" ? "/docs/" : `/s/${k}/`}"><img src="/img/sec-${k}.svg" alt=""><span>${s.icon} ${s.name}</span></a>`).join("")}</section>
 ${series.length ? `<section><h2>🎨 مانغا</h2><div class="grid">${series.map((s) => `<a class="card" href="/manga/${s.id}/"><img src="/img/manga-${s.id}.svg" alt=""><div><span class="tag">🎨 مانغا</span><h3>${esc(s.title)}</h3><p>${esc(s.blurb)}</p><small>${s.chapters.length} فصل</small></div></a>`).join("")}</div></section>` : ""}
 <section><h2>أحدث ما نُشر</h2><div class="grid">${rest.map(card).join("")}</div></section>
 ${voteBox}${subscribe}` }));
 for (const [k, s] of Object.entries(SECTIONS)) {
-  if (k === "manga" || k === "courses") continue;
+  if (k === "manga" || k === "courses" || k === "docs") continue;
   const list = posts.filter((p) => p.section === k);
   write(`s/${k}/index.html`, layout({ title: s.name, path: `/s/${k}/`, og: `/img/sec-${k}.svg`, body: `<h1 class="sec"><img src="/img/sec-${k}.svg" alt="">${s.icon} ${s.name}</h1><div class="grid">${list.length ? list.map(card).join("") : "<p>لا يوجد شيء هنا بعد، عُد قريبًا.</p>"}</div>${subscribe}` }));
 }
@@ -105,6 +105,17 @@ for (const c of courses) for (const l of c.lessons) {
 <h2>What you will learn</h2><ul>${l.slides.filter((s) => s.k === "points").map((s) => `<li>${esc(s.h)}</li>`).join("")}</ul><h2>Transcript</h2>${l.slides.map((s) => `<p>${esc(s.say)}</p>`).join("")}
 <p class="meta">Made with the help of AI. General information, not financial, legal or professional advice.</p><p class="nextprev">${prv ? `<a href="/courses/${c.id}/${prv.id}/">← Previous lesson</a>` : "<span></span>"}${nxt ? `<a href="/courses/${c.id}/${nxt.id}/">Next lesson →</a>` : "<span>More lessons soon</span>"}</p></article>${subscribe}` }));
 }
+
+// ---- documentaries: each episode has an English and an Arabic version (made by courses/make.mjs doc:all) ----
+const DD = path.join(ROOT, "docs");
+const docs = fs.existsSync(DD) ? fs.readdirSync(DD).filter((f) => f.endsWith(".json")).map((f) => ({ ...JSON.parse(fs.readFileSync(path.join(DD, f), "utf8")) })).filter((d) => fs.existsSync(path.join(OUT, "docs", d.id, "en.mp4"))).sort((a, b) => a.n - b.n) : [];
+write("docs/index.html", layout({ title: "وثائقيات جيري · Jerry Documentaries", desc: "وثائقيات قصيرة بنسختين: عربية وإنجليزية.", path: "/docs/", og: "/img/sec-docs.svg", body: `<h1 class="sec"><img src="/img/sec-docs.svg" alt="">🎬 وثائقيات جيري</h1><p>سلسلة وثائقية قصيرة، كل حلقة بنسختين: عربية وإنجليزية. · Short documentaries, each episode in Arabic and English.</p><div class="grid">${docs.map((d) => `<a class="card" href="/docs/${d.id}/"><img src="/img/doc-${d.id}.svg" alt="" loading="lazy"><div><span class="tag">🎬 ${d.n}</span><h3>${esc(d.title.ar)}</h3><p dir="ltr" style="text-align:left">${esc(d.title.en)}</p></div></a>`).join("")}</div>${subscribe}` }));
+for (const d of docs) {
+  write(`img/doc-${d.id}.svg`, cover(d.slides[0].scene || "desert", d.id));
+  const vid = (lang) => `<h2 ${lang === "en" ? 'dir="ltr"' : ""}>${lang === "ar" ? "النسخة العربية" : "English version"}</h2><video class="vid" controls preload="metadata" playsinline poster="/img/doc-${d.id}.svg"><source src="/docs/${d.id}/${lang}.mp4" type="video/mp4"><track kind="subtitles" src="/docs/${d.id}/${lang}.srt" srclang="${lang}" label="${lang === "ar" ? "العربية" : "English"}" ${lang === "ar" ? "default" : ""}></video><p class="dl"><a class="btn" href="/docs/${d.id}/${lang}.mp4" download>⬇ ${lang === "ar" ? "الفيديو" : "Video"} (${mb(`docs/${d.id}/${lang}.mp4`)} MB)</a> <a class="btn" href="/docs/${d.id}/${lang}.srt" download>⬇ ${lang === "ar" ? "الترجمة SRT" : "Subtitles SRT"}</a> <a class="btn" href="/docs/${d.id}/${lang}.txt" download>⬇ ${lang === "ar" ? "النص والعنوان والوصف" : "Script, title, description"}</a></p>`;
+  write(`docs/${d.id}/index.html`, layout({ title: `${d.title.ar} · ${d.title.en}`, desc: d.summary.ar, path: `/docs/${d.id}/`, og: `/img/doc-${d.id}.svg`, body: `<article class="post"><a class="tag" href="/docs/">🎬 وثائقيات جيري · الحلقة ${d.n}</a><h1>${esc(d.title.ar)}</h1><p class="meta" dir="ltr" style="text-align:left">${esc(d.title.en)}</p><p>${esc(d.summary.ar)}</p>${vid("ar")}${vid("en")}<h2>المصادر · Sources</h2><ul dir="ltr" style="text-align:left">${(d.sources || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul><p class="meta">أُنتج بمساعدة الذكاء الاصطناعي. معلومات عامة وتعليمية · Made with the help of AI. General educational information.</p></article>
+<section class="comments" data-comments data-slug="doc-${d.id}"><h2>💬 التعليقات</h2><div class="list"></div><form><input name="name" maxlength="30" placeholder="اسمك (اختياري)"><textarea name="text" required maxlength="500" rows="3" placeholder="رأيك في الحلقة…"></textarea><button>أرسل</button><p class="msg" role="status"></p></form></section>${subscribe}` }));
+}
 write("about/index.html", layout({ title: "عن المجلة وقواعدها", path: "/about/", body: `<article class="post"><h1>عن المجلة وقواعد المجتمع</h1>${md(`## ما هي مجلة جيري؟
 
 مجلة يومية لمجتمع **Jerry Development**: مقالات مبسّطة عن Pi Network والتقنية وبناء التطبيقات بالذكاء الاصطناعي، ونصائح أمان، ومانغا وقصص.
@@ -134,8 +145,9 @@ const abs = (u) => SITE.baseUrl + u;
 write("feed.json", JSON.stringify({ updated: new Date().toISOString().slice(0, 10), site: SITE.baseUrl,
   manga: series.map((s) => ({ id: s.id, title: s.title, blurb: s.blurb, cover: abs(`/img/manga-${s.id}.svg`), chapters: s.chapters.slice().sort((a, b) => b.n - a.n).map((c) => ({ n: c.n, title: c.title, date: c.date || "", url: abs(`/manga/${s.id}/${c.n}/`), panels: c.panels.map((p, i) => abs(`/img/manga/${s.id}-${c.n}-${i + 1}.svg`)) })) })),
   posts: posts.slice(0, 30).map((p) => ({ kind: p.kind, section: p.section, title: p.title, excerpt: p.excerpt || "", date: p.date, url: abs(p.url), image: abs(imgOf(p)) })),
+  docs: docs.map((d) => ({ n: d.n, title: d.title, summary: d.summary, url: abs(`/docs/${d.id}/`), image: abs(`/img/doc-${d.id}.svg`) })),
   courses: courses.flatMap((c) => c.lessons.map((l) => ({ course: c.title, n: l.n, title: l.title, url: abs(`/courses/${c.id}/${l.id}/`), image: abs(`/img/course-${c.id}-${l.id}.svg`) }))) }));
 write("robots.txt", `User-agent: *\nAllow: /\n${SITE.baseUrl ? `Sitemap: ${SITE.baseUrl}/sitemap.xml\n` : ""}`);
-if (SITE.baseUrl) write("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${["/", "/manga/", "/about/", ...Object.keys(SECTIONS).filter((k) => k !== "manga" && k !== "courses").map((k) => `/s/${k}/`), ...posts.map((p) => p.url), ...courses.flatMap((c) => ["/courses/", ...c.lessons.map((l) => `/courses/${c.id}/${l.id}/`)]), ...series.flatMap((s) => [`/manga/${s.id}/`, ...s.chapters.map((c) => `/manga/${s.id}/${c.n}/`)])].map((u) => `<url><loc>${SITE.baseUrl}${u}</loc></url>`).join("")}</urlset>`);
+if (SITE.baseUrl) write("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${["/", "/manga/", "/about/", ...Object.keys(SECTIONS).filter((k) => k !== "manga" && k !== "courses" && k !== "docs").map((k) => `/s/${k}/`), ...posts.map((p) => p.url), ...docs.flatMap((d) => [`/docs/${d.id}/`]), "/docs/", ...courses.flatMap((c) => ["/courses/", ...c.lessons.map((l) => `/courses/${c.id}/${l.id}/`)]), ...series.flatMap((s) => [`/manga/${s.id}/`, ...s.chapters.map((c) => `/manga/${s.id}/${c.n}/`)])].map((u) => `<url><loc>${SITE.baseUrl}${u}</loc></url>`).join("")}</urlset>`);
 fs.copyFileSync(path.join(ROOT, "src/style.css"), path.join(OUT, "style.css")); fs.copyFileSync(path.join(ROOT, "src/app.js"), path.join(OUT, "app.js"));
 console.log("built", posts.length, "posts,", series.reduce((n, s) => n + s.chapters.length, 0), "chapters");

@@ -1,0 +1,104 @@
+1
+00:00:00,200 --> 00:00:02,861
+Welcome back to Jerry Documentaries.
+
+2
+00:00:02,861 --> 00:00:09,883
+Every day we open pages, send messages and watch videos, but how does the internet really work?
+
+3
+00:00:09,883 --> 00:00:13,800
+Let us follow one click from your phone to the world.
+
+4
+00:00:14,200 --> 00:00:16,851
+The internet is not one big computer.
+
+5
+00:00:16,851 --> 00:00:28,600
+It is a network of networks: millions of smaller networks of homes, companies, schools and phone operators, all agreeing to talk to each other using the same rules.
+
+6
+00:00:29,000 --> 00:00:30,481
+First, the address.
+
+7
+00:00:30,481 --> 00:00:33,365
+You type a name like example dot com.
+
+8
+00:00:33,365 --> 00:00:44,200
+A system called DNS works like a phone book: it turns that name into a number, an IP address, that tells computers where the website lives.
+
+9
+00:00:44,600 --> 00:00:45,806
+Second, packets.
+
+10
+00:00:45,806 --> 00:00:51,385
+Your request and the answer are cut into many small pieces called packets.
+
+11
+00:00:51,385 --> 00:00:59,000
+Each packet can take a different route, and at the end they are put back together in the right order.
+
+12
+00:00:59,400 --> 00:01:00,649
+Third, the journey.
+
+13
+00:01:00,649 --> 00:01:09,329
+Your phone sends the packets through Wi-Fi or a mobile signal to your provider, then through large cables on land and under the sea.
+
+14
+00:01:09,329 --> 00:01:13,800
+Most international internet traffic travels through undersea cables.
+
+15
+00:01:14,200 --> 00:01:15,713
+Fourth, the server.
+
+16
+00:01:15,713 --> 00:01:21,206
+A server is simply a computer that is always on and answers requests.
+
+17
+00:01:21,206 --> 00:01:30,600
+It stores web pages, videos and apps, and sends the answer back along the same kind of path in a fraction of a second.
+
+18
+00:01:31,000 --> 00:01:42,245
+The story began in 1969, when researchers connected computers in the United States on a network called ARPANET and sent the first message between them.
+
+19
+00:01:42,245 --> 00:01:45,000
+It was the seed of what we use today.
+
+20
+00:01:45,400 --> 00:01:48,449
+The web is different from the internet.
+
+21
+00:01:48,449 --> 00:01:50,638
+The internet is the network.
+
+22
+00:01:50,638 --> 00:02:02,600
+The World Wide Web is a system of pages and links that runs on it, proposed by Tim Berners-Lee at CERN in 1989, with the first website appearing in 1991.
+
+23
+00:02:03,000 --> 00:02:04,768
+A last word about safety.
+
+24
+00:02:04,768 --> 00:02:17,000
+Check the address before you log in, use strong and different passwords, and never share secret recovery phrases or passwords with anyone, even if they say they are support.
+
+25
+00:02:17,400 --> 00:02:19,172
+Thank you for watching.
+
+26
+00:02:19,172 --> 00:02:27,800
+In the next episode we go back in time to follow the greatest Moroccan traveler of the Middle Ages, Ibn Battuta.
+

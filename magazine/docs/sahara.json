@@ -1,0 +1,191 @@
+{
+ "id": "sahara",
+ "n": 1,
+ "title": {
+  "en": "The Sahara: Bigger Than Its Legends",
+  "ar": "الصحراء الكبرى: أكبر من أساطيرها"
+ },
+ "summary": {
+  "en": "The largest hot desert on Earth: its size, its green past, its caravans, its oases and the people who live there.",
+  "ar": "أكبر صحراء حارة على الأرض: مساحتها وماضيها الأخضر وقوافلها وواحاتها والناس الذين يعيشون فيها."
+ },
+ "sources": [
+  "NASA Earth Observatory: Sahara and African humid period",
+  "UNESCO World Heritage: Tassili n'Ajjer rock art",
+  "Encyclopaedia Britannica: Sahara, trans-Saharan trade"
+ ],
+ "slides": [
+  {
+   "k": "title",
+   "scene": "desert",
+   "en": {
+    "h": "Episode 1",
+    "sub": "The Sahara: Bigger Than Its Legends",
+    "say": "Welcome to Jerry Documentaries. In this first episode we travel to the largest hot desert on Earth, the Sahara, and we discover that it is very different from the pictures in our minds."
+   },
+   "ar": {
+    "h": "الحلقة 1",
+    "sub": "الصحراء الكبرى: أكبر من أساطيرها",
+    "say": "أهلًا بكم في وثائقيات جيري. في هذه الحلقة الأولى نسافر إلى أكبر صحراء حارة على الأرض، الصحراء الكبرى، ونكتشف أنها مختلفة تمامًا عن الصورة التي في أذهاننا."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "desert",
+   "en": {
+    "h": "About 9 million km²\nOne desert, many countries",
+    "say": "The Sahara covers about nine million square kilometers, an area close to the size of the United States. It stretches across North Africa, from the Atlantic Ocean in the west to the Red Sea in the east."
+   },
+   "ar": {
+    "h": "نحو 9 ملايين كم²\nصحراء واحدة وبلدان كثيرة",
+    "say": "تغطي الصحراء الكبرى نحو تسعة ملايين كيلومتر مربع، أي ما يقارب مساحة الولايات المتحدة. وتمتد عبر شمال أفريقيا من المحيط الأطلسي غربًا إلى البحر الأحمر شرقًا."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "desert",
+   "en": {
+    "h": "Not only sand",
+    "pts": [
+     "Sand seas are called ergs",
+     "Most of it is rock and gravel",
+     "Mountains rise inside the desert"
+    ],
+    "say": "Many people imagine endless sand, but sand dunes cover only a part of the Sahara. Most of it is bare rock plateaus and gravel plains, and there are even high mountains inside the desert."
+   },
+   "ar": {
+    "h": "ليست رملًا فقط",
+    "pts": [
+     "بحار الرمال تسمى العروق",
+     "معظمها صخور وحصى",
+     "جبال ترتفع داخل الصحراء"
+    ],
+    "say": "يتخيل كثيرون رمالًا لا نهاية لها، لكن الكثبان الرملية تغطي جزءًا فقط من الصحراء الكبرى. ومعظمها هضاب صخرية وسهول من الحصى، وفيها جبال عالية أيضًا."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "night",
+   "en": {
+    "h": "Extreme weather",
+    "pts": [
+     "Very hot days",
+     "Cold nights",
+     "Very little rain"
+    ],
+    "say": "The weather is extreme. Days can be extremely hot, and because the air is dry, nights can be cold. Rain is rare in many areas, and some places can go years without a single storm."
+   },
+   "ar": {
+    "h": "طقس قاسٍ",
+    "pts": [
+     "نهار شديد الحرارة",
+     "ليل بارد",
+     "أمطار قليلة جدًا"
+    ],
+    "say": "الطقس قاسٍ. فقد يكون النهار شديد الحرارة، وبسبب جفاف الهواء يصبح الليل باردًا. والمطر نادر في مناطق كثيرة، وقد تمر سنوات في بعض الأماكن دون عاصفة مطر واحدة."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "oasis",
+   "en": {
+    "h": "The Sahara was once green",
+    "say": "But the Sahara was not always a desert. Several thousand years ago, a wetter period turned large parts of it into grasslands with lakes, rivers and animals. Scientists call it the African Humid Period."
+   },
+   "ar": {
+    "h": "كانت الصحراء خضراء يومًا",
+    "say": "لكن الصحراء لم تكن دائمًا صحراء. قبل آلاف السنين، حوّلت فترة أكثر رطوبة مناطق واسعة منها إلى مراعٍ فيها بحيرات وأنهار وحيوانات. ويسميها العلماء الفترة الأفريقية الرطبة."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "story",
+   "en": {
+    "h": "Stories on stone",
+    "pts": [
+     "Tassili n'Ajjer, Algeria",
+     "Paintings of cattle and giraffes",
+     "Thousands of years old"
+    ],
+    "say": "We know this from rock art. In places like Tassili n'Ajjer in Algeria, ancient people painted cattle, giraffes and hunters on the stone. These images are thousands of years old and show a very different landscape."
+   },
+   "ar": {
+    "h": "قصص على الصخر",
+    "pts": [
+     "طاسيلي ناجر في الجزائر",
+     "رسوم أبقار وزرافات",
+     "عمرها آلاف السنين"
+    ],
+    "say": "نعرف هذا من الفن الصخري. ففي أماكن مثل طاسيلي ناجر في الجزائر رسم الناس القدماء أبقارًا وزرافات وصيادين على الحجر. هذه الرسوم عمرها آلاف السنين، وتصف مشهدًا مختلفًا تمامًا."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "community",
+   "en": {
+    "h": "Roads of caravans",
+    "pts": [
+     "Camels crossed the desert",
+     "Salt, gold and goods",
+     "Cities such as Timbuktu grew"
+    ],
+    "say": "Later, the desert became a road for trade. Caravans of camels carried salt, gold and other goods between North Africa and West Africa, and trading cities such as Timbuktu became centers of wealth and learning."
+   },
+   "ar": {
+    "h": "طرق القوافل",
+    "pts": [
+     "الجمال تعبر الصحراء",
+     "الملح والذهب والبضائع",
+     "نمو مدن مثل تمبكتو"
+    ],
+    "say": "وفي زمن لاحق صارت الصحراء طريقًا للتجارة. حملت قوافل الجمال الملح والذهب وبضائع أخرى بين شمال أفريقيا وغربها، وصارت مدن تجارية مثل تمبكتو مراكز للثروة والعلم."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "oasis",
+   "en": {
+    "h": "Life around water",
+    "pts": [
+     "Oases: water under the sand",
+     "Date palms and gardens",
+     "Amazigh and Tuareg communities"
+    ],
+    "say": "Life in the Sahara gathers around water. In oases, underground water feeds date palms and gardens. Communities such as the Amazigh and the Tuareg have lived here for centuries, with deep knowledge of the desert."
+   },
+   "ar": {
+    "h": "الحياة حول الماء",
+    "pts": [
+     "الواحات: ماء تحت الرمل",
+     "نخيل وبساتين",
+     "مجتمعات أمازيغية وطوارقية"
+    ],
+    "say": "تتجمع الحياة في الصحراء حول الماء. ففي الواحات تغذي المياه الجوفية النخيل والبساتين. وتعيش هنا مجتمعات مثل الأمازيغ والطوارق منذ قرون، ولديها معرفة عميقة بالصحراء."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "night",
+   "en": {
+    "h": "Even its dust travels",
+    "say": "Even the Sahara's dust has a story. Winds lift fine dust and carry it across the Atlantic Ocean, where it can reach the Amazon rainforest and bring minerals to its soil. Our planet is more connected than we think."
+   },
+   "ar": {
+    "h": "حتى غبارها يسافر",
+    "say": "حتى غبار الصحراء له قصة. فالرياح ترفع الغبار الناعم وتحمله عبر المحيط الأطلسي، فيصل إلى غابات الأمازون ويضيف معادن إلى تربتها. كوكبنا مترابط أكثر مما نظن."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "oasis",
+   "en": {
+    "h": "Thanks for watching.\nNext: How the Internet Works",
+    "say": "Thank you for watching. In the next episode we leave the desert and follow a message across the internet. Follow Jerry Development for the full documentary series."
+   },
+   "ar": {
+    "h": "شكرًا لمشاهدتكم.\nالقادم: كيف يعمل الإنترنت",
+    "say": "شكرًا لمشاهدتكم. في الحلقة القادمة نغادر الصحراء ونتتبع رسالة تعبر الإنترنت. تابعوا Jerry Development لمشاهدة السلسلة الوثائقية كاملة."
+   }
+  }
+ ]
+}

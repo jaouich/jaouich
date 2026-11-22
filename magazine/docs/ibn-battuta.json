@@ -1,0 +1,191 @@
+{
+ "id": "ibn-battuta",
+ "n": 3,
+ "title": {
+  "en": "Ibn Battuta: The Traveler from Tangier",
+  "ar": "ابن بطوطة: رحّالة من طنجة"
+ },
+ "summary": {
+  "en": "The story of the Moroccan traveler who left Tangier in 1325 and wrote one of the most famous travel books in history.",
+  "ar": "قصة الرحالة المغربي الذي غادر طنجة عام 1325 وكتب واحدًا من أشهر كتب الرحلات في التاريخ."
+ },
+ "sources": [
+  "Encyclopaedia Britannica: Ibn Battuta",
+  "Ibn Battuta, The Rihla (translations by H. A. R. Gibb)",
+  "Ross Dunn: The Adventures of Ibn Battuta"
+ ],
+ "slides": [
+  {
+   "k": "title",
+   "scene": "desert",
+   "en": {
+    "h": "Episode 3",
+    "sub": "Ibn Battuta: The Traveler from Tangier",
+    "say": "Welcome to Jerry Documentaries. In this episode we follow Ibn Battuta, a young man from Tangier who started a pilgrimage and ended up traveling for almost thirty years."
+   },
+   "ar": {
+    "h": "الحلقة 3",
+    "sub": "ابن بطوطة: رحّالة من طنجة",
+    "say": "أهلًا بكم في وثائقيات جيري. في هذه الحلقة نتبع ابن بطوطة، شابًا من طنجة بدأ رحلة حج، وانتهى به الأمر مسافرًا قرابة ثلاثين عامًا."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "community",
+   "en": {
+    "h": "Tangier, 1304",
+    "say": "Ibn Battuta was born in Tangier, in Morocco, in the year thirteen hundred and four, into a family of scholars. He studied Islamic law and grew up in a city that was a meeting place of sailors, merchants and ideas."
+   },
+   "ar": {
+    "h": "طنجة، 1304",
+    "say": "وُلد ابن بطوطة في طنجة بالمغرب عام ألف وثلاثمئة وأربعة، في أسرة من العلماء. درس الفقه، ونشأ في مدينة كانت ملتقى للبحارة والتجار والأفكار."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "desert",
+   "en": {
+    "h": "1325: the journey begins",
+    "pts": [
+     "He is about 21 years old",
+     "Goal: the pilgrimage to Mecca",
+     "He travels alone, then with caravans"
+    ],
+    "say": "In thirteen twenty five, at about twenty one years old, he left Tangier to make the pilgrimage to Mecca. He crossed North Africa, sometimes alone and sometimes with caravans, and reached Egypt, Syria and Arabia."
+   },
+   "ar": {
+    "h": "1325: تبدأ الرحلة",
+    "pts": [
+     "عمره نحو 21 عامًا",
+     "الهدف: الحج إلى مكة",
+     "يسافر وحيدًا ثم مع القوافل"
+    ],
+    "say": "في عام ألف وثلاثمئة وخمسة وعشرين، وكان في الحادية والعشرين تقريبًا، غادر طنجة قاصدًا الحج إلى مكة. عبر شمال أفريقيا، وحيدًا أحيانًا ومع القوافل أحيانًا، ووصل مصر والشام والحجاز."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "oasis",
+   "en": {
+    "h": "He did not go home",
+    "pts": [
+     "Persia and Iraq",
+     "Anatolia and Central Asia",
+     "India: years at a royal court"
+    ],
+    "say": "After the pilgrimage he kept going. He visited Persia and Iraq, then Anatolia and Central Asia, and arrived in India, where he spent several years serving at the court of a sultan before continuing his way."
+   },
+   "ar": {
+    "h": "لم يعد إلى بلده",
+    "pts": [
+     "بلاد فارس والعراق",
+     "الأناضول وآسيا الوسطى",
+     "الهند: سنوات في بلاط سلطان"
+    ],
+    "say": "بعد الحج واصل السفر. زار بلاد فارس والعراق، ثم الأناضول وآسيا الوسطى، ووصل الهند حيث قضى سنوات يعمل في بلاط أحد السلاطين قبل أن يكمل طريقه."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "night",
+   "en": {
+    "h": "Far horizons",
+    "pts": [
+     "Maldives and Southeast Asia",
+     "China, according to his account",
+     "East Africa by sea"
+    ],
+    "say": "He sailed to the Maldives and Southeast Asia, and according to his account he reached China. He also traveled by sea along the coast of East Africa. Some historians discuss parts of his story, but his main route is well known."
+   },
+   "ar": {
+    "h": "آفاق بعيدة",
+    "pts": [
+     "جزر المالديف وجنوب شرق آسيا",
+     "الصين بحسب روايته",
+     "شرق أفريقيا بحرًا"
+    ],
+    "say": "أبحر إلى جزر المالديف وجنوب شرق آسيا، ووصل إلى الصين بحسب روايته، وسافر كذلك بحرًا على ساحل شرق أفريقيا. ويناقش بعض المؤرخين أجزاء من قصته، لكن مسار رحلته الرئيسي معروف."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "story",
+   "en": {
+    "h": "About 120,000 km\nin almost 30 years",
+    "say": "Historians estimate that he traveled around one hundred and twenty thousand kilometers in almost thirty years, much more than famous European travelers of his time, and he visited the lands of dozens of today's countries."
+   },
+   "ar": {
+    "h": "نحو 120 ألف كم\nفي قرابة 30 سنة",
+    "say": "يقدّر المؤرخون أنه قطع نحو مئة وعشرين ألف كيلومتر في قرابة ثلاثين سنة، أكثر بكثير من مشاهير الرحالة الأوروبيين في زمنه، وزار أراضي عشرات من الدول الحالية."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "desert",
+   "en": {
+    "h": "Back to Morocco",
+    "pts": [
+     "He returns around 1354",
+     "He crosses the Sahara to Mali",
+     "Then he comes home to Morocco"
+    ],
+    "say": "Near the end he traveled again, crossing the Sahara to the kingdom of Mali around thirteen fifty two. Then he returned to Morocco, where he finally settled after decades on the road."
+   },
+   "ar": {
+    "h": "العودة إلى المغرب",
+    "pts": [
+     "يعود نحو عام 1354",
+     "يعبر الصحراء إلى مالي",
+     "ثم يستقر في المغرب"
+    ],
+    "say": "قرب النهاية سافر مرة أخرى فعبر الصحراء إلى مملكة مالي نحو عام ألف وثلاثمئة واثنين وخمسين. ثم عاد إلى المغرب حيث استقر أخيرًا بعد عقود على الطريق."
+   }
+  },
+  {
+   "k": "points",
+   "scene": "story",
+   "en": {
+    "h": "The Rihla",
+    "pts": [
+     "A scholar, Ibn Juzayy, wrote it down",
+     "Finished in 1355",
+     "A guide to cities, customs and people"
+    ],
+    "say": "The Sultan of Morocco asked him to tell his story, and a writer named Ibn Juzayy wrote it down. The book, called the Rihla, was finished in thirteen fifty five and describes cities, customs, food and people across the known world."
+   },
+   "ar": {
+    "h": "الرحلة",
+    "pts": [
+     "دوّنها الكاتب ابن جزي",
+     "اكتملت عام 1355",
+     "دليل إلى المدن والعادات والناس"
+    ],
+    "say": "طلب سلطان المغرب منه أن يروي قصته، وكتبها كاتب اسمه ابن جزي. وانتهى الكتاب المسمى الرحلة عام ألف وثلاثمئة وخمسة وخمسين، ويصف المدن والعادات والأطعمة والناس في العالم المعروف آنذاك."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "oasis",
+   "en": {
+    "h": "What we learn from him",
+    "say": "Ibn Battuta teaches us curiosity, patience and respect for other cultures. One road is rarely enough to understand the world, and every journey begins with a first step out of the door."
+   },
+   "ar": {
+    "h": "ماذا نتعلم منه",
+    "say": "يعلمنا ابن بطوطة الفضول والصبر واحترام الثقافات الأخرى. فطريق واحد قلّما يكفي لفهم العالم، وكل رحلة تبدأ بخطوة أولى خارج الباب."
+   }
+  },
+  {
+   "k": "statement",
+   "scene": "oasis",
+   "en": {
+    "h": "Thanks for watching.\nMore episodes soon",
+    "say": "Thank you for watching. New episodes of Jerry Documentaries are coming soon. Tell us in the comments which topic you want next."
+   },
+   "ar": {
+    "h": "شكرًا لمشاهدتكم.\nحلقات جديدة قريبًا",
+    "say": "شكرًا لمشاهدتكم. حلقات جديدة من وثائقيات جيري قادمة قريبًا. أخبرونا في التعليقات أي موضوع تريدون في الحلقة القادمة."
+   }
+  }
+ ]
+}

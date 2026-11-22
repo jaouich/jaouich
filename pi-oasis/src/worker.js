@@ -2630,6 +2630,7 @@ const MK = L.MARKET;
 // ---------- Pi Notification Center ----------
 // Messages in the player's language (saved at sign-in). {x} are filled from vars.
 const NOTE = {
+  mangaNew: { go: "mag", en: ["🎨 New manga chapter", "{s}: {t}. Read it now in Pi Oasis."], ar: ["🎨 فصل مانغا جديد", "{s}: {t}. اقرأه الآن في واحة باي."], fr: ["🎨 Nouveau chapitre de manga", "{s} : {t}. Lis-le maintenant dans Pi Oasis."] },
   chatdm: { go: "chat", en: ["💬 {u} sent you a message", "Open the chat to reply."], ar: ["💬 رسالة من ‎{u}", "افتح الدردشة لتردّ."], fr: ["💬 Message de {u}", "Ouvrez le chat pour répondre."] },
   gift: { go: "box", en: ["🎁 You received a gift", "{u} sent you a gift. Open your box to see it."], ar: ["🎁 وصلتك هدية", "أرسل لك ‎{u} هدية. افتح صندوقك لتراها."], fr: ["🎁 Vous avez reçu un cadeau", "{u} vous a envoyé un cadeau. Ouvrez votre boîte."] },
   nftswap: { go: "kombat", en: ["🔁 Your card was swapped", "Someone accepted your swap offer. Open your collection to see the new card."], ar: ["🔁 تمت مبادلة بطاقتك", "قَبِل أحدهم عرض المبادلة. افتح مجموعتك لترى البطاقة الجديدة."], fr: ["🔁 Votre carte a été échangée", "Quelqu'un a accepté votre offre d'échange. Ouvrez votre collection."] },
@@ -2962,6 +2963,20 @@ const catalogClaims = async (env, uid) => (await all(env, "SELECT key FROM catal
 // Permanent Kombat profit from the catalog (claimed section goals + Master Collector)
 const catalogBoost = async (env, uid) => CAT.boostOf(await catalogClaims(env, uid));
 // Hourly: tell players once when a goal becomes claimable (items held long enough)
+// A new manga chapter in the magazine feed: one notification per player per chapter (notif_log keeps it from repeating)
+async function magNotify(env) {
+  if (env.MAG_NOTIFY === "0" || !(env.MAG || env.MAG_URL)) return 0;
+  await ensureSchema(env);
+  const r = env.MAG ? await env.MAG.fetch("https://magazine/feed.json") : await fetch(env.MAG_URL + "/feed.json");
+  if (!r || !r.ok) return 0;
+  const feed = await r.json();
+  let last = null;
+  for (const s of feed.manga || []) for (const c of s.chapters || []) { const k = (c.date || "") + "|" + s.id + "|" + String(c.n).padStart(3, "0"); if (!last || k > last.k) last = { k, s, c }; }
+  if (!last || !last.c.date || Date.now() - Date.parse(last.c.date + "T00:00:00Z") > 3 * DAY) return 0; // only fresh chapters (the first run must not announce old ones)
+  const users = await all(env, "SELECT uid FROM users LIMIT 5000");
+  return notify(env, users.map((u) => ({ uid: u.uid, kind: "mangaNew", ref: last.s.id + "-" + last.c.n, vars: { t: last.c.title, s: last.s.title } })));
+}
+
 async function catalogNotify(env) {
   await ensureSchema(env);
   const now = Date.now();
@@ -3372,6 +3387,7 @@ export default {
         .then(() => arenaSweep(env))
         .then(() => catalogNotify(env))
         .then(() => chatClean(env))
+        .then(() => magNotify(env))
         .catch((e) => logError(env, "derby week", 0, e.message))
         .then(() => royalFinalPrizes(env))
         .then(() => kombatWeekNotes(env))

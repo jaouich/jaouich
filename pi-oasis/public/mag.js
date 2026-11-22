@@ -36,12 +36,15 @@
       body = feed.manga.length ? feed.manga.map((s) => `<button class="mg-card" data-mg="series" data-id="${esc(s.id)}"><img src="${esc(s.cover)}" alt=""><div><b>${esc(s.title)}</b><p>${esc(s.blurb)}</p><small>${s.chapters.length} ${t("mag.chapters")} · ${t("mag.latest")}: ${esc(s.chapters[0].title)}</small></div></button>`).join("") : `<p class="jm-note">${t("mag.none")}</p>`;
     } else if (tab === "posts") {
       body = feed.posts.length ? feed.posts.map((p) => `<button class="mg-card" data-mg="web" data-u="${esc(p.url)}"><img src="${esc(p.image)}" alt=""><div><b>${esc(p.title)}</b><p>${esc(p.excerpt)}</p><small>${fdate(p.date)}</small></div></button>`).join("") : `<p class="jm-note">${t("mag.none")}</p>`;
+    } else if (tab === "docs") {
+      const D = feed.docs || [];
+      body = D.length ? `<p class="jm-note">${t("mag.docsNote")}</p>` + D.map((d) => `<button class="mg-card" data-mg="web" data-u="${esc(d.url)}"><img src="${esc(d.image)}" alt=""><div><b>${esc(window.I18N.lang === "ar" ? d.title.ar : d.title.en)}</b><p>${esc(window.I18N.lang === "ar" ? d.title.en : d.title.ar)}</p><small>🎬 ${t("mag.episode")} ${d.n} · AR / EN</small></div></button>`).join("") : `<p class="jm-note">${t("mag.none")}</p>`;
     } else {
       body = feed.courses.length ? `<p class="jm-note">${t("mag.coursesNote")}</p>` + feed.courses.map((c) => `<button class="mg-card" data-mg="web" data-u="${esc(c.url)}"><img src="${esc(c.image)}" alt=""><div><b>${esc(c.title)}</b><p>${esc(c.course)} · ${t("mag.lesson")} ${c.n}</p></div></button>`).join("") : `<p class="jm-note">${t("mag.none")}</p>`;
     }
     const inner = series || chap;
     el.innerHTML = `<header class="jm-head"><button class="jm-back" data-mg="${chap ? "toseries" : series ? "tolist" : "close"}">‹ ${chap || series ? t("mag.back") : t("jm.back")}</button><b>🎨 ${t("mag.t")}</b><span></span></header>
-      ${inner ? "" : `<div class="mg-tabs">${["manga", "posts", "courses"].map((k) => `<button data-mg="tab" data-k="${k}" class="${tab === k ? "on" : ""}">${t("mag.tab." + k)}</button>`).join("")}</div>`}<div class="jm-body">${body}</div>`;
+      ${inner ? "" : `<div class="mg-tabs">${["manga", "posts", "docs", "courses"].map((k) => `<button data-mg="tab" data-k="${k}" class="${tab === k ? "on" : ""}">${t("mag.tab." + k)}</button>`).join("")}</div>`}<div class="jm-body">${body}</div>`;
     if (chap) el.querySelector(".jm-body").scrollTop = 0;
   }
   $("mag").addEventListener("click", (e) => {

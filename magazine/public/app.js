@@ -31,9 +31,9 @@
     const body = box.querySelector(".dc-body");
     fetch(box.dataset.api).then((r) => r.json()).then((d) => {
       if (!d || d.error) { box.hidden = true; return; }
-      if (!d.code) { body.innerHTML = "<p><b>تم أخذ كود اليوم.</b> كود جديد غدًا، فعُد في الوقت المناسب!</p>"; return; }
-      const text = "كود هدية في Pi Oasis: أول من يستخدمه يربح 10,000 JRY و5,000 تمرة. أسرع: " + d.code, url = box.dataset.app;
-      body.innerHTML = `<div class="dc-row"><code dir="ltr">${esc(d.code)}</code><button type="button" class="sb sb-c">نسخ</button><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">افتح اللعبة واستخدمه</a></div><div class="share-b"><a class="sb sb-w" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(text + " " + url)}">WhatsApp</a><a class="sb sb-f" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}">Facebook</a><a class="sb sb-t" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}">Telegram</a></div>`;
+      if (!d.code) { body.innerHTML = "<p><b>اكتمل عدد اللاعبين (100) لكود اليوم.</b> كود جديد غدًا، فعُد في الوقت المناسب!</p>"; return; }
+      const url = d.app || box.dataset.app, text = "كود هدية في Pi Oasis (افتح الرابط في متصفح Pi): أول 100 لاعب يستخدمونه يربحون 10,000 JRY و5,000 تمرة. الكود: " + d.code;
+      body.innerHTML = `<div class="dc-row"><code dir="ltr">${esc(d.code)}</code><button type="button" class="sb sb-c">نسخ</button><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">افتح اللعبة في متصفح Pi</a></div><p class="dc-left">المتبقي: ${Number(d.left == null ? 100 : d.left)} استخدام</p><div class="share-b"><a class="sb sb-w" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(text + " " + url)}">WhatsApp</a><a class="sb sb-f" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}">Facebook</a><a class="sb sb-t" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}">Telegram</a></div>`;
       body.querySelector(".sb-c").addEventListener("click", async (e) => { try { await navigator.clipboard.writeText(d.code); e.target.textContent = "✓"; } catch (x) {} });
     }).catch(() => { box.hidden = true; });
   });

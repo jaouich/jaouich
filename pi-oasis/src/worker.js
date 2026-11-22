@@ -28,6 +28,7 @@ const VIP_DAYS = 30;
 const APP_SHARE = 0.7;
 const net = (amount) => amount * APP_SHARE; // e.g. 0.175 Pi of a 0.25 Pi payment
 const REFERRAL_RATE = 0.1; // 10% of NET on every monthly renewal
+const DAILY_CODE_USES = 100; // the code of the day: the first 100 players (one use each), 24 h
 const PRIZE_RATE = 0.15; // 15% of NET goes to the weekly prize pool
 const MIN_WITHDRAW = 1;
 const SESSION_DAYS = 30;
@@ -1584,7 +1585,7 @@ const routes = {
     return { top, ads: tot.ads, viewers: tot.viewers };
   },
 
-  // ---------- 🎁 The code of the day: one code a day, one use, valid 24 h (10,000 JRY + 5,000 dates) ----------
+  // ---------- 🎁 The code of the day: one code a day, 100 players (one use each), valid 24 h (10,000 JRY + 5,000 dates) ----------
   "GET /api/daily-code": async (req, env) => {
     const now = Date.now(), day = Math.floor(now / DAY), note = "daily:" + day;
     const cors = { "Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=15", "Content-Type": "application/json; charset=utf-8" };
@@ -1596,11 +1597,11 @@ const routes = {
     if (!c) {
       const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", b = crypto.getRandomValues(new Uint8Array(8));
       const code = "DAY-" + [...b].map((x) => abc[x % abc.length]).join("");
-      await run(env, "INSERT OR IGNORE INTO codes (code, kind, amount, kind2, amount2, max_uses, used, expires_at, note, created_at) VALUES (?, 'jry', 10000, 'dates', 5000, 1, 0, ?, ?, ?)", code, now + DAY, note, now);
+      await run(env, "INSERT OR IGNORE INTO codes (code, kind, amount, kind2, amount2, max_uses, used, expires_at, note, created_at) VALUES (?, 'jry', 10000, 'dates', 5000, ?, 0, ?, ?, ?)", code, DAILY_CODE_USES, now + DAY, note, now);
       c = await one(env, "SELECT * FROM codes WHERE note = ? ORDER BY created_at ASC LIMIT 1", note);
     }
     const taken = c.used >= c.max_uses, expired = c.expires_at && c.expires_at < now;
-    const out = JSON.stringify({ code: taken || expired ? null : c.code, taken: !!taken, expiresAt: c.expires_at, jry: c.amount, dates: c.amount2 });
+    const out = JSON.stringify({ code: taken || expired ? null : c.code, taken: !!taken, left: Math.max(0, c.max_uses - c.used), max: c.max_uses, expiresAt: c.expires_at, jry: c.amount, dates: c.amount2, app: env.PUBLIC_URL || "" });
     if (cache) await cache.put(ck, new Response(out, { headers: cors }));
     return new Response(out, { headers: cors });
   },

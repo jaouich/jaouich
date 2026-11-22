@@ -56,7 +56,7 @@ const layout = ({ title, desc, body, path: pth = "/", og, script = "" }) => `<!d
 <link rel="alternate" type="application/rss+xml" title="${SITE.name}" href="/feed.xml"><link rel="icon" href="/img/sec-community.svg"><link rel="stylesheet" href="/style.css"></head>
 <body><header class="top"><a class="brand" href="/"><b>${SITE.name}</b><small>${SITE.tagline}</small></a><nav class="nav">${nav}</nav></header>
 <main>${body}</main>
-<footer><p>${SITE.name} · مجتمع Jerry Development · <a href="/about/">عن المجلة وقواعدها</a> · <a href="/feed.xml">RSS</a></p><p class="ai">تُنتج هذه المجلة (مقالات ورسومات وقصص) بمساعدة الذكاء الاصطناعي. المعلومات عامة وليست نصيحة مالية أو قانونية.</p></footer>
+<footer><div class="fcols"><div><b>${SITE.name}</b><p>${SITE.tagline}</p></div><div><b>الأقسام</b>${Object.entries(SECTIONS).map(([k, s]) => `<a href="${k === "manga" ? "/manga/" : k === "courses" ? "/courses/" : k === "docs" ? "/docs/" : `/s/${k}/`}">${s.icon} ${s.name}</a>`).join("")}</div><div><b>المجلة</b><a href="/about/">عن المجلة وقواعدها</a><a href="/feed.xml">RSS</a><a href="https://minepi.com" rel="noopener" target="_blank">Pi Network</a></div></div><p class="ai">تُنتج هذه المجلة (مقالات ورسومات وقصص وفيديوهات) بمساعدة الذكاء الاصطناعي. المعلومات عامة وليست نصيحة مالية أو قانونية.</p></footer>
 <script src="/app.js" defer></script>${script}</body></html>`;
 const card = (p) => `<a class="card" href="${p.url}"><img src="${imgOf(p)}" alt="" loading="lazy"><div><span class="tag">${SECTIONS[p.section].icon} ${SECTIONS[p.section].name}</span><h3>${esc(p.title)}</h3><p>${esc(p.excerpt || "")}</p><small>${fdate(p.date)}</small></div></a>`;
 const subscribe = `<form class="sub" data-sub><h3>✉️ اشترك ليصلك جديد المجلة</h3><div><input type="email" name="email" required placeholder="بريدك الإلكتروني" autocomplete="email"><button>اشترك</button></div><p class="msg" role="status"></p></form>`;
@@ -64,12 +64,6 @@ const voteBox = `<section class="votebox" data-vote data-week="${vote.week}"><h2
 
 // ---- pages ----
 const hero = posts[0], rest = posts.slice(1);
-write("index.html", layout({ title: SITE.name, desc: SITE.tagline, og: imgOf(hero), body: `
-<section class="hero"><a href="${hero.url}"><img src="${imgOf(hero)}" alt=""><div><span class="tag">${SECTIONS[hero.section].icon} ${SECTIONS[hero.section].name}</span><h1>${esc(hero.title)}</h1><p>${esc(hero.excerpt)}</p></div></a></section>
-<section class="chips">${Object.entries(SECTIONS).map(([k, s]) => `<a href="${k === "manga" ? "/manga/" : k === "courses" ? "/courses/" : k === "docs" ? "/docs/" : `/s/${k}/`}"><img src="/img/sec-${k}.svg" alt=""><span>${s.icon} ${s.name}</span></a>`).join("")}</section>
-${series.length ? `<section><h2>🎨 مانغا</h2><div class="grid">${series.map((s) => `<a class="card" href="/manga/${s.id}/"><img src="/img/manga-${s.id}.svg" alt=""><div><span class="tag">🎨 مانغا</span><h3>${esc(s.title)}</h3><p>${esc(s.blurb)}</p><small>${s.chapters.length} فصل</small></div></a>`).join("")}</div></section>` : ""}
-<section><h2>أحدث ما نُشر</h2><div class="grid">${rest.map(card).join("")}</div></section>
-${voteBox}${subscribe}` }));
 for (const [k, s] of Object.entries(SECTIONS)) {
   if (k === "manga" || k === "courses" || k === "docs") continue;
   const list = posts.filter((p) => p.section === k);
@@ -116,6 +110,22 @@ for (const d of docs) {
   write(`docs/${d.id}/index.html`, layout({ title: `${d.title.ar} · ${d.title.en}`, desc: d.summary.ar, path: `/docs/${d.id}/`, og: `/img/doc-${d.id}.svg`, body: `<article class="post"><a class="tag" href="/docs/">🎬 وثائقيات جيري · الحلقة ${d.n}</a><h1>${esc(d.title.ar)}</h1><p class="meta" dir="ltr" style="text-align:left">${esc(d.title.en)}</p><p>${esc(d.summary.ar)}</p>${vid("ar")}${vid("en")}<h2>المصادر · Sources</h2><ul dir="ltr" style="text-align:left">${(d.sources || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul><p class="meta">أُنتج بمساعدة الذكاء الاصطناعي. معلومات عامة وتعليمية · Made with the help of AI. General educational information.</p></article>
 <section class="comments" data-comments data-slug="doc-${d.id}"><h2>💬 التعليقات</h2><div class="list"></div><form><input name="name" maxlength="30" placeholder="اسمك (اختياري)"><textarea name="text" required maxlength="500" rows="3" placeholder="رأيك في الحلقة…"></textarea><button>أرسل</button><p class="msg" role="status"></p></form></section>${subscribe}` }));
 }
+
+// ---- home: one organised page (hero + latest, then a rail per kind of content, then vote and newsletter) ----
+const secUrl = (k) => (k === "manga" ? "/manga/" : k === "courses" ? "/courses/" : k === "docs" ? "/docs/" : `/s/${k}/`);
+const sh = (icon, title, href, more = "عرض الكل") => `<div class="sh"><h2>${icon} ${title}</h2><a href="${href}">${more} ←</a></div>`;
+const latestManga = series.flatMap((s) => s.chapters.map((c) => ({ s, c }))).sort((a, b) => (b.c.date || "").localeCompare(a.c.date || "") || b.c.n - a.c.n)[0];
+const side = posts.slice(1, 4);
+const mini = (p) => `<a class="mini" href="${p.url}"><img src="${imgOf(p)}" alt="" loading="lazy"><div><span class="tag">${SECTIONS[p.section].icon} ${SECTIONS[p.section].name}</span><h3>${esc(p.title)}</h3><small>${fdate(p.date)}</small></div></a>`;
+const home = `
+<section class="top-grid"><div class="hero"><a href="${hero.url}"><img src="${imgOf(hero)}" alt=""><div><span class="tag">${SECTIONS[hero.section].icon} ${SECTIONS[hero.section].name}</span><h1>${esc(hero.title)}</h1><p>${esc(hero.excerpt)}</p></div></a></div>
+<div class="side"><h2 class="sh-s">الآن في المجلة</h2>${latestManga ? `<a class="mini new" href="/manga/${latestManga.s.id}/${latestManga.c.n}/"><img src="/img/manga/${latestManga.s.id}-${latestManga.c.n}-1.svg" alt="" loading="lazy"><div><span class="tag">🎨 مانغا · جديد</span><h3>${esc(latestManga.s.title)}: ${esc(latestManga.c.title)}</h3><small>الفصل ${latestManga.c.n}</small></div></a>` : ""}${side.map(mini).join("")}</div></section>
+${series.length ? `<section>${sh("🎨", "مانغا", "/manga/")}<div class="rail">${series.map((s) => `<a class="card" href="/manga/${s.id}/"><img src="/img/manga-${s.id}.svg" alt="" loading="lazy"><div><span class="tag">🎨 ${s.chapters.length} فصل</span><h3>${esc(s.title)}</h3><p>${esc(s.blurb)}</p></div></a>`).join("")}${series.flatMap((s) => s.chapters.slice().reverse().slice(0, 3).map((c) => `<a class="card" href="/manga/${s.id}/${c.n}/"><img src="/img/manga/${s.id}-${c.n}-1.svg" alt="" loading="lazy"><div><span class="tag">الفصل ${c.n}</span><h3>${esc(c.title)}</h3></div></a>`)).join("")}</div></section>` : ""}
+${docs.length ? `<section>${sh("🎬", "وثائقيات جيري", "/docs/")}<div class="rail">${docs.slice().reverse().map((d) => `<a class="card" href="/docs/${d.id}/"><img src="/img/doc-${d.id}.svg" alt="" loading="lazy"><div><span class="tag">🎬 ${d.n} · AR / EN</span><h3>${esc(d.title.ar)}</h3><p dir="ltr" style="text-align:left">${esc(d.title.en)}</p></div></a>`).join("")}</div></section>` : ""}
+<section>${sh("📰", "أحدث المقالات والقصص", "/s/community/", "كل الأقسام")}<div class="grid">${posts.slice(1).map(card).join("")}</div></section>
+${courses.length ? `<section>${sh("🎓", "Free video courses", "/courses/", "View all")}<div class="rail" dir="ltr">${courses.flatMap((c) => c.lessons.map((l) => `<a class="card" href="/courses/${c.id}/${l.id}/"><img src="/img/course-${c.id}-${l.id}.svg" alt="" loading="lazy"><div><span class="tag">${esc(c.title)} · ${l.n}</span><h3>${esc(l.title)}</h3></div></a>`)).join("")}</div></section>` : ""}
+<section class="duo">${voteBox}${subscribe}</section>`;
+write("index.html", layout({ title: SITE.name, desc: SITE.tagline, og: imgOf(hero), body: home }));
 write("about/index.html", layout({ title: "عن المجلة وقواعدها", path: "/about/", body: `<article class="post"><h1>عن المجلة وقواعد المجتمع</h1>${md(`## ما هي مجلة جيري؟
 
 مجلة يومية لمجتمع **Jerry Development**: مقالات مبسّطة عن Pi Network والتقنية وبناء التطبيقات بالذكاء الاصطناعي، ونصائح أمان، ومانغا وقصص.

@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const OUT = process.argv[2], B = 'http://localhost:3457';
 const scenes = JSON.parse(fs.readFileSync(__dirname + '/guide-scenes.json', 'utf8'));
-const S = 1.78, PX = Math.round((1080 - 390 * S) / 2), PY = 190;
+const S = 1.66, PX = Math.round((1080 - 390 * S) / 2), PY = 222;
 const durOf = (s) => Math.max(10, Math.min(18, 3 + s.en.length / 13));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const cardHtml = {
@@ -15,14 +15,14 @@ const cardHtml = {
 };
 const wrapper = `<!doctype html><meta charset=utf8><style>
 *{box-sizing:border-box;margin:0}body{width:1080px;height:1920px;overflow:hidden;position:relative;background:radial-gradient(120% 70% at 50% 0%,#7c3aed 0%,#4c1d95 45%,#1e0b45 100%);font-family:Inter,"Noto Sans Arabic","DejaVu Sans",sans-serif;color:#fff}
-#title{position:absolute;left:30px;right:30px;top:26px;height:150px;text-align:center}
-#tn{display:inline-block;background:#ffd86b;color:#3a2400;font-weight:900;font-size:30px;padding:4px 20px;border-radius:30px}
-#te{font-size:50px;font-weight:900;color:#ffd86b;margin-top:6px}#ta{font-size:46px;font-weight:800;direction:rtl}
+#title{position:absolute;left:30px;right:30px;top:14px;height:196px;text-align:center}
+#tn{display:inline-block;background:#ffd86b;color:#3a2400;font-weight:900;font-size:26px;padding:2px 18px;border-radius:30px}
+#te{font-size:44px;font-weight:900;color:#ffd86b;margin-top:4px;line-height:1.15}#ta{font-size:40px;font-weight:800;direction:rtl;line-height:1.3}
 #phone{position:absolute;left:${PX - 14}px;top:${PY - 14}px;width:${390 * S + 28}px;height:${780 * S + 28}px;border-radius:64px;background:#0b0b10;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 6px #2b2b36}
 #scr{position:absolute;left:14px;top:14px;width:${390 * S}px;height:${780 * S}px;border-radius:50px;overflow:hidden;background:#fff}
 #app{position:absolute;left:0;top:0;width:390px;height:780px;border:0;transform:scale(${S});transform-origin:0 0}
-#cap{position:absolute;left:36px;right:36px;top:${PY + 780 * S + 34}px;bottom:24px;padding:20px 28px;border-radius:36px;background:rgba(10,4,30,.68);display:flex;flex-direction:column;justify-content:center;gap:12px}
-#en{font-size:33px;font-weight:600;line-height:1.3}#ar{font-size:37px;font-weight:700;line-height:1.5;color:#ffe9a8;direction:rtl;text-align:right}
+#cap{position:absolute;left:30px;right:30px;top:${PY + 780 * S + 30}px;bottom:20px;padding:14px 26px;border-radius:32px;background:rgba(10,4,30,.7);display:flex;flex-direction:column;justify-content:center;gap:8px;overflow:hidden}
+#en{font-size:28px;font-weight:600;line-height:1.28}#ar{font-size:31px;font-weight:700;line-height:1.45;color:#ffe9a8;direction:rtl;text-align:right}
 #finger{position:absolute;z-index:50;font-size:84px;left:540px;top:1000px;transition:left .6s ease,top .6s ease;filter:drop-shadow(0 4px 6px rgba(0,0,0,.5));pointer-events:none}
 #card{position:absolute;inset:0;z-index:40;text-align:center;background:radial-gradient(120% 70% at 50% 0%,#7c3aed 0%,#4c1d95 45%,#1e0b45 100%);display:none}
 .star{position:absolute;color:#ffd86b;opacity:.6}
@@ -48,6 +48,8 @@ const wrapper = `<!doctype html><meta charset=utf8><style>
     INSERT INTO nft_items (kind, edition, owner, minted_at) VALUES ('scorpion', 1, '${uC}', ${now}), ('palm', 4, '${uC}', ${now}), ('lamp', 2, '${uC}', ${now});
     INSERT INTO chat_msgs (room, uid, text, at) VALUES ('main', '${uA}', 'Salam everyone! Who wants to swap cards?', ${now - 600000}), ('main', '${uB}', 'I just reached the Silver league', ${now - 300000}), ('main', '${uA}', 'The castle map 2 is hard but fun', ${now - 120000});
     INSERT INTO mk_offers (uid, kind, amount, pi, status, created_at, updated_at) VALUES ('${uA}', 'dates', 20000, 1.5, 'open', ${now}, ${now}), ('${uB}', 'coins', 400000, 2, 'open', ${now}, ${now});`);
+  const lastWk = (() => { const d = new Date(now - 7 * 86400000); const day = (d.getUTCDay() + 6) % 7; return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day); })();
+  await exec(`INSERT OR REPLACE INTO week_scores VALUES (${lastWk}, '${uA}', 1800, 1), (${lastWk}, '${uB}', 1200, 2), (${lastWk}, '${uC}', 600, 3);`);
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1080, height: 1920 }, recordVideo: { dir: OUT, size: { width: 1080, height: 1920 } }, userAgent: 'Mozilla/5.0 PiBrowser/2.0' });
   const p = await ctx.newPage(); const t0 = Date.now();
@@ -94,7 +96,7 @@ const wrapper = `<!doctype html><meta charset=utf8><style>
     await p.evaluate(({ n, total, t, en, ar, card }) => {
       document.getElementById('tn').textContent = n + ' / ' + total; document.getElementById('te').textContent = t[0]; document.getElementById('ta').textContent = t[1];
       document.getElementById('en').textContent = en; document.getElementById('ar').textContent = ar;
-      const c = document.getElementById('card'); if (card) { c.innerHTML = card; c.style.display = 'block'; } else c.style.display = 'none';
+      const c = document.getElementById('card'); if (card) { c.innerHTML = card; c.style.display = 'block'; } else c.style.display = 'none'; document.getElementById('finger').style.display = card ? 'none' : 'block';
     }, { n: i + 1, total: scenes.length, t: sc.t, en: sc.en, ar: sc.ar, card: cardHtml[sc.id] || '' });
     const startAt = (Date.now() - t0) / 1000;
     if (A[sc.id]) { try { await A[sc.id](); } catch (e) { console.error('scene', sc.id, e.message); } }

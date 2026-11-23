@@ -7,34 +7,74 @@ Pi Oasis: a game oasis inside Pi Browser. Free to play.
 To start, open Pi Browser, find Pi Oasis, and tap Open. Sign in with Pi and you are in.
 
 3
-00:00:14,000 --> 00:00:19,790
+00:00:14,000 --> 00:00:19,170
 Tap the palm to knock dates down. Every tenth hit is golden, and your energy comes back with time.
 
 4
-00:00:19,790 --> 00:00:25,030
-Play Jerry Kombat, the Derby, and more, all from one home screen.
+00:00:19,170 --> 00:00:23,900
+Everything is on one home screen.
 
 5
-00:00:25,030 --> 00:00:32,180
-Defend Jerry Castle: build towers along the path and stop the army.
+00:00:23,900 --> 00:00:33,420
+Jerry Kombat: tap to earn coins, collect cards and fight the community boss.
 
 6
-00:00:32,180 --> 00:00:38,080
-Collect rare cards, trade them with other players, and complete your album.
+00:00:33,420 --> 00:00:38,630
+Camel Derby: train your racing camels and enter the weekly races.
 
 7
-00:00:38,080 --> 00:00:41,750
-Every day there is a gift code. The first players to use it win a reward.
+00:00:38,630 --> 00:00:43,830
+Jerry Castle: build towers along the path and stop the army.
 
 8
-00:00:41,750 --> 00:00:47,760
-Supporters can join the VIP Club, with its Hall of Glory and the Sultan's Caravan game.
+00:00:43,830 --> 00:00:48,230
+Buy, breed and collect camels that make dates for you.
 
 9
-00:00:47,760 --> 00:00:53,310
-Climb the weekly ranking. Prizes and items are in the game.
+00:00:48,230 --> 00:00:52,640
+Build your oasis city and fill orders to grow it.
 
 10
-00:00:53,310 --> 00:01:03,310
+00:00:52,640 --> 00:00:58,650
+Save dates in the granary and get them back with a bonus.
+
+11
+00:00:58,650 --> 00:01:03,850
+Spin the daily wheel, finish quests and play arcade games.
+
+12
+00:01:03,850 --> 00:01:09,050
+Collect rare cards and complete your album.
+
+13
+00:01:09,050 --> 00:01:14,250
+Trade with other players in the market.
+
+14
+00:01:14,250 --> 00:01:19,450
+Chat with friends in the public room or in private.
+
+15
+00:01:19,450 --> 00:01:24,640
+Your box keeps your gifts, your JRY and your waiting prizes.
+
+16
+00:01:24,640 --> 00:01:30,050
+Read manga, guides and watch documentaries in Jerry Magazine.
+
+17
+00:01:30,050 --> 00:01:33,710
+Every day there is a gift code. The first players to use it win a reward.
+
+18
+00:01:33,710 --> 00:01:39,110
+Supporters can join the VIP Club, with its Hall of Glory and the Sultan's Caravan game.
+
+19
+00:01:39,110 --> 00:01:43,750
+Climb the weekly ranking. Prizes and items are in the game.
+
+20
+00:01:43,750 --> 00:01:53,750
 Pi Oasis. Open Pi Browser and search for Pi Oasis. A game for fun, with no promise of profit.
 

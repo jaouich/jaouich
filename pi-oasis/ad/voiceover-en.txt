@@ -1,12 +1,22 @@
-Pi Oasis ad (about 63 s, English). Voice-over script with times in seconds:
+Pi Oasis ad (about 104 s, English). Voice-over script with times in seconds:
 
 [  0.0-  5.0] Pi Oasis: a game oasis inside Pi Browser. Free to play.
 [  5.0- 14.0] To start, open Pi Browser, find Pi Oasis, and tap Open. Sign in with Pi and you are in.
-[ 14.0- 19.8] Tap the palm to knock dates down. Every tenth hit is golden, and your energy comes back with time.
-[ 19.8- 25.0] Play Jerry Kombat, the Derby, and more, all from one home screen.
-[ 25.0- 32.2] Defend Jerry Castle: build towers along the path and stop the army.
-[ 32.2- 38.1] Collect rare cards, trade them with other players, and complete your album.
-[ 38.1- 41.8] Every day there is a gift code. The first players to use it win a reward.
-[ 41.8- 47.8] Supporters can join the VIP Club, with its Hall of Glory and the Sultan's Caravan game.
-[ 47.8- 53.3] Climb the weekly ranking. Prizes and items are in the game.
-[ 53.3- 63.3] Pi Oasis. Open Pi Browser and search for Pi Oasis. A game for fun, with no promise of profit.
+[ 14.0- 19.2] Tap the palm to knock dates down. Every tenth hit is golden, and your energy comes back with time.
+[ 19.2- 23.9] Everything is on one home screen.
+[ 23.9- 33.4] Jerry Kombat: tap to earn coins, collect cards and fight the community boss.
+[ 33.4- 38.6] Camel Derby: train your racing camels and enter the weekly races.
+[ 38.6- 43.8] Jerry Castle: build towers along the path and stop the army.
+[ 43.8- 48.2] Buy, breed and collect camels that make dates for you.
+[ 48.2- 52.6] Build your oasis city and fill orders to grow it.
+[ 52.6- 58.6] Save dates in the granary and get them back with a bonus.
+[ 58.6- 63.9] Spin the daily wheel, finish quests and play arcade games.
+[ 63.9- 69.0] Collect rare cards and complete your album.
+[ 69.0- 74.2] Trade with other players in the market.
+[ 74.2- 79.5] Chat with friends in the public room or in private.
+[ 79.5- 84.6] Your box keeps your gifts, your JRY and your waiting prizes.
+[ 84.6- 90.0] Read manga, guides and watch documentaries in Jerry Magazine.
+[ 90.0- 93.7] Every day there is a gift code. The first players to use it win a reward.
+[ 93.7- 99.1] Supporters can join the VIP Club, with its Hall of Glory and the Sultan's Caravan game.
+[ 99.1-103.8] Climb the weekly ranking. Prizes and items are in the game.
+[103.8-113.8] Pi Oasis. Open Pi Browser and search for Pi Oasis. A game for fun, with no promise of profit.

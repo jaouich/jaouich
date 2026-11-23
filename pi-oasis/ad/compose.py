@@ -12,10 +12,11 @@ def still(name, png, dur, fi, fo):
     run(f'ffmpeg -y -v error -loop 1 -t {dur} -i {W}/{png}.png -vf "{",".join(f) or "null"}" {enc} {W}/{name}.mp4')
 still('s_intro', 'intro', 5, True, False); still('s_st1', 'steps1', 2.5, False, False); still('s_st2', 'steps2', 2.5, False, False); still('s_st3', 'steps3', 4, False, True); still('s_outro', 'outro', 10, True, True)
 dur = marks[-1]
-inputs = f'-loop 1 -framerate 30 -i {W}/appbg.png ' + ' '.join(f'-loop 1 -framerate 30 -i {W}/cap{i}.png' for i in range(7)) + f' -ss {ready} -t {dur} -i {R}'
-fc = '[8:v]crop=390:780:0:0,scale=735:1470:flags=lanczos,unsharp=5:5:0.7,setsar=1[v];[0:v][v]overlay=172:224[b0];'
+N = len(marks) - 1
+inputs = f'-loop 1 -framerate 30 -i {W}/appbg.png ' + ' '.join(f'-loop 1 -framerate 30 -i {W}/cap{i}.png' for i in range(N)) + f' -ss {ready} -t {dur} -i {R}'
+fc = f'[{N+1}:v]crop=390:780:0:0,scale=735:1470:flags=lanczos,unsharp=5:5:0.7,setsar=1[v];[0:v][v]overlay=172:224[b0];'
 prev = 'b0'
-for i in range(7):
+for i in range(N):
     s, e = marks[i], marks[i + 1]
     fc += f"[{prev}][{i+1}:v]overlay=0:0:enable='between(t,{s+0.15},{e-0.1})'[b{i+1}];"; prev = f'b{i+1}'
 fc += f'[{prev}]fade=t=in:st=0:d=0.4,fade=t=out:st={dur-0.4}:d=0.4[out]'

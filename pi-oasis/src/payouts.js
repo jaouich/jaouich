@@ -13,7 +13,45 @@ export const MIN_PAYOUT = 0.01; // smaller prizes cost more in fees than they're
 const PER_RUN = 8; // payouts handled per run (keeps each run short)
 const round = (n) => Math.floor(n * 1e7) / 1e7;
 
+// Queue the rows (weekly prizes, referral withdrawals) whether or not the outgoing wallet is set up:
+// they wait in the player's box and are only SENT by processPayouts once the wallet works.
+export async function queuePayouts(env, d) {
+  const now = Date.now();
+  // 2) Last week's prizes (once)
+  const lastWeek = d.weekId(now - 7 * 86400000);
+  const w = await d.one(env, "SELECT * FROM weeks WHERE id = ? AND paid = 0", lastWeek);
+  if (w) {
+    // Up to 100 winners share the pool by place (d.share). A share too small to send
+    // (under MIN_PAYOUT) stays in the pool and rolls into this week's prize.
+    const top = await d.all(env, "SELECT uid, score FROM week_scores WHERE week_id = ? AND score > 0 ORDER BY score DESC, updated_at ASC LIMIT 100", lastWeek);
+    const prizes = top.map((r, i) => ({ uid: r.uid, place: i + 1, amount: round(w.prize_pool * d.share(i + 1)) })).filter((p) => p.amount >= MIN_PAYOUT);
+    const paid = prizes.reduce((a, p) => a + p.amount, 0);
+    const left = Math.max(0, round(w.prize_pool - paid));
+    const stmts = prizes.map((p) =>
+      env.DB.prepare("INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'prize', ?, ?, ?, ?, 'new', ?, ?)")
+        .bind(crypto.randomUUID(), String(lastWeek), p.uid, p.amount, `Pi Oasis weekly prize #${p.place}`, now, now)
+    );
+    if (left > 0) stmts.push(env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(d.weekId(now), left));
+    stmts.push(env.DB.prepare("UPDATE weeks SET paid = ? WHERE id = ?").bind(prizes.length ? 1 : 2, lastWeek)); // 2 = all rolled over
+    await env.DB.batch(stmts);
+    // tell every winner that the prize is waiting in the box
+    if (d.notify && prizes.length) await d.notify(env, prizes.map((p) => ({ uid: p.uid, kind: "piprize", ref: lastWeek, vars: { p: p.place, pi: String(p.amount) } }))).catch((e) => d.logError(env, "payouts: notify", 0, e.message));
+  }
+
+  // 3) Referral withdrawals waiting
+  const wd = await d.all(env, "SELECT * FROM withdrawals WHERE status = 'pending' ORDER BY created_at LIMIT 20");
+  for (const x of wd) {
+    await env.DB.batch([
+      env.DB.prepare("INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'withdraw', ?, ?, ?, 'Pi Oasis referral rewards', 'new', ?, ?)")
+        .bind(crypto.randomUUID(), x.id, x.uid, x.amount, now, now),
+      env.DB.prepare("UPDATE withdrawals SET status = 'processing' WHERE id = ?").bind(x.id),
+    ]);
+  }
+
+}
+
 export async function processPayouts(env, d) {
+  await queuePayouts(env, d).catch((e) => d.logError(env, "payouts: queue", 0, e.message));
   if (!env.PI_WALLET_SEED || !env.PI_NETWORK_API_KEY) return { skipped: "PI_WALLET_SEED or PI_NETWORK_API_KEY not set" };
   const now = Date.now();
   const report = { resumed: 0, created: 0, completed: 0, failed: 0 };
@@ -42,35 +80,6 @@ export async function processPayouts(env, d) {
     }
   } catch (e) {
     await d.logError(env, "payouts: resume", 0, e.message);
-  }
-
-  // 2) Last week's prizes (once)
-  const lastWeek = d.weekId(now - 7 * 86400000);
-  const w = await d.one(env, "SELECT * FROM weeks WHERE id = ? AND paid = 0", lastWeek);
-  if (w) {
-    // Up to 100 winners share the pool by place (d.share). A share too small to send
-    // (under MIN_PAYOUT) stays in the pool and rolls into this week's prize.
-    const top = await d.all(env, "SELECT uid, score FROM week_scores WHERE week_id = ? AND score > 0 ORDER BY score DESC, updated_at ASC LIMIT 100", lastWeek);
-    const prizes = top.map((r, i) => ({ uid: r.uid, place: i + 1, amount: round(w.prize_pool * d.share(i + 1)) })).filter((p) => p.amount >= MIN_PAYOUT);
-    const paid = prizes.reduce((a, p) => a + p.amount, 0);
-    const left = Math.max(0, round(w.prize_pool - paid));
-    const stmts = prizes.map((p) =>
-      env.DB.prepare("INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'prize', ?, ?, ?, ?, 'new', ?, ?)")
-        .bind(crypto.randomUUID(), String(lastWeek), p.uid, p.amount, `Pi Oasis weekly prize #${p.place}`, now, now)
-    );
-    if (left > 0) stmts.push(env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(d.weekId(now), left));
-    stmts.push(env.DB.prepare("UPDATE weeks SET paid = ? WHERE id = ?").bind(prizes.length ? 1 : 2, lastWeek)); // 2 = all rolled over
-    await env.DB.batch(stmts);
-  }
-
-  // 3) Referral withdrawals waiting
-  const wd = await d.all(env, "SELECT * FROM withdrawals WHERE status = 'pending' ORDER BY created_at LIMIT 20");
-  for (const x of wd) {
-    await env.DB.batch([
-      env.DB.prepare("INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'withdraw', ?, ?, ?, 'Pi Oasis referral rewards', 'new', ?, ?)")
-        .bind(crypto.randomUUID(), x.id, x.uid, x.amount, now, now),
-      env.DB.prepare("UPDATE withdrawals SET status = 'processing' WHERE id = ?").bind(x.id),
-    ]);
   }
 
   // 4) Send. A2U_LIVE = "0": the app's outgoing wallet is still waiting for Pi's approval, so

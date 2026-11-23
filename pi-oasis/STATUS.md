@@ -80,3 +80,5 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - VIP Club (vipc.js, vip-logic.js): 5 Pi / 30 days, Hall of Glory (players who paid Pi, amounts shown to members), Sultan's Caravan skill game (3 trips/day, monthly ranking, pays Kombat coins). Free entry: owner codes (kind vipclub), owner grant (/api/admin/vipc + button in codes panel), wheel prize (replaced the 250k coins slot, 3 days), top 3 of the weekly Kombat ranking (30 days). Multiplier also boosts Kombat profit (holdBoost). Fixed membership cards cut off in Club.
 
 - Daily gift code: GET /api/daily-code (public, CORS) creates one single-use code a day (10,000 JRY + 5,000 dates, 24 h); codes got kind2/amount2; card on the home page with copy/use/share.
+
+- Weekly Pi prizes are now queued in the box even before the outgoing wallet exists (payouts.js queuePayouts runs before the wallet check) and each winner gets a "piprize" message that opens My box. Mainnet cron now runs at :03 and :23.

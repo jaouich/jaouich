@@ -1,0 +1,32 @@
+// Weekly prizes while the outgoing wallet is NOT set up: queued in the box + a message. Fresh harness.
+const B = "http://localhost:3457";
+const post = (p, b, h = {}) => fetch(B + p, { method: "POST", headers: { "Content-Type": "application/json", ...h }, body: typeof b === "string" ? b : JSON.stringify(b) }).then((r) => r.json());
+const get = (p, h = {}) => fetch(B + p, { headers: h }).then((r) => r.json());
+const sql = (q) => fetch(B + "/__test/sql", { method: "POST", body: q }).then((r) => r.json());
+const exec = (q) => fetch(B + "/__test/exec", { method: "POST", body: q });
+const cron = () => fetch(B + "/__test/cron").then((r) => r.text());
+const chain = () => get("/__test/chain");
+const notifs = () => get("/__test/notifs");
+let pass = 0, fail = 0;
+const ok = (c, m, x) => { console.log((c ? "PASS  " : "FAIL  ") + m + (c || x === undefined ? "" : " -> " + JSON.stringify(x))); c ? pass++ : fail++; };
+const weekId = (t) => { const d = new Date(t); const day = (d.getUTCDay() + 6) % 7; return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day); };
+const lastWeek = weekId(Date.now() - 7 * 86400000);
+const A = (await post("/api/auth", { accessToken: "tokA" })).session;
+await post("/api/auth", { accessToken: "tokB" });
+const uidA = (await sql("SELECT uid FROM users WHERE username='alice'"))[0].uid, uidB = (await sql("SELECT uid FROM users WHERE username='bob'"))[0].uid;
+await fetch(B + "/__test/env", { method: "POST", body: JSON.stringify({ key: "PI_WALLET_SEED", value: null }) }); // no outgoing wallet yet
+await exec(`INSERT OR REPLACE INTO weeks (id, prize_pool, paid) VALUES (${lastWeek}, 10, 0); INSERT OR REPLACE INTO week_scores VALUES (${lastWeek}, '${uidA}', 300, 1), (${lastWeek}, '${uidB}', 200, 2);`);
+const tx0 = (await chain()).txs.length;
+await cron();
+const rows = await sql("SELECT uid, amount, status, kind FROM payouts WHERE kind='prize' ORDER BY amount DESC");
+ok(rows.length === 2 && rows[0].amount === 2 && rows[1].amount === 1.2 && rows.every((r) => r.status === "new"), "no wallet: 2 prize rows queued (20% and 12% of 10 Pi)", rows);
+ok((await chain()).txs.length === tx0, "nothing is sent without the wallet");
+ok((await sql(`SELECT paid FROM weeks WHERE id=${lastWeek}`))[0].paid === 1, "week marked as handled");
+const n = (await notifs()).filter((x) => /Your weekly prize|جائزتك الأسبوعية/.test(x.title));
+ok(n.length === 2 && n.every((x) => x.subroute === "/?go=box"), "each winner gets a message that opens the box", n.map((x) => x.title));
+await cron(); await cron();
+ok((await sql("SELECT COUNT(*) AS n FROM payouts WHERE kind='prize'"))[0].n === 2 && (await notifs()).filter((x) => /Your weekly prize|جائزتك الأسبوعية/.test(x.title)).length === 2, "running again changes nothing (no double rows or messages)");
+const box = await get("/api/box", { Authorization: "Bearer " + A });
+ok(box.piBox && box.piBox.waiting === 2 && box.piBox.items.length === 1, "the box shows the waiting Pi", box.piBox);
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

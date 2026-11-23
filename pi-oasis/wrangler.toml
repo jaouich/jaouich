@@ -91,4 +91,4 @@ binding = "TESTNET_DB_OLD"
 database_name = "pi-oasis-main-db"
 
 [env.main.triggers]
-crons = ["23 * * * *"]
+crons = ["3,23 * * * *"]

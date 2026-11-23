@@ -2601,7 +2601,7 @@ function admin(req, env) {
 }
 
 const runPayouts = (env) =>
-  ensureSchema(env).then(() => processPayouts(env, { pi, logError, one, all, run, weekId: L.weekId, share: L.WEEK100.share }));
+  ensureSchema(env).then(() => processPayouts(env, { pi, logError, one, all, run, notify, weekId: L.weekId, share: L.WEEK100.share }));
 
 // Checks a Pi payment against what this app sells, at the server's prices. Browser input is never trusted.
 // Products: { type: "vip_month", tier } (30 days of a membership) or { type: "dates", pack } (date shop).
@@ -2799,6 +2799,7 @@ const NOTE = {
   rstart: { go: "vip", en: ["👑 The Grand Royal Final has started!", "All royal cards are sold. {d} days to earn the most Kombat coins: 1 billion for #1."], ar: ["👑 بدأ النهائي الملكي الكبير!", "بيعت كل البطاقات الملكية. {d} يومًا لجمع أكثر عملات كومبات: مليار للأول."], fr: ["👑 La Grande Finale royale commence !", "Toutes les cartes royales sont vendues. {d} jours pour gagner le plus de pièces Kombat : 1 milliard pour le 1er."] },
   rfinal: { go: "vip", en: ["👑 Grand Royal Final: #{p}", "+{n} Kombat coins for your place!"], ar: ["👑 النهائي الملكي الكبير: المركز {p}", "+{n} عملة كومبات لمركزك!"], fr: ["👑 Grande Finale royale : {p}e", "+{n} pièces Kombat pour ta place !"] },
   jry: { go: "kombat", en: ["💠 +{n} JRY from Jerry Development", "{note}"], ar: ["💠 +{n} JRY من Jerry Development", "{note}"], fr: ["💠 +{n} JRY de Jerry Development", "{note}"] },
+  piprize: { go: "box", en: ["🎁 Your weekly prize: {pi} Pi", "Place {p}. Your Pi are waiting in your box and will be sent as soon as sending opens."], ar: ["🎁 جائزتك الأسبوعية: {pi} Pi", "المركز {p}. عملاتك في الانتظار داخل صندوقك وستُرسل بمجرد فتح الإرسال."], fr: ["🎁 Ton prix de la semaine : {pi} Pi", "Place {p}. Tes Pi t'attendent dans ton coffre et seront envoyés dès que l'envoi ouvrira."] },
   kweek: { go: "kombat", en: ["⚔️ Kombat tournament: #{p}", "Open Jerry Kombat to collect your prize."], ar: ["⚔️ بطولة كومبات: المركز {p}", "افتح جيري كومبات لتستلم جائزتك."], fr: ["⚔️ Tournoi Kombat : {p}e", "Ouvre Jerry Kombat pour récupérer ton prix."] },
   dweek: { go: "derby", en: ["🏁 Camel Derby: #{p}", "+{d} dates for your place this week."], ar: ["🏁 سباق الجمال: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏁 Course de chameaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   sold: { go: "market", en: ["💰 Your offer sold", "+{pi} Pi added to your sales balance."], ar: ["💰 تم بيع عرضك", "+{pi} Pi أُضيفت إلى رصيد مبيعاتك."], fr: ["💰 Ton offre est vendue", "+{pi} Pi ajoutés à ton solde de ventes."] },

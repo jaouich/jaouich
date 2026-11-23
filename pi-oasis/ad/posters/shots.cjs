@@ -1,0 +1,46 @@
+// App screenshots (390x780 @2x) for the posters, from the test server with seeded data. usage: node shots.cjs <outdir>
+const { chromium } = require('playwright');
+const OUT = process.argv[2], B = 'http://localhost:3457';
+(async () => {
+  const J = (u, b) => fetch(B + u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then((r) => r.json());
+  const sql = (q) => fetch(B + '/__test/sql', { method: 'POST', body: q }).then((r) => r.json());
+  const exec = (q) => fetch(B + '/__test/exec', { method: 'POST', body: q });
+  for (const t of ['tokA', 'tokB', 'tokC']) await J('/api/auth', { accessToken: t });
+  const uid = async (n) => (await sql(`SELECT uid FROM users WHERE username='${n}'`))[0].uid;
+  const [uA, uB, uC] = [await uid('alice'), await uid('bob'), await uid('carol')], now = Date.now();
+  const camels = JSON.stringify([0, 1, 1, 2].map((r, i) => ({ id: i + 1, rarity: r, born: now - 9 * 3600e3, lastCollect: now - 5 * 3600e3, lastBred: 0, from: 'market' })));
+  const day = (d) => { const x = new Date(now - d * 86400000); const w = (x.getUTCDay() + 6) % 7; return Date.UTC(x.getUTCFullYear(), x.getUTCMonth(), x.getUTCDate() - w); };
+  await exec(`UPDATE state SET json = json_set(json, '$.dates', 48250, '$.animals', json('${camels}'), '$.nextAnimal', 5) WHERE uid='${uC}';
+    INSERT INTO nft_items (kind, edition, owner, minted_at) VALUES ('scorpion', 1, '${uC}', ${now}), ('palm', 4, '${uC}', ${now}), ('lamp', 2, '${uC}', ${now}), ('falcon', 7, '${uC}', ${now});
+    INSERT INTO users (uid, username, created_at, vip_until, ref_balance) VALUES ('zz1', 'PlayerOne', 1, 0, 0);
+    INSERT INTO payments (id, uid, amount, status, created_at) VALUES ('d1', 'zz1', 303, 'completed', 1), ('d2', '${uB}', 38, 'completed', 2);
+    INSERT OR REPLACE INTO week_scores VALUES (${day(0)}, '${uA}', 9800, 1), (${day(0)}, '${uB}', 7400, 2), (${day(0)}, '${uC}', 5200, 3);
+    INSERT OR REPLACE INTO weeks (id, prize_pool, paid) VALUES (${day(0)}, 0, 0);`);
+  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 780 }, deviceScaleFactor: 2, userAgent: 'Mozilla/5.0 PiBrowser/2.0' });
+  const p = await ctx.newPage(); const errs = [];
+  p.on('pageerror', (e) => errs.push(e.message));
+  await p.route('**/pi-sdk.js', (r) => r.fulfill({ body: 'window.Pi={init(){},authenticate:async()=>({accessToken:"tokC"})};', contentType: 'text/javascript' }));
+  await p.route('https://fonts.**', (r) => r.abort());
+  await p.addInitScript(() => { try { localStorage.setItem('oasis_tour', '1'); localStorage.setItem('oasis_lang', 'en'); } catch (e) {} });
+  await p.goto(B + '/'); await p.waitForTimeout(2500);
+  const shot = async (n) => { await p.waitForTimeout(500); await p.screenshot({ path: `${OUT}/${n}.png` }); };
+  const smooth = async (s, bl = 'center') => { await p.evaluate(([q, b]) => document.querySelector(q).scrollIntoView({ block: b }), [s, bl]); await p.waitForTimeout(400); };
+  // hub / palm
+  await p.evaluate(() => window.scrollTo(0, 0)); await shot('home');
+  await smooth('#pmTree'); for (let i = 0; i < 6; i++) { await p.dispatchEvent('#pmTree', 'pointerdown'); await p.waitForTimeout(250); } await shot('palm');
+  await smooth('.hub', 'start'); await shot('hub');
+  await smooth('#dayCode', 'start'); await shot('code');
+  await p.evaluate(() => window.scrollTo(0, 0));
+  await p.click('#kombatOpen'); await p.waitForTimeout(1200); for (let i = 0; i < 10; i++) { await p.dispatchEvent('#kMedal', 'pointerdown'); await p.waitForTimeout(200); } await shot('kombat'); await p.click('#kBack');
+  await p.evaluate(() => document.querySelectorAll('.media,.sheet,#kombat').forEach((e) => e.classList.add('hidden')));
+  await p.click('#castleOpen'); await p.waitForTimeout(800); await p.click('[data-cs=map][data-i="0"]'); await p.waitForTimeout(1200); await shot('castle');
+  await p.evaluate(() => document.querySelectorAll('.media,.sheet,#kombat').forEach((e) => e.classList.add('hidden')));
+  await p.evaluate(() => window.scrollTo(0, 0)); await p.click('#catOpen'); await p.waitForTimeout(1500); await shot('catalog');
+  await p.evaluate(() => document.querySelectorAll('.media,.sheet,#kombat').forEach((e) => e.classList.add('hidden')));
+  await p.click('#vipcOpen'); await p.waitForTimeout(1200); await shot('vip');
+  await p.evaluate(() => document.querySelectorAll('.media,.sheet,#kombat').forEach((e) => e.classList.add('hidden')));
+  await p.click('[data-tab=rank]'); await p.waitForTimeout(1800); await p.evaluate(() => window.scrollTo(0, 0)); await shot('king');
+  await smooth('#prizeTable', 'start'); await shot('rank');
+  await p.click('[data-tab=camels]'); await p.waitForTimeout(1200); await p.evaluate(() => window.scrollTo(0, 0)); await shot('camels');
+  console.log(errs); await b.close();
+})();

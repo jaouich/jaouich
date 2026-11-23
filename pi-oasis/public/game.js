@@ -1365,7 +1365,7 @@
   });
 
   // ---------- Daily missions ----------
-  const M_ICON = { harvest: "🌾", plant: "🌱", deliver: "📦", craft: "🥖", stake: "🏺", collect: "🐪" };
+  const M_ICON = { tap: "🌴", golden: "✨", harvest: "🌾", plant: "🌱", deliver: "📦", craft: "🥖", stake: "🏺", collect: "🐪" };
   function renderMissions() {
     const m = S.missions;
     const nextBonus = Math.min(m.streak + 1, L.STREAK.MAX) * L.STREAK.BONUS;

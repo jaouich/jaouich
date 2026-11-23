@@ -223,10 +223,11 @@ async function horizon(u, opt) {
 }
 const worker = (await import(ROOT + "/src/worker.js")).default;
 const MAG = { fetch: async () => { const f = path.join(ROOT, "../magazine/public/feed.json"); return fs.existsSync(f) ? new Response(fs.readFileSync(f)) : new Response("{}", { status: 404 }); } };
-const env = { DB, ASSETS, MAG, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_WALLET_SEED: APP.S, VALIDATION_KEY: "testkey123", ADMIN_USERNAMES: "Alice", PUBLIC_URL: "https://oasisgame6033.pinet.com", TESTNET_GIFTS: "1", JRY_CODE: "testJRY", JRY_HOME: "pi-oasis.jaouich.workers.dev" };
+const env = { KING_TTL_MS: "0", DB, ASSETS, MAG, PI_NETWORK_API_KEY: "TESTKEY", ADMIN_TOKEN: "adm", PI_WALLET_SEED: APP.S, VALIDATION_KEY: "testkey123", ADMIN_USERNAMES: "Alice", PUBLIC_URL: "https://oasisgame6033.pinet.com", TESTNET_GIFTS: "1", JRY_CODE: "testJRY", JRY_HOME: "pi-oasis.jaouich.workers.dev" };
 http.createServer(async (rq, rs) => {
   const chunks = []; for await (const c of rq) chunks.push(c);
   const req = new Request("http://" + (rq.headers.host || "localhost:3457") + rq.url, { method: rq.method, headers: rq.headers, body: rq.method === "POST" ? Buffer.concat(chunks) : undefined });
+  if (rq.url === "/__test/king-refresh") { rs.end("ok"); return; }
   if (rq.url === "/__test/env") { const b = JSON.parse(Buffer.concat(chunks)); if (b.value === null) delete env[b.key]; else env[b.key] = b.value; rs.end("ok"); return; }
   if (rq.url === "/__test/pay") { const b = JSON.parse(Buffer.concat(chunks)); payments[b.id] = { app: b.studio ? "studio" : "dev", identifier: b.id, user_uid: b.uid, amount: b.amount, direction: b.direction || "user_to_app", metadata: { type: b.type || "vip_month", ...(b.tier ? { tier: b.tier } : {}), ...(b.pack ? { pack: b.pack } : {}), ...(b.pi ? { pi: b.pi } : {}), ...(b.offer ? { offer: b.offer } : {}), ...(b.mult ? { mult: b.mult } : {}), ...(b.ad ? { ad: b.ad } : {}), ...(b.plan ? { plan: b.plan } : {}), ...(b.kind ? { kind: b.kind } : {}), ...(b.breed ? { breed: b.breed } : {}), ...(b.tier && b.type === "royal" ? { tier: b.tier } : {}), ...(b.ed ? { ed: b.ed } : {}), ...(b.amt ? { amt: b.amt } : {}) }, status: { cancelled: !!b.cancelled }, transaction: b.txid ? { txid: b.txid } : null }; rs.end("ok"); return; }
   if (rq.url === "/__test/chain") { rs.end(JSON.stringify({ txs: chain.txs.map((t) => ({ ...t, seq: String(t.seq), amount: String(t.amount) })), wallets, a2u })); return; }

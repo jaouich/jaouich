@@ -547,12 +547,10 @@
       // Premium cards: bigger perks and daily gifts (in-game only). They do not delay the Grand Final.
       { id: "r500", e: "🔮", price: 500, boost: 0.8, races: 10, gift: { dates: 30000, coins: 3000000, jry: 250 }, color: "#d6336c", premium: true },
       { id: "r1000", e: "👑", price: 1000, boost: 1.6, races: 15, gift: { dates: 80000, coins: 8000000, jry: 600 }, color: "#0ca678", premium: true },
-      // The Golden King card: one throne. Whoever holds the newest copy is the King of the Game for KING.DAYS.
-      // Copy n costs priceOf("king", n) Pi (9,999, then 11,111, 12,222, 13,333 ...). Never in the normal shop.
-      { id: "king", e: "👑", price: 9999, boost: 1.2, races: 25, gift: { dates: 600000, coins: 60000000, jry: 4000 }, color: "#d4af37", premium: true, king: true },
       { id: "r5000", e: "🌟", price: 5000, boost: 6, races: 25, gift: { dates: 600000, coins: 60000000, jry: 4000 }, color: "#111827", premium: true },
     ],
-    KING: { BASE: 9999, SECOND: 11111, STEP: 1111, DAYS: 90, MULT: 3, gift: { dates: 1500000, coins: 150000000, jry: 5000 } },
+    // The King of the Game: whoever supported the project with the most real Pi (total of completed Pi payments)
+    KING: { MULT: 3, COINS: 10000 },
     RESALE_TAX: 0.1, RESALE_MIN: 1, RESALE_MAX: 100000, // owners may resell a card; the app keeps 10% of the price
     FINAL_TIERS: ["r10", "r25", "r50", "r100"],          // the Grand Final opens when these 4 sell out (2,000 cards)
     // One signature perk per copy, all of similar value
@@ -570,8 +568,7 @@
     FINAL_DAYS: 30,
   };
   ROYAL.tierById = (id) => ROYAL.TIERS.find((x) => x.id === id) || null;
-  ROYAL.kingPrice = (ed) => (ed <= 1 ? ROYAL.KING.BASE : ROYAL.KING.SECOND + ROYAL.KING.STEP * (ed - 2));
-  ROYAL.priceOf = (tid, ed) => (tid === "king" ? ROYAL.kingPrice(ed) : (ROYAL.tierById(tid) || {}).price);
+  ROYAL.priceOf = (tid) => (ROYAL.tierById(tid) || {}).price;
   // The signature of copy #ed of a tier: fixed for ever, the same on every phone
   ROYAL.sigOf = (tid, ed) => { let h = 2166136261; for (const c of tid + ":" + ed) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return ROYAL.SIGS[h % ROYAL.SIGS.length]; };
   // Month id (UTC): 202611 for November 2026

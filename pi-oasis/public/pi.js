@@ -352,6 +352,7 @@
     action: (action) => api("/api/action", { action }),
     leaderboard: () => api("/api/leaderboard"),
     weekMine: () => api("/api/week/mine"),
+    kingClaim: () => api("/api/king/claim", {}),
     redeemVip: () => api("/api/referral/redeem-vip", {}),
     partners: (action, username) => api("/api/admin/partners", { action, username }),
     kombatTop: (week) => api("/api/kombat/top" + (week ? "?week=1" : "")),

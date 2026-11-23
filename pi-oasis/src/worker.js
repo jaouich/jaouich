@@ -222,6 +222,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS royal_gifts ( card_id INTEGER NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (card_id, day) )",
   "CREATE TABLE IF NOT EXISTS vipc_game ( uid TEXT PRIMARY KEY, gold INTEGER NOT NULL, profit INTEGER NOT NULL DEFAULT 0, day INTEGER NOT NULL DEFAULT -1, used INTEGER NOT NULL DEFAULT 0 )",
   "CREATE TABLE IF NOT EXISTS vipc_month ( uid TEXT NOT NULL, month INTEGER NOT NULL, profit INTEGER NOT NULL, PRIMARY KEY (uid, month) )",
+  "CREATE TABLE IF NOT EXISTS king_state ( id INTEGER PRIMARY KEY, uid TEXT NOT NULL, since INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS king_gifts ( uid TEXT NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS royal_final ( id INTEGER PRIMARY KEY, start_at INTEGER NOT NULL, end_at INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0 )",
   // Monthly surprise for free supporters: once per player per month
   "CREATE TABLE IF NOT EXISTS sup_surprise ( uid TEXT NOT NULL, month INTEGER NOT NULL, kind TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, month) )",
@@ -359,23 +361,29 @@ async function vipcState(env, uid, now) {
   }
   return st;
 }
-// The King of the Game: holder of the newest "king" copy, for KING.DAYS from its purchase.
-// Cached for 60 s in memory (refreshed on every request), so multOf() can stay synchronous.
-let kingCache = { at: 0, uid: null, until: 0, ed: 0, username: null, since: 0, top: 0 };
+// The King of the Game: the player with the most real Pi paid in total (completed Pi payments, the same
+// total as the Hall of Glory; spending the waiting box does not count). Cached for 60 s in memory.
+let kingCache = { at: 0, uid: null, username: null, paid: 0, second: 0 };
 async function kingRefresh(env, force) {
   const now = Date.now();
-  if (!force && now - kingCache.at < 60000) return kingCache;
-  const r = await one(env, "SELECT c.uid, c.ed, c.at, u.username FROM royal_cards c JOIN users u ON u.uid = c.uid WHERE c.tier = 'king' ORDER BY c.ed DESC LIMIT 1");
-  const top = r ? r.ed : 0, until = r ? r.at + L.ROYAL.KING.DAYS * DAY : 0;
-  kingCache = { at: now, uid: r && until > now ? r.uid : null, until, ed: top, username: r && until > now ? r.username : null, since: r ? r.at : 0, top };
+  if (!force && now - kingCache.at < (env.KING_TTL_MS != null ? Number(env.KING_TTL_MS) : 60000)) return kingCache;
+  const rows = await all(env, `SELECT p.uid, u.username, ROUND(SUM(p.amount), 2) AS paid FROM payments p JOIN users u ON u.uid = p.uid
+    WHERE p.status = 'completed' GROUP BY p.uid HAVING paid > 0 ORDER BY paid DESC, MAX(p.created_at) ASC LIMIT 2`);
+  const k = rows[0] || null;
+  kingCache = { at: now, uid: k ? k.uid : null, username: k ? k.username : null, paid: k ? k.paid : 0, second: rows[1] ? rows[1].paid : 0 };
+  if (k) {
+    // a new King: remember it once and tell the players
+    const ch = await run(env, "INSERT INTO king_state (id, uid, since) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET uid = excluded.uid, since = excluded.since WHERE king_state.uid != excluded.uid", k.uid, now);
+    if (ch.meta.changes) await kingAnnounce(env, k.uid, k.paid, now).catch((e) => logError(env, "king announce", 0, e.message));
+  }
   return kingCache;
 }
-const isKing = (uid, now) => !!(kingCache.uid && kingCache.uid === uid && kingCache.until > now);
+const isKing = (uid) => !!(kingCache.uid && kingCache.uid === uid);
 // Active yield multiplier of a player: { id, f, until } or null (the best of the bought one and the throne's)
 function multOf(u, now) {
   const m = u && u.mult_id && u.mult_until > now ? L.multById(u.mult_id) : null;
   const bought = m ? { id: m.id, f: m.f, until: u.mult_until } : null;
-  if (u && isKing(u.uid, now) && (!bought || bought.f < L.ROYAL.KING.MULT)) return { id: "king", f: L.ROYAL.KING.MULT, until: kingCache.until };
+  if (u && isKing(u.uid) && (!bought || bought.f < L.ROYAL.KING.MULT)) return { id: "king", f: L.ROYAL.KING.MULT, until: now + DAY };
   return bought;
 }
 // Buying a multiplier: same one extends it; a bigger one replaces it (a smaller one is refused while one runs)
@@ -714,7 +722,6 @@ const routes = {
     if (item.p2p) await reserveOffer(env, u, item, id, nowT);
     if (item.mk) await mkReserve(env, u, item, id, nowT);
     if (item.royal && (await one(env, "SELECT 1 AS x FROM royal_cards WHERE tier = ? AND ed = ?", item.royal.tier, item.royal.ed))) bad("rc.taken");
-    if (item.royal && item.royal.tier === "king" && item.royal.ed !== (await royalNext(env, "king"))) bad("king.moved");
     if (item.sponsor) {
       const ad = await one(env, "SELECT * FROM sponsors WHERE id = ? AND uid = ?", item.sponsor, u.uid);
       if (!ad || (ad.status !== "paying" && ad.pay_id !== id) || ad.plan !== item.plan.id) bad("sp.gone");
@@ -791,9 +798,9 @@ const routes = {
       wid
     );
     const now = Date.now();
-    const k = await kingRefresh(env), nextEd = await royalNext(env, "king");
+    const k = await kingRefresh(env);
     return {
-      king: { username: k.username, ed: k.ed, since: k.since, until: k.until, active: !!k.uid, nextEd, nextPrice: L.ROYAL.kingPrice(nextEd || 1), days: L.ROYAL.KING.DAYS, mult: L.ROYAL.KING.MULT, gift: L.ROYAL.KING.gift },
+      king: { username: k.username, paid: k.paid, need: k.paid ? Math.round((k.paid + 0.01) * 100) / 100 : 0.01, mult: L.ROYAL.KING.MULT, coins: L.ROYAL.KING.COINS },
       last: await lastWeekWinners(env, now),
       prizePool: w ? w.prize_pool : 0,
       bands: L.WEEK100.BANDS,
@@ -1925,7 +1932,6 @@ const routes = {
     if (item.mult) { const cur = multOf(u, now); if (cur && item.mult.f < cur.f) bad("multLower"); }
     if (item.tier && u.vip_until > now && item.price < L.TIERS[paidTier(u, now)].price) bad("lowerTier");
     if (item.royal && (await one(env, "SELECT 1 AS x FROM royal_cards WHERE tier = ? AND ed = ?", item.royal.tier, item.royal.ed))) bad("rc.taken");
-    if (item.royal && item.royal.tier === "king" && item.royal.ed !== (await royalNext(env, "king"))) bad("king.moved");
     const taken = await boxTake(env, u.uid, item.price);
     const id = "box-" + crypto.randomUUID();
     try {
@@ -1938,6 +1944,19 @@ const routes = {
     const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
     const acc = await account(env, fresh);
     return { ok: true, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
+  },
+
+  // The King collects the daily 10,000 coins (once a day)
+  "POST /api/king/claim": async (req, env) => {
+    const u = await auth(req, env);
+    const now = Date.now();
+    if (!isKing(u.uid)) bad("king.no");
+    const r = await run(env, "INSERT OR IGNORE INTO king_gifts (uid, day) VALUES (?, ?)", u.uid, L.dayId(now));
+    if (!r.meta.changes) bad("king.done");
+    await creditPoints(env, u.uid, "coins", L.ROYAL.KING.COINS, now, "king");
+    const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
+    const acc = await account(env, fresh);
+    return { ok: true, coins: L.ROYAL.KING.COINS, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
   },
 
   // ---------- 👑 VIP Club ----------
@@ -2016,8 +2035,7 @@ const routes = {
     for (const c of cards) {
       const r = await run(env, "INSERT OR IGNORE INTO royal_gifts (card_id, day) VALUES (?, ?)", c.id, day);
       if (!r.meta.changes) continue;
-      let g = L.ROYAL.giftOf(c.tier, c.ed);
-      if (c.tier === "king" && c.ed === kingCache.top && isKing(u.uid, now)) g = { ...g, ...L.ROYAL.KING.gift }; // the reigning King: the big gift
+      const g = L.ROYAL.giftOf(c.tier, c.ed);
       for (const k in total) total[k] += g[k];
     }
     if (!total.dates && !total.coins) bad("rc.claimed");
@@ -2714,8 +2732,8 @@ function checkPayment(p, uid) {
   }
   if (p.metadata?.type === "royal") {
     const t = L.ROYAL.tierById(p.metadata.tier), ed = Number(p.metadata.ed);
-    if (!t || !Number.isInteger(ed) || ed < 1 || ed > L.ROYAL.MAX || Number(p.amount) !== L.ROYAL.priceOf(t.id, ed)) bad("badPayment");
-    return { price: L.ROYAL.priceOf(t.id, ed), royal: { tier: t.id, ed } };
+    if (!t || !Number.isInteger(ed) || ed < 1 || ed > L.ROYAL.MAX || Number(p.amount) !== t.price) bad("badPayment");
+    return { price: t.price, royal: { tier: t.id, ed } };
   }
   if (p.metadata?.type === "supfree") {
     const F = L.SUPPORT_FREE, amt = Number(p.amount);
@@ -3010,17 +3028,6 @@ async function royalPerks(env, uid) {
 // moment; if the tier sold out meanwhile, the Pi goes back to the buyer.
 async function royalGrant(env, uid, item, payId, now, price) {
   let r = await run(env, "INSERT OR IGNORE INTO royal_cards (tier, ed, uid, pay_id, at) VALUES (?, ?, ?, ?, ?)", item.tier, item.ed, uid, payId, now);
-  if (item.tier === "king") {
-    // The throne has one price per copy: if somebody was faster, the payment is refunded (never given another copy)
-    if (!r.meta.changes) {
-      if (!(await one(env, "SELECT 1 AS x FROM royal_cards WHERE pay_id = ?", payId)))
-        await run(env, "INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'refund', ?, ?, ?, 'Pi Oasis throne refund (someone was faster)', 'new', ?, ?)", crypto.randomUUID(), payId, uid, price, now, now);
-      return;
-    }
-    await kingRefresh(env, true);
-    await kingAnnounce(env, uid, item.ed, now).catch((e) => logError(env, "king announce", 0, e.message));
-    return;
-  }
   for (let i = 0; !r.meta.changes && i < 5; i++) {
     if (await one(env, "SELECT 1 AS x FROM royal_cards WHERE pay_id = ?", payId)) return;
     const next = await royalNext(env, item.tier);
@@ -3034,10 +3041,10 @@ async function royalGrant(env, uid, item, payId, now, price) {
   }
 }
 // Everybody who played lately is told that a new King took the throne
-async function kingAnnounce(env, uid, ed, now) {
+async function kingAnnounce(env, uid, paid, now) {
   const u = await one(env, "SELECT username FROM users WHERE uid = ?", uid);
-  const wk = L.weekId(now), rows = await all(env, "SELECT DISTINCT uid FROM week_scores WHERE week_id IN (?, ?) LIMIT 200", wk, L.weekId(now - 7 * DAY));
-  await notify(env, rows.filter((r) => r.uid !== uid).map((r) => ({ uid: r.uid, kind: "newking", ref: "king" + ed, vars: { u: u ? u.username : "?" } })));
+  const rows = await all(env, "SELECT uid FROM users ORDER BY rowid DESC LIMIT 200");
+  await notify(env, rows.filter((r) => r.uid !== uid).map((r) => ({ uid: r.uid, kind: "newking", ref: "king" + uid.slice(0, 12) + "-" + Math.floor(now / DAY), vars: { u: u ? u.username : "?" } })));
 }
 // Grand Royal Final: card holders ranked by Kombat coins earned in the weeks of the final
 async function royalContest(env, fin, limit) {

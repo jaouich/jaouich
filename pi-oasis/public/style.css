@@ -1612,3 +1612,4 @@ main { overflow-x: hidden; }
 .th-perks { font-size: .85rem; line-height: 1.5; opacity: .95; margin: 4px 0; }
 .th-buy { width: 100%; min-height: 50px; font-size: 1.05rem; }
 .th-card .hint { color: #f3e3a8; opacity: .85; font-size: .75rem; line-height: 1.5; }
+.th-need { font-size: .9rem; font-weight: 700; color: #ffe58a; }

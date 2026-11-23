@@ -169,7 +169,28 @@
     return pay({ amount: o.pi, memo: `testJRY market #${o.id}`, metadata: { type: "p2p", offer: o.id } });
   }
   let payOpen = true; // false on Mainnet until the app wallet is approved (set from the account)
-  function pay(paymentData) {
+  // What can be paid from the Pi waiting in the player's box (the server decides again)
+  const BOX_OK = ["vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
+  function choosePay(have, price) {
+    return new Promise((resolve) => {
+      const t = (k, v) => I18N.t(k, v), d = document.createElement("div");
+      d.className = "ask-bg";
+      d.innerHTML = `<div class="ask-card"><h3>🎁 ${t("box.pay.t")}</h3><p>${t("box.pay.d", { a: Math.round(have * 1000) / 1000, p: price })}</p>
+        <div class="ask-btns"><button class="btn gold" data-c="box" type="button">${t("box.pay.box")}</button><button class="btn" data-c="pi" type="button">${t("box.pay.pi")}</button><button class="btn secondary" data-c="x" type="button">${t("lw.close")}</button></div></div>`;
+      d.addEventListener("click", (e) => { const b = e.target.closest("[data-c]"); if (!b && e.target !== d) return; d.remove(); resolve(b ? b.dataset.c : "x"); });
+      document.body.appendChild(d);
+    });
+  }
+  async function pay(paymentData) {
+    const acc = window.OasisGame && window.OasisGame.account, type = (paymentData.metadata && paymentData.metadata.type) || "vip_month";
+    if (acc && session && acc.piWaiting >= paymentData.amount - 1e-9 && BOX_OK.includes(type)) {
+      const c = await choosePay(acc.piWaiting, paymentData.amount);
+      if (c === "x") throw new Error(I18N.t("t.cancelled"));
+      if (c === "box") return api("/api/box/spend", { metadata: paymentData.metadata, amount: paymentData.amount });
+    }
+    return payPi(paymentData);
+  }
+  function payPi(paymentData) {
     return new Promise((resolve, reject) => {
       if (!piReady || !session) return reject(new Error(I18N.t("t.loginFirst")));
       if (!payOpen) return reject(new Error(I18N.t("e.payClosed")));

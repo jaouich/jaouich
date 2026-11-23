@@ -429,6 +429,7 @@ async function account(env, u) {
     vipUntil: u.vip_until,
     mult: multOf(u, now),
     vipcUntil: isVipc(u, now) ? u.vipc_until : 0,
+    piWaiting: Math.round(((await one(env, "SELECT COALESCE(SUM(amount), 0) AS n FROM payouts WHERE uid = ? AND status = 'new' AND kind IN ('prize', 'refund')", u.uid)).n || 0) * 1e7) / 1e7,
     referralBalance: u.ref_balance,
     referralCount: c.n,
     activeRefs: await activeRefs(env, u.uid),
@@ -1230,9 +1231,9 @@ const routes = {
     const day = Date.now() - DAY, used = await all(env, "SELECT what, SUM(n) AS n, COUNT(*) AS c FROM transfers WHERE from_uid = ? AND at > ? GROUP BY what", u.uid, day);
     // Pi prizes and payouts: kept safe in the box until the app's outgoing wallet is approved, then sent automatically
     const pays = await all(env, "SELECT kind, amount, memo, status, created_at, updated_at FROM payouts WHERE uid = ? ORDER BY created_at DESC LIMIT 30", u.uid);
-    const waitingPi = pays.filter((p) => p.status !== "completed").reduce((a, p) => a + Number(p.amount), 0);
+    const waitingPi = pays.filter((p) => p.status !== "completed" && p.status !== "spent").reduce((a, p) => a + Number(p.amount), 0);
     const paidPi = pays.filter((p) => p.status === "completed").reduce((a, p) => a + Number(p.amount), 0);
-    return { piBox: { waiting: Math.round(waitingPi * 1e7) / 1e7, paid: Math.round(paidPi * 1e7) / 1e7, held: env.A2U_LIVE === "0", items: pays.map((p) => ({ kind: p.kind, amount: Number(p.amount), done: p.status === "completed", at: p.created_at })) },
+    return { piBox: { waiting: Math.round(waitingPi * 1e7) / 1e7, paid: Math.round(paidPi * 1e7) / 1e7, held: env.A2U_LIVE === "0", items: pays.filter((p) => p.status !== "spent").map((p) => ({ kind: p.kind, amount: Number(p.amount), done: p.status === "completed", at: p.created_at })) },
       jry: Number(u.jry_pts) || 0, bought: Number(u.jry_bought) || 0, wallet: u.jry_wallet || "", history, transfers: [...sent, ...got].sort((a, b) => b.at - a.at).slice(0, 20), used, now: Date.now() };
   },
 
@@ -1895,6 +1896,31 @@ const routes = {
     for (const c of mine) c.offer = listed.get(c.id) || 0;
     return { tiers, mine, market, tax: R.RESALE_TAX, contest, sold, total: R.MAX * R.FINAL_TIERS.length, final: fin ? { start: fin.start_at, end: fin.end_at, done: !!fin.paid } : null };
   },
+  // Pay for something in the app with the Pi waiting in the box (prizes and refunds that are not sent yet)
+  "POST /api/box/spend": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now(), md = body.metadata || {};
+    if (!BOX_SPEND_TYPES.includes(md.type || "vip_month")) bad("box.notHere");
+    const item = checkPayment({ metadata: md, amount: body.amount, user_uid: u.uid, direction: "user_to_app" }, u.uid);
+    if (!(item.price > 0) || item.jry || item.p2p || item.mk || item.sponsor || item.sup || item.supFree) bad("box.notHere");
+    // the same guards as when approving a Pi payment
+    if (item.mult) { const cur = multOf(u, now); if (cur && item.mult.f < cur.f) bad("multLower"); }
+    if (item.tier && u.vip_until > now && item.price < L.TIERS[paidTier(u, now)].price) bad("lowerTier");
+    if (item.royal && (await one(env, "SELECT 1 AS x FROM royal_cards WHERE tier = ? AND ed = ?", item.royal.tier, item.royal.ed))) bad("rc.taken");
+    const taken = await boxTake(env, u.uid, item.price);
+    const id = "box-" + crypto.randomUUID();
+    try {
+      await run(env, "INSERT INTO payments (id, uid, amount, status, created_at) VALUES (?, ?, ?, 'box', ?)", id, u.uid, item.price, now);
+      await grantItem(env, u, item, id, now, true);
+    } catch (e) {
+      await boxGive(env, u.uid, taken, id, now); // nothing was delivered: the balance comes back
+      throw e;
+    }
+    const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
+    const acc = await account(env, fresh);
+    return { ok: true, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
+  },
+
   // ---------- 👑 VIP Club ----------
   "GET /api/vipc": async (req, env) => {
     const u = await auth(req, env);
@@ -2725,10 +2751,44 @@ async function completePayment(env, id, txid, uid) {
   const r = await run(env, "UPDATE payments SET status = 'completed', txid = ? WHERE id = ? AND status != 'completed'", txid, id);
   if (!r.meta.changes) return;
   const u = await one(env, "SELECT * FROM users WHERE uid = ?", p.user_uid);
-  const wid = L.weekId(now);
   if (item.p2p) return settleOffer(env, item, id, p.user_uid, now);
   if (item.mk) return mkSettle(env, item, id, p.user_uid, now);
-  const stmts = [
+  return grantItem(env, u, item, id, now, false);
+}
+
+// The Pi waiting in a player's box (prizes and refunds not sent yet) can pay for things inside the app.
+const BOX_SPEND_TYPES = ["vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
+async function boxTake(env, uid, price) {
+  const rows = await all(env, "SELECT id, amount FROM payouts WHERE uid = ? AND status = 'new' AND kind IN ('prize', 'refund') ORDER BY created_at ASC", uid);
+  const have = rows.reduce((a, r) => a + Number(r.amount), 0);
+  if (have + 1e-9 < price) bad("box.low");
+  const taken = []; let left = round(price);
+  for (const r of rows) {
+    if (left <= 0) break;
+    const take = Math.min(left, Number(r.amount));
+    const full = take >= Number(r.amount) - 1e-9;
+    const ok = full
+      ? await run(env, "UPDATE payouts SET status = 'spent', updated_at = ? WHERE id = ? AND status = 'new' AND amount = ?", Date.now(), r.id, r.amount)
+      : await run(env, "UPDATE payouts SET amount = ROUND(amount - ?, 7), updated_at = ? WHERE id = ? AND status = 'new' AND amount = ?", take, Date.now(), r.id, r.amount);
+    if (!ok.meta.changes) { await boxGive(env, uid, taken, "undo", Date.now()); bad("busy"); } // someone changed it at the same time
+    taken.push({ id: r.id, take, full, amount: Number(r.amount) });
+    left = round(left - take);
+  }
+  return taken;
+}
+// Give back what boxTake took (when the purchase could not be completed)
+async function boxGive(env, uid, taken, ref, now) {
+  for (const t of taken) {
+    if (t.full) await run(env, "UPDATE payouts SET status = 'new', updated_at = ? WHERE id = ? AND status = 'spent'", now, t.id);
+    else await run(env, "UPDATE payouts SET amount = ROUND(amount + ?, 7), updated_at = ? WHERE id = ?", t.take, now, t.id);
+  }
+}
+
+// Gives what was bought. internal = paid from the player's own waiting prize balance (box): no Pi came in,
+// so nothing goes to the weekly prize pool or to the inviter.
+async function grantItem(env, u, item, id, now, internal) {
+  const wid = L.weekId(now);
+  const stmts = internal ? [] : [
     env.DB.prepare("INSERT INTO weeks (id, prize_pool, paid) VALUES (?, ?, 0) ON CONFLICT(id) DO UPDATE SET prize_pool = ROUND(prize_pool + excluded.prize_pool, 7)").bind(wid, round(net(item.price) * PRIZE_RATE)),
   ];
   if (u) {
@@ -2767,12 +2827,12 @@ async function completePayment(env, id, txid, uid) {
       if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
       stmts.push(env.DB.prepare("UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?").bind(item.pack.dates, item.pack.dates, u.uid));
     }
-    if (u.referrer) {
+    if (u.referrer && !internal) {
       stmts.push(env.DB.prepare("UPDATE users SET ref_balance = ROUND(ref_balance + ?, 7) WHERE uid = ?").bind(round(net(item.price) * REFERRAL_RATE), u.referrer));
       stmts.push(env.DB.prepare("UPDATE payments SET referrer_uid = ? WHERE id = ?").bind(u.referrer, id));
     }
   }
-  await env.DB.batch(stmts);
+  if (stmts.length) await env.DB.batch(stmts);
   if (item.derby && u) await derbyGrant(env, u.uid, item.derby, now);
   if (item.supFree && u) await supSurprise(env, u.uid, now);
   if (item.royal && u) await royalGrant(env, u.uid, item.royal, id, now, item.price);

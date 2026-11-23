@@ -84,3 +84,5 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - Weekly Pi prizes are now queued in the box even before the outgoing wallet exists (payouts.js queuePayouts runs before the wallet check) and each winner gets a "piprize" message that opens My box. Mainnet cron now runs at :03 and :23.
 
 - Ranking tab: "last week winners" block at the bottom (top 30 with Pi/dates/JRY, my own prize card + Open my box) and a one-time "you won" pop-up per winner (GET /api/week/mine, leaderboard.last).
+
+- Pay with the box: Pi waiting in My box (prizes, refunds) can pay VIP Club, multipliers, royal cards, packs, VIP tiers inside the app (POST /api/box/spend, grantItem internal=true: no prize-pool share, no inviter commission, not counted in the Hall of Glory). account.piWaiting; choice dialog in pi.js pay().

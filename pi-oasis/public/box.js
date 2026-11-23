@@ -28,6 +28,7 @@
       body = `<div class="bx-bal"><span class="jp-ico">JRY</span><div><b>${fmtN(data.jry)}</b><small>${t("box.bought", { n: fmtN(data.bought) })}</small></div></div>
         ${data.piBox ? `<div class="bx-pi"><div class="bx-pih"><span>π</span><div><b dir="ltr">${data.piBox.waiting}</b><small>${t("box.pi.waiting")}</small></div></div>
           <p class="jm-note">${data.piBox.held ? t("box.pi.held") : t("box.pi.auto")}</p>
+          ${data.piBox.waiting > 0 ? `<p class="jm-note">${t("box.pi.use")}</p>` : ""}
           ${data.piBox.items.length ? `<div class="bx-list">${data.piBox.items.map((x) => `<div><span>${t("box.pi.k." + x.kind) === "box.pi.k." + x.kind ? esc(x.kind) : t("box.pi.k." + x.kind)}</span><b dir="ltr">${x.amount} π</b><small>${x.done ? "✅ " + t("box.pi.sent") : "⏳ " + t("box.pi.wait")} · ${dt(x.at)}</small></div>`).join("")}</div>` : `<p class="jm-note">${t("box.pi.none")}</p>`}
           ${data.piBox.paid ? `<p class="jm-note">${t("box.pi.paid", { n: data.piBox.paid })}</p>` : ""}</div>` : ""}
         <p class="jm-note">${t("box.note")}</p>

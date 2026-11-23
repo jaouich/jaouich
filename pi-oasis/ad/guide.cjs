@@ -55,7 +55,7 @@ const wrapper = `<!doctype html><meta charset=utf8><style>
   const p = await ctx.newPage(); const t0 = Date.now();
   await p.route('**/pi-sdk.js', (r) => r.fulfill({ body: 'window.Pi={init(){},authenticate:async()=>({accessToken:"tokC"})};', contentType: 'text/javascript' }));
   await p.route('https://fonts.**', (r) => r.abort());
-  await p.addInitScript(() => { try { localStorage.setItem('oasis_tour', '1'); localStorage.setItem('oasis_lang', 'en'); } catch (e) {} });
+  await p.addInitScript((wk) => { try { localStorage.setItem('oasis_tour', '1'); localStorage.setItem('oasis_lang', 'en'); localStorage.setItem('oasis_wk_seen', String(wk)); } catch (e) {} }, lastWk);
   await p.setContent(wrapper); await p.waitForTimeout(3500);
   const fr = () => p.frames().find((f) => f.url().startsWith(B));
   const hide = () => fr().evaluate(() => document.querySelectorAll('.media,.sheet,#kombat').forEach((e) => e.classList.add('hidden')));

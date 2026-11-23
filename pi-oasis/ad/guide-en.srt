@@ -1,0 +1,100 @@
+1
+00:00:03,940 --> 00:00:13,810
+A game oasis inside Pi Browser. In this guide we explain every part of the game, one by one.
+
+2
+00:00:14,020 --> 00:00:26,350
+Open Pi Browser, find Pi Oasis in the Pi Apps list or open its link, tap Open and sign in with Pi. The game is free to play.
+
+3
+00:00:26,550 --> 00:00:39,890
+Top: your coins and language. Bottom: six tabs: Farm, Camels, City, Granary, Ranking and Club. Everything else opens from the home tiles.
+
+4
+00:00:40,090 --> 00:00:56,040
+Tap the palm to knock dates down. Each hit uses energy, which comes back with time. Every tenth hit is golden (x3). Upgrade the palm up to level 20 for more dates per hit.
+
+5
+00:00:56,240 --> 00:01:11,420
+Every day: three missions, a daily reward and a daily oasis event that boosts something for everybody. Finish all missions to build a streak with a bigger bonus.
+
+6
+00:01:11,630 --> 00:01:29,040
+Camels make dates every hour: common, rare, epic and legendary. Collect them, buy new ones, or breed two camels to get a baby. Production waits for you up to 6 hours, so come back every day.
+
+7
+00:01:29,260 --> 00:01:44,270
+Build houses and workshops like the bakery and the tea house. Craft goods, fill the city orders for dates and experience, and level up to unlock new buildings.
+
+8
+00:01:44,470 --> 00:02:04,100
+Lock some dates for one hour, one day or one week and get them back with a profit: 5%, 30% or 150%. The longest option can also bring a rare camel.
+
+9
+00:02:04,310 --> 00:02:25,380
+Tap the medal to earn coins. Spend energy, collect cards that earn coins by the hour, climb the leagues, fight the community boss, join a tribe and compete in the weekly tournament.
+
+10
+00:02:25,590 --> 00:02:40,800
+Train your racing camel (speed, stamina, start), choose a race tactic and race every day. Win trophies to climb the cups and earn dates.
+
+11
+00:02:41,000 --> 00:03:04,980
+A tower defense game. Soldiers walk along a road toward your castle. Build cannons, archers, mortars and frost towers on the green squares and survive 20 waves. Win stars and rewards.
+
+12
+00:03:05,180 --> 00:03:33,410
+One free wheel spin a day. Quests and the Task Center give rewards. Watch ads to earn, and play quick arcade games. All rewards are in the game.
+
+13
+00:03:33,610 --> 00:03:51,180
+Your personal album of collectible cards: 28 slots in series. Each card has a limited number of copies, and its mint price rises 10% for every 1,000 copies made. Complete sections for rewards.
+
+14
+00:03:51,380 --> 00:04:07,410
+Sell your dates or Kombat coins to other players at your own price, and buy theirs. Collectible cards are traded and swapped between players too. The app keeps a small fee.
+
+15
+00:04:07,610 --> 00:04:23,330
+Your JRY balance, gifts you send and receive, and any Pi prizes waiting for you. While sending is not open, waiting prizes can be used to pay for things inside the app.
+
+16
+00:04:23,540 --> 00:04:38,310
+A public room and private chats with other players. Be kind: no links, no ads, no begging. You can block and report anyone.
+
+17
+00:04:38,510 --> 00:05:01,770
+A new manga chapter every day, plus articles, free English courses and documentaries in Arabic and English, all inside the app.
+
+18
+00:05:01,970 --> 00:05:21,200
+Bronze, Silver and Gold memberships give more granary slots, more camels, a city income bonus, a bigger daily reward, no ads and a ranking badge. Partner is granted by the owner.
+
+19
+00:05:21,400 --> 00:05:39,200
+Seven numbered cards, 500 copies each, with Kombat bonuses, extra races and a daily gift. You can resell your card to another player (10% fee). When the first four sell out, the Grand Royal Final begins.
+
+20
+00:05:39,400 --> 00:05:59,010
+Level packs and the shop. Yield multipliers x2, x3 and x10 multiply your oasis income and Kombat profit. Invite friends and earn 10% of their purchases. Redeem gift codes here.
+
+21
+00:05:59,220 --> 00:06:16,790
+A private club for supporters: a Hall of Glory, the Sultan's Caravan strategy game, and a monthly ranking. Join for 5 Pi a month, or win entry with a gift code, the wheel or the weekly podium.
+
+22
+00:06:16,990 --> 00:06:40,590
+Your dates earned this week decide your place. The top 100 win dates and JRY, the top 3 win camels, and a share of the weekly Pi prize pool. Last week's winners are listed below.
+
+23
+00:06:40,800 --> 00:06:56,210
+Every day there is one gift code on the home page and in the magazine. The first 100 players who use it get 10,000 JRY and 5,000 dates. Each player can use it once.
+
+24
+00:06:56,420 --> 00:07:10,290
+All numbers are checked on the server, so cheating does not work. Cards, prizes and items are in the game: nobody promises profit. Play for fun.
+
+25
+00:07:10,490 --> 00:07:20,290
+Open Pi Browser and search for Pi Oasis. Thank you for watching, and welcome to the oasis!
+

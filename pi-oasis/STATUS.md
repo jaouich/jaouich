@@ -86,3 +86,5 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - Ranking tab: "last week winners" block at the bottom (top 30 with Pi/dates/JRY, my own prize card + Open my box) and a one-time "you won" pop-up per winner (GET /api/week/mine, leaderboard.last).
 
 - Pay with the box: Pi waiting in My box (prizes, refunds) can pay VIP Club, multipliers, royal cards, packs, VIP tiers inside the app (POST /api/box/spend, grantItem internal=true: no prize-pool share, no inviter commission, not counted in the Hall of Glory). account.piWaiting; choice dialog in pi.js pay().
+
+- Golden King card (throne): tier "king" in ROYAL (priceOf: 9,999 then 11,111, 12,222, +1,111; Pi payments, copy n = next free only), the holder of the newest copy is King for 90 days: crown at the top of the Ranking tab (throne.js, leaderboard.king), x3 multiplier (multOf), big daily gift on royal claim, new-king notification (newking). Dethroned King keeps the card (smaller perks), can resell. Reign cache 60 s (kingRefresh in auth).

@@ -114,7 +114,7 @@
   function buyRoyal(tier, ed) {
     const t = window.OasisLogic.ROYAL.tierById(tier);
     if (!t || !(ed >= 1)) return Promise.reject(new Error(I18N.t("e.payment")));
-    return pay({ amount: t.price, memo: `Pi Oasis royal card ${tier} #${ed}`, metadata: { type: "royal", tier, ed } });
+    return pay({ amount: window.OasisLogic.ROYAL.priceOf(tier, ed), memo: `Pi Oasis royal card ${tier} #${ed}`, metadata: { type: "royal", tier, ed } });
   }
   // Founding supporter (support, not an investment)
   function buySupporter(id) {

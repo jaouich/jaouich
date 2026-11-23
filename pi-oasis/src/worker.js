@@ -359,10 +359,24 @@ async function vipcState(env, uid, now) {
   }
   return st;
 }
-// Active yield multiplier of a player: { id, f, until } or null
+// The King of the Game: holder of the newest "king" copy, for KING.DAYS from its purchase.
+// Cached for 60 s in memory (refreshed on every request), so multOf() can stay synchronous.
+let kingCache = { at: 0, uid: null, until: 0, ed: 0, username: null, since: 0, top: 0 };
+async function kingRefresh(env, force) {
+  const now = Date.now();
+  if (!force && now - kingCache.at < 60000) return kingCache;
+  const r = await one(env, "SELECT c.uid, c.ed, c.at, u.username FROM royal_cards c JOIN users u ON u.uid = c.uid WHERE c.tier = 'king' ORDER BY c.ed DESC LIMIT 1");
+  const top = r ? r.ed : 0, until = r ? r.at + L.ROYAL.KING.DAYS * DAY : 0;
+  kingCache = { at: now, uid: r && until > now ? r.uid : null, until, ed: top, username: r && until > now ? r.username : null, since: r ? r.at : 0, top };
+  return kingCache;
+}
+const isKing = (uid, now) => !!(kingCache.uid && kingCache.uid === uid && kingCache.until > now);
+// Active yield multiplier of a player: { id, f, until } or null (the best of the bought one and the throne's)
 function multOf(u, now) {
   const m = u && u.mult_id && u.mult_until > now ? L.multById(u.mult_id) : null;
-  return m ? { id: m.id, f: m.f, until: u.mult_until } : null;
+  const bought = m ? { id: m.id, f: m.f, until: u.mult_until } : null;
+  if (u && isKing(u.uid, now) && (!bought || bought.f < L.ROYAL.KING.MULT)) return { id: "king", f: L.ROYAL.KING.MULT, until: kingCache.until };
+  return bought;
 }
 // Buying a multiplier: same one extends it; a bigger one replaces it (a smaller one is refused while one runs)
 async function applyMult(env, u, m, now) {
@@ -550,6 +564,7 @@ async function auth(req, env) {
     tok, Date.now() - SESSION_DAYS * DAY
   );
   if (!u) throw new HttpError(401, "session");
+  await kingRefresh(env).catch(() => {});
   return u;
 }
 
@@ -699,6 +714,7 @@ const routes = {
     if (item.p2p) await reserveOffer(env, u, item, id, nowT);
     if (item.mk) await mkReserve(env, u, item, id, nowT);
     if (item.royal && (await one(env, "SELECT 1 AS x FROM royal_cards WHERE tier = ? AND ed = ?", item.royal.tier, item.royal.ed))) bad("rc.taken");
+    if (item.royal && item.royal.tier === "king" && item.royal.ed !== (await royalNext(env, "king"))) bad("king.moved");
     if (item.sponsor) {
       const ad = await one(env, "SELECT * FROM sponsors WHERE id = ? AND uid = ?", item.sponsor, u.uid);
       if (!ad || (ad.status !== "paying" && ad.pay_id !== id) || ad.plan !== item.plan.id) bad("sp.gone");
@@ -775,7 +791,9 @@ const routes = {
       wid
     );
     const now = Date.now();
+    const k = await kingRefresh(env), nextEd = await royalNext(env, "king");
     return {
+      king: { username: k.username, ed: k.ed, since: k.since, until: k.until, active: !!k.uid, nextEd, nextPrice: L.ROYAL.kingPrice(nextEd || 1), days: L.ROYAL.KING.DAYS, mult: L.ROYAL.KING.MULT, gift: L.ROYAL.KING.gift },
       last: await lastWeekWinners(env, now),
       prizePool: w ? w.prize_pool : 0,
       bands: L.WEEK100.BANDS,
@@ -1907,6 +1925,7 @@ const routes = {
     if (item.mult) { const cur = multOf(u, now); if (cur && item.mult.f < cur.f) bad("multLower"); }
     if (item.tier && u.vip_until > now && item.price < L.TIERS[paidTier(u, now)].price) bad("lowerTier");
     if (item.royal && (await one(env, "SELECT 1 AS x FROM royal_cards WHERE tier = ? AND ed = ?", item.royal.tier, item.royal.ed))) bad("rc.taken");
+    if (item.royal && item.royal.tier === "king" && item.royal.ed !== (await royalNext(env, "king"))) bad("king.moved");
     const taken = await boxTake(env, u.uid, item.price);
     const id = "box-" + crypto.randomUUID();
     try {
@@ -1997,7 +2016,8 @@ const routes = {
     for (const c of cards) {
       const r = await run(env, "INSERT OR IGNORE INTO royal_gifts (card_id, day) VALUES (?, ?)", c.id, day);
       if (!r.meta.changes) continue;
-      const g = L.ROYAL.giftOf(c.tier, c.ed);
+      let g = L.ROYAL.giftOf(c.tier, c.ed);
+      if (c.tier === "king" && c.ed === kingCache.top && isKing(u.uid, now)) g = { ...g, ...L.ROYAL.KING.gift }; // the reigning King: the big gift
       for (const k in total) total[k] += g[k];
     }
     if (!total.dates && !total.coins) bad("rc.claimed");
@@ -2694,8 +2714,8 @@ function checkPayment(p, uid) {
   }
   if (p.metadata?.type === "royal") {
     const t = L.ROYAL.tierById(p.metadata.tier), ed = Number(p.metadata.ed);
-    if (!t || !Number.isInteger(ed) || ed < 1 || ed > L.ROYAL.MAX || Number(p.amount) !== t.price) bad("badPayment");
-    return { price: t.price, royal: { tier: t.id, ed } };
+    if (!t || !Number.isInteger(ed) || ed < 1 || ed > L.ROYAL.MAX || Number(p.amount) !== L.ROYAL.priceOf(t.id, ed)) bad("badPayment");
+    return { price: L.ROYAL.priceOf(t.id, ed), royal: { tier: t.id, ed } };
   }
   if (p.metadata?.type === "supfree") {
     const F = L.SUPPORT_FREE, amt = Number(p.amount);
@@ -2874,6 +2894,7 @@ const NOTE = {
   rfinal: { go: "vip", en: ["👑 Grand Royal Final: #{p}", "+{n} Kombat coins for your place!"], ar: ["👑 النهائي الملكي الكبير: المركز {p}", "+{n} عملة كومبات لمركزك!"], fr: ["👑 Grande Finale royale : {p}e", "+{n} pièces Kombat pour ta place !"] },
   jry: { go: "kombat", en: ["💠 +{n} JRY from Jerry Development", "{note}"], ar: ["💠 +{n} JRY من Jerry Development", "{note}"], fr: ["💠 +{n} JRY de Jerry Development", "{note}"] },
   piprize: { go: "box", en: ["🎁 Your weekly prize: {pi} Pi", "Place {p}. Your Pi are waiting in your box and will be sent as soon as sending opens."], ar: ["🎁 جائزتك الأسبوعية: {pi} Pi", "المركز {p}. عملاتك في الانتظار داخل صندوقك وستُرسل بمجرد فتح الإرسال."], fr: ["🎁 Ton prix de la semaine : {pi} Pi", "Place {p}. Tes Pi t'attendent dans ton coffre et seront envoyés dès que l'envoi ouvrira."] },
+  newking: { go: "rank", en: ["👑 A new King of the Game!", "{u} took the throne. Open the Ranking to see the crown."], ar: ["👑 ملك جديد للعبة!", "تربّع ‎{u} على العرش. افتح الترتيب لترى التاج."], fr: ["👑 Un nouveau Roi du jeu !", "{u} a pris le trône. Ouvre le classement pour voir la couronne."] },
   kweek: { go: "kombat", en: ["⚔️ Kombat tournament: #{p}", "Open Jerry Kombat to collect your prize."], ar: ["⚔️ بطولة كومبات: المركز {p}", "افتح جيري كومبات لتستلم جائزتك."], fr: ["⚔️ Tournoi Kombat : {p}e", "Ouvre Jerry Kombat pour récupérer ton prix."] },
   dweek: { go: "derby", en: ["🏁 Camel Derby: #{p}", "+{d} dates for your place this week."], ar: ["🏁 سباق الجمال: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏁 Course de chameaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   sold: { go: "market", en: ["💰 Your offer sold", "+{pi} Pi added to your sales balance."], ar: ["💰 تم بيع عرضك", "+{pi} Pi أُضيفت إلى رصيد مبيعاتك."], fr: ["💰 Ton offre est vendue", "+{pi} Pi ajoutés à ton solde de ventes."] },
@@ -2989,6 +3010,17 @@ async function royalPerks(env, uid) {
 // moment; if the tier sold out meanwhile, the Pi goes back to the buyer.
 async function royalGrant(env, uid, item, payId, now, price) {
   let r = await run(env, "INSERT OR IGNORE INTO royal_cards (tier, ed, uid, pay_id, at) VALUES (?, ?, ?, ?, ?)", item.tier, item.ed, uid, payId, now);
+  if (item.tier === "king") {
+    // The throne has one price per copy: if somebody was faster, the payment is refunded (never given another copy)
+    if (!r.meta.changes) {
+      if (!(await one(env, "SELECT 1 AS x FROM royal_cards WHERE pay_id = ?", payId)))
+        await run(env, "INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'refund', ?, ?, ?, 'Pi Oasis throne refund (someone was faster)', 'new', ?, ?)", crypto.randomUUID(), payId, uid, price, now, now);
+      return;
+    }
+    await kingRefresh(env, true);
+    await kingAnnounce(env, uid, item.ed, now).catch((e) => logError(env, "king announce", 0, e.message));
+    return;
+  }
   for (let i = 0; !r.meta.changes && i < 5; i++) {
     if (await one(env, "SELECT 1 AS x FROM royal_cards WHERE pay_id = ?", payId)) return;
     const next = await royalNext(env, item.tier);
@@ -3000,6 +3032,12 @@ async function royalGrant(env, uid, item, payId, now, price) {
     await run(env, "INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'refund', ?, ?, ?, 'Pi Oasis royal card refund (sold out)', 'new', ?, ?)",
       crypto.randomUUID(), payId, uid, price, now, now);
   }
+}
+// Everybody who played lately is told that a new King took the throne
+async function kingAnnounce(env, uid, ed, now) {
+  const u = await one(env, "SELECT username FROM users WHERE uid = ?", uid);
+  const wk = L.weekId(now), rows = await all(env, "SELECT DISTINCT uid FROM week_scores WHERE week_id IN (?, ?) LIMIT 200", wk, L.weekId(now - 7 * DAY));
+  await notify(env, rows.filter((r) => r.uid !== uid).map((r) => ({ uid: r.uid, kind: "newking", ref: "king" + ed, vars: { u: u ? u.username : "?" } })));
 }
 // Grand Royal Final: card holders ranked by Kombat coins earned in the weeks of the final
 async function royalContest(env, fin, limit) {

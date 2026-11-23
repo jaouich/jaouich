@@ -12,12 +12,12 @@ global.window = global; await import("../public/logic.js"); const R = globalThis
 const pay = (o) => fetch(B + "/__test/pay", { method: "POST", body: JSON.stringify(o) });
 const buy = async (h, uid, id, amount, tier, ed) => { await pay({ id, uid, amount, type: "royal", tier, ed, txid: "t" + id }); const a = await post("/api/payments/approve", { paymentId: id }, h); if (a.error) return a; return post("/api/payments/complete", { paymentId: id, txid: "t" + id }, h); };
 
-ok(R.TIERS.length === 7 && ["r500", "r1000", "r5000"].every((id) => R.tierById(id)), "7 tiers incl. 500 / 1000 / 5000 Pi");
+ok(R.TIERS.length === 8 && ["r500", "r1000", "r5000"].every((id) => R.tierById(id)), "8 tiers incl. 500 / 1000 / 5000 Pi and the King");
 ok(R.tierById("r5000").price === 5000 && R.tierById("r5000").boost > R.tierById("r500").boost, "bigger card, bigger perks");
 let r = await buy(HB, "uB", "p1", 500, "r500", 1);
 ok(r.ok, "bob buys a 500 Pi card");
 r = await get("/api/royal", HB);
-ok(r.tiers.length === 7 && r.total === 2000 && r.sold === 0, "premium cards do not count toward the 2,000 needed for the Grand Final");
+ok(r.tiers.length === 8 && r.total === 2000 && r.sold === 0, "premium cards do not count toward the 2,000 needed for the Grand Final");
 const card = r.mine[0];
 ok(card && card.tier === "r500" && card.ed === 1 && card.offer === 0, "bob owns 500 Pi card #1");
 // resale

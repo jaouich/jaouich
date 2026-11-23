@@ -16,7 +16,7 @@ const pay = async (h, uid, id, amount, tier, ed) => {
   return post("/api/payments/complete", { paymentId: id, txid: "t" + id }, h);
 };
 let r = await get("/api/royal", HB);
-ok(r.tiers.length === 7 && r.tiers.every((t) => t.sold === 0 && t.next === 1 && t.sig), "7 tiers, 0 sold, next copy #1 with its perk shown before buying");
+ok(r.tiers.length === 8 && r.tiers.every((t) => t.sold === 0 && t.next === 1 && t.sig), "8 tiers (incl. the King), 0 sold, next copy #1 with its perk shown before buying");
 ok(r.tiers[0].sig === R.sigOf("r10", 1).id, "the shown perk is the copy's own signature");
 ok((await pay(HB, "uB", "r1", 5, "r10", 1)).error === "badPayment", "wrong price refused");
 r = await pay(HB, "uB", "r2", 10, "r10", 1);

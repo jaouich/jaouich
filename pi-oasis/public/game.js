@@ -284,6 +284,7 @@
       $("prizeTable").innerHTML = `<b>${t("rank.bands")}</b>` + (lb.bands || []).map((b) => `<div><span>${medal(b)}</span><span dir="ltr">${+(b.share * 100).toFixed(2)}% · ≈${+(lb.prizePool * b.share).toFixed(3)} π</span><span dir="ltr">+${fmtN(b.dates)} 🌴 +${b.jry} 💠</span></div>`).join("");
       const me = account.username;
       if (window.OasisWeekWin) window.OasisWeekWin.draw(lb.last, me);
+      if (window.OasisThrone) window.OasisThrone.draw(lb.king, me);
       const pod = (r, place) => r ? `<div class="pod p${place} ${r.username === me ? "me" : ""}">
           <div class="av">${esc(r.username.slice(0, 1).toUpperCase())}</div>
           <div class="nm">${esc(r.username)}${r.sup ? " " + SUPN[r.sup] : ""}${r.cm ? " 📚" : ""}</div>${chip(r.tier)}
@@ -399,7 +400,7 @@
       <button class="btn small gold" data-rc="${tt.id}" data-ed="${x.next || 0}" ${x.next ? "" : "disabled"}>${fmtN(tt.price)} Pi</button></div>`; };
     $("rcShop").innerHTML = `<div class="rc-grid">${RC.TIERS.filter((x) => !x.premium).map(card).join("")}</div>
       <h3 class="rc-sub">💎 ${t("rc.premium")}</h3><p class="hint">${t("rc.premiumSub", { tax: Math.round(RC.RESALE_TAX * 100) })}</p>
-      <div class="rc-grid">${RC.TIERS.filter((x) => x.premium).map(card).join("")}</div>`;
+      <div class="rc-grid">${RC.TIERS.filter((x) => x.premium && !x.king).map(card).join("")}</div>`;
     const mine = d.mine || [];
     $("rcMine").innerHTML = mine.length ? `<div class="rc-mine"><b>👑 ${t("rc.mine", { n: mine.length })}</b>
       ${mine.map((c) => { const tt = RC.tierById(c.tier), sg = RC.SIGS.find((x) => x.id === c.sig); return `<div class="rc-own" style="--c:${tt.color}"><span>${tt.e} ${t("rc.n." + tt.id)} #${c.ed} ${sg.e}</span>

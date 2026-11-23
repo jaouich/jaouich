@@ -283,6 +283,7 @@
       const medal = (b) => (b.from === b.to ? ["🥇", "🥈", "🥉"][b.from - 1] || "#" + b.from : `${b.from}-${b.to}`);
       $("prizeTable").innerHTML = `<b>${t("rank.bands")}</b>` + (lb.bands || []).map((b) => `<div><span>${medal(b)}</span><span dir="ltr">${+(b.share * 100).toFixed(2)}% · ≈${+(lb.prizePool * b.share).toFixed(3)} π</span><span dir="ltr">+${fmtN(b.dates)} 🌴 +${b.jry} 💠</span></div>`).join("");
       const me = account.username;
+      if (window.OasisWeekWin) window.OasisWeekWin.draw(lb.last, me);
       const pod = (r, place) => r ? `<div class="pod p${place} ${r.username === me ? "me" : ""}">
           <div class="av">${esc(r.username.slice(0, 1).toUpperCase())}</div>
           <div class="nm">${esc(r.username)}${r.sup ? " " + SUPN[r.sup] : ""}${r.cm ? " 📚" : ""}</div>${chip(r.tier)}

@@ -82,3 +82,5 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - Daily gift code: GET /api/daily-code (public, CORS) creates one single-use code a day (10,000 JRY + 5,000 dates, 24 h); codes got kind2/amount2; card on the home page with copy/use/share.
 
 - Weekly Pi prizes are now queued in the box even before the outgoing wallet exists (payouts.js queuePayouts runs before the wallet check) and each winner gets a "piprize" message that opens My box. Mainnet cron now runs at :03 and :23.
+
+- Ranking tab: "last week winners" block at the bottom (top 30 with Pi/dates/JRY, my own prize card + Open my box) and a one-time "you won" pop-up per winner (GET /api/week/mine, leaderboard.last).

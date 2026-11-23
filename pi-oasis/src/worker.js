@@ -749,6 +749,19 @@ const routes = {
     };
   },
 
+  // What the signed-in player won last week (null when outside the top 100)
+  "GET /api/week/mine": async (req, env) => {
+    const u = await auth(req, env);
+    const now = Date.now(), wk = L.weekId(now - 7 * DAY);
+    const me = await one(env, "SELECT score, updated_at FROM week_scores WHERE week_id = ? AND uid = ?", wk, u.uid);
+    if (!me || !(me.score > 0)) return { week: wk, won: null };
+    const ahead = await one(env, "SELECT COUNT(*) AS n FROM week_scores WHERE week_id = ? AND score > 0 AND (score > ? OR (score = ? AND updated_at < ?))", wk, me.score, me.score, me.updated_at);
+    const place = ahead.n + 1;
+    if (place > L.WEEK100.N) return { week: wk, won: null };
+    const po = await one(env, "SELECT amount, status FROM payouts WHERE kind = 'prize' AND ref = ? AND uid = ?", String(wk), u.uid);
+    return { week: wk, won: { place, score: me.score, pi: po ? Number(po.amount) : 0, piStatus: po ? (po.status === "completed" ? "sent" : "waiting") : null, dates: L.WEEK100.dates(place), jry: L.WEEK100.jry(place), camel: place <= 3 } };
+  },
+
   "GET /api/leaderboard": async (req, env) => {
     const wid = L.weekId(Date.now());
     const w = await one(env, "SELECT prize_pool FROM weeks WHERE id = ?", wid);
@@ -762,6 +775,7 @@ const routes = {
     );
     const now = Date.now();
     return {
+      last: await lastWeekWinners(env, now),
       prizePool: w ? w.prize_pool : 0,
       bands: L.WEEK100.BANDS,
       top: top.map((r) => ({ username: r.username, score: r.score, tier: L.TIERS[tierOf(r, now, !!r.partner)].id, sup: r.sup_lvl || (r.sup_pi > 0 ? 4 : 0), cm: r.cat_master ? 1 : 0 })),
@@ -2888,6 +2902,17 @@ async function royalNext(env, tier) {
   const taken = new Set((await all(env, "SELECT ed FROM royal_cards WHERE tier = ?", tier)).map((r) => r.ed));
   for (let e = 1; e <= L.ROYAL.MAX; e++) if (!taken.has(e)) return e;
   return null;
+}
+// Last week's best 30 with what each won (kept 60 s in memory: it only changes once a week)
+let lastWeekCache = null;
+async function lastWeekWinners(env, now) {
+  const wk = L.weekId(now - 7 * DAY);
+  if (lastWeekCache && lastWeekCache.week === wk && now - lastWeekCache.at < 60000) return lastWeekCache.data;
+  const rows = await all(env, `SELECT u.username, s.score, p.amount AS pi, p.status AS pst FROM week_scores s JOIN users u ON u.uid = s.uid
+    LEFT JOIN payouts p ON p.kind = 'prize' AND p.ref = ? AND p.uid = s.uid WHERE s.week_id = ? AND s.score > 0 ORDER BY s.score DESC, s.updated_at ASC LIMIT 30`, String(wk), wk);
+  const data = { week: wk, winners: rows.map((r, i) => ({ place: i + 1, username: r.username, score: r.score, pi: r.pi == null ? 0 : Number(r.pi), sent: r.pst === "completed", dates: L.WEEK100.dates(i + 1), jry: L.WEEK100.jry(i + 1) })) };
+  lastWeekCache = { week: wk, at: now, data };
+  return data;
 }
 // What a player's royal cards add: Kombat profit and Derby races
 async function royalPerks(env, uid) {

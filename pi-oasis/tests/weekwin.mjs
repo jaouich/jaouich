@@ -1,0 +1,36 @@
+// Last week's winners: shown to everybody, and "what I won" for each player. Fresh harness.
+const B = "http://localhost:3457";
+const post = (p, b, h = {}) => fetch(B + p, { method: "POST", headers: { "Content-Type": "application/json", ...h }, body: typeof b === "string" ? b : JSON.stringify(b) }).then((r) => r.json());
+const get = (p, h = {}) => fetch(B + p, { headers: h }).then((r) => r.json());
+const sql = (q) => fetch(B + "/__test/sql", { method: "POST", body: q }).then((r) => r.json());
+const exec = (q) => fetch(B + "/__test/exec", { method: "POST", body: q });
+let pass = 0, fail = 0;
+const ok = (c, m, x) => { console.log((c ? "PASS  " : "FAIL  ") + m + (c || x === undefined ? "" : " -> " + JSON.stringify(x))); c ? pass++ : fail++; };
+const weekId = (t) => { const d = new Date(t); const day = (d.getUTCDay() + 6) % 7; return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day); };
+const last = weekId(Date.now() - 7 * 86400000);
+const H = async (tok) => ({ Authorization: "Bearer " + (await post("/api/auth", { accessToken: tok })).session });
+const HA = await H("tokA"), HB = await H("tokB"), HC = await H("tokC"), HD = await H("tokD");
+const uid = async (n) => (await sql(`SELECT uid FROM users WHERE username='${n}'`))[0].uid;
+const [uA, uB, uC] = [await uid("alice"), await uid("bob"), await uid("carol")];
+await exec(`INSERT OR REPLACE INTO week_scores VALUES (${last}, '${uA}', 900, 1), (${last}, '${uB}', 500, 2), (${last}, '${uC}', 100, 3);
+  INSERT INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES ('p1','prize','${last}','${uA}',7.02,'x','new',1,1), ('p2','prize','${last}','${uB}',4.2,'x','completed',1,1);`);
+// many players: only 30 returned, place 31+ still sees own prize
+let q = ""; for (let i = 0; i < 40; i++) q += `INSERT OR REPLACE INTO week_scores VALUES (${last}, 'zz${i}', ${50 - i}, ${10 + i});`;
+q += `INSERT OR IGNORE INTO users (uid, username, created_at, vip_until, ref_balance) SELECT 'zz'||value, 'zz'||value, 1, 0, 0 FROM (WITH RECURSIVE n(value) AS (SELECT 0 UNION ALL SELECT value + 1 FROM n WHERE value < 39) SELECT value FROM n);`;
+await exec(q);
+let r = await get("/api/leaderboard", HD);
+ok(r.last && r.last.week === last && r.last.winners.length === 30, "the leaderboard carries last week's best 30 (43 played)", r.last && r.last.winners.length);
+const w = r.last.winners;
+ok(w[0].username === "alice" && w[0].pi === 7.02 && w[0].dates === 50000 && w[0].jry === 500 && !w[0].sent, "#1: 7.02 Pi waiting + dates + JRY");
+ok(w[1].username === "bob" && w[1].sent === true && w[1].pi === 4.2, "#2: sent");
+ok(w[2].pi === 0 && w[2].dates === 20000, "#3 has no Pi row but still has dates/JRY");
+let m = await get("/api/week/mine", HA);
+ok(m.won && m.won.place === 1 && m.won.pi === 7.02 && m.won.piStatus === "waiting" && m.won.camel === true && m.won.dates === 50000, "alice sees: #1, 7.02 Pi waiting", m);
+m = await get("/api/week/mine", HB);
+ok(m.won.place === 2 && m.won.piStatus === "sent", "bob sees: #2, sent");
+m = await get("/api/week/mine", HC);
+ok(m.won.place === 3 && m.won.piStatus === null && m.won.pi === 0, "carol: #3, no Pi", m);
+m = await get("/api/week/mine", HD);
+ok(m.won === null, "dina did not play last week: nothing");
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

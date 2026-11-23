@@ -1592,3 +1592,14 @@ main { overflow-x: hidden; }
 .daycode small { line-height: 1.5; }
 .dc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .dc-row code { flex: 1; min-width: 140px; font-size: 1.15rem; font-weight: 800; letter-spacing: .08em; background: #fff; border-radius: 10px; padding: 8px 10px; text-align: center; }
+
+/* ---- Last week's winners ---- */
+.lastweek { margin: 22px 0 10px; }
+.lastweek h3 { margin: 0 0 10px; }
+.lw-me { display: flex; flex-direction: column; gap: 6px; padding: 14px; margin-bottom: 12px; border-radius: 18px; background: linear-gradient(135deg, #fff1c2, #ffd86b); color: #3a2400; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.lw-me .btn { align-self: flex-start; }
+.lw-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 2px 8px; align-items: center; padding: 9px 4px; border-bottom: 1px solid rgba(0,0,0,.08); }
+.lw-row small { grid-column: 2 / -1; opacity: .75; font-size: .75rem; }
+.lw-row.me { background: rgba(255,216,107,.35); border-radius: 10px; }
+.lw-n { min-width: 0; overflow-wrap: anywhere; font-weight: 700; }
+.lw-pop h3 { margin: 0 0 8px; }

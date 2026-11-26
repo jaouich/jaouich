@@ -652,7 +652,7 @@ async function viewClientForm(id) {
     location.replace('#/client/' + newId);
   } },
     field('name', inp('name', 'text', { required: true, autocomplete: 'organization' }), true),
-    h('label', { class: 'f' }, t('kind'), seg),
+    h('div', { class: 'f' }, h('span', {}, t('kind')), seg),
     h('div', { class: 'grid2' }, field('code', inp('code', 'text', { placeholder: t('codeAuto'), dir: 'ltr', style: 'text-transform:uppercase' })), field('contact', inp('contact', 'text', { autocomplete: 'name' }))),
     h('div', { class: 'grid2' }, field('phone', inp('phone', 'tel', { dir: 'ltr', autocomplete: 'tel' })), field('phone2', inp('phone2', 'tel', { dir: 'ltr' }))),
     h('div', { class: 'grid2' }, field('city', inp('city', 'text', { list: 'cities' })), field('email', inp('email', 'email', { dir: 'ltr' }))),
@@ -701,8 +701,8 @@ async function viewVisitForm(id, params) {
     location.replace('#/client/' + c.id);
   } },
     h('div', { class: 'item', style: 'border:0;padding:0' }, h('span', { class: 'av' }, initials(c.name)), h('div', { class: 'grow' }, h('div', { class: 't' }, c.name), h('div', { class: 's' }, [c.code, c.city].filter(Boolean).join(' · ')))),
-    h('label', { class: 'f' }, t('kind'), seg(['visite', 'rdv', 'appel'], () => kind, (x) => (kind = x))),
-    h('label', { class: 'f' }, t('status'), seg(['planned', 'done', 'cancelled'], () => status, (x) => (status = x))),
+    h('div', { class: 'f' }, h('span', {}, t('kind')), seg(['visite', 'rdv', 'appel'], () => kind, (x) => (kind = x))),
+    h('div', { class: 'f' }, h('span', {}, t('status')), seg(['planned', 'done', 'cancelled'], () => status, (x) => (status = x))),
     h('label', { class: 'f' }, t('date'), f.date),
     h('label', { class: 'f' }, t('agreed'), ta('agreed', t('agreedPh'))),
     h('label', { class: 'f' }, t('notDone'), ta('not_done', t('notDonePh'))),

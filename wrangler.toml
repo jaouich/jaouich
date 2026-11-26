@@ -1,0 +1,17 @@
+name = "magiscom-terrain"
+main = "dist/worker.js"
+compatibility_date = "2025-06-01"
+workers_dev = true
+
+# Nettoyage chaque nuit (corbeille de 30 jours, envois interrompus, sessions expirées)
+[triggers]
+crons = ["15 3 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "magiscom-terrain"
+database_id = "958fe535-c556-4197-97af-977ad70048d4"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "magiscom-terrain-files"

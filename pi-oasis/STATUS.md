@@ -90,3 +90,11 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - Golden King card (throne): tier "king" in ROYAL (priceOf: 9,999 then 11,111, 12,222, +1,111; Pi payments, copy n = next free only), the holder of the newest copy is King for 90 days: crown at the top of the Ranking tab (throne.js, leaderboard.king), x3 multiplier (multOf), big daily gift on royal claim, new-king notification (newking). Dethroned King keeps the card (smaller perks), can resell. Reign cache 60 s (kingRefresh in auth).
 
 - King of the Game is now the player with the most real Pi paid in total (completed Pi payments; box payments do not count; ties: who reached it first). Crown + throne block at the top of the Ranking tab, 10,000 coins a day (POST /api/king/claim), x3 multiplier, notification when the King changes (king_state). Replaces the Golden King card idea (removed).
+
+## The Court — Emperor, titles, Houses, Parliament, decrees (replaces "King of the Game")
+- Titles come from the total of completed real-Pi payments (box payments excluded): #1 Emperor (x3, 10,000 coins/day), #2 Crown Prince (x2, 6,000), #3 Grand Vizier (x1.5, 4,000), #4-10 Emirs (2,000), other payers Notable, non-payers Citizen. `courtRefresh` (60 s cache), `COURT` table in `public/logic.js`, `multOf` takes the best of bought multiplier and title multiplier. Daily gift: `POST /api/court/claim` (`court_gifts`). Notifications `courtnew/courtlost/courtemp/elected`.
+- Houses: found one with a Pi payment (`type:"house"`, 10 Pi, or 1 Pi if the player already paid >= 10 Pi). Join/leave free, 24 h wait after leaving. Score = members' total Pi; leading House members get 1,000 coins/day. Routes `/api/houses`, `/api/houses/join|leave`.
+- Decrees (votes): Emperor or owner opens 2-5 options, 3 days. Vote weight = 1 + Pi paid (cap 500); non-payers still vote. Public results `GET /api/decrees/results`. Never on money or prizes.
+- Parliament: monthly cycle by UTC day: 1-7 candidacy, 8-14 voting, from 15 results; 15 MPs (1,000 coins/day), #1 Speaker (2,000). `COURT_NOW` test override.
+- Client: `public/court.js` (overlay `#court`, tabs Court/Houses/Parliament/Votes), `public/throne.js` (Emperor block on Ranking tab). All text says in-game titles, supports the project, not refundable, not an investment.
+- Tests: `tests/court.mjs` (47). Run each suite on a fresh harness.

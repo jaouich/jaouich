@@ -549,8 +549,6 @@
       { id: "r1000", e: "👑", price: 1000, boost: 1.6, races: 15, gift: { dates: 80000, coins: 8000000, jry: 600 }, color: "#0ca678", premium: true },
       { id: "r5000", e: "🌟", price: 5000, boost: 6, races: 25, gift: { dates: 600000, coins: 60000000, jry: 4000 }, color: "#111827", premium: true },
     ],
-    // The King of the Game: whoever supported the project with the most real Pi (total of completed Pi payments)
-    KING: { MULT: 3, COINS: 10000 },
     RESALE_TAX: 0.1, RESALE_MIN: 1, RESALE_MAX: 100000, // owners may resell a card; the app keeps 10% of the price
     FINAL_TIERS: ["r10", "r25", "r50", "r100"],          // the Grand Final opens when these 4 sell out (2,000 cards)
     // One signature perk per copy, all of similar value
@@ -654,6 +652,24 @@
   };
   const FUTURE = [{ id: "falcon", e: "🦅", players: 1000 }, { id: "quiz", e: "🧠", players: 2500 }, { id: "chess", e: "♟️", players: 5000 },
     { id: "kart", e: "🏎️", players: 10000 }, { id: "hunt", e: "🗺️", players: 25000 }, { id: "world", e: "🌍", players: 100000 }];
-  const api = { P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  // The Court: titles by rank of the total of completed real Pi payments (in-game titles, no money moves between players)
+  const COURT = {
+    TITLES: [
+      { id: "emperor", rank: 1, e: "👑", mult: 3, coins: 10000 },
+      { id: "prince", rank: 2, e: "🤴", mult: 2, coins: 6000 },
+      { id: "vizier", rank: 3, e: "🎩", mult: 1.5, coins: 4000 },
+      { id: "emir", rank: 0, e: "🛡️", mult: 1, coins: 2000 }, // ranks 4-10
+    ],
+    SEATS: 10,
+    notable: { id: "notable", e: "✨", mult: 1, coins: 0 }, citizen: { id: "citizen", e: "🌴", mult: 1, coins: 0 },
+    HOUSE: { FEE: 10, FEE_SUPPORTER: 1, SUPPORTER_MIN: 10, LEAVE_WAIT: 24 * 3600e3, DAILY_COINS: 1000, MAX_MEMBERS: 50 },
+    VOTE: { CAP: 500, POLL_DAYS: 3, MIN_OPTS: 2, MAX_OPTS: 5 },
+    PARLIAMENT: { SEATS: 15, COINS: 1000, SPEAKER_COINS: 2000, CANDIDACY: [1, 7], VOTING: [8, 14], RESULTS_FROM: 15 },
+  };
+  // Title of a player from his rank (1-based, among the paying players) and total paid
+  COURT.titleOf = (rank, paid) => (rank >= 1 && rank <= COURT.SEATS ? (rank <= 3 ? COURT.TITLES[rank - 1] : COURT.TITLES[3]) : paid > 0 ? COURT.notable : COURT.citizen);
+  COURT.voteWeight = (paid) => 1 + Math.min(COURT.VOTE.CAP, Math.max(0, Number(paid) || 0));
+  COURT.phase = (t) => { const d = new Date(t).getUTCDate(), P = COURT.PARLIAMENT; return d >= P.RESULTS_FROM ? "results" : d >= P.VOTING[0] ? "voting" : "candidacy"; };
+  const api = { COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

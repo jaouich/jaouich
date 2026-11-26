@@ -13,6 +13,8 @@ const act = (a, tok = C) => post("/api/action", { action: a }, tok);
 const st = async () => JSON.parse((await sql(`SELECT json FROM state WHERE uid='${uid}'`))[0].json);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// three bigger payers above carol, so her court title (Emir, no multiplier) does not mix with the multiplier tests
+for (const [tok, name, amt] of [["tokA", "alice", 1000], ["tokB", "bob", 900], ["tokD", "dina", 800]]) { await post("/api/auth", { accessToken: tok }); const u = (await sql(`SELECT uid FROM users WHERE username='${name}'`))[0].uid; await exec(`INSERT INTO payments (id, uid, amount, status, created_at) VALUES ('big-${name}', '${u}', ${amt}, 'completed', 1)`); }
 let s = (await get("/api/me", C)).state;
 ok(s.palm && s.palm.lv === 0 && P.maxEnergy(0) === 60, "new players get a palm with 60 energy");
 let r = await act({ type: "pTap", n: 1 });

@@ -1613,3 +1613,31 @@ main { overflow-x: hidden; }
 .th-buy { width: 100%; min-height: 50px; font-size: 1.05rem; }
 .th-card .hint { color: #f3e3a8; opacity: .85; font-size: .75rem; line-height: 1.5; }
 .th-need { font-size: .9rem; font-weight: 700; color: #ffe58a; }
+
+/* ---- The Court ---- */
+.hub-court { background: linear-gradient(160deg, #5b2a86, #2a1262); color: #fff; }
+.hub-court small { color: #ffd86b; }
+.media.court { background: radial-gradient(120% 60% at 50% 0%, #6d3fb2 0%, #2a1262 50%, #0d0620 100%); z-index: 70; height: 100dvh; bottom: auto; }
+.court .jm-body { padding-bottom: 96px; overflow-y: auto; }
+.ct-tabs { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; }
+.ct-tabs button { flex: 1 0 auto; min-height: 42px; border-radius: 99px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; font: inherit; font-weight: 700; padding: 0 14px; cursor: pointer; }
+.ct-tabs button.on { background: linear-gradient(135deg, #ffd86b, #d4af37); color: #2a1c00; border-color: transparent; }
+.ct-me, .ct-form, .ct-poll { background: rgba(255,255,255,.1); border: 1px solid rgba(255,216,107,.4); border-radius: 18px; padding: 12px; margin: 10px 0; display: flex; flex-direction: column; gap: 8px; }
+.ct-me small, .ct-poll small { opacity: .85; line-height: 1.5; }
+.ct-row { display: flex; align-items: center; gap: 10px; padding: 10px 6px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.ct-row i { font-style: normal; font-size: 28px; }
+.ct-row span { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-wrap: anywhere; }
+.ct-row small { opacity: .8; font-size: .75rem; }
+.ct-row em { font-style: normal; font-weight: 800; color: #ffd86b; }
+.ct-row.me { background: rgba(255,216,107,.18); border-radius: 12px; }
+.ct-row.t-emperor { background: linear-gradient(90deg, rgba(255,216,107,.3), transparent); border-radius: 12px; }
+.ct-mem { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: .9rem; }
+.ct-emojis { display: flex; flex-wrap: wrap; gap: 6px; } .ct-emojis button { width: 44px; height: 44px; border-radius: 12px; border: 2px solid transparent; background: rgba(255,255,255,.1); font-size: 24px; cursor: pointer; } .ct-emojis button.on { border-color: #ffd86b; }
+.ct-form input, .ct-form select, .ct-form textarea { width: 100%; min-width: 0; padding: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,.3); background: rgba(0,0,0,.3); color: #fff; font: inherit; }
+.ct-phase { padding: 10px; border-radius: 14px; background: rgba(255,255,255,.1); font-weight: 700; }
+.ct-phase.on { background: linear-gradient(135deg, #ffd86b, #d4af37); color: #2a1c00; }
+.ct-opt { position: relative; display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(0,0,0,.25); overflow: hidden; }
+.ct-opt i { position: absolute; inset: 0 auto 0 0; background: rgba(255,216,107,.25); z-index: 0; } [dir="rtl"] .ct-opt i { inset: 0 0 0 auto; }
+.ct-opt span, .ct-opt em, .ct-opt button { position: relative; z-index: 1; } .ct-opt span { flex: 1; overflow-wrap: anywhere; } .ct-opt em { font-style: normal; font-weight: 800; color: #ffd86b; }
+.ct-opt.on { outline: 2px solid #ffd86b; }
+.th-sub { display: flex; align-items: center; gap: 8px; justify-content: center; font-size: .95rem; } .th-sub i { font-style: normal; font-size: 22px; } .th-sub small { opacity: .8; }

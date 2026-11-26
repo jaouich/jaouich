@@ -222,8 +222,18 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS royal_gifts ( card_id INTEGER NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (card_id, day) )",
   "CREATE TABLE IF NOT EXISTS vipc_game ( uid TEXT PRIMARY KEY, gold INTEGER NOT NULL, profit INTEGER NOT NULL DEFAULT 0, day INTEGER NOT NULL DEFAULT -1, used INTEGER NOT NULL DEFAULT 0 )",
   "CREATE TABLE IF NOT EXISTS vipc_month ( uid TEXT NOT NULL, month INTEGER NOT NULL, profit INTEGER NOT NULL, PRIMARY KEY (uid, month) )",
-  "CREATE TABLE IF NOT EXISTS king_state ( id INTEGER PRIMARY KEY, uid TEXT NOT NULL, since INTEGER NOT NULL )",
-  "CREATE TABLE IF NOT EXISTS king_gifts ( uid TEXT NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (uid, day) )",
+  "CREATE TABLE IF NOT EXISTS houses ( id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE COLLATE NOCASE, emoji TEXT NOT NULL, owner TEXT NOT NULL, created_at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS house_members ( uid TEXT PRIMARY KEY, house_id INTEGER NOT NULL, joined_at INTEGER NOT NULL )",
+  "CREATE INDEX IF NOT EXISTS house_members_h ON house_members(house_id)",
+  "CREATE TABLE IF NOT EXISTS house_left ( uid TEXT PRIMARY KEY, at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS decrees ( id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT NOT NULL, kind TEXT NOT NULL, question TEXT NOT NULL, options TEXT NOT NULL, created_at INTEGER NOT NULL, closes_at INTEGER NOT NULL, closed INTEGER NOT NULL DEFAULT 0, winner INTEGER )",
+  "CREATE TABLE IF NOT EXISTS decree_votes ( poll_id INTEGER NOT NULL, uid TEXT NOT NULL, opt INTEGER NOT NULL, w REAL NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (poll_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS elections ( id INTEGER PRIMARY KEY, done INTEGER NOT NULL DEFAULT 0, closed_at INTEGER )",
+  "CREATE TABLE IF NOT EXISTS candidates ( election INTEGER NOT NULL, uid TEXT NOT NULL, speech TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (election, uid) )",
+  "CREATE TABLE IF NOT EXISTS election_votes ( election INTEGER NOT NULL, voter TEXT NOT NULL, cand TEXT NOT NULL, w REAL NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (election, voter) )",
+  "CREATE TABLE IF NOT EXISTS mps ( election INTEGER NOT NULL, uid TEXT NOT NULL, seat INTEGER NOT NULL, votes REAL NOT NULL, PRIMARY KEY (election, uid) )",
+  "CREATE TABLE IF NOT EXISTS court_state ( rank INTEGER PRIMARY KEY, uid TEXT NOT NULL, since INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS court_gifts ( uid TEXT NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS royal_final ( id INTEGER PRIMARY KEY, start_at INTEGER NOT NULL, end_at INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0 )",
   // Monthly surprise for free supporters: once per player per month
   "CREATE TABLE IF NOT EXISTS sup_surprise ( uid TEXT NOT NULL, month INTEGER NOT NULL, kind TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, month) )",
@@ -361,29 +371,137 @@ async function vipcState(env, uid, now) {
   }
   return st;
 }
-// The King of the Game: the player with the most real Pi paid in total (completed Pi payments, the same
-// total as the Hall of Glory; spending the waiting box does not count). Cached for 60 s in memory.
-let kingCache = { at: 0, uid: null, username: null, paid: 0, second: 0 };
-async function kingRefresh(env, force) {
-  const now = Date.now();
-  if (!force && now - kingCache.at < (env.KING_TTL_MS != null ? Number(env.KING_TTL_MS) : 60000)) return kingCache;
-  const rows = await all(env, `SELECT p.uid, u.username, ROUND(SUM(p.amount), 2) AS paid FROM payments p JOIN users u ON u.uid = p.uid
-    WHERE p.status = 'completed' GROUP BY p.uid HAVING paid > 0 ORDER BY paid DESC, MAX(p.created_at) ASC LIMIT 2`);
-  const k = rows[0] || null;
-  kingCache = { at: now, uid: k ? k.uid : null, username: k ? k.username : null, paid: k ? k.paid : 0, second: rows[1] ? rows[1].paid : 0 };
-  if (k) {
-    // a new King: remember it once and tell the players
-    const ch = await run(env, "INSERT INTO king_state (id, uid, since) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET uid = excluded.uid, since = excluded.since WHERE king_state.uid != excluded.uid", k.uid, now);
-    if (ch.meta.changes) await kingAnnounce(env, k.uid, k.paid, now).catch((e) => logError(env, "king announce", 0, e.message));
-  }
-  return kingCache;
+// ---------- Houses (alliances of supporters) ----------
+const paidOf = async (env, uid) => (await one(env, "SELECT ROUND(COALESCE(SUM(amount), 0), 2) AS n FROM payments WHERE uid = ? AND status = 'completed'", uid)).n;
+async function houseGuard(env, u, h) {
+  if (await one(env, "SELECT 1 AS x FROM house_members WHERE uid = ?", u.uid)) bad("house.already");
+  if (await one(env, "SELECT 1 AS x FROM houses WHERE name = ? COLLATE NOCASE", h.name)) bad("house.taken");
+  if (h.fee === L.COURT.HOUSE.FEE_SUPPORTER && (await paidOf(env, u.uid)) < L.COURT.HOUSE.SUPPORTER_MIN) bad("house.fee");
 }
-const isKing = (uid) => !!(kingCache.uid && kingCache.uid === uid);
+async function houseCreate(env, u, h, payId, now, price) {
+  const refund = () => run(env, "INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'refund', ?, ?, ?, 'Pi Oasis house refund', 'new', ?, ?)", crypto.randomUUID(), payId, u.uid, price, now, now);
+  if (await one(env, "SELECT 1 AS x FROM house_members WHERE uid = ?", u.uid)) return refund();
+  const ins = await run(env, "INSERT OR IGNORE INTO houses (name, emoji, owner, created_at) VALUES (?, ?, ?, ?)", h.name, h.emoji, u.uid, now);
+  if (!ins.meta.changes) return refund();
+  const r = await one(env, "SELECT id FROM houses WHERE name = ? COLLATE NOCASE", h.name);
+  await run(env, "INSERT OR IGNORE INTO house_members (uid, house_id, joined_at) VALUES (?, ?, ?)", u.uid, r.id, now);
+}
+// Houses ranked by the total of real Pi paid by their members
+async function houseBoard(env, limit) {
+  return all(env, `SELECT h.id, h.name, h.emoji, h.owner, ow.username AS owner_name, COUNT(DISTINCT m.uid) AS members, ROUND(COALESCE(SUM(p.amount), 0), 2) AS score
+    FROM houses h JOIN users ow ON ow.uid = h.owner LEFT JOIN house_members m ON m.house_id = h.id
+    LEFT JOIN payments p ON p.uid = m.uid AND p.status = 'completed' GROUP BY h.id ORDER BY score DESC, h.created_at ASC LIMIT ?`, limit);
+}
+async function myHouse(env, uid) {
+  return one(env, "SELECT h.id, h.name, h.emoji, h.owner, m.joined_at FROM house_members m JOIN houses h ON h.id = m.house_id WHERE m.uid = ?", uid);
+}
+// ---------- Votes (decrees) and Parliament elections ----------
+const COURT = L.COURT;
+const courtNow = (env) => (env.COURT_NOW ? Number(env.COURT_NOW) : Date.now()); // tests can fix the date of the elections
+const KINDS = ["event", "topic", "name", "rule", "feature"];
+const voteWeightOf = async (env, uid) => COURT.voteWeight(await paidOf(env, uid));
+async function pollsClose(env, now) {
+  const due = await all(env, "SELECT * FROM decrees WHERE closed = 0 AND closes_at <= ?", now);
+  for (const p of due) {
+    const n = JSON.parse(p.options).length, tally = Array(n).fill(0);
+    for (const v of await all(env, "SELECT opt, SUM(w) AS s FROM decree_votes WHERE poll_id = ? GROUP BY opt", p.id)) if (v.opt >= 0 && v.opt < n) tally[v.opt] = v.s;
+    const best = tally.reduce((bi, x, i) => (x > tally[bi] ? i : bi), 0);
+    await run(env, "UPDATE decrees SET closed = 1, winner = ? WHERE id = ? AND closed = 0", tally[best] > 0 ? best : null, p.id);
+  }
+}
+async function pollView(env, p, uid) {
+  const opts = JSON.parse(p.options), tally = Array(opts.length).fill(0);
+  const rows = await all(env, "SELECT opt, SUM(w) AS s, COUNT(*) AS c FROM decree_votes WHERE poll_id = ? GROUP BY opt", p.id);
+  let voters = 0;
+  for (const r of rows) { if (r.opt >= 0 && r.opt < opts.length) tally[r.opt] = Math.round(r.s * 100) / 100; voters += r.c; }
+  const mine = uid ? await one(env, "SELECT opt FROM decree_votes WHERE poll_id = ? AND uid = ?", p.id, uid) : null;
+  return { id: p.id, kind: p.kind, question: p.question, options: opts, tally, voters, closesAt: p.closes_at, closed: !!p.closed, winner: p.winner, mine: mine ? mine.opt : null };
+}
+// The election of a month: 1-7 candidacy, 8-14 voting, from the 15th the 15 best become Members of Parliament
+const electionId = (t) => L.monthId ? L.monthId(t) : new Date(t).getUTCFullYear() * 100 + new Date(t).getUTCMonth() + 1;
+const parliamentElection = (t) => { const d = new Date(t); const cur = electionId(t); if (d.getUTCDate() >= COURT.PARLIAMENT.RESULTS_FROM) return cur; const p = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1)); return p.getUTCFullYear() * 100 + p.getUTCMonth() + 1; };
+async function electionClose(env, id, now) {
+  const row = await one(env, "SELECT done FROM elections WHERE id = ?", id);
+  if (row && row.done) return;
+  const ins = await run(env, "INSERT INTO elections (id, done, closed_at) VALUES (?, 1, ?) ON CONFLICT(id) DO UPDATE SET done = 1, closed_at = excluded.closed_at WHERE elections.done = 0", id, now);
+  if (!ins.meta.changes) return;
+  const rows = await all(env, `SELECT c.uid, COALESCE(SUM(v.w), 0) AS votes FROM candidates c LEFT JOIN election_votes v ON v.election = c.election AND v.cand = c.uid
+    WHERE c.election = ? GROUP BY c.uid ORDER BY votes DESC, MIN(c.at) ASC LIMIT ?`, id, COURT.PARLIAMENT.SEATS);
+  const items = [];
+  for (let i = 0; i < rows.length; i++) {
+    await run(env, "INSERT OR IGNORE INTO mps (election, uid, seat, votes) VALUES (?, ?, ?, ?)", id, rows[i].uid, i + 1, rows[i].votes);
+    items.push({ uid: rows[i].uid, kind: "elected", ref: "el" + id, vars: { seat: i + 1 } });
+  }
+  await notify(env, items).catch(() => {});
+}
+async function courtCron(env, now) {
+  await pollsClose(env, now);
+  if (new Date(now).getUTCDate() >= COURT.PARLIAMENT.RESULTS_FROM) await electionClose(env, electionId(now), now);
+}
+async function mpSeat(env, uid, now) {
+  const el = parliamentElection(now);
+  if (el === electionId(now) && new Date(now).getUTCDate() >= COURT.PARLIAMENT.RESULTS_FROM) await electionClose(env, el, now);
+  const r = await one(env, "SELECT seat FROM mps WHERE election = ? AND uid = ?", el, uid);
+  return r ? r.seat : 0;
+}
+// What a player gets as the daily court gift: his title, the leading House, the Parliament
+async function courtGiftOf(env, uid, now) {
+  await courtRefresh(env);
+  const c = courtOf(uid), t = c ? L.COURT.titleOf(c.rank, c.paid) : null, parts = {};
+  if (t && t.coins) parts.title = t.coins;
+  const mh = await myHouse(env, uid);
+  if (mh) { const lead = (await houseBoard(env, 1))[0]; if (lead && lead.id === mh.id && lead.score > 0) parts.house = L.COURT.HOUSE.DAILY_COINS; }
+  const seat = await mpSeat(env, uid, courtNow(env));
+  if (seat) parts.parliament = seat === 1 ? COURT.PARLIAMENT.SPEAKER_COINS : COURT.PARLIAMENT.COINS;
+  const done = await one(env, "SELECT 1 AS x FROM court_gifts WHERE uid = ? AND day = ?", uid, L.dayId(now));
+  return { parts, total: Object.values(parts).reduce((a, b) => a + b, 0), claimed: !!done };
+}
+// The Court: the 10 players with the most real Pi paid in total (completed Pi payments; spending the waiting box
+// does not count) hold the titles Emperor, Crown Prince, Grand Vizier and Emir. Cached for 60 s in memory.
+let courtCache = { at: 0, list: [], by: new Map() };
+async function courtRefresh(env, force) {
+  const now = Date.now();
+  if (!force && now - courtCache.at < (env.KING_TTL_MS != null ? Number(env.KING_TTL_MS) : 60000)) return courtCache;
+  const rows = await all(env, `SELECT p.uid, u.username, ROUND(SUM(p.amount), 2) AS paid FROM payments p JOIN users u ON u.uid = p.uid
+    WHERE p.status = 'completed' GROUP BY p.uid HAVING paid > 0 ORDER BY paid DESC, MAX(p.created_at) ASC LIMIT ?`, L.COURT.SEATS);
+  const list = rows.map((r, i) => ({ rank: i + 1, uid: r.uid, username: r.username, paid: r.paid, title: L.COURT.titleOf(i + 1, r.paid).id }));
+  courtCache = { at: now, list, by: new Map(list.map((x) => [x.uid, x])) };
+  // a new holder of Emperor / Crown Prince / Grand Vizier / Emir: remember it once and tell the players
+  const stored = await all(env, "SELECT rank, uid FROM court_state");
+  const old = new Map(stored.map((r) => [r.rank, r.uid]));
+  const moves = [];
+  for (const x of list) {
+    if (old.get(x.rank) === x.uid) continue;
+    await run(env, "INSERT INTO court_state (rank, uid, since) VALUES (?, ?, ?) ON CONFLICT(rank) DO UPDATE SET uid = excluded.uid, since = excluded.since WHERE court_state.uid != excluded.uid", x.rank, x.uid, now);
+    moves.push(x);
+    const prev = old.get(x.rank);
+    if (prev && x.rank <= 3) moves.push({ lost: prev, rank: x.rank, by: x.username });
+  }
+  if (moves.length) await courtAnnounce(env, moves, now).catch((e) => logError(env, "court announce", 0, e.message));
+  return courtCache;
+}
+const TITLE_NAMES = { emperor: ["Emperor", "الإمبراطور", "Empereur"], prince: ["Crown Prince", "ولي العهد", "Prince héritier"], vizier: ["Grand Vizier", "الوزير الأول", "Grand Vizir"], emir: ["Emir", "أمير", "Émir"] };
+async function courtAnnounce(env, moves, now) {
+  const items = [];
+  for (const m of moves) {
+    if (m.lost) { const n = TITLE_NAMES[L.COURT.titleOf(m.rank, 1).id]; items.push({ uid: m.lost, kind: "courtlost", ref: "r" + m.rank + "-" + m.by + "-" + Math.floor(now / DAY), vars: { u: m.by, t_en: n[0], t_ar: n[1], t_fr: n[2] } }); continue; }
+    const n = TITLE_NAMES[m.title]; if (!n) continue;
+    items.push({ uid: m.uid, kind: "courtnew", ref: "r" + m.rank + "-" + Math.floor(now / DAY), vars: { t_en: n[0], t_ar: n[1], t_fr: n[2] } });
+    if (m.rank === 1) {
+      const rows = await all(env, "SELECT uid FROM users ORDER BY rowid DESC LIMIT 200");
+      for (const r of rows) if (r.uid !== m.uid) items.push({ uid: r.uid, kind: "courtemp", ref: "emp" + m.uid.slice(0, 12) + "-" + Math.floor(now / DAY), vars: { u: m.username } });
+    }
+  }
+  await notify(env, items);
+}
+const courtOf = (uid) => courtCache.by.get(uid) || null;
+const isKing = (uid) => { const c = courtOf(uid); return !!c && c.rank === 1; };
 // Active yield multiplier of a player: { id, f, until } or null (the best of the bought one and the throne's)
 function multOf(u, now) {
   const m = u && u.mult_id && u.mult_until > now ? L.multById(u.mult_id) : null;
   const bought = m ? { id: m.id, f: m.f, until: u.mult_until } : null;
-  if (u && isKing(u.uid) && (!bought || bought.f < L.ROYAL.KING.MULT)) return { id: "king", f: L.ROYAL.KING.MULT, until: now + DAY };
+  const c = u && courtOf(u.uid), t = c && L.COURT.titleOf(c.rank, c.paid);
+  if (t && t.mult > 1 && (!bought || bought.f < t.mult)) return { id: t.id, f: t.mult, until: now + DAY };
   return bought;
 }
 // Buying a multiplier: same one extends it; a bigger one replaces it (a smaller one is refused while one runs)
@@ -572,7 +690,7 @@ async function auth(req, env) {
     tok, Date.now() - SESSION_DAYS * DAY
   );
   if (!u) throw new HttpError(401, "session");
-  await kingRefresh(env).catch(() => {});
+  await courtRefresh(env).catch(() => {});
   return u;
 }
 
@@ -712,6 +830,7 @@ const routes = {
     // A lower tier than the active one would be a downgrade: stop before any Pi moves
     const nowT = Date.now();
     if (item.mult) { const cur = multOf(u, nowT); if (cur && item.mult.f < cur.f) bad("multLower"); }
+    if (item.house) await houseGuard(env, u, item.house);
     if (item.tier && u.vip_until > nowT && item.price < L.TIERS[paidTier(u, nowT)].price) bad("lowerTier");
     if (item.jry) {
       if (!isTestnet(env)) bad("badPayment");
@@ -798,9 +917,10 @@ const routes = {
       wid
     );
     const now = Date.now();
-    const k = await kingRefresh(env);
+    const c = await courtRefresh(env), emp = c.list[0] || null;
     return {
-      king: { username: k.username, paid: k.paid, need: k.paid ? Math.round((k.paid + 0.01) * 100) / 100 : 0.01, mult: L.ROYAL.KING.MULT, coins: L.ROYAL.KING.COINS },
+      king: { username: emp ? emp.username : null, paid: emp ? emp.paid : 0, need: emp ? Math.round((emp.paid + 0.01) * 100) / 100 : 0.01, mult: L.COURT.TITLES[0].mult, coins: L.COURT.TITLES[0].coins },
+      court: c.list.slice(0, 3).map((x) => ({ rank: x.rank, username: x.username, paid: x.paid, title: x.title })),
       last: await lastWeekWinners(env, now),
       prizePool: w ? w.prize_pool : 0,
       bands: L.WEEK100.BANDS,
@@ -1930,6 +2050,7 @@ const routes = {
     if (!(item.price > 0) || item.jry || item.p2p || item.mk || item.sponsor || item.sup || item.supFree) bad("box.notHere");
     // the same guards as when approving a Pi payment
     if (item.mult) { const cur = multOf(u, now); if (cur && item.mult.f < cur.f) bad("multLower"); }
+    if (item.house) await houseGuard(env, u, item.house);
     if (item.tier && u.vip_until > now && item.price < L.TIERS[paidTier(u, now)].price) bad("lowerTier");
     if (item.royal && (await one(env, "SELECT 1 AS x FROM royal_cards WHERE tier = ? AND ed = ?", item.royal.tier, item.royal.ed))) bad("rc.taken");
     const taken = await boxTake(env, u.uid, item.price);
@@ -1946,17 +2067,141 @@ const routes = {
     return { ok: true, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
   },
 
-  // The King collects the daily 10,000 coins (once a day)
-  "POST /api/king/claim": async (req, env) => {
+  // Daily court gift (once a day): the coins of my title, plus the leading House and Parliament gifts
+  "POST /api/court/claim": async (req, env) => {
     const u = await auth(req, env);
-    const now = Date.now();
-    if (!isKing(u.uid)) bad("king.no");
-    const r = await run(env, "INSERT OR IGNORE INTO king_gifts (uid, day) VALUES (?, ?)", u.uid, L.dayId(now));
-    if (!r.meta.changes) bad("king.done");
-    await creditPoints(env, u.uid, "coins", L.ROYAL.KING.COINS, now, "king");
+    const now = Date.now(), g = await courtGiftOf(env, u.uid, now);
+    if (!(g.total > 0)) bad("court.none");
+    const r = await run(env, "INSERT OR IGNORE INTO court_gifts (uid, day) VALUES (?, ?)", u.uid, L.dayId(now));
+    if (!r.meta.changes) bad("court.done");
+    await creditPoints(env, u.uid, "coins", g.total, now, "court");
     const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
     const acc = await account(env, fresh);
-    return { ok: true, coins: L.ROYAL.KING.COINS, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
+    return { ok: true, coins: g.total, parts: g.parts, account: acc, state: await stateFor(env, fresh, now, acc.tier) };
+  },
+
+  // ---------- 🏛️ The Court ----------
+  "GET /api/court": async (req, env) => {
+    const u = await auth(req, env), now = Date.now(), c = await courtRefresh(env);
+    const paid = await paidOf(env, u.uid), mineC = courtOf(u.uid);
+    let rank = mineC ? mineC.rank : 0;
+    if (!rank && paid > 0) rank = (await one(env, "SELECT COUNT(*) AS n FROM (SELECT uid, SUM(amount) AS s FROM payments WHERE status = 'completed' GROUP BY uid HAVING s > ?)", paid)).n + 1;
+    const ahead = rank > 1 ? c.list[Math.min(rank - 2, c.list.length - 1)] : null;
+    const gift = await courtGiftOf(env, u.uid, now);
+    return { top: c.list.map((x) => ({ rank: x.rank, username: x.username, paid: x.paid, title: x.title, me: x.uid === u.uid })),
+      me: { rank, paid, title: COURT.titleOf(rank, paid).id, need: ahead ? Math.round((ahead.paid - paid + 0.01) * 100) / 100 : 0, above: ahead ? ahead.username : null },
+      gift: { total: gift.total, parts: gift.parts, claimed: gift.claimed },
+      titles: COURT.TITLES.map((t) => ({ id: t.id, rank: t.rank, mult: t.mult, coins: t.coins })), seats: COURT.SEATS };
+  },
+
+  // ---------- 🏛️ Houses ----------
+  "GET /api/houses": async (req, env) => {
+    const u = await auth(req, env);
+    const board = await houseBoard(env, 20), mine = await myHouse(env, u.uid);
+    let members = [];
+    if (mine) members = await all(env, `SELECT u.username, ROUND(COALESCE(SUM(p.amount), 0), 2) AS paid FROM house_members m JOIN users u ON u.uid = m.uid LEFT JOIN payments p ON p.uid = m.uid AND p.status = 'completed' WHERE m.house_id = ? GROUP BY m.uid ORDER BY paid DESC LIMIT 50`, mine.id);
+    const paid = await paidOf(env, u.uid);
+    return { houses: board.map((h, i) => ({ id: h.id, rank: i + 1, name: h.name, emoji: h.emoji, owner: h.owner_name, members: h.members, score: h.score })), mine: mine ? { id: mine.id, name: mine.name, emoji: mine.emoji, owner: mine.owner === u.uid } : null, members,
+      fee: paid >= L.COURT.HOUSE.SUPPORTER_MIN ? L.COURT.HOUSE.FEE_SUPPORTER : L.COURT.HOUSE.FEE, paid, daily: L.COURT.HOUSE.DAILY_COINS, emojis: KL.TRIBE.EMOJIS };
+  },
+  "POST /api/houses/join": async (req, env, body) => {
+    const u = await auth(req, env);
+    const id = Number(body.id) || 0, now = Date.now();
+    const h = await one(env, "SELECT id FROM houses WHERE id = ?", id);
+    if (!h) bad("house.gone");
+    if (await myHouse(env, u.uid)) bad("house.already");
+    const left = await one(env, "SELECT at FROM house_left WHERE uid = ?", u.uid);
+    if (left && now - left.at < L.COURT.HOUSE.LEAVE_WAIT) bad("house.wait");
+    const n = await one(env, "SELECT COUNT(*) AS n FROM house_members WHERE house_id = ?", id);
+    if (n.n >= L.COURT.HOUSE.MAX_MEMBERS) bad("house.full");
+    await run(env, "INSERT OR IGNORE INTO house_members (uid, house_id, joined_at) VALUES (?, ?, ?)", u.uid, id, now);
+    return { ok: true };
+  },
+  "POST /api/houses/leave": async (req, env) => {
+    const u = await auth(req, env);
+    const mine = await myHouse(env, u.uid), now = Date.now();
+    if (!mine) bad("house.none");
+    await run(env, "DELETE FROM house_members WHERE uid = ?", u.uid);
+    await run(env, "INSERT INTO house_left (uid, at) VALUES (?, ?) ON CONFLICT(uid) DO UPDATE SET at = excluded.at", u.uid, now);
+    if (mine.owner === u.uid) {
+      // the House goes to its biggest remaining supporter; an empty House closes
+      const next = await one(env, `SELECT m.uid FROM house_members m LEFT JOIN payments p ON p.uid = m.uid AND p.status = 'completed' WHERE m.house_id = ? GROUP BY m.uid ORDER BY COALESCE(SUM(p.amount), 0) DESC, m.joined_at ASC LIMIT 1`, mine.id);
+      if (next) await run(env, "UPDATE houses SET owner = ? WHERE id = ?", next.uid, mine.id); else await run(env, "DELETE FROM houses WHERE id = ?", mine.id);
+    }
+    return { ok: true };
+  },
+
+  // ---------- 🗳️ Votes (decrees) ----------
+  "GET /api/decrees": async (req, env) => {
+    const u = await auth(req, env), now = Date.now();
+    await pollsClose(env, now);
+    const open = await all(env, "SELECT p.*, c.username AS by FROM decrees p JOIN users c ON c.uid = p.uid WHERE p.closed = 0 ORDER BY p.id DESC LIMIT 5");
+    const done = await all(env, "SELECT p.*, c.username AS by FROM decrees p JOIN users c ON c.uid = p.uid WHERE p.closed = 1 ORDER BY p.id DESC LIMIT 5");
+    const view = async (p) => ({ ...(await pollView(env, p, u.uid)), by: p.by });
+    const emp = (courtOf(u.uid) || {}).rank === 1;
+    return { open: await Promise.all(open.map(view)), done: await Promise.all(done.map(view)), canCreate: emp || isAdmin(env, u), weight: await voteWeightOf(env, u.uid), kinds: KINDS };
+  },
+  "POST /api/decrees/create": async (req, env, body) => {
+    const u = await auth(req, env), now = Date.now();
+    if (!((courtOf(u.uid) || {}).rank === 1 || isAdmin(env, u))) bad("poll.noRight");
+    const question = String(body.question || "").trim().slice(0, 140), kind = KINDS.includes(body.kind) ? body.kind : "feature";
+    const options = (Array.isArray(body.options) ? body.options : []).map((x) => String(x || "").trim().slice(0, 50)).filter(Boolean);
+    if (question.length < 4 || options.length < COURT.VOTE.MIN_OPTS || options.length > COURT.VOTE.MAX_OPTS || new Set(options.map((x) => x.toLowerCase())).size !== options.length) bad("poll.bad");
+    if (await one(env, "SELECT 1 AS x FROM decrees WHERE uid = ? AND closed = 0", u.uid)) bad("poll.open");
+    const r = await run(env, "INSERT INTO decrees (uid, kind, question, options, created_at, closes_at) VALUES (?, ?, ?, ?, ?, ?)", u.uid, kind, question, JSON.stringify(options), now, now + COURT.VOTE.POLL_DAYS * DAY);
+    return { ok: true, id: r.meta.last_row_id };
+  },
+  "POST /api/decrees/vote": async (req, env, body) => {
+    const u = await auth(req, env), now = Date.now();
+    await pollsClose(env, now);
+    const p = await one(env, "SELECT * FROM decrees WHERE id = ?", Number(body.id) || 0);
+    if (!p || p.closed) bad("poll.gone");
+    const n = JSON.parse(p.options).length, opt = Number(body.opt);
+    if (!Number.isInteger(opt) || opt < 0 || opt >= n) bad("badAction");
+    const r = await run(env, "INSERT OR IGNORE INTO decree_votes (poll_id, uid, opt, w, at) VALUES (?, ?, ?, ?, ?)", p.id, u.uid, opt, await voteWeightOf(env, u.uid), now);
+    if (!r.meta.changes) bad("poll.voted");
+    return { ok: true, poll: await pollView(env, p, u.uid) };
+  },
+  // Public: the decisions of the votes (the magazine reads the topic votes from here)
+  "GET /api/decrees/results": async (req, env) => {
+    await pollsClose(env, Date.now());
+    const rows = await all(env, "SELECT * FROM decrees WHERE closed = 1 ORDER BY id DESC LIMIT 10");
+    const out = [];
+    for (const p of rows) { const v = await pollView(env, p, null); out.push({ id: v.id, kind: v.kind, question: v.question, options: v.options, tally: v.tally, winner: v.winner, winnerText: v.winner == null ? null : v.options[v.winner] }); }
+    return new Response(JSON.stringify({ results: out }), { headers: { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=120" } });
+  },
+
+  // ---------- 🏛️ Parliament elections ----------
+  "GET /api/election": async (req, env) => {
+    const u = await auth(req, env), now = courtNow(env), id = electionId(now), phase = COURT.phase(now);
+    if (phase === "results") await electionClose(env, id, now);
+    const cands = await all(env, `SELECT c.uid, u.username, c.speech, COALESCE(SUM(v.w), 0) AS votes FROM candidates c JOIN users u ON u.uid = c.uid
+      LEFT JOIN election_votes v ON v.election = c.election AND v.cand = c.uid WHERE c.election = ? GROUP BY c.uid ORDER BY votes DESC, c.at ASC LIMIT 60`, id);
+    const mine = await one(env, "SELECT cand FROM election_votes WHERE election = ? AND voter = ?", id, u.uid);
+    const el = parliamentElection(now);
+    if (el === id && phase === "results") await electionClose(env, el, now);
+    const mps = await all(env, "SELECT m.seat, m.votes, u.username FROM mps m JOIN users u ON u.uid = m.uid WHERE m.election = ? ORDER BY m.seat ASC", el);
+    const paid = await paidOf(env, u.uid);
+    return { id, phase, day: new Date(now).getUTCDate(), candidates: cands.map((c) => ({ uid: c.uid, username: c.username, speech: c.speech, votes: Math.round(c.votes * 100) / 100, me: c.uid === u.uid })), runs: cands.some((c) => c.uid === u.uid), votedFor: mine ? mine.cand : null,
+      parliament: { election: el, members: mps.map((m) => ({ seat: m.seat, username: m.username, votes: Math.round(m.votes * 100) / 100 })) }, weight: COURT.voteWeight(paid), canRun: paid > 0, seats: COURT.PARLIAMENT.SEATS };
+  },
+  "POST /api/election/run": async (req, env, body) => {
+    const u = await auth(req, env), now = courtNow(env);
+    if (COURT.phase(now) !== "candidacy") bad("el.phase");
+    if (!((await paidOf(env, u.uid)) > 0)) bad("el.supporters");
+    const speech = String(body.speech || "").trim().slice(0, 100);
+    await run(env, "INSERT INTO candidates (election, uid, speech, at) VALUES (?, ?, ?, ?) ON CONFLICT(election, uid) DO UPDATE SET speech = excluded.speech", electionId(now), u.uid, speech, now);
+    return { ok: true };
+  },
+  "POST /api/election/vote": async (req, env, body) => {
+    const u = await auth(req, env), now = courtNow(env), id = electionId(now);
+    if (COURT.phase(now) !== "voting") bad("el.phase");
+    const cand = String(body.uid || "");
+    if (cand === u.uid) bad("el.self");
+    if (!(await one(env, "SELECT 1 AS x FROM candidates WHERE election = ? AND uid = ?", id, cand))) bad("el.nocand");
+    const r = await run(env, "INSERT OR IGNORE INTO election_votes (election, voter, cand, w, at) VALUES (?, ?, ?, ?, ?)", id, u.uid, cand, await voteWeightOf(env, u.uid), now);
+    if (!r.meta.changes) bad("el.voted");
+    return { ok: true };
   },
 
   // ---------- 👑 VIP Club ----------
@@ -2708,6 +2953,11 @@ function checkPayment(p, uid) {
     if (!Number.isInteger(offer) || offer <= 0 || !(Number(p.amount) > 0)) bad("badPayment");
     return { price: Number(p.amount), mk: offer };
   }
+  if (p.metadata?.type === "house") {
+    const m = p.metadata, fee = Number(m.fee), name = String(m.name || "").trim().replace(/\s+/g, " ");
+    if (!(fee === L.COURT.HOUSE.FEE || fee === L.COURT.HOUSE.FEE_SUPPORTER) || Number(p.amount) !== fee || !KL.tribeNameOk(name) || !KL.TRIBE.EMOJIS.includes(String(m.emoji))) bad("badPayment");
+    return { price: fee, house: { name, emoji: String(m.emoji), fee } };
+  }
   if (p.metadata?.type === "vipclub") {
     if (Number(p.amount) !== VC.VIPC.PRICE) bad("badPayment");
     return { price: VC.VIPC.PRICE, vipc: true };
@@ -2795,7 +3045,7 @@ async function completePayment(env, id, txid, uid) {
 }
 
 // The Pi waiting in a player's box (prizes and refunds not sent yet) can pay for things inside the app.
-const BOX_SPEND_TYPES = ["vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
+const BOX_SPEND_TYPES = ["house", "vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
 async function boxTake(env, uid, price) {
   const rows = await all(env, "SELECT id, amount FROM payouts WHERE uid = ? AND status = 'new' AND kind IN ('prize', 'refund') ORDER BY created_at ASC", uid);
   const have = rows.reduce((a, r) => a + Number(r.amount), 0);
@@ -2874,6 +3124,7 @@ async function grantItem(env, u, item, id, now, internal) {
   if (item.derby && u) await derbyGrant(env, u.uid, item.derby, now);
   if (item.supFree && u) await supSurprise(env, u.uid, now);
   if (item.royal && u) await royalGrant(env, u.uid, item.royal, id, now, item.price);
+  if (item.house && u) await houseCreate(env, u, item.house, id, now, item.price);
   const camel = (item.lvl && item.lvl.camel) || (item.sup && item.sup.camel);
   if (camel && u) {
     const st = await loadState(env, u.uid, now);
@@ -2912,7 +3163,10 @@ const NOTE = {
   rfinal: { go: "vip", en: ["👑 Grand Royal Final: #{p}", "+{n} Kombat coins for your place!"], ar: ["👑 النهائي الملكي الكبير: المركز {p}", "+{n} عملة كومبات لمركزك!"], fr: ["👑 Grande Finale royale : {p}e", "+{n} pièces Kombat pour ta place !"] },
   jry: { go: "kombat", en: ["💠 +{n} JRY from Jerry Development", "{note}"], ar: ["💠 +{n} JRY من Jerry Development", "{note}"], fr: ["💠 +{n} JRY de Jerry Development", "{note}"] },
   piprize: { go: "box", en: ["🎁 Your weekly prize: {pi} Pi", "Place {p}. Your Pi are waiting in your box and will be sent as soon as sending opens."], ar: ["🎁 جائزتك الأسبوعية: {pi} Pi", "المركز {p}. عملاتك في الانتظار داخل صندوقك وستُرسل بمجرد فتح الإرسال."], fr: ["🎁 Ton prix de la semaine : {pi} Pi", "Place {p}. Tes Pi t'attendent dans ton coffre et seront envoyés dès que l'envoi ouvrira."] },
-  newking: { go: "rank", en: ["👑 A new King of the Game!", "{u} took the throne. Open the Ranking to see the crown."], ar: ["👑 ملك جديد للعبة!", "تربّع ‎{u} على العرش. افتح الترتيب لترى التاج."], fr: ["👑 Un nouveau Roi du jeu !", "{u} a pris le trône. Ouvre le classement pour voir la couronne."] },
+  courtnew: { go: "rank", en: ["{t_en}: your new title", "You rose to {t_en} in the Court. Open the Ranking to see your perks."], ar: ["{t_ar}: لقبك الجديد", "ارتقيت إلى لقب {t_ar} في البلاط. افتح الترتيب لترى امتيازاتك."], fr: ["{t_fr} : ton nouveau titre", "Tu es devenu {t_fr} à la Cour. Ouvre le classement pour voir tes avantages."] },
+  courtlost: { go: "rank", en: ["{u} took your place", "{u} is now {t_en}. Support the project with more Pi to win the title back."], ar: ["‎{u} أخذ مكانك", "أصبح ‎{u} الآن {t_ar}. ادعم المشروع بـ Pi أكثر لتستعيد اللقب."], fr: ["{u} a pris ta place", "{u} est maintenant {t_fr}. Soutiens le projet avec plus de Pi pour reprendre le titre."] },
+  courtemp: { go: "rank", en: ["👑 A new Emperor of the Game!", "{u} took the throne. Open the Ranking to see the crown."], ar: ["👑 إمبراطور جديد للعبة!", "تربّع ‎{u} على العرش. افتح الترتيب لترى التاج."], fr: ["👑 Un nouvel Empereur du jeu !", "{u} a pris le trône. Ouvre le classement pour voir la couronne."] },
+  elected: { go: "rank", en: ["🏛️ You were elected to Parliament", "You hold seat {seat} this month. Open the Court to see the Parliament."], ar: ["🏛️ تم انتخابك في البرلمان", "لديك المقعد رقم {seat} هذا الشهر. افتح البلاط لترى البرلمان."], fr: ["🏛️ Tu as été élu au Parlement", "Tu occupes le siège {seat} ce mois-ci. Ouvre la Cour pour voir le Parlement."] },
   kweek: { go: "kombat", en: ["⚔️ Kombat tournament: #{p}", "Open Jerry Kombat to collect your prize."], ar: ["⚔️ بطولة كومبات: المركز {p}", "افتح جيري كومبات لتستلم جائزتك."], fr: ["⚔️ Tournoi Kombat : {p}e", "Ouvre Jerry Kombat pour récupérer ton prix."] },
   dweek: { go: "derby", en: ["🏁 Camel Derby: #{p}", "+{d} dates for your place this week."], ar: ["🏁 سباق الجمال: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏁 Course de chameaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   sold: { go: "market", en: ["💰 Your offer sold", "+{pi} Pi added to your sales balance."], ar: ["💰 تم بيع عرضك", "+{pi} Pi أُضيفت إلى رصيد مبيعاتك."], fr: ["💰 Ton offre est vendue", "+{pi} Pi ajoutés à ton solde de ventes."] },
@@ -3685,6 +3939,7 @@ export default {
         .then(() => magNotify(env))
         .catch((e) => logError(env, "derby week", 0, e.message))
         .then(() => royalFinalPrizes(env))
+        .then(() => courtCron(env, courtNow(env)))
         .then(() => kombatWeekNotes(env))
         .then(() => dailyReminder(env))
         .catch((e) => logError(env, "notifications", 0, e.message))

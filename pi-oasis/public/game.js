@@ -284,7 +284,7 @@
       $("prizeTable").innerHTML = `<b>${t("rank.bands")}</b>` + (lb.bands || []).map((b) => `<div><span>${medal(b)}</span><span dir="ltr">${+(b.share * 100).toFixed(2)}% · ≈${+(lb.prizePool * b.share).toFixed(3)} π</span><span dir="ltr">+${fmtN(b.dates)} 🌴 +${b.jry} 💠</span></div>`).join("");
       const me = account.username;
       if (window.OasisWeekWin) window.OasisWeekWin.draw(lb.last, me);
-      if (window.OasisThrone) window.OasisThrone.draw(lb.king, me);
+      if (window.OasisThrone) window.OasisThrone.draw(lb.king, me, lb.court);
       const pod = (r, place) => r ? `<div class="pod p${place} ${r.username === me ? "me" : ""}">
           <div class="av">${esc(r.username.slice(0, 1).toUpperCase())}</div>
           <div class="nm">${esc(r.username)}${r.sup ? " " + SUPN[r.sup] : ""}${r.cm ? " 📚" : ""}</div>${chip(r.tier)}
@@ -1261,7 +1261,7 @@
   function goFromLink() {
     if (goDone) return; goDone = true;
     const go = new URLSearchParams(location.search).get("go");
-    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { catalog: "catOpen", box: "boxOpen", castle: "castleOpen", vipc: "vipcOpen", mag: "magOpen", chat: "chatOpen", services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
+    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { catalog: "catOpen", box: "boxOpen", castle: "castleOpen", vipc: "vipcOpen", court: "courtOpen", mag: "magOpen", chat: "chatOpen", services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
     if (tabs[go]) document.querySelector(`.tabs [data-tab="${tabs[go]}"]`).click();
     else if (opens[go]) setTimeout(() => $(opens[go]).click(), 300);
   }

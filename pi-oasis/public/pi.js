@@ -100,6 +100,10 @@
     if (!(n >= F.MIN && n <= F.MAX)) return Promise.reject(new Error(I18N.t("e.sf.amount")));
     return pay({ amount: n, memo: `Jerry Development – support ${n} Pi`, metadata: { type: "supfree", amt: n } });
   }
+  // A House (alliance): 10 Pi, or 1 Pi for players who already supported with 10 Pi or more
+  function buyHouse(name, emoji, fee) {
+    return pay({ amount: fee, memo: `Pi Oasis House ${name}`, metadata: { type: "house", name, emoji, fee } });
+  }
   // VIP Club: 30 days for 5 Pi
   function buyVipc() {
     return pay({ amount: window.VipLogic.VIPC.PRICE, memo: "Pi Oasis VIP Club - 30 days", metadata: { type: "vipclub" } });
@@ -170,7 +174,7 @@
   }
   let payOpen = true; // false on Mainnet until the app wallet is approved (set from the account)
   // What can be paid from the Pi waiting in the player's box (the server decides again)
-  const BOX_OK = ["vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
+  const BOX_OK = ["house", "vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
   function choosePay(have, price) {
     return new Promise((resolve) => {
       const t = (k, v) => I18N.t(k, v), d = document.createElement("div");
@@ -317,6 +321,7 @@
     buyMk,
     buyMult,
     buyVipc,
+    buyHouse,
     wheelSpin: () => api("/api/wheel/spin", {}),
     earnAd: (adId) => api("/api/earn/ad", { adId }),
     earnTop: () => api("/api/earn/top"),
@@ -352,7 +357,17 @@
     action: (action) => api("/api/action", { action }),
     leaderboard: () => api("/api/leaderboard"),
     weekMine: () => api("/api/week/mine"),
-    kingClaim: () => api("/api/king/claim", {}),
+    courtClaim: () => api("/api/court/claim", {}),
+    court: () => api("/api/court"),
+    houses: () => api("/api/houses"),
+    houseJoin: (id) => api("/api/houses/join", { id }),
+    houseLeave: () => api("/api/houses/leave", {}),
+    decrees: () => api("/api/decrees"),
+    decreeCreate: (o) => api("/api/decrees/create", o),
+    decreeVote: (id, opt) => api("/api/decrees/vote", { id, opt }),
+    election: () => api("/api/election"),
+    electionRun: (speech) => api("/api/election/run", { speech }),
+    electionVote: (uid) => api("/api/election/vote", { uid }),
     redeemVip: () => api("/api/referral/redeem-vip", {}),
     partners: (action, username) => api("/api/admin/partners", { action, username }),
     kombatTop: (week) => api("/api/kombat/top" + (week ? "?week=1" : "")),

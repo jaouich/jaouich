@@ -7,7 +7,7 @@
   const C = L.COURT;
   const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const fmtN = (n) => Number(n).toLocaleString("en-US");
-  const dt = (ms) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const dt = (ms) => new Date(ms).toLocaleDateString(window.I18N.locale, { month: "short", day: "numeric" });
   const ICON = { emperor: "👑", prince: "🤴", vizier: "🎩", emir: "🛡️", notable: "✨", citizen: "🌴" };
   let tab = "court", D = {}, busy = false, house = { name: "", emoji: "🌴" };
 
@@ -55,7 +55,9 @@
     if (ph === "candidacy") act = d.runs ? `<p class="jm-note">${t("pa.running")}</p>` : d.canRun ? `<div class="ct-form"><input id="ctSpeech" maxlength="100" placeholder="${t("pa.speech")}"><button class="btn gold" data-ct="run">${t("pa.run")}</button></div>` : `<p class="jm-note">${t("pa.cannot")}</p>`;
     const cands = d.candidates.length ? `<h4>${t("pa.cands")}</h4>` + d.candidates.map((c) => `<div class="ct-row ${c.me ? "me" : ""}"><i>🗳️</i><span><b>${esc(c.username)}</b><small>${esc(c.speech || "")}</small></span><em dir="ltr">${fmtN(c.votes)}</em>${ph === "voting" && !c.me && !d.votedFor ? `<button class="btn small" data-ct="vote" data-uid="${esc(c.uid)}">${t("pa.vote")}</button>` : d.votedFor === c.uid ? "✅" : ""}</div>`).join("") : "";
     const mem = `<h4>🏛️ ${t("pa.members")}</h4>` + (d.parliament.members.length ? d.parliament.members.map((m) => `<div class="ct-row"><i>${m.seat === 1 ? "🎙️" : "🏛️"}</i><span><b>${esc(m.username)}</b><small>${m.seat === 1 ? t("pa.speaker") : "#" + m.seat}</small></span><em dir="ltr">${fmtN(m.votes)}</em></div>`).join("") : `<p class="jm-note">${t("pa.nomembers")}</p>`);
-    return intro + act + cands + mem;
+    const nd = new Date(); const nxt = Date.UTC(nd.getUTCFullYear(), nd.getUTCMonth() + (nd.getUTCDate() >= 1 && ph !== "x" && d.day > 7 ? 1 : 0), 1);
+    const how = `<div class="ct-me"><b>${t("pa.how.t")}</b><small>${t("pa.how.1")}</small><small>${t("pa.how.2")}</small><small>${t("pa.how.3")}</small><small>${t("pa.how.4")}</small><small><b>${t("pa.now", { d: d.day })}</b>${d.day > 7 ? " " + t("pa.next", { date: new Date(nxt).toLocaleDateString(window.I18N.locale, { day: "numeric", month: "long", timeZone: "UTC" }) }) : ""}</small></div>`;
+    return intro + how + act + cands + mem;
   }
   function votesTab() {
     const d = D.decrees; if (!d) return `<p class="jm-note">…</p>`;

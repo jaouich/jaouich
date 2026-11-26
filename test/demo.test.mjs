@@ -15,7 +15,7 @@ class Agent {
     let b = body;
     if (body && !(body instanceof Uint8Array) && typeof body !== "string") { b = JSON.stringify(body); h["Content-Type"] = "application/json"; }
     const r = await fetch(B + path, { method, headers: h, body: b });
-    for (const c of r.headers.getSetCookie?.() || []) { const v = c.split(";")[0]; if (v.startsWith("tr_session=")) this.cookie = v; }
+    for (const c of r.headers.getSetCookie?.() || []) { const v = c.split(";")[0]; if (/^tr_(session|demo)=/.test(v)) this.cookie = v; }
     const ct = r.headers.get("content-type") || "";
     return { status: r.status, data: ct.includes("json") ? await r.json() : null };
   }
@@ -86,6 +86,25 @@ r = await dir.req("GET", "/api/me");
 ok(r.status === 401, "sessions de la veille fermées");
 r = await new Agent().req("POST", "/api/auth/login", { login: "commercial", password: "demo2026" });
 ok(r.status === 200, "connexion possible après remise à zéro");
+
+// 3) démonstration sur la même adresse, sous /demo
+env.FORCE_DEMO = "0";
+r = await new Agent().req("GET", "/api/status");
+ok(r.data.setup_needed === true && !r.data.demo, "adresse normale : toujours la vraie base");
+r = await new Agent().req("GET", "/demo/api/status");
+ok(r.data.demo && r.data.settings.company === "Démo Distribution SARL", "/demo : démonstration");
+const pd = await fetch(B + "/demo"); const html = await pd.text();
+ok(pd.status === 200 && html.includes("/app.js"), "/demo : page de l'application");
+const pc = new Agent();
+r = await pc.req("POST", "/demo/api/auth/login", { login: "commercial", password: "demo2026" });
+ok(r.status === 200 && pc.cookie.startsWith("tr_demo="), "/demo : session séparée " + pc.cookie.slice(0, 8));
+const raw = await fetch(B + "/demo/api/auth/login", { method: "POST", headers: { "X-Requested-With": "terrain", "Content-Type": "application/json" }, body: JSON.stringify({ login: "commercial", password: "demo2026" }) });
+ok((raw.headers.get("set-cookie") || "").includes("Path=/demo"), "/demo : cookie limité à /demo");
+r = await pc.req("GET", "/demo/api/sync");
+ok(r.status === 200 && r.data.clients.length >= 8, "/demo : synchronisation");
+r = await pc.req("GET", "/api/sync");
+ok(r.status === 401, "la session démo n'ouvre pas la vraie base");
+ok(env.DB.db.prepare("SELECT COUNT(*) n FROM users").get().n === 0, "vraie base toujours vide");
 
 console.log(`${pass} réussis, ${failN} échoués`);
 server.close();

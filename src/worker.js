@@ -19,8 +19,12 @@ export default {
   async fetch(req, env, ctx) {
     try {
       const u = new URL(req.url);
-      if (u.pathname.startsWith("/api/") && isDemoHost(u.hostname, env)) env = await demoEnv(env);
-      return await route(req, env, ctx);
+      // démonstration : https://<adresse>/demo (ou une adresse qui commence par « demo. »)
+      if (/^\/demo(\/|$)/.test(u.pathname) && env.DEMO_DB && env.DEMO_MEDIA) {
+        u.pathname = u.pathname.slice(5) || "/";
+        env = u.pathname.startsWith("/api/") ? { ...(await demoEnv(env)), DEMO_PATH: true } : { ...demoEnvOf(env), DEMO_PATH: true };
+      } else if (u.pathname.startsWith("/api/") && isDemoHost(u.hostname, env)) env = await demoEnv(env);
+      return await route(req, env, ctx, u);
     } catch (e) {
       if (e instanceof HttpError) return json({ error: e.message, code: e.code }, e.status);
       console.error(e);
@@ -39,8 +43,7 @@ class HttpError extends Error { constructor(status, message, code) { super(messa
 const fail = (status, message, code) => { throw new HttpError(status, message, code); };
 
 // ------------------------------------------------------------------ routage
-async function route(req, env, ctx) {
-  const url = new URL(req.url);
+async function route(req, env, ctx, url = new URL(req.url)) {
   const p = url.pathname, m = req.method;
   if (!p.startsWith("/api/")) return asset(p);
   if (m !== "GET" && m !== "HEAD" && req.headers.get("X-Requested-With") !== "terrain") return json({ error: "Requête refusée" }, 403);
@@ -137,7 +140,8 @@ const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const opt = (v, max) => { const s = str(v, max); return s || null; };
 const num = (v, min, max) => { const n = Number(v); return Number.isFinite(n) && n >= min && n <= max ? n : null; };
 const tstamp = (v) => num(v, 946684800000, 4102444800000);   // entre 2000 et 2100
-function cookie(token, maxAge) { return `tr_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`; }
+const cookieName = (env) => (env.IS_DEMO ? "tr_demo" : "tr_session");
+function cookie(env, token, maxAge) { return `${cookieName(env)}=${token}; Path=${env.DEMO_PATH ? "/demo" : "/"}; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`; }
 function readCookie(req, name) {
   for (const part of (req.headers.get("Cookie") || "").split(";")) { const [k, ...v] = part.trim().split("="); if (k === name) return v.join("="); }
   return null;
@@ -203,10 +207,10 @@ async function setup(req, env) {
 async function createSession(env, userId) {
   const token = toHex(crypto.getRandomValues(new Uint8Array(32)));
   await env.DB.prepare("INSERT INTO sessions (token_hash,user_id,expires_at,created_at) VALUES (?,?,?,?)").bind(await sha256(token), userId, now() + SESSION_DAYS * 86400000, now()).run();
-  return cookie(token, SESSION_DAYS * 86400);
+  return cookie(env, token, SESSION_DAYS * 86400);
 }
 async function currentUser(req, env) {
-  const token = readCookie(req, "tr_session");
+  const token = readCookie(req, cookieName(env));
   if (!token || !/^[0-9a-f]{64}$/.test(token)) return null;
   return env.DB.prepare("SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ? AND u.active = 1").bind(await sha256(token), now()).first();
 }
@@ -234,9 +238,9 @@ async function login(req, env) {
   return json({ user: pubUser(u), settings: await getSettings(env) }, 200, { "Set-Cookie": await createSession(env, u.id) });
 }
 async function logout(req, env) {
-  const token = readCookie(req, "tr_session");
+  const token = readCookie(req, cookieName(env));
   if (token && /^[0-9a-f]{64}$/.test(token)) await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha256(token)).run();
-  return json({ ok: true }, 200, { "Set-Cookie": cookie("", 0) });
+  return json({ ok: true }, 200, { "Set-Cookie": cookie(env, "", 0) });
 }
 async function changePassword(req, env, me) {
   if (demoLocked(env, me.id)) fail(403, "Non disponible dans la démonstration");

@@ -139,7 +139,7 @@ const DB = {
   open() {
     if (this.db) return Promise.resolve(this.db);
     return new Promise((ok, ko) => {
-      const r = indexedDB.open('terrain', 1);
+      const r = indexedDB.open(BASE ? 'terrain-demo' : 'terrain', 1);
       r.onupgradeneeded = () => {
         const d = r.result;
         for (const s of ['clients', 'visits', 'files', 'users']) d.createObjectStore(s, { keyPath: 'id' });
@@ -173,13 +173,15 @@ const DB = {
 };
 
 // =================================================================== serveur
+// /demo : version de démonstration sur la même adresse (base, session et stockage séparés)
+const BASE = /^\/demo(\/|$)/.test(location.pathname) ? '/demo' : '';
 class ApiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 async function api(method, path, body, headers = {}) {
   const h2 = { 'X-Requested-With': 'terrain', ...headers };
   let b = body;
   if (body !== undefined && !(body instanceof Blob) && !(body instanceof ArrayBuffer)) { b = JSON.stringify(body); h2['Content-Type'] = 'application/json'; }
   let r;
-  try { r = await fetch(path, { method, headers: h2, body: b, credentials: 'same-origin' }); }
+  try { r = await fetch(BASE + path, { method, headers: h2, body: b, credentials: 'same-origin' }); }
   catch (e) { throw new ApiError(0, 'network'); }
   if (r.status === 401 && !path.startsWith('/api/auth')) { S.user = null; showLogin(); throw new ApiError(401, 'Non connecté'); }
   const ct = r.headers.get('content-type') || '';
@@ -376,7 +378,7 @@ function getPosition() {
 const app = () => $('#app');
 async function showLogin() {
   let st = { setup_needed: false, settings: S.settings };
-  try { st = await (await fetch('/api/status')).json(); } catch (e) {}
+  try { st = await (await fetch(BASE + '/api/status')).json(); } catch (e) {}
   const setup = st.setup_needed;
   const err = h('p', { class: 'small', style: 'color:var(--red);margin:0;min-height:1.2em', role: 'alert' });
   const f = {};
@@ -602,7 +604,7 @@ function docsTab(c, fs, visitId) {
 }
 function docTile(f) {
   const isImg = /^image\/(jpeg|png|webp|gif)/.test(f.mime);
-  const tile = h('a', { class: 'doc', href: f.local ? '#' : '/api/files/' + f.id, target: f.local ? null : '_blank', rel: 'noopener', title: f.name },
+  const tile = h('a', { class: 'doc', href: f.local ? '#' : BASE + '/api/files/' + f.id, target: f.local ? null : '_blank', rel: 'noopener', title: f.name },
     h('span', { class: 'badge b-muted tag' }, t(f.category)),
     f.local ? h('span', { class: 'pend' }, t('pending')) : null,
     !isImg ? ic(f.category === 'video' ? 'vid' : 'file', 30) : null,
@@ -611,7 +613,7 @@ function docTile(f) {
   if (isImg) {
     const img = h('img', { alt: f.name, loading: 'lazy' });
     if (f.local) DB.get('blobs', f.id).then((b) => { if (b) img.src = URL.createObjectURL(b); });
-    else img.src = '/api/files/' + f.id;
+    else img.src = BASE + '/api/files/' + f.id;
     tile.prepend(img);
   }
   if (f.local) tile.addEventListener('click', async (e) => { e.preventDefault(); const b = await DB.get('blobs', f.id); if (b) window.open(URL.createObjectURL(b), '_blank'); });
@@ -906,10 +908,10 @@ async function viewExport() {
   layout(t('export'), h('div', { class: 'stack' },
     h('section', { class: 'card pad stack' }, h('h3', { style: 'margin:0' }, t('expClients')),
       h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('kind'), ck), h('label', { class: 'f' }, t('city'), cc)), admin() || S.user.perms.all ? h('label', { class: 'f' }, t('owner'), co) : null,
-      h('button', { class: 'btn primary', onclick: () => { const q = new URLSearchParams(); if (ck.value) q.set('kind', ck.value); if (co.value) q.set('owner', co.value); if (cc.value) q.set('city', cc.value); dl('/api/export/clients.xlsx?' + q); } }, ic('xls', 20), t('download'))),
+      h('button', { class: 'btn primary', onclick: () => { const q = new URLSearchParams(); if (ck.value) q.set('kind', ck.value); if (co.value) q.set('owner', co.value); if (cc.value) q.set('city', cc.value); dl(BASE + '/api/export/clients.xlsx?' + q); } }, ic('xls', 20), t('download'))),
     h('section', { class: 'card pad stack' }, h('h3', { style: 'margin:0' }, t('expVisits')),
       h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('from'), vfrom), h('label', { class: 'f' }, t('to'), vto)), admin() || S.user.perms.all ? h('label', { class: 'f' }, t('owner'), vu) : null,
-      h('button', { class: 'btn primary', onclick: () => { const q = new URLSearchParams(); if (vfrom.value) q.set('from', new Date(vfrom.value + 'T00:00').getTime()); if (vto.value) q.set('to', new Date(vto.value + 'T23:59:59').getTime()); if (vu.value) q.set('user', vu.value); dl('/api/export/visits.xlsx?' + q); } }, ic('xls', 20), t('download'))),
+      h('button', { class: 'btn primary', onclick: () => { const q = new URLSearchParams(); if (vfrom.value) q.set('from', new Date(vfrom.value + 'T00:00').getTime()); if (vto.value) q.set('to', new Date(vto.value + 'T23:59:59').getTime()); if (vu.value) q.set('user', vu.value); dl(BASE + '/api/export/visits.xlsx?' + q); } }, ic('xls', 20), t('download'))),
     h('p', { class: 'small muted' }, t('expHelp'))));
 }
 

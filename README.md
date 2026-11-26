@@ -11,7 +11,8 @@ photos, vidéos et documents, tableau de bord de la direction, export Excel. Fon
 
 ## Version de démonstration
 
-Ajoutez au Worker un domaine qui commence par `demo.` (ex. `demo.votre-domaine.ma`) : sur cette adresse,
+La démonstration s'ouvre sur **`/demo`** de la même adresse (ex. `https://magiscom-terrain.integrateurebp.com/demo`),
+ou sur un domaine qui commence par `demo.` / `demo-`. Elle a sa propre session (cookie `tr_demo`) et sa propre base locale sur le téléphone ;
 l'application utilise la base `magiscom-terrain-demo` et le stockage `magiscom-terrain-demo-files`,
 remplis de données fictives (société « Démo Distribution SARL », 24 fiches, 5 commerciaux, visites et rendez-vous).
 

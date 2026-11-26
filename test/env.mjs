@@ -36,6 +36,7 @@ export class R2 {
     return { body: new Blob([b]).stream(), size: o.buf.length };
   }
   async delete(k) { for (const x of [].concat(k)) this.m.delete(x); }
+  async list() { return { objects: [...this.m.keys()].map((key) => ({ key })), truncated: false }; }
   // Envoi en plusieurs morceaux (comme R2)
   createMultipartUpload(key, opts) {
     this.mp ||= new Map();

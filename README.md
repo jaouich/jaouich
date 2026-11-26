@@ -8,3 +8,13 @@ photos, vidéos et documents, tableau de bord de la direction, export Excel. Fon
 - `node build.mjs` construit `dist/worker.js` (serveur + application en un fichier)
 - Tests : `node test/api.test.mjs` (serveur) et `node test/ui.mjs` (interface, Playwright)
 - Déploiement : Cloudflare › Workers & Pages › Import a repository › branche `magiscom-terrain`
+
+## Version de démonstration
+
+Ajoutez au Worker un domaine qui commence par `demo.` (ex. `demo.votre-domaine.ma`) : sur cette adresse,
+l'application utilise la base `magiscom-terrain-demo` et le stockage `magiscom-terrain-demo-files`,
+remplis de données fictives (société « Démo Distribution SARL », 24 fiches, 5 commerciaux, visites et rendez-vous).
+
+- Comptes : `direction` / `demo2026` (administrateur) et `commercial` / `demo2026` (Karim Benali), proposés en un clic sur l'écran de connexion.
+- Remise à zéro automatique chaque nuit (tâche planifiée) : fiches, fichiers, comptes et droits reviennent à l'état d'origine.
+- Dans la démo : fichiers limités à 20 Mo, mots de passe et statut des deux comptes de démonstration non modifiables.

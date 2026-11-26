@@ -15,3 +15,14 @@ database_id = "958fe535-c556-4197-97af-977ad70048d4"
 [[r2_buckets]]
 binding = "MEDIA"
 bucket_name = "magiscom-terrain-files"
+
+# Version de démonstration : utilisée automatiquement sur une adresse qui commence par « demo. »
+# (base et fichiers séparés, données fictives remises à zéro chaque nuit)
+[[d1_databases]]
+binding = "DEMO_DB"
+database_name = "magiscom-terrain-demo"
+database_id = "534420d8-5ce7-40d9-ad47-d7b6f366eae0"
+
+[[r2_buckets]]
+binding = "DEMO_MEDIA"
+bucket_name = "magiscom-terrain-demo-files"

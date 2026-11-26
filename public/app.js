@@ -6,7 +6,7 @@
 // =================================================================== textes
 const T = {
   fr: {
-    fullName: 'Nom complet', newSheet: 'Nouvelle fiche', setupCode: 'Code de mise en service', clients: 'Clients', agenda: 'Agenda', map: 'Carte', me: 'Moi', dashboard: 'Tableau de bord', team: 'Commerciaux', export: 'Export Excel', journal: 'Journal', settings: 'Réglages', newClient: 'Nouveau',
+    fullName: 'Nom complet', newSheet: 'Nouvelle fiche', setupCode: 'Code de mise en service', demoT: 'Version de démonstration', demoP: 'Données fictives, remises à zéro chaque nuit. Choisissez un profil pour entrer :', demoAdmin: 'Entrer comme Direction', demoRep: 'Entrer comme Commercial', demoChip: 'DÉMO', clients: 'Clients', agenda: 'Agenda', map: 'Carte', me: 'Moi', dashboard: 'Tableau de bord', team: 'Commerciaux', export: 'Export Excel', journal: 'Journal', settings: 'Réglages', newClient: 'Nouveau',
     login: 'Identifiant', password: 'Mot de passe', signIn: 'Se connecter', setupT: 'Première configuration', setupP: 'Créez le compte du responsable (administrateur).', company: 'Société', yourName: 'Votre nom', create: 'Créer', phone: 'Téléphone',
     search: 'Rechercher : nom, code, ville, téléphone…', all: 'Tous', client: 'Client', prospect: 'Prospect', clientsN: '{n} fiche(s)', none: 'Aucune fiche pour le moment.', noneSearch: 'Aucun résultat.',
     located: 'Localisé', notLocated: 'Pas encore localisé', lastVisit: 'Dernière visite : {d}', neverVisited: 'Jamais visité', owner: 'Commercial', allOwners: 'Tous les commerciaux', city: 'Ville', allCities: 'Toutes les villes',
@@ -28,7 +28,7 @@ const T = {
     a_login: 'Connexion', a_setup: 'Configuration', 'a_client.create': 'Fiche créée', 'a_client.update': 'Fiche modifiée', 'a_client.geo': 'Position enregistrée', 'a_client.kind': 'Type changé', 'a_client.reassign': 'Fiches transférées', 'a_client.delete': 'Fiche supprimée', 'a_visit.create': 'Compte-rendu', 'a_visit.plan': 'RDV planifié', 'a_visit.update': 'Visite modifiée', 'a_visit.delete': 'Visite supprimée', 'a_file.upload': 'Document ajouté', 'a_file.delete': 'Document supprimé', 'a_export.clients': 'Export clients', 'a_export.visits': 'Export visites', 'a_user.create': 'Utilisateur créé', 'a_user.update': 'Utilisateur modifié', 'a_user.disable': 'Utilisateur désactivé', 'a_user.password_reset': 'Mot de passe réinitialisé', 'a_settings.update': 'Réglages',
   },
   ar: {
-    fullName: 'الاسم الكامل', newSheet: 'ملف جديد', setupCode: 'رمز التفعيل', clients: 'الزبناء', agenda: 'المواعيد', map: 'الخريطة', me: 'حسابي', dashboard: 'لوحة القيادة', team: 'المناديب', export: 'تصدير Excel', journal: 'السجل', settings: 'الإعدادات', newClient: 'جديد',
+    fullName: 'الاسم الكامل', newSheet: 'ملف جديد', setupCode: 'رمز التفعيل', demoT: 'نسخة تجريبية', demoP: 'معطيات وهمية كتّعاود من الصفر كل ليلة. اختر حساب للدخول:', demoAdmin: 'الدخول كمدير', demoRep: 'الدخول كمندوب', demoChip: 'تجريبي', clients: 'الزبناء', agenda: 'المواعيد', map: 'الخريطة', me: 'حسابي', dashboard: 'لوحة القيادة', team: 'المناديب', export: 'تصدير Excel', journal: 'السجل', settings: 'الإعدادات', newClient: 'جديد',
     login: 'اسم المستخدم', password: 'كلمة المرور', signIn: 'تسجيل الدخول', setupT: 'الإعداد الأول', setupP: 'أنشئ حساب المسؤول (المدير).', company: 'الشركة', yourName: 'اسمك', create: 'إنشاء', phone: 'الهاتف',
     search: 'بحث: الاسم، الرمز، المدينة، الهاتف…', all: 'الكل', client: 'زبون', prospect: 'زبون محتمل', clientsN: '{n} ملف', none: 'لا توجد ملفات بعد.', noneSearch: 'لا نتائج.',
     located: 'محدد الموقع', notLocated: 'الموقع غير مسجل', lastVisit: 'آخر زيارة: {d}', neverVisited: 'لم تتم زيارته', owner: 'المندوب', allOwners: 'كل المناديب', city: 'المدينة', allCities: 'كل المدن',
@@ -49,7 +49,7 @@ const T = {
     loadMore: 'عرض المزيد', reassignOwner: 'المندوب المسؤول', deleteQ: 'حذف هذا الملف؟ سيُخفى (يمكن للمدير استرجاعه).', deleted: 'تم الحذف', confirm: 'تأكيد', loading: 'جارٍ التحميل…', error: 'خطأ: {e}', offlineAdmin: 'هذه الصفحة تحتاج إلى الإنترنت.',
   },
   en: {
-    fullName: 'Full name', newSheet: 'New record', setupCode: 'Setup code', clients: 'Clients', agenda: 'Agenda', map: 'Map', me: 'Me', dashboard: 'Dashboard', team: 'Sales reps', export: 'Excel export', journal: 'Activity log', settings: 'Settings', newClient: 'New',
+    fullName: 'Full name', newSheet: 'New record', setupCode: 'Setup code', demoT: 'Demo version', demoP: 'Sample data, reset every night. Pick a profile to sign in:', demoAdmin: 'Sign in as Manager', demoRep: 'Sign in as Sales rep', demoChip: 'DEMO', clients: 'Clients', agenda: 'Agenda', map: 'Map', me: 'Me', dashboard: 'Dashboard', team: 'Sales reps', export: 'Excel export', journal: 'Activity log', settings: 'Settings', newClient: 'New',
     login: 'Username', password: 'Password', signIn: 'Sign in', setupT: 'First setup', setupP: 'Create the manager (administrator) account.', company: 'Company', yourName: 'Your name', create: 'Create', phone: 'Phone',
     search: 'Search: name, code, city, phone…', all: 'All', client: 'Client', prospect: 'Prospect', clientsN: '{n} record(s)', none: 'No records yet.', noneSearch: 'No results.',
     located: 'Located', notLocated: 'Not located yet', lastVisit: 'Last visit: {d}', neverVisited: 'Never visited', owner: 'Sales rep', allOwners: 'All reps', city: 'City', allCities: 'All cities',
@@ -401,10 +401,14 @@ async function showLogin() {
     field('login', t('login'), 'text', 'username'), field('password', t('password'), 'password', setup ? 'new-password' : 'current-password'), err,
     h('button', { class: 'btn primary block', type: 'submit' }, setup ? t('create') : t('signIn')));
   if (setup) f.company.value = 'Magiscom Tech';
+  const demoBox = st.demo && !setup ? h('div', { class: 'demo-box stack' }, h('b', {}, t('demoT')), h('span', { class: 'small' }, t('demoP')),
+    ...st.demo.accounts.map((a) => h('button', { type: 'button', class: 'btn ' + (a.role === 'admin' ? 'primary' : 'green') + ' block', onclick: () => { f.login.value = a.login; f.password.value = a.password; form.requestSubmit(); } },
+      t(a.role === 'admin' ? 'demoAdmin' : 'demoRep'))),
+    h('span', { class: 'small muted' }, `${st.demo.accounts.map((a) => a.login).join(' / ')} · ${st.demo.accounts[0].password}`)) : null;
   app().replaceChildren(h('div', { class: 'login' }, h('div', { class: 'card' },
     h('div', { class: 'brand' }, h('img', { src: '/logo.png', alt: '' }), h('div', { class: 'grow' }, h('b', { style: 'font-size:19px;display:block' }, 'Magiscom Terrain'), h('span', { class: 'muted small' }, (st.settings && st.settings.company) || 'Magiscom Tech')), langSel),
-    form)));
-  setTimeout(() => (setup ? f.code || f.company : f.login).focus(), 50);
+    demoBox, form)));
+  if (!demoBox) setTimeout(() => (setup ? f.code || f.company : f.login).focus(), 50);
 }
 
 // =================================================================== mise en page
@@ -418,7 +422,7 @@ function layout(title, body, opts = {}) {
   const cur = location.hash || '#/';
   const top = h('header', { class: 'top' },
     opts.back ? h('button', { class: 'back', 'aria-label': 'Retour', onclick: () => (history.length > 1 ? history.back() : go(opts.back)) }, ic('back')) : null,
-    h('h1', {}, title), opts.right || null, h('span', { id: 'sync', role: 'status', onclick: () => syncNow(true), style: 'cursor:pointer' }));
+    h('h1', {}, title), opts.right || null, S.settings && S.settings.demo ? h('span', { class: 'demo-chip' }, t('demoChip')) : null, h('span', { id: 'sync', role: 'status', onclick: () => syncNow(true), style: 'cursor:pointer' }));
   const side = h('nav', { class: 'side', 'aria-label': 'Menu' },
     h('div', { class: 'brand' }, h('img', { src: '/logo.png', alt: '' }), h('div', {}, h('b', {}, 'Magiscom Terrain'), h('small', {}, S.settings.company))),
     ...nav().map(([href, icn, k]) => h('a', { href, class: cur.startsWith(href) ? 'on' : null }, ic(icn, 20), t(k))),

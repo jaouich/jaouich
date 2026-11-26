@@ -18,6 +18,7 @@ const BLOCKED_EXT = /\.(exe|bat|cmd|com|msi|scr|js|vbs|ps1|sh|jar|apk|html?|svg)
 export default {
   async fetch(req, env, ctx) {
     try {
+      if (isDemoHost(new URL(req.url).hostname, env)) env = await demoEnv(env);
       return await route(req, env, ctx);
     } catch (e) {
       if (e instanceof HttpError) return json({ error: e.message, code: e.code }, e.status);
@@ -25,7 +26,12 @@ export default {
       return json({ error: "Erreur serveur" }, 500);
     }
   },
-  async scheduled(_e, env, ctx) { ctx.waitUntil(cleanup(env)); },
+  async scheduled(_e, env, ctx) {
+    ctx.waitUntil((async () => {
+      await cleanup(env);
+      if (env.DEMO_DB && env.DEMO_MEDIA) await resetDemo(demoEnvOf(env));   // la démo repart à zéro chaque nuit
+    })());
+  },
 };
 
 class HttpError extends Error { constructor(status, message, code) { super(message); this.status = status; this.code = code; } }
@@ -156,6 +162,7 @@ async function getSettings(env) {
   const { results } = await env.DB.prepare("SELECT k, v FROM settings WHERE k IN ('company','client_prefix','prospect_prefix')").all();
   const s = { company: "Magiscom Tech", client_prefix: "CL", prospect_prefix: "PR" };
   for (const r of results) s[r.k] = r.v;
+  if (env.IS_DEMO) s.demo = true;
   return s;
 }
 
@@ -163,7 +170,7 @@ async function getSettings(env) {
 async function status(env) {
   const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM users").first();
   const code = n.n ? null : await env.DB.prepare("SELECT 1 FROM settings WHERE k = 'setup_code'").first();
-  return json({ setup_needed: !n.n, setup_code: !!code, settings: await getSettings(env) });
+  return json({ setup_needed: !n.n, setup_code: !!code, settings: await getSettings(env), demo: env.IS_DEMO ? { accounts: DEMO_ACCOUNTS } : null });
 }
 function checkPasswordRules(pw) {
   if (typeof pw !== "string" || pw.length < 8 || pw.length > 200) fail(400, "Le mot de passe doit faire au moins 8 caractères");
@@ -231,6 +238,7 @@ async function logout(req, env) {
   return json({ ok: true }, 200, { "Set-Cookie": cookie("", 0) });
 }
 async function changePassword(req, env, me) {
+  if (demoLocked(env, me.id)) fail(403, "Non disponible dans la démonstration");
   const b = await readJson(req);
   const { hash } = await hashPassword(String(b.current || "").slice(0, 200), me.password_salt);
   if (!safeEqual(hash, me.password_hash)) fail(400, "Mot de passe actuel incorrect");
@@ -278,6 +286,7 @@ async function updateUser(id, req, env, me, log) {
   const u = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(id).first();
   if (!u) fail(404, "Utilisateur introuvable");
   const b = await readJson(req);
+  if (demoLocked(env, id) && ((b.active !== undefined && !b.active) || (b.login !== undefined && normLogin(b.login) !== u.login) || (b.role !== undefined && b.role !== u.role))) fail(403, "Ce compte de démonstration ne peut pas être désactivé ni renommé");
   const f = { name: u.name, phone: u.phone, role: u.role, perms: u.perms, active: u.active, login: u.login };
   if (b.name !== undefined) { f.name = str(b.name, 80); if (f.name.length < 2) fail(400, "Indiquez le nom"); }
   if (b.phone !== undefined) f.phone = opt(b.phone, 30);
@@ -304,6 +313,7 @@ async function resetPassword(id, env, me, log) {
   needAdmin(me);
   const u = await env.DB.prepare("SELECT id, name FROM users WHERE id = ?").bind(id).first();
   if (!u) fail(404, "Utilisateur introuvable");
+  if (demoLocked(env, id)) fail(403, "Non disponible pour ce compte de démonstration");
   const pw = tempPassword();
   const { hash, salt } = await hashPassword(pw);
   await env.DB.batch([
@@ -544,6 +554,7 @@ async function uploadFile(id, req, env, me, log) {
   const size = Number(req.headers.get("Content-Length") || 0);
   if (!size || !req.body) fail(411, "Fichier vide");
   if (size > MAX_SINGLE) fail(413, "Fichier trop lourd pour un envoi simple");
+  if (env.IS_DEMO && size > DEMO_MAX_FILE) fail(413, "Dans la démonstration, les fichiers sont limités à 20 Mo");
   const category = catFor(mime, str(req.headers.get("X-Category"), 20));
   const key = `c/${clientId}/${id}`;
   const obj = await env.MEDIA.put(key, req.body, { httpMetadata: { contentType: mime } });
@@ -557,6 +568,7 @@ async function uploadFile(id, req, env, me, log) {
   return json({ file: await env.DB.prepare("SELECT * FROM files WHERE id = ?").bind(id).first() }, 201);
 }
 async function mpCreate(req, env, me) {
+  if (env.IS_DEMO) fail(413, "Dans la démonstration, les fichiers sont limités à 20 Mo");
   const b = await readJson(req);
   const id = str(b.id, 40);
   if (!/^[0-9a-zA-Z-]{8,40}$/.test(id)) fail(400, "Identifiant invalide");
@@ -797,4 +809,146 @@ function zipStore(files) {
   const out = new Uint8Array(all.reduce((s, x) => s + x.length, 0));
   let p = 0; for (const x of all) { out.set(x, p); p += x.length; }
   return out;
+}
+
+// ------------------------------------------------------------------ version de démonstration
+// Sur une adresse qui commence par « demo. », l'application utilise une base et un stockage séparés,
+// remplis de données fictives et remis à zéro chaque nuit. Les vraies données ne sont jamais touchées.
+const DEMO_PASSWORD = "demo2026";
+const DEMO_LOGIN_IDS = ["demo-u-dir", "demo-u-com"];
+const DEMO_ACCOUNTS = [{ role: "admin", login: "direction", password: DEMO_PASSWORD }, { role: "commercial", login: "commercial", password: DEMO_PASSWORD }];
+const DEMO_MAX_FILE = 20 * MB;
+let demoReady = false;
+const isDemoHost = (host, env) => !!(env.DEMO_DB && env.DEMO_MEDIA) && (/^demo[.-]/i.test(host) || env.FORCE_DEMO === "1");
+const demoEnvOf = (env) => ({ ...env, DB: env.DEMO_DB, MEDIA: env.DEMO_MEDIA, IS_DEMO: true });
+async function demoEnv(env) {
+  const e = demoEnvOf(env);
+  if (!demoReady) {
+    const n = await e.DB.prepare("SELECT COUNT(*) AS n FROM users").first();
+    if (!n.n) await seedDemo(e);
+    demoReady = true;
+  }
+  return e;
+}
+const demoLocked = (env, id) => env.IS_DEMO && DEMO_LOGIN_IDS.includes(id);
+
+async function resetDemo(env) {
+  // stockage : suppression des fichiers envoyés pendant la journée
+  let cursor;
+  do {
+    const l = await env.MEDIA.list({ cursor, limit: 500 });
+    if (l.objects.length) await env.MEDIA.delete(l.objects.map((o) => o.key));
+    cursor = l.truncated ? l.cursor : undefined;
+  } while (cursor);
+  const mps = (await env.DB.prepare("SELECT r2_key, upload_id FROM uploads_mp").all()).results;
+  for (const u of mps) { try { await env.MEDIA.resumeMultipartUpload(u.r2_key, u.upload_id).abort(); } catch {} }
+  await env.DB.batch(["users", "sessions", "login_attempts", "settings", "clients", "visits", "files", "uploads_mp", "audit"].map((t) => env.DB.prepare(`DELETE FROM ${t}`)));
+  await seedDemo(env);
+}
+
+function demoRand(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+
+async function seedDemo(env) {
+  const t = now(), D = 86400000, H = 3600000;
+  const R = demoRand(20261126);
+  const pick = (a) => a[Math.floor(R() * a.length)];
+  const jitter = (v, amp) => Math.round((v + (R() - 0.5) * amp) * 1e5) / 1e5;
+  const { hash, salt } = await hashPassword(DEMO_PASSWORD);
+  const other = await hashPassword(toHex(crypto.getRandomValues(new Uint8Array(16))));
+  const users = [
+    ["demo-u-dir", "direction", "Directeur commercial", "0522 00 00 01", "admin", {}, hash, salt],
+    ["demo-u-com", "commercial", "Karim Benali", "0661 10 20 30", "commercial", { scope: "own", edit_all: 0, export: 0 }, hash, salt],
+    ["demo-u-sal", "salma.idrissi", "Salma Idrissi", "0662 11 22 33", "commercial", { scope: "all", edit_all: 0, export: 1 }, other.hash, other.salt],
+    ["demo-u-you", "youssef.amrani", "Youssef Amrani", "0663 44 55 66", "commercial", { scope: "own", edit_all: 0, export: 0 }, other.hash, other.salt],
+    ["demo-u-nad", "nadia.elfassi", "Nadia El Fassi", "0664 77 88 99", "commercial", { scope: "own", edit_all: 0, export: 0 }, other.hash, other.salt],
+  ];
+  const st = [];
+  for (const [id, login, name, phone, role, p, h, s] of users) {
+    st.push(env.DB.prepare("INSERT INTO users (id,login,name,phone,role,perms,active,password_hash,password_salt,must_change,created_at,last_seen) VALUES (?,?,?,?,?,?,1,?,?,0,?,?)")
+      .bind(id, login, name, phone, role, JSON.stringify(p), h, s, t - 60 * D, id === "demo-u-dir" ? null : t - Math.floor(R() * 20) * H));
+  }
+  st.push(env.DB.prepare("INSERT INTO settings (k,v) VALUES ('company','Démo Distribution SARL')"));
+
+  const towns = {
+    Mohammedia: [33.6866, -7.3830], Casablanca: [33.5899, -7.6039], "Aïn Harrouda": [33.6378, -7.4486],
+    Rabat: [34.0209, -6.8416], "Témara": [33.9287, -6.9063], "Salé": [34.0531, -6.7985],
+  };
+  // [nom, type, ville, contact, secteur, commercial]
+  const rows = [
+    ["Droguerie Al Amal", "client", "Mohammedia", "Hassan Tazi", "Quincaillerie", "demo-u-com"],
+    ["Pharmacie Ennour", "client", "Mohammedia", "Dr. Bennani", "Pharmacie", "demo-u-com"],
+    ["Café Les Palmiers", "prospect", "Mohammedia", "Rachid Ouazzani", "Café / restaurant", "demo-u-com"],
+    ["Garage Atlas Auto", "client", "Mohammedia", "M. Alaoui", "Automobile", "demo-u-com"],
+    ["Boulangerie Assalam", "prospect", "Aïn Harrouda", "Omar Kettani", "Boulangerie", "demo-u-com"],
+    ["Supermarché Al Wafa", "client", "Mohammedia", "Fatima Zahra", "Distribution", "demo-u-com"],
+    ["Clinique Dentaire Atlas", "client", "Casablanca", "Dr. Fassi", "Santé", "demo-u-com"],
+    ["Électricité Moderne", "prospect", "Aïn Harrouda", "Said Berrada", "Électricité", "demo-u-com"],
+    ["Transports Rapides SARL", "client", "Casablanca", "Mme Lahlou", "Transport", "demo-u-you"],
+    ["Imprimerie Moderne", "client", "Casablanca", "Ahmed Chraibi", "Imprimerie", "demo-u-you"],
+    ["Auto-école Nour", "prospect", "Casablanca", "Nour Eddine", "Formation", "demo-u-you"],
+    ["Bureau Plus Fournitures", "client", "Casablanca", "Leila Benjelloun", "Fournitures de bureau", "demo-u-you"],
+    ["Restaurant Dar Zitoun", "prospect", "Casablanca", "Mehdi Sqalli", "Café / restaurant", "demo-u-you"],
+    ["Laboratoire Anfa Analyses", "client", "Casablanca", "Dr. Amrani", "Santé", "demo-u-you"],
+    ["Hôtel Miramar", "client", "Rabat", "Khalid Mansouri", "Hôtellerie", "demo-u-sal"],
+    ["Cabinet Comptable Raji", "client", "Rabat", "Youssef Raji", "Comptabilité", "demo-u-sal"],
+    ["Supérette Al Baraka", "prospect", "Témara", "Aicha", "Distribution", "demo-u-sal"],
+    ["Menuiserie Al Andalous", "client", "Salé", "Abdellah", "Menuiserie", "demo-u-sal"],
+    ["Opticien Vision Plus", "prospect", "Rabat", "Sanaa Tahiri", "Optique", "demo-u-sal"],
+    ["École Les Orangers", "client", "Témara", "Mme Bennis", "Enseignement", "demo-u-sal"],
+    ["Pressing Royal", "prospect", "Salé", "Hamid", "Services", "demo-u-nad"],
+    ["Parapharmacie Yasmine", "client", "Rabat", "Yasmine Alami", "Pharmacie", "demo-u-nad"],
+    ["Agence Immobilière Agdal", "prospect", "Rabat", "Karim Tounsi", "Immobilier", "demo-u-nad"],
+    ["Quincaillerie du Centre", "client", "Témara", "Brahim", "Quincaillerie", "demo-u-nad"],
+  ];
+  const streets = ["Bd Hassan II", "Av. Mohammed V", "Bd des FAR", "Rue Zerktouni", "Av. Al Massira", "Bd Anfa", "Rue Ibn Sina", "Av. Annakhil"];
+  const seq = { CL: 0, PR: 0 };
+  const clients = [];
+  rows.forEach(([name, kind, city, contact, sector, owner], i) => {
+    const pre = kind === "client" ? "CL" : "PR";
+    const code = `${pre}-${String(++seq[pre]).padStart(5, "0")}`;
+    const [la, ln] = towns[city];
+    const located = i % 7 !== 6;                      // quelques fiches restent à localiser
+    const lat = located ? jitter(la, 0.035) : null, lng = located ? jitter(ln, 0.045) : null;
+    const id = `demo-c-${String(i + 1).padStart(3, "0")}`;
+    const created = t - (45 - i) * D;
+    const tel = `05${20 + (i % 9)} ${String(10 + i).padStart(2, "0")} ${String(30 + ((i * 7) % 60)).padStart(2, "0")} ${String(11 + ((i * 13) % 80)).padStart(2, "0")}`;
+    clients.push({ id, owner, lat, lng, kind, name, city });
+    st.push(env.DB.prepare(`INSERT INTO clients (id,code,name,kind,contact,phone,email,city,address,sector,ice,notes,lat,lng,geo_acc,geo_at,geo_by,owner_id,created_by,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(id, code, name, kind, contact, tel, null, city, `${10 + i * 3} ${pick(streets)}`, sector,
+      kind === "client" ? String(1500000000000 + i * 7919).padStart(15, "0") : null, i % 5 === 0 ? "Client fidèle, préfère être appelé le matin." : null,
+      lat, lng, located ? 8 + Math.floor(R() * 20) : null, located ? created : null, located ? owner : null, owner, owner, created, t - i * 60000));
+  });
+  st.push(env.DB.prepare("INSERT INTO settings (k,v) VALUES ('seq_CL', ?), ('seq_PR', ?)").bind(String(seq.CL), String(seq.PR)));
+
+  const agreed = ["Commande de 40 rouleaux de câble, livraison jeudi", "Devis accepté pour 3 postes de travail", "Renouvellement du contrat annuel", "Commande test de 10 cartons, paiement à 30 jours",
+    "Accord pour une démonstration en magasin", "Remise de 5 % accordée sur la prochaine commande", "Mise en place de la PLV la semaine prochaine", "Commande mensuelle confirmée"];
+  const notDone = ["Le responsable était absent", "Pas de décision sur les nouveaux produits", "Formation du personnel reportée", "Livraison précédente incomplète à régulariser", "Budget pas encore validé"];
+  const demands = ["Catalogue 2027 et liste de prix", "Échantillons de la nouvelle gamme", "Délais de livraison plus courts", "Facture détaillée par magasin", "Rappel la semaine prochaine", "Présentation du module stock"];
+  const steps = ["Envoyer le devis", "Relancer pour la commande", "Démonstration produit", "Présenter l'offre annuelle", "Livrer les échantillons"];
+  let vn = 0;
+  const visit = (c, user, kind, status, date, a, nd, dm, ns, nd2, withGeo) => {
+    const id = `demo-v-${String(++vn).padStart(4, "0")}`;
+    const lat = withGeo && c.lat ? jitter(c.lat, 0.0004) : null, lng = withGeo && c.lng ? jitter(c.lng, 0.0004) : null;
+    st.push(env.DB.prepare(`INSERT INTO visits (id,client_id,user_id,kind,status,date,agreed,not_done,demands,next_step,next_date,lat,lng,geo_acc,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(id, c.id, user, kind, status, date, a, nd, dm, ns, nd2, lat, lng, lat ? 10 + Math.floor(R() * 15) : null, Math.min(date, t), t - vn * 1000));
+  };
+  // historique des 30 derniers jours
+  clients.forEach((c, i) => {
+    const n = c.kind === "client" ? 1 + Math.floor(R() * 3) : Math.floor(R() * 2);
+    for (let k = 0; k < n; k++) {
+      const day = 2 + Math.floor(R() * 27);
+      const date = t - day * D - Math.floor(R() * 8) * H;
+      const ok = R() > 0.25;
+      visit(c, c.owner, R() > 0.8 ? "appel" : "visite", "done", date, ok ? pick(agreed) : null, R() > 0.5 ? pick(notDone) : null, R() > 0.3 ? pick(demands) : null, null, null, true);
+    }
+    if (i % 3 === 0) visit(c, c.owner, i % 2 ? "appel" : "rdv", "planned", t + (1 + (i % 9)) * D + (9 + (i % 7)) * H - (t % D), null, null, null, pick(steps), null, false);
+  });
+  // tournée de Karim : dernier jour ouvré complet, 4 visites dans l'ordre
+  const today0 = t - (t % D);
+  const tourDay = t - today0 > 17 * H ? today0 : today0 - D;
+  [0, 3, 1, 5].forEach((ci, k) => visit(clients[ci], "demo-u-com", "visite", "done", tourDay + [9.5, 11, 14.5, 16.5][k] * H, pick(agreed), k === 2 ? pick(notDone) : null, pick(demands), null, null, true));
+  // journal : quelques lignes pour l'exemple
+  st.push(env.DB.prepare("INSERT INTO audit (at,user_id,action,entity,entity_id,detail) VALUES (?,?,?,?,?,?), (?,?,?,?,?,?), (?,?,?,?,?,?)")
+    .bind(t - 3 * D, "demo-u-dir", "user.create", "user", "demo-u-nad", "Nadia El Fassi (commercial)", t - 2 * D, "demo-u-dir", "export.clients", "export", null, "24 fiche(s)", t - D, "demo-u-com", "client.geo", "client", "demo-c-004", "CL-00003 Garage Atlas Auto"));
+  for (let i = 0; i < st.length; i += 50) await env.DB.batch(st.slice(i, i + 50));
 }

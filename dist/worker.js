@@ -18,7 +18,8 @@ const BLOCKED_EXT = /\.(exe|bat|cmd|com|msi|scr|js|vbs|ps1|sh|jar|apk|html?|svg)
 export default {
   async fetch(req, env, ctx) {
     try {
-      if (isDemoHost(new URL(req.url).hostname, env)) env = await demoEnv(env);
+      const u = new URL(req.url);
+      if (u.pathname.startsWith("/api/") && isDemoHost(u.hostname, env)) env = await demoEnv(env);
       return await route(req, env, ctx);
     } catch (e) {
       if (e instanceof HttpError) return json({ error: e.message, code: e.code }, e.status);
@@ -853,8 +854,9 @@ async function seedDemo(env) {
   const R = demoRand(20261126);
   const pick = (a) => a[Math.floor(R() * a.length)];
   const jitter = (v, amp) => Math.round((v + (R() - 0.5) * amp) * 1e5) / 1e5;
-  const { hash, salt } = await hashPassword(DEMO_PASSWORD);
-  const other = await hashPassword(toHex(crypto.getRandomValues(new Uint8Array(16))));
+  // empreinte précalculée de « demo2026 » (évite un calcul coûteux à chaque remise à zéro)
+  const hash = "vH4SaaGQRufhJLoDiY+iFlClhnNBMeK4bBaEbpkJUDI=", salt = "EBFwUH5l3Y5vOvZLDhQPjg==";
+  const other = { hash: toB64(crypto.getRandomValues(new Uint8Array(32))), salt: toB64(crypto.getRandomValues(new Uint8Array(16))) };   // comptes fictifs : connexion impossible
   const users = [
     ["demo-u-dir", "direction", "Directeur commercial", "0522 00 00 01", "admin", {}, hash, salt],
     ["demo-u-com", "commercial", "Karim Benali", "0661 10 20 30", "commercial", { scope: "own", edit_all: 0, export: 0 }, hash, salt],

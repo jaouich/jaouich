@@ -1652,3 +1652,14 @@ main { overflow-x: hidden; }
 .lv-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,.1); opacity: .7; }
 .lv-row.got { opacity: 1; background: rgba(255,216,107,.12); border-radius: 12px; }
 .lv-row i { font-style: normal; font-size: 24px; } .lv-row span { flex: 1; display: flex; flex-direction: column; } .lv-row small { opacity: .75; font-size: .72rem; } .lv-row em { font-style: normal; font-weight: 700; font-size: .78rem; color: #ffd86b; text-align: end; }
+
+/* ---- Horse Merge ---- */
+.hub-merge { background: radial-gradient(120% 140% at 0% 0%, #1fae6b 0%, #0f6b45 60%, #083d28 100%); color: #fff; box-shadow: 0 5px 0 #052a1b; }
+.mg-stats { display: flex; justify-content: space-between; gap: 6px; margin: 6px 0; font-size: .85rem; flex-wrap: wrap; }
+.mg-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+.mg-cell { position: relative; aspect-ratio: 1; border-radius: 16px; border: 2px dashed rgba(255,255,255,.25); background: rgba(255,255,255,.07); color: #fff; font: inherit; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
+.mg-cell.has { border-style: solid; background: linear-gradient(160deg, rgba(255,216,107,.3), rgba(255,255,255,.1)); }
+.mg-cell.sel { outline: 3px solid #ffd86b; transform: scale(1.04); }
+.mg-cell i { font-style: normal; font-size: 34px; } .mg-cell b { position: absolute; right: 6px; bottom: 3px; font-size: .75rem; color: #ffd86b; }
+.mg-sel { min-height: 24px; text-align: center; font-weight: 700; }
+.mg-btns { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }

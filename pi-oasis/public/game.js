@@ -1261,7 +1261,7 @@
   function goFromLink() {
     if (goDone) return; goDone = true;
     const go = new URLSearchParams(location.search).get("go");
-    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { catalog: "catOpen", box: "boxOpen", castle: "castleOpen", vipc: "vipcOpen", court: "courtOpen", mag: "magOpen", chat: "chatOpen", services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
+    const tabs = { farm: "farm", rank: "rank", vip: "vip" }, opens = { catalog: "catOpen", box: "boxOpen", castle: "castleOpen", vipc: "vipcOpen", court: "courtOpen", merge: "mergeOpen", levels: "lvBar", mag: "magOpen", chat: "chatOpen", services: "svcOpen", jry: "jryOpen", derby: "derbyOpen", quests: "qOpen", earn: "earnOpen", kombat: "kombatOpen", market: "mkOpen" };
     if (tabs[go]) document.querySelector(`.tabs [data-tab="${tabs[go]}"]`).click();
     else if (opens[go]) setTimeout(() => $(opens[go]).click(), 300);
   }

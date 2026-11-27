@@ -211,6 +211,8 @@
       (s.plots || []).forEach((pl) => { const sd = pl && SEEDS.find((x) => x.id === pl.seed); if (sd) s.dates += sd.yield; });
       s.plots = Array(C.PLOTS).fill(null);
     }
+    if (!s.merge || !Array.isArray(s.merge.grid)) s.merge = MG.fresh(now);
+    if (s.merge.wk.id !== weekId(now)) s.merge.wk = { id: weekId(now), n: 0 };
     if (!Array.isArray(s.animals)) { s.animals = []; s.nextAnimal = 1; }
     if (!s.city) s.city = freshCity(now);
     if (!s.missions || s.missions.day !== Math.floor(now / 86400000)) s.missions = newMissions(s.missions, now);
@@ -240,6 +242,23 @@
     icon(l) { return this.ICONS[this.tier(l)]; },
     reward(l) { return l < 2 ? null : { dates: 100 * l, jry: l % 5 === 0 ? l : 0, spins: l % 5 === 0 ? 1 : 0 }; },
     view(xp) { const lv = this.level(xp), a = this.need(lv), b = this.need(lv + 1); return { lv, xp: xp || 0, cur: (xp || 0) - a, span: b - a, next: b }; },
+  };
+
+  // 🐎 Horse Merge: two equal horses make the next level, with no maximum level. Lives inside the main state (uses the same dates).
+  const MG = {
+    CELLS: 20, STORE_H: 6, BASE: 30, SELL: 15,
+    ICONS: ["🐴", "🐎", "🏇", "🦄", "🐪", "🐫", "🦓", "🦌", "🐉", "🔥", "⭐", "🌌"], // levels 1-12, then ♾️
+    icon(l) { return l <= 12 ? this.ICONS[l - 1] : "♾️"; },
+    rate(l) { return Math.round(6 * Math.pow(1.8, l - 1)); },                  // dates per hour
+    cost(best) { return Math.round(this.BASE * Math.pow(1.25, Math.max(0, best - 1))); }, // price of a level-1 horse
+    value(l) { return Math.pow(2, l - 1); },                                    // ranking points of a horse of that level
+    sellPrice(l) { return this.SELL * Math.pow(2, l - 1); },
+    milestone(l) { return l >= 5 && l % 5 === 0; },                             // JRY points: level x 2 (+1 spin)
+    reward(l) { return { jry: l * 2, spins: 1 }; },
+    weekPrize(p) { const b = p === 1 ? [20000, 200] : p === 2 ? [12000, 120] : p === 3 ? [8000, 80] : p <= 10 ? [3000, 30] : p <= 30 ? [1000, 10] : p <= 100 ? [400, 0] : [0, 0]; return { dates: b[0], jry: b[1] }; },
+    fresh(now) { return { grid: Array(20).fill(0), best: 1, merges: 0, at: now, wk: { id: weekId(now), n: 0 } }; },
+    perHour(m) { return m.grid.reduce((a, l) => a + (l ? this.rate(l) : 0), 0); },
+    ready(m, now) { return Math.floor(this.perHour(m) * Math.min(Math.max(0, now - m.at), this.STORE_H * 3600e3) / 3600e3); },
   };
 
   function addAnimal(s, rarity, now, from) {
@@ -316,6 +335,41 @@
         if (s.dates < c) fail("notEnough");
         s.dates -= c; p.lv++;
         return { s, msg: { key: "t.palmUp", vars: { n: p.lv } } };
+      }
+      case "mgBuy": {
+        const m = s.merge, i = m.grid.indexOf(0);
+        if (i < 0) fail("mg.full");
+        const c = MG.cost(m.best);
+        if (s.dates < c) fail("notEnough");
+        if (MG.ready(m, now) > 0) earn(s, MG.ready(m, now)); m.at = now;
+        s.dates -= c; m.grid[i] = 1;
+        return { s, msg: { key: "t.mgBuy", vars: { c } } };
+      }
+      case "mgDrop": {
+        const m = s.merge, f = int(a.from), t = int(a.to);
+        if (!(f >= 0 && f < 20 && t >= 0 && t < 20) || f === t || !m.grid[f]) fail("badAction");
+        if (MG.ready(m, now) > 0) { earn(s, MG.ready(m, now)); } m.at = now; // collect first so rates change cleanly
+        const a1 = m.grid[f], b1 = m.grid[t];
+        if (b1 === a1) {
+          m.grid[t] = a1 + 1; m.grid[f] = 0; m.merges++; m.wk.n += MG.value(a1 + 1);
+          if (a1 + 1 > m.best) m.best = a1 + 1;
+          return { s, msg: { key: "t.mgMerge", vars: { n: a1 + 1 } } };
+        }
+        m.grid[t] = a1; m.grid[f] = b1;
+        return { s, msg: { key: "t.mgMove" } };
+      }
+      case "mgSell": {
+        const m = s.merge, i = int(a.cell);
+        if (!(i >= 0 && i < 20) || !m.grid[i]) fail("badAction");
+        if (MG.ready(m, now) > 0) earn(s, MG.ready(m, now)); m.at = now;
+        const v = MG.sellPrice(m.grid[i]); m.grid[i] = 0; s.dates += v;
+        return { s, msg: { key: "t.mgSell", vars: { v } } };
+      }
+      case "mgCollect": {
+        const m = s.merge, n = MG.ready(m, now);
+        if (n < 1) fail("nothingYet");
+        earn(s, n); m.at = now;
+        return { s, msg: { key: "t.mgCollect", vars: { n } } };
       }
       case "plant": {
         const i = int(a.plot), seed = seedById(a.seed);
@@ -686,6 +740,6 @@
   COURT.titleOf = (rank, paid) => (rank >= 1 && rank <= COURT.SEATS ? (rank <= 3 ? COURT.TITLES[rank - 1] : COURT.TITLES[3]) : paid > 0 ? COURT.notable : COURT.citizen);
   COURT.voteWeight = (paid) => 1 + Math.min(COURT.VOTE.CAP, Math.max(0, Number(paid) || 0));
   COURT.phase = (t) => { const d = new Date(t).getUTCDate(), P = COURT.PARLIAMENT; return d >= P.RESULTS_FROM ? "results" : d >= P.VOTING[0] ? "voting" : "candidacy"; };
-  const api = { LV, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { LV, MG, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

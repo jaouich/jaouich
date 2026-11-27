@@ -175,6 +175,9 @@ const SCHEMA = [
   "CREATE INDEX IF NOT EXISTS nft_owner ON nft_items(owner)",
   "CREATE TABLE IF NOT EXISTS castle_runs ( uid TEXT NOT NULL, map INTEGER NOT NULL, stars INTEGER NOT NULL DEFAULT 0, best_wave INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL, PRIMARY KEY (uid, map) )",
   "CREATE TABLE IF NOT EXISTS level_claims ( uid TEXT NOT NULL, lvl INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, lvl) )",
+  "CREATE TABLE IF NOT EXISTS merge_weeks ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, pts INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS merge_week_paid ( week_id INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS merge_claims ( uid TEXT NOT NULL, lvl INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, lvl) )",
   "CREATE TABLE IF NOT EXISTS castle_day ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
   "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
@@ -671,6 +674,10 @@ async function saveState(env, uid, s, now) {
       wk.id, uid, Math.floor(wk.n), now
     );
   }
+  if (s.merge && s.merge.wk && s.merge.wk.n > 0) {
+    await run(env, `INSERT INTO merge_weeks (week_id, uid, pts, updated_at) VALUES (?, ?, ?, ?)
+      ON CONFLICT(week_id, uid) DO UPDATE SET pts = excluded.pts, updated_at = excluded.updated_at`, s.merge.wk.id, uid, s.merge.wk.n, now);
+  }
   // Scores are also kept per week, so last week's ranking survives once players move on
   if (s.week.score > 0) {
     await run(
@@ -986,6 +993,32 @@ const routes = {
 
   // Jerry Kombat ranking. All time: coins held now (the league follows them).
   // ?week=1: this week's tournament (coins earned since Monday) + my prize from last week.
+  // ---------- Horse Merge: the game itself runs in the main state (actions mg*); this is ranking and milestone rewards ----------
+  "GET /api/merge": async (req, env) => {
+    const u = await auth(req, env), now = Date.now(), wid = L.weekId(now);
+    const st = await one(env, "SELECT json_extract(json, '$.merge.best') AS best FROM state WHERE uid = ?", u.uid);
+    const best = (st && st.best) || 1;
+    const done = new Set((await all(env, "SELECT lvl FROM merge_claims WHERE uid = ?", u.uid)).map((r) => r.lvl));
+    const pending = []; for (let l = 5; l <= Math.min(best, 400); l += 5) if (!done.has(l)) pending.push({ lv: l, ...L.MG.reward(l) });
+    const top = await all(env, "SELECT u.username, w.pts FROM merge_weeks w JOIN users u ON u.uid = w.uid WHERE w.week_id = ? ORDER BY w.pts DESC, w.updated_at ASC LIMIT 100", wid);
+    const mine = await one(env, "SELECT pts FROM merge_weeks WHERE week_id = ? AND uid = ?", wid, u.uid);
+    const rank = mine ? 1 + (await one(env, "SELECT COUNT(*) AS n FROM merge_weeks WHERE week_id = ? AND (pts > ? OR (pts = ? AND updated_at < (SELECT updated_at FROM merge_weeks WHERE week_id = ? AND uid = ?)))", wid, mine.pts, mine.pts, wid, u.uid)).n : 0;
+    return { pending, top: top.map((r, i) => ({ rank: i + 1, username: r.username, pts: r.pts, prize: L.MG.weekPrize(i + 1) })), me: { rank, pts: mine ? mine.pts : 0 }, ends: wid + 7 * DAY, now };
+  },
+  "POST /api/merge/claim": async (req, env) => {
+    const u = await auth(req, env), now = Date.now();
+    const st = await one(env, "SELECT json_extract(json, '$.merge.best') AS best FROM state WHERE uid = ?", u.uid);
+    const best = (st && st.best) || 1, sum = { jry: 0, spins: 0, levels: 0 };
+    for (let l = 5; l <= Math.min(best, 400); l += 5) {
+      const r = await run(env, "INSERT OR IGNORE INTO merge_claims (uid, lvl, at) VALUES (?, ?, ?)", u.uid, l, now);
+      if (!r.meta.changes) continue;
+      const w = L.MG.reward(l); sum.levels++;
+      for (const k of ["jry", "spins"]) if (w[k]) { await giveReward(env, u.uid, k, w[k], now, "merge"); sum[k] += w[k]; }
+    }
+    if (!sum.levels) bad("mg.none");
+    return { ok: true, ...sum };
+  },
+
   // ---------- Harvest levels: XP = dates earned honestly; each level pays once ----------
   "GET /api/level": async (req, env) => {
     const u = await auth(req, env);
@@ -3196,6 +3229,7 @@ const NOTE = {
   courtemp: { go: "rank", en: ["👑 A new Emperor of the Game!", "{u} took the throne. Open the Ranking to see the crown."], ar: ["👑 إمبراطور جديد للعبة!", "تربّع ‎{u} على العرش. افتح الترتيب لترى التاج."], fr: ["👑 Un nouvel Empereur du jeu !", "{u} a pris le trône. Ouvre le classement pour voir la couronne."] },
   elected: { go: "rank", en: ["🏛️ You were elected to Parliament", "You hold seat {seat} this month. Open the Court to see the Parliament."], ar: ["🏛️ تم انتخابك في البرلمان", "لديك المقعد رقم {seat} هذا الشهر. افتح البلاط لترى البرلمان."], fr: ["🏛️ Tu as été élu au Parlement", "Tu occupes le siège {seat} ce mois-ci. Ouvre la Cour pour voir le Parlement."] },
   kweek: { go: "kombat", en: ["⚔️ Kombat tournament: #{p}", "Open Jerry Kombat to collect your prize."], ar: ["⚔️ بطولة كومبات: المركز {p}", "افتح جيري كومبات لتستلم جائزتك."], fr: ["⚔️ Tournoi Kombat : {p}e", "Ouvre Jerry Kombat pour récupérer ton prix."] },
+  mweek: { go: "merge", en: ["🐎 Horse Merge: #{p}", "+{d} dates for your place this week."], ar: ["🐎 دمج الخيل: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🐎 Fusion de chevaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   dweek: { go: "derby", en: ["🏁 Camel Derby: #{p}", "+{d} dates for your place this week."], ar: ["🏁 سباق الجمال: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏁 Course de chameaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   sold: { go: "market", en: ["💰 Your offer sold", "+{pi} Pi added to your sales balance."], ar: ["💰 تم بيع عرضك", "+{pi} Pi أُضيفت إلى رصيد مبيعاتك."], fr: ["💰 Ton offre est vendue", "+{pi} Pi ajoutés à ton solde de ventes."] },
 };
@@ -3266,6 +3300,20 @@ async function derbyGrant(env, uid, item, now) {
   }
 }
 // Last week's Derby: dates for the top 100 by trophies (given once)
+async function grantMergeWeek(env) {
+  await ensureSchema(env);
+  const now = Date.now(), last = L.weekId(now - 7 * DAY);
+  const g = await run(env, "INSERT OR IGNORE INTO merge_week_paid (week_id, at) VALUES (?, ?)", last, now);
+  if (!g.meta.changes) return 0;
+  const top = await all(env, "SELECT uid FROM merge_weeks WHERE week_id = ? AND pts > 0 ORDER BY pts DESC, updated_at ASC LIMIT 100", last);
+  for (let i = 0; i < top.length; i++) {
+    const w = L.MG.weekPrize(i + 1);
+    if (w.dates) await creditPoints(env, top[i].uid, "dates", w.dates, now, "mergeweek");
+    if (w.jry) await giveReward(env, top[i].uid, "jry", w.jry, now, "mergeweek");
+  }
+  await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "mweek", ref: last, vars: { p: i + 1, d: L.MG.weekPrize(i + 1).dates.toLocaleString("en-US") } })));
+  return top.length;
+}
 async function grantDerbyWeek(env) {
   await ensureSchema(env);
   const now = Date.now(), last = L.weekId(now - 7 * DAY);
@@ -3960,6 +4008,7 @@ export default {
       grantWeeklyCamels(env)
         .catch((e) => logError(env, "weekly camels", 0, e.message))
         .then(() => grantDerbyWeek(env))
+        .then(() => grantMergeWeek(env))
         .then(() => grantArenaWeek(env))
         .then(() => arenaSweep(env))
         .then(() => catalogNotify(env))

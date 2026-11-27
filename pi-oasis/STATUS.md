@@ -104,3 +104,8 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - Routes `GET /api/level`, `POST /api/level/claim` (table `level_claims`, once per level), `GET /api/level/top`. UI: `public/level.js` (bar `#lvBar` on the Farm tab, page `#levels`). JRY points are in-game; token conversion is not promised.
 - Tests: `tests/level.mjs` (11).
 - Next steps in the plan: Horse Merge game, login streak + achievements, seasons.
+
+## Horse Merge (step 2)
+- Runs inside the main state (`s.merge`: 20-cell grid, best level, merges, weekly points) with actions `mgBuy`, `mgDrop` (move / swap / merge equal levels), `mgSell`, `mgCollect` in `public/logic.js` (`OasisLogic.MG`). Income x1.8 per level (6 dates/h at level 1), storage 6 h, new horse cost x1.25 per best level, sell price fixed so there is no profit loop. No maximum level.
+- Ranking: `merge_weeks` (points = 2^(level-1) per merge), top 100 paid by cron `grantMergeWeek` (dates + JRY points, notification `mweek`). Milestone rewards every 5th best level: `merge_claims`, `GET /api/merge`, `POST /api/merge/claim`.
+- UI: `public/merge.js`, overlay `#merge`, hub banner `#mergeOpen`, deep link `?go=merge`. Tests: `tests/merge.mjs` (20).

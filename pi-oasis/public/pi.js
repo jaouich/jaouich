@@ -359,6 +359,8 @@
     weekMine: () => api("/api/week/mine"),
     courtClaim: () => api("/api/court/claim", {}),
     court: () => api("/api/court"),
+    merge: () => api("/api/merge"),
+    mergeClaim: () => api("/api/merge/claim", {}),
     level: () => api("/api/level"),
     levelClaim: () => api("/api/level/claim", {}),
     levelTop: () => api("/api/level/top"),

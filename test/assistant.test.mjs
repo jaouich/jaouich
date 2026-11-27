@@ -105,6 +105,28 @@ ok(r.status === 502, "réponse illisible → erreur claire");
 r = await karim.req("POST", "/api/ai/assistant", { text: "   " });
 ok(r.status === 400, "message vide refusé");
 
+// 7b. modèle léger d'abord, Llama 70B en secours ; format « choices » + <think> ; limite gratuite
+let models = [];
+const realRun = env.AI.run;
+env.AI.run = async (model, input) => { models.push(model); return realRun(model, input); };
+nextOut = { reply: "Bonjour !", action: "none" };
+models = []; r = await karim.req("POST", "/api/ai/assistant", { text: "salut" });
+ok(r.data.reply === "Bonjour !" && models.length === 1 && models[0].includes("qwen"), "modèle léger utilisé d'abord : " + models.join());
+env.AI.run = async (model, input) => { models.push(model); if (model.includes("qwen")) return { response: "bla bla" }; return realRun(model, input); };
+models = []; r = await karim.req("POST", "/api/ai/assistant", { text: "salut" });
+ok(r.data.reply === "Bonjour !" && models.some((m) => m.includes("llama")), "secours Llama si réponse illisible");
+env.AI.run = async (model, input) => ({ choices: [{ message: { content: '<think>hmm</think>\n{"reply":"Salam","action":"none"}' } }] });
+r = await karim.req("POST", "/api/ai/assistant", { text: "salam" });
+ok(r.status === 200 && r.data.reply === "Salam", "format choices + <think> compris");
+env.AI.run = async (model) => { if (model.includes("whisper")) throw new Error("4006: you have used up your daily free allocation of 10,000 neurons"); throw new Error("4006: you have used up your daily free allocation of 10,000 neurons"); };
+r = await karim.req("POST", "/api/ai/assistant", { text: "salam" });
+ok(r.status === 429 && /limite gratuite/.test(r.data.error), "limite gratuite : message clair " + JSON.stringify(r.data));
+r = await karim.req("POST", "/api/ai/listen", new TextEncoder().encode("x".repeat(900)), { "Content-Type": "audio/webm" });
+ok(r.status === 429, "limite gratuite sur le micro");
+env.AI.run = realRun;
+r = await admin.req("GET", "/api/stats");
+ok(r.data.ai_usage && r.data.ai_usage.assistant >= 10, "compteur d'utilisation IA : " + JSON.stringify(r.data.ai_usage));
+
 // 8. écoute (micro) + sans connexion
 r = await karim.req("POST", "/api/ai/listen", new TextEncoder().encode("Programme un rendez-vous demain"), { "Content-Type": "audio/webm", "X-Lang": "fr" });
 ok(r.status === 200 && r.data.text === "Programme un rendez-vous demain", "transcription du micro");

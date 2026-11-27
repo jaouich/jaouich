@@ -739,7 +739,9 @@ async function stats(url, env, me) {
     WHERE deleted_at IS NULL AND status='done' AND date > ? GROUP BY d`).bind(t - 30 * day, day, t - 30 * day).all();
   const { results: cities } = await env.DB.prepare("SELECT COALESCE(city,'—') AS city, COUNT(*) AS n FROM clients WHERE deleted_at IS NULL GROUP BY COALESCE(city,'—') ORDER BY n DESC LIMIT 8").all();
   const { results: pipeline } = await env.DB.prepare("SELECT stage, COUNT(*) AS n, COALESCE(SUM(amount),0) AS amount FROM deals WHERE deleted_at IS NULL AND (stage NOT IN ('gagne','perdu') OR closed_at > ?) GROUP BY stage").bind(t - 30 * day).all();
-  return json({ totals, per_user: per.map((u) => ({ ...u, active: !!u.active })), daily, cities, pipeline });
+  let ai_usage = null; try { const r = await env.DB.prepare("SELECT v FROM settings WHERE k = 'ai_usage'").first(); ai_usage = r ? JSON.parse(r.v) : null; } catch {}
+  if (ai_usage && ai_usage.d !== new Date().toISOString().slice(0, 10)) ai_usage = { d: new Date().toISOString().slice(0, 10), assistant: 0, stt: 0, llm: 0, prev: { d: ai_usage.d, assistant: ai_usage.assistant || 0, stt: ai_usage.stt || 0, llm: ai_usage.llm || 0 } };
+  return json({ totals, per_user: per.map((u) => ({ ...u, active: !!u.active })), daily, cities, pipeline, ai_usage });
 }
 async function listAudit(url, env, me) {
   needAdmin(me);
@@ -1035,6 +1037,34 @@ async function seedDemo(env) {
 //    puis rédige le compte-rendu structuré (résumé, accords, points en suspens, demandes, prochaine étape).
 const STT_MODEL = "@cf/openai/whisper-large-v3-turbo";
 const LLM_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+// Magi : modèle léger (≈ 6 fois moins cher, donc bien plus de questions dans la part gratuite) ; Llama 70B en secours
+const ASSIST_MODEL = "@cf/qwen/qwen3-30b-a3b-fp8";
+// texte renvoyé par Workers AI, quel que soit le format du modèle
+function aiText(r) {
+  if (r == null) return "";
+  if (typeof r === "string") return r.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  if (r.response !== undefined) return typeof r.response === "string" ? aiText(r.response) : r.response;
+  const c = r.choices && r.choices[0] && r.choices[0].message;
+  if (c) return aiText(c.content || "");
+  return r;
+}
+// limite gratuite du jour atteinte → message clair
+function aiFailMsg(e) {
+  const m = String((e && e.message) || e || "");
+  if (/4006|daily free allocation|neurons|quota|429/i.test(m)) return "La limite gratuite d'intelligence artificielle du jour est atteinte. Elle se renouvelle chaque nuit à minuit (GMT).";
+  return null;
+}
+// compteur d'utilisation du jour (pour savoir quand passer à l'offre payante)
+async function aiCount(env, kind) {
+  try {
+    const d = new Date().toISOString().slice(0, 10);
+    const row = await env.DB.prepare("SELECT v FROM settings WHERE k = 'ai_usage'").first();
+    let u = {}; try { u = JSON.parse(row ? row.v : "{}"); } catch {}
+    if (u.d !== d) u = { d, assistant: 0, stt: 0, llm: 0, prev: u.d ? { d: u.d, assistant: u.assistant || 0, stt: u.stt || 0, llm: u.llm || 0 } : null };
+    u[kind] = (u[kind] || 0) + 1;
+    await env.DB.prepare("INSERT INTO settings (k, v) VALUES ('ai_usage', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(JSON.stringify(u)).run();
+  } catch (e) {}
+}
 const AUDIO_AI_MAX = 24 * MB;
 const LANG_NAMES = { fr: "français", ar: "arabe", en: "anglais" };
 
@@ -1049,10 +1079,12 @@ async function speechToText(env, u8, lang) {
   if (lang === "fr" || lang === "ar") input.language = lang;
   if (lang === "fr") input.initial_prompt = "Échange commercial entre un commercial et un client : devis, commande, livraison, prix.";
   const r = await env.AI.run(STT_MODEL, input);
+  await aiCount(env, "stt");
   const segments = (r.segments || []).map((x) => String(x.text || "").trim()).filter(Boolean);
   return { text: String(r.text || "").trim(), segments };
 }
 function parseJsonLoose(v) {
+  v = aiText(v);
   if (v && typeof v === "object") return v;
   const t = String(v || "");
   try { return JSON.parse(t); } catch {}
@@ -1065,6 +1097,7 @@ async function llmJson(env, system, user, schema, maxTokens = 2048) {
   let r;
   try { r = await env.AI.run(LLM_MODEL, { messages, response_format: { type: "json_schema", json_schema: schema }, max_tokens: maxTokens, temperature: 0.2 }); }
   catch (e) { r = await env.AI.run(LLM_MODEL, { messages: [{ role: "system", content: system + "\nRéponds uniquement avec un objet JSON valide." }, messages[1]], max_tokens: maxTokens, temperature: 0.2 }); }
+  await aiCount(env, "llm");
   const out = parseJsonLoose(r && (r.response !== undefined ? r.response : r));
   if (!out) throw new Error("Réponse de l'IA illisible");
   return out;
@@ -1164,7 +1197,7 @@ async function aiProcess(id, req, env, me, log) {
   } catch (e) {
     if (e instanceof HttpError && e.status < 500 && e.status !== 413) throw e;
     console.error("ia", e);
-    return done({ ai_status: "error", ai_error: String(e.message || e).slice(0, 300) });
+    return done({ ai_status: "error", ai_error: (aiFailMsg(e) || String(e.message || e)).slice(0, 300) });
   }
 }
 
@@ -1298,7 +1331,7 @@ async function aiBrief(clientId, req, env, me) {
 N'invente rien : appuie-toi uniquement sur les informations fournies. Listes de 0 à 5 éléments, phrases courtes. Aujourd'hui : ${isoDay(now())}.`;
   const user = `${fiche}\n\nAffaires :\n${aff || "(aucune)"}\n\nHistorique (du plus récent au plus ancien) :\n${activityDigest(visits) || "(aucun échange enregistré)"}`;
   try { return json({ brief: await llmJson(env, system, user, schema, 1500) }); }
-  catch (e) { console.error("brief", e); fail(502, "L'assistant n'a pas pu préparer la visite, réessayez"); }
+  catch (e) { console.error("brief", e); if (aiFailMsg(e)) fail(429, aiFailMsg(e)); fail(502, "L'assistant n'a pas pu préparer la visite, réessayez"); }
 }
 async function aiFollowup(visitId, req, env, me) {
   if (!env.AI) fail(503, "Le service d'intelligence artificielle n'est pas activé");
@@ -1315,7 +1348,7 @@ Canal : ${channel === "email" ? "e-mail professionnel (objet + corps, formule de
 Langue : ${LANG_NAMES[lang]}. Remercie, récapitule ce qui a été convenu, rappelle la prochaine étape et la date si elles existent. N'invente ni prix ni engagement absent du compte-rendu.`;
   const user = activityDigest([v], 12000);
   try { const out = await llmJson(env, system, user, schema, 900); return json({ subject: String(out.objet || "").slice(0, 200), message: String(out.message || "").slice(0, 4000), channel, phone: c.phone || c.phone2 || "", email: c.email || "" }); }
-  catch (e) { console.error("suivi", e); fail(502, "L'assistant n'a pas pu rédiger le message, réessayez"); }
+  catch (e) { console.error("suivi", e); if (aiFailMsg(e)) fail(429, aiFailMsg(e)); fail(502, "L'assistant n'a pas pu rédiger le message, réessayez"); }
 }
 
 // ------------------------------------------------------------------ assistant « Magi » : on écrit ou on parle, il agit
@@ -1334,7 +1367,7 @@ async function aiListen(req, env, me) {
   if (u8.length > 8 * MB) fail(413, "Message vocal trop long");
   const l = req.headers.get("X-Lang");
   try { const r = await speechToText(env, u8, l === "ar" || l === "fr" ? l : ""); return json({ text: r.text }); }
-  catch (e) { console.error("écoute", e); fail(502, "Je n'ai pas pu comprendre l'audio, réessayez"); }
+  catch (e) { console.error("écoute", e); if (aiFailMsg(e)) fail(429, aiFailMsg(e)); fail(502, "Je n'ai pas pu comprendre l'audio, réessayez"); }
 }
 
 async function assistantContext(env, me, query, tz) {
@@ -1429,15 +1462,25 @@ Règles :
 
 DONNÉES :
 ${ctx.text}`;
-  let out;
-  try {
-    const messages = [{ role: "system", content: system }, ...history, { role: "user", content: msg }];
-    let r;
-    try { r = await env.AI.run(LLM_MODEL, { messages, response_format: { type: "json_schema", json_schema: schema }, max_tokens: 900, temperature: 0.1 }); }
-    catch (e) { r = await env.AI.run(LLM_MODEL, { messages: [{ role: "system", content: system + "\nRéponds uniquement avec un objet JSON {reply, action, …}." }, ...messages.slice(1)], max_tokens: 900, temperature: 0.1 }); }
-    out = parseJsonLoose(r && (r.response !== undefined ? r.response : r));
-  } catch (e) { console.error("assistant", e); fail(502, "L'assistant ne répond pas pour le moment, réessayez"); }
-  if (!out || typeof out !== "object") fail(502, "L'assistant n'a pas compris, reformulez");
+  let out = null, lastErr = null;
+  const messages = [{ role: "system", content: system }, ...history, { role: "user", content: msg }];
+  const valid = (o) => o && typeof o === "object" && typeof o.reply === "string" && o.reply.trim();
+  // 1) modèle léger, 2) Llama 70B si la réponse est absente ou illisible
+  for (const model of [ASSIST_MODEL, LLM_MODEL]) {
+    try {
+      let r;
+      try { r = await env.AI.run(model, { messages, response_format: { type: "json_schema", json_schema: schema }, max_tokens: 900, temperature: 0.1 }); }
+      catch (e) { if (aiFailMsg(e)) throw e; r = await env.AI.run(model, { messages: [{ role: "system", content: system + "\nRéponds uniquement avec un objet JSON {reply, action, …}, sans texte autour. /no_think" }, ...messages.slice(1)], max_tokens: 900, temperature: 0.1 }); }
+      const o = parseJsonLoose(r);
+      if (valid(o)) { out = o; break; }
+    } catch (e) { lastErr = e; console.error("assistant", model, e); if (aiFailMsg(e)) break; }
+  }
+  await aiCount(env, "assistant");
+  if (!out) {
+    if (lastErr && aiFailMsg(lastErr)) fail(429, aiFailMsg(lastErr));
+    if (lastErr) fail(502, "L'assistant ne répond pas pour le moment, réessayez");
+    fail(502, "L'assistant n'a pas compris, reformulez");
+  }
   return json(cleanAssistant(out, ctx, me));
 }
 

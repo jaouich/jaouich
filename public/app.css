@@ -405,3 +405,5 @@ table.t th{text-transform:none;letter-spacing:0;font-size:12.5px}
 .mm-q button{border:0;background:var(--blue-s);color:var(--blue);border-radius:12px;padding:8px 12px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:start}
 .mm-q button.fill{background:transparent;border:1.5px dashed var(--blue-s)}
 .mm-q button:hover{filter:brightness(.96)}
+.ai-use{display:flex;align-items:center;gap:14px;margin-top:12px}
+.ai-use .robot{width:40px;height:40px;flex:none}

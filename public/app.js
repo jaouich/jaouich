@@ -1,4 +1,4 @@
-/* Magiscom Terrain — application des commerciaux et tableau de bord de la direction.
+/* MAGISALESFORCE — application des commerciaux et tableau de bord de la direction.
    Fonctionne hors ligne : tout est enregistré sur le téléphone puis envoyé dès que le réseau revient. */
 (() => {
 'use strict';
@@ -408,7 +408,7 @@ async function showLogin() {
       t(a.role === 'admin' ? 'demoAdmin' : 'demoRep'))),
     h('span', { class: 'small muted' }, `${st.demo.accounts.map((a) => a.login).join(' / ')} · ${st.demo.accounts[0].password}`)) : null;
   app().replaceChildren(h('div', { class: 'login' }, h('div', { class: 'card' },
-    h('div', { class: 'brand' }, h('img', { src: '/logo.png', alt: '' }), h('div', { class: 'grow' }, h('b', { style: 'font-size:19px;display:block' }, 'Magiscom Terrain'), h('span', { class: 'muted small' }, (st.settings && st.settings.company) || 'Magiscom Tech')), langSel),
+    h('div', { class: 'brand' }, h('img', { src: '/logo.png', alt: '' }), h('div', { class: 'grow' }, h('b', { style: 'font-size:19px;display:block' }, 'MAGISALESFORCE'), h('span', { class: 'muted small' }, (st.settings && st.settings.company) || 'Magiscom Tech')), langSel),
     demoBox, form)));
   if (!demoBox) setTimeout(() => (setup ? f.code || f.company : f.login).focus(), 50);
 }
@@ -426,7 +426,7 @@ function layout(title, body, opts = {}) {
     opts.back ? h('button', { class: 'back', 'aria-label': 'Retour', onclick: () => (history.length > 1 ? history.back() : go(opts.back)) }, ic('back')) : null,
     h('h1', {}, title), opts.right || null, S.settings && S.settings.demo ? h('span', { class: 'demo-chip' }, t('demoChip')) : null, h('span', { id: 'sync', role: 'status', onclick: () => syncNow(true), style: 'cursor:pointer' }));
   const side = h('nav', { class: 'side', 'aria-label': 'Menu' },
-    h('div', { class: 'brand' }, h('img', { src: '/logo.png', alt: '' }), h('div', {}, h('b', {}, 'Magiscom Terrain'), h('small', {}, S.settings.company))),
+    h('div', { class: 'brand' }, h('img', { src: '/logo.png', alt: '' }), h('div', {}, h('b', {}, 'MAGISALESFORCE'), h('small', {}, S.settings.company))),
     ...nav().map(([href, icn, k]) => h('a', { href, class: cur.startsWith(href) ? 'on' : null }, ic(icn, 20), t(k))),
     h('div', { class: 'grow' }),
     h('a', { href: '#/me', class: cur.startsWith('#/me') ? 'on' : null }, ic('me', 20), S.user.name));
@@ -971,7 +971,7 @@ async function viewMe() {
       try { await api('POST', '/api/auth/logout', {}); } catch (e) {}
       await DB.wipe(); try { await caches.delete('terrain-files-v1'); } catch (e) {} S.user = null; showLogin();
     } }, t('logout')),
-    h('p', { class: 'small muted', style: 'text-align:center' }, 'Magiscom Terrain · ' + S.settings.company)));
+    h('p', { class: 'small muted', style: 'text-align:center' }, 'MAGISALESFORCE · ' + S.settings.company)));
 }
 
 // =================================================================== routeur

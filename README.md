@@ -1,4 +1,4 @@
-# Magiscom Terrain
+# MAGISALESFORCE
 
 Portefeuille clients des commerciaux : fiches clients et prospects, position GPS, visites et comptes-rendus,
 photos, vidéos et documents, tableau de bord de la direction, export Excel. Fonctionne hors ligne.

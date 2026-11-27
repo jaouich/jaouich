@@ -26,4 +26,4 @@ export function start(port = 8787) {
   });
   return new Promise((r) => server.listen(port, () => r({ server, env })));
 }
-if (import.meta.url === `file://${process.argv[1]}`) start().then(() => console.log("Magiscom Terrain sur http://localhost:8787"));
+if (import.meta.url === `file://${process.argv[1]}`) start().then(() => console.log("MAGISALESFORCE sur http://localhost:8787"));

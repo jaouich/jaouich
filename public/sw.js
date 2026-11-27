@@ -1,4 +1,4 @@
-// Magiscom Terrain : fonctionnement hors ligne (application + photos déjà vues)
+// MAGISALESFORCE : fonctionnement hors ligne (application + photos déjà vues)
 const SHELL = "terrain-shell-v1", FILES = "terrain-files-v1";
 const SHELL_URLS = ["/", "/app.js", "/app.css", "/manifest.webmanifest", "/icon-192.png",
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css", "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"];

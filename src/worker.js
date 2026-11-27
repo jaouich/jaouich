@@ -1,4 +1,4 @@
-// Magiscom Terrain — portefeuille clients des commerciaux
+// MAGISALESFORCE — portefeuille clients des commerciaux
 // Cloudflare Worker + D1 (base de données) + R2 (photos, vidéos, documents)
 
 const ASSETS = __ASSETS__;

@@ -3077,6 +3077,13 @@ const runPayouts = (env) =>
 // Checks a Pi payment against what this app sells, at the server's prices. Browser input is never trusted.
 // Products: { type: "vip_month", tier } (30 days of a membership) or { type: "dates", pack } (date shop).
 function checkPayment(p, uid) {
+  try { return checkPaymentInner(p, uid); } catch (e) {
+    // remember what was refused so the error log can say why (no player data)
+    if (e instanceof HttpError) e.info = `type=${p.metadata && p.metadata.type} amount=${p.amount} dir=${p.direction} cancelled=${!!(p.status && (p.status.cancelled || p.status.user_cancelled))}`;
+    throw e;
+  }
+}
+function checkPaymentInner(p, uid) {
   if (p.direction && p.direction !== "user_to_app") bad("badPayment");
   if (uid && p.user_uid !== uid) bad("notYours");
   if (p.status?.cancelled || p.status?.user_cancelled) bad("badPayment");
@@ -4218,7 +4225,7 @@ export default {
     } catch (e) {
       if (e instanceof HttpError) {
         if (url.pathname.startsWith("/api/payments/") || url.pathname === "/api/auth") {
-          await logError(env, `refused ${req.method} ${url.pathname}`, e.status, e.code);
+          await logError(env, `refused ${req.method} ${url.pathname}`, e.status, e.info ? `${e.code} ${e.info}` : e.code);
         }
         return json(e.vars ? { error: e.code, vars: e.vars } : { error: e.code }, e.status);
       }

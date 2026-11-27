@@ -341,6 +341,10 @@ async function saveSettings(req, env, me, log) {
       stmts.push(env.DB.prepare("INSERT OR REPLACE INTO settings (k,v) VALUES (?, ?)").bind(k, v));
     }
   }
+  if (b.theme !== undefined) {
+    if (!["indigo", "majorelle", "menthe", "ocean", "nuit"].includes(b.theme)) fail(400, "Thème inconnu");
+    stmts.push(env.DB.prepare("INSERT OR REPLACE INTO settings (k,v) VALUES ('theme', ?)").bind(b.theme));
+  }
   if (stmts.length) await env.DB.batch(stmts);
   await log("settings.update", "settings", null, null);
   return json({ settings: await getSettings(env) });

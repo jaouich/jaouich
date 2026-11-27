@@ -192,7 +192,7 @@ table.t tr:last-child td{border-bottom:0}
 .rec-row{align-items:center;gap:10px}
 .rec-time{font-size:34px;font-weight:700;letter-spacing:.02em}
 .rec-time.big{font-size:56px;text-align:center}
-.dot{width:12px;height:12px;border-radius:50%;background:var(--red);animation:pulse 1.2s ease-in-out infinite;flex:none}
+.recdot{width:12px;height:12px;border-radius:50%;background:var(--red);animation:pulse 1.2s ease-in-out infinite;flex:none}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
 .lvl{height:10px;border-radius:99px;background:var(--soft);overflow:hidden}
 .lvl i{display:block;height:100%;background:linear-gradient(90deg,var(--green),#7AD3A4);transform-origin:left;transform:scaleX(0);transition:transform .08s linear}
@@ -205,3 +205,97 @@ table.t tr:last-child td{border-bottom:0}
 .bub.com b{color:var(--blue)}
 .bub.cli{align-self:flex-end;background:var(--green-s)}
 .bub.cli b{color:var(--green)}
+
+/* ======================================================================
+   Magiscom CRM — identité « conversation » et thèmes
+   (s'applique par-dessus la base ; chaque thème redéfinit les couleurs)
+   ====================================================================== */
+:root{
+  --font:ui-rounded,"SF Pro Rounded","Nunito","Varela Round","Segoe UI",system-ui,"Noto Sans Arabic",Tahoma,sans-serif;
+  --r:20px; --field:#fff; --av-s:75%; --av-l:93%; --av-ts:55%; --av-tl:33%;
+}
+:root,[data-theme=indigo]{--bg:#F3F2FA;--card:#fff;--line:#E5E2F1;--fg:#1B1733;--muted:#66617F;--soft:#EFEDF8;--blue:#4F2FD0;--blue-d:#3D20B3;--blue-s:#ECE8FD}
+[data-theme=majorelle]{--bg:#F1F4FC;--card:#fff;--line:#DFE5F5;--fg:#111A3A;--muted:#5A6484;--soft:#E9EEFA;--blue:#2443C7;--blue-d:#1A33A0;--blue-s:#E3E9FC;--accent:#F2B705}
+[data-theme=menthe]{--bg:#EFF6F2;--card:#fff;--line:#DCE9E2;--fg:#10261E;--muted:#56695F;--soft:#E4F0EA;--blue:#0B7A5E;--blue-d:#085F49;--blue-s:#DDF1E9}
+[data-theme=ocean]{--bg:#EEF5F8;--card:#fff;--line:#DAE7ED;--fg:#0E2230;--muted:#526775;--soft:#E2EEF3;--blue:#0A6C8F;--blue-d:#075571;--blue-s:#DCEEF5}
+[data-theme=nuit]{--bg:#100E19;--card:#1A1727;--line:#2B2740;--fg:#EDEBF7;--muted:#A39EBD;--soft:#24203A;--blue:#8E7BFF;--blue-d:#A898FF;--blue-s:#2B2552;--field:#14121F;
+  --green:#3FC58A;--green-s:#13342A;--orange:#F0A04B;--orange-s:#382914;--red:#FF6B7A;--red-s:#3B1820;--shadow:none;--av-s:35%;--av-l:24%;--av-ts:80%;--av-tl:80%;color-scheme:dark}
+body{font-family:var(--font)}
+h1,h2,h3,.t,.kpi .v,.hero h2{letter-spacing:-.01em}
+.top h1,.hero h2,.sheet h3{font-weight:800}
+
+/* cartes : bord net, grands rayons, sans ombre */
+.card{border-radius:var(--r);box-shadow:none}
+.item{border-radius:18px;background:var(--card)}
+.item:hover{border-color:color-mix(in srgb,var(--blue) 35%,var(--line))}
+.empty{border-radius:var(--r);background:var(--card)}
+.btn,.btn.sm{border-radius:999px}
+.btn.ghost{background:var(--card)}
+.input,select.input,textarea.input{border-radius:14px;background:var(--field)}
+.chip{background:var(--card)}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.seg{border-radius:999px;padding:4px}
+.seg button{border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.seg button.on{background:var(--card)}
+.sheet{background:var(--card);border-radius:26px}
+.toast{background:var(--fg);color:var(--bg);border-radius:999px}
+h2.sec{text-transform:none;letter-spacing:0;font-size:16px;font-weight:800;color:var(--fg);margin:24px 2px 10px}
+.visit .lab{text-transform:none;letter-spacing:0;font-size:12.5px}
+.doc{border-radius:16px}
+.doc .pend{background:var(--card)}
+.demo-chip{background:var(--accent,#fde68a)}
+
+/* avatars ronds, teinte tirée du nom */
+.item .av,.hero-av{border-radius:50%;background:hsl(var(--h,255) var(--av-s) var(--av-l));color:hsl(var(--h,255) var(--av-ts) var(--av-tl))}
+
+/* barre latérale claire, bouton « Enregistrer » en tête */
+.side{background:var(--card);color:var(--fg);border-inline-end:1px solid var(--line)}
+.side .brand{color:var(--fg)}
+.side .brand small{color:var(--muted)}
+.side a{border-radius:999px;color:var(--muted)}
+.side a:hover{background:var(--soft);color:var(--fg)}
+.side a.on{background:var(--blue-s);color:var(--blue)}
+.side .cap{display:flex;align-items:center;justify-content:center;gap:9px;margin:0 4px 16px;min-height:46px;border-radius:999px;background:var(--blue);color:#fff;font-weight:800;font-size:15px}
+.side .cap:hover{background:var(--blue-d)}
+.top{background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:0}
+@media (min-width:861px){.top{min-height:70px}.top h1{font-size:24px}}
+
+/* téléphone : barre flottante, micro au centre */
+@media (max-width:860px){
+  .tabs-bottom{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));border:1px solid var(--line);border-radius:28px;background:var(--card);padding:6px 4px;box-shadow:0 10px 30px rgba(20,16,50,.16)}
+  .tabs-bottom a,.tabs-bottom .cap{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:700;color:var(--muted);text-decoration:none;padding:4px 0}
+  .tabs-bottom a.on{color:var(--blue)}
+  .tabs-bottom .cap{color:var(--blue)}
+  .tabs-bottom .cap span{width:56px;height:56px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;margin-top:-30px;box-shadow:0 0 0 5px var(--bg),0 8px 18px color-mix(in srgb,var(--blue) 45%,transparent)}
+  .content{padding-bottom:130px}
+  .toast{bottom:calc(104px + env(safe-area-inset-bottom))}
+}
+
+/* fiche client : grand avatar, actions rondes, onglets en pastilles */
+.hero{display:grid;gap:4px;justify-items:start}
+.hero-av{width:64px;height:64px;display:grid;place-items:center;font-weight:800;font-size:22px;margin-bottom:6px}
+.hero .actions,.hero .geo,.hero > .btn{justify-self:stretch}
+.actions a,.actions button{background:transparent;padding:4px 0}
+.actions a svg,.actions button svg{width:50px;height:50px;padding:13px;border-radius:50%;background:var(--blue-s);color:var(--blue)}
+.geo{border-radius:16px}
+.tabbar{border:0;background:var(--soft);border-radius:999px;padding:4px;gap:4px;margin:18px 0 14px}
+.tabbar button{flex:1;border:0;border-radius:999px;padding:9px 12px;font-size:14px}
+.tabbar button.on{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(20,16,50,.1)}
+.visit{border-radius:18px}
+
+/* connexion */
+.login{background:radial-gradient(120% 80% at 20% 0%,color-mix(in srgb,var(--blue) 70%,#fff) 0%,var(--blue) 45%,color-mix(in srgb,var(--blue) 40%,#06040f) 100%)}
+.login .card{border-radius:28px}
+
+/* choix du thème */
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}
+.sw{display:grid;gap:8px;padding:10px;border:2px solid var(--line);border-radius:18px;background:var(--card);font-weight:700;font-size:13.5px;text-align:start}
+.sw.on{border-color:var(--blue)}
+.sw i{display:flex;height:36px;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.sw i span{flex:1}
+.sw i span:first-child{flex:2}
+
+/* choix du client dans « Enregistrer » */
+.pick{max-height:46vh;overflow:auto}
+.pick .item{border-radius:16px}
+table.t th{text-transform:none;letter-spacing:0;font-size:12.5px}

@@ -80,7 +80,8 @@ Object.assign(T.fr, {
   meetT: 'Réunion avec le client', meetP: 'L’échange est enregistré, puis l’IA écrit la transcription (qui a dit quoi) et le compte-rendu.', meetConsent: 'Le client a accepté que la réunion soit enregistrée', meetStart: 'Commencer la réunion', meetEnd: 'Terminer la réunion', meetRec: 'Enregistrement en cours', meetKeep: 'Gardez l’écran allumé et le téléphone près des interlocuteurs.', meetLeave: 'Une réunion est en cours d’enregistrement. Quitter quand même ?', meetSaved: 'Réunion enregistrée : analyse par l’IA en cours',
   aiPending: 'Analyse par l’IA en cours…', aiWaitNet: 'En attente de réseau : l’analyse sera faite à l’envoi', aiError: 'L’analyse n’a pas abouti : {e}', aiRetry: 'Relancer l’analyse', aiRegen: 'Régénérer le compte-rendu', aiNone: 'Pas encore analysé', aiAnalyze: 'Analyser avec l’IA',
   transcript: 'Transcription', transcriptWho: 'Transcription (qui a dit quoi)', summary: 'Résumé', recordings: 'Enregistrements', part: 'Partie {n}', duration: 'Durée', editText: 'Modifier le texte', aiTooBig: 'Fichier audio trop lourd pour la transcription (24 Mo maximum)', audio: 'Audio',
-  speakerC: 'Commercial', speakerK: 'Client', 'a_ai.transcribe': 'Note vocale transcrite', 'a_ai.meeting': 'Réunion analysée', expVisits: 'Activités et comptes-rendus', recent: 'Activité récente', noVisits: 'Aucune activité pour le moment.',
+  theme: 'Thème', themeHelp: 'L’apparence de l’application sur cet appareil.', themeDefault: 'Thème par défaut de la société', themeCompany: 'Celui de la société', capture: 'Enregistrer', captureT: 'Enregistrer un échange', pickClient: 'Pour quel client ?', newClientShort: 'Nouveau client', searchShort: 'Rechercher un client…',
+  speakerC: 'Commercial', speakerK: 'Client', 'a_ai.transcribe': 'Note vocale transcrite', 'a_ai.meeting': 'Réunion analysée', expVisits: 'Activités et comptes-rendus', kpiVisits7: 'Activités (7 jours)', kpiVisits30: 'Activités (30 jours)', visits30: 'Activités par jour (30 derniers jours)', lastVisitCol: 'Dernière activité', recent: 'Activité récente', noVisits: 'Aucune activité pour le moment.',
 });
 Object.assign(T.ar, {
   phone: 'الهاتف المحمول', phone2: 'الهاتف الثابت', notes: 'ملاحظات وتعليقات', companyF: 'اسم الشركة', website: 'الموقع الإلكتروني', sector: 'القطاع / النشاط', visits: 'النشاط', activity: 'النشاط',
@@ -90,6 +91,7 @@ Object.assign(T.ar, {
   meetT: 'اجتماع مع الزبون', meetP: 'يُسجَّل الحوار، ثم يكتب الذكاء الاصطناعي النص (من قال ماذا) والتقرير.', meetConsent: 'وافق الزبون على تسجيل الاجتماع', meetStart: 'بدء الاجتماع', meetEnd: 'إنهاء الاجتماع', meetRec: 'التسجيل جارٍ', meetKeep: 'اترك الشاشة مضاءة والهاتف قريبًا من المتحدثين.', meetLeave: 'هناك اجتماع قيد التسجيل. الخروج رغم ذلك؟', meetSaved: 'تم حفظ الاجتماع: التحليل جارٍ',
   aiPending: 'التحليل بالذكاء الاصطناعي جارٍ…', aiWaitNet: 'في انتظار الشبكة: سيتم التحليل عند الإرسال', aiError: 'لم ينجح التحليل: {e}', aiRetry: 'إعادة التحليل', aiRegen: 'إعادة إنشاء التقرير', aiNone: 'لم يُحلَّل بعد', aiAnalyze: 'تحليل بالذكاء الاصطناعي',
   transcript: 'النص', transcriptWho: 'النص (من قال ماذا)', summary: 'الملخص', recordings: 'التسجيلات', part: 'الجزء {n}', duration: 'المدة', editText: 'تعديل النص', aiTooBig: 'الملف الصوتي ثقيل جدًا (24 ميغا كحد أقصى)', audio: 'صوت',
+  theme: 'المظهر', themeHelp: 'مظهر التطبيق على هذا الجهاز.', themeDefault: 'المظهر الافتراضي للشركة', themeCompany: 'مظهر الشركة', capture: 'تسجيل', captureT: 'تسجيل محادثة', pickClient: 'لأي زبون؟', newClientShort: 'زبون جديد', searchShort: 'ابحث عن زبون…',
   speakerC: 'المندوب', speakerK: 'الزبون', 'a_ai.transcribe': 'تم تحويل ملاحظة صوتية', 'a_ai.meeting': 'تم تحليل اجتماع', expVisits: 'الأنشطة والتقارير', recent: 'آخر الأنشطة', noVisits: 'لا يوجد نشاط بعد.',
 });
 Object.assign(T.en, {
@@ -100,8 +102,19 @@ Object.assign(T.en, {
   meetT: 'Meeting with the client', meetP: 'The conversation is recorded, then AI writes the transcript (who said what) and the report.', meetConsent: 'The client agreed to the meeting being recorded', meetStart: 'Start the meeting', meetEnd: 'End the meeting', meetRec: 'Recording', meetKeep: 'Keep the screen on and the phone close to the speakers.', meetLeave: 'A meeting is being recorded. Leave anyway?', meetSaved: 'Meeting saved: AI analysis in progress',
   aiPending: 'AI analysis in progress…', aiWaitNet: 'Waiting for network: analysis will run once sent', aiError: 'Analysis failed: {e}', aiRetry: 'Retry analysis', aiRegen: 'Regenerate the report', aiNone: 'Not analysed yet', aiAnalyze: 'Analyse with AI',
   transcript: 'Transcript', transcriptWho: 'Transcript (who said what)', summary: 'Summary', recordings: 'Recordings', part: 'Part {n}', duration: 'Duration', editText: 'Edit text', aiTooBig: 'Audio file too large for transcription (24 MB max)', audio: 'Audio',
+  theme: 'Theme', themeHelp: 'How the app looks on this device.', themeDefault: 'Company default theme', themeCompany: 'Company theme', capture: 'Record', captureT: 'Record a conversation', pickClient: 'Which client?', newClientShort: 'New client', searchShort: 'Search a client…',
   speakerC: 'Sales rep', speakerK: 'Client', 'a_ai.transcribe': 'Voice note transcribed', 'a_ai.meeting': 'Meeting analysed', expVisits: 'Activities and reports', recent: 'Recent activity', noVisits: 'No activity yet.',
 });
+// thèmes : choisis par chaque utilisateur sur son appareil, ou imposés par défaut par la direction
+const THEMES = [['indigo', 'Indigo', '#4F2FD0', '#F3F2FA'], ['majorelle', 'Majorelle', '#2443C7', '#F2B705'], ['menthe', 'Menthe', '#0B7A5E', '#EFF6F2'], ['ocean', 'Océan', '#0A6C8F', '#EEF5F8'], ['nuit', 'Nuit', '#8E7BFF', '#100E19']];
+function myTheme() { try { return localStorage.getItem('crm-theme') || ''; } catch (e) { return ''; } }
+function applyTheme(settings) {
+  const pick = myTheme() || (settings && settings.theme) || 'indigo';
+  const th = THEMES.find((x) => x[0] === pick) || THEMES[0];
+  document.documentElement.dataset.theme = th[0];
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = th[0] === 'nuit' ? '#100E19' : th[2];
+}
+const hueOf = (s) => { let x = 0; for (const ch of String(s || '')) x = (x * 31 + ch.charCodeAt(0)) % 360; return x; };
 const t = (k, v) => { let s = (T[lang] && T[lang][k]) || T.fr[k] || k; if (v) for (const x in v) s = s.split('{' + x + '}').join(v[x]); return s; };
 function setLang(l) { lang = T[l] ? l : 'fr'; try { localStorage.setItem('lang', lang); } catch (e) {} document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'; }
 
@@ -420,6 +433,7 @@ const app = () => $('#app');
 async function showLogin() {
   let st = { setup_needed: false, settings: S.settings };
   try { st = await (await fetch(BASE + '/api/status')).json(); } catch (e) {}
+  applyTheme(st.settings);
   const setup = st.setup_needed;
   const err = h('p', { class: 'small', style: 'color:var(--red);margin:0;min-height:1.2em', role: 'alert' });
   const f = {};
@@ -462,19 +476,23 @@ function nav() {
   return items;
 }
 function layout(title, body, opts = {}) {
+  applyTheme(S.settings);
   const cur = location.hash || '#/';
   const top = h('header', { class: 'top' },
     opts.back ? h('button', { class: 'back', 'aria-label': 'Retour', onclick: () => (history.length > 1 ? history.back() : go(opts.back)) }, ic('back')) : null,
     h('h1', {}, title), opts.right || null, S.settings && S.settings.demo ? h('span', { class: 'demo-chip' }, t('demoChip')) : null, h('span', { id: 'sync', role: 'status', onclick: () => syncNow(true), style: 'cursor:pointer' }));
   const side = h('nav', { class: 'side', 'aria-label': 'Menu' },
     h('div', { class: 'brand' }, h('img', { src: '/logo.png', alt: '' }), h('div', {}, h('b', {}, 'Magiscom CRM'), h('small', {}, S.settings.company))),
+    h('button', { class: 'cap', onclick: quickCapture }, ic('mic', 20), t('capture')),
     ...nav().map(([href, icn, k]) => h('a', { href, class: cur.startsWith(href) ? 'on' : null }, ic(icn, 20), t(k))),
     h('div', { class: 'grow' }),
     h('a', { href: '#/me', class: cur.startsWith('#/me') ? 'on' : null }, ic('me', 20), S.user.name));
   const tabs = admin()
-    ? [['#/dashboard', 'chart', 'dashboard'], ['#/clients', 'users', 'clients'], ['#/new', 'plus', 'newClient'], ['#/map', 'map', 'map'], ['#/me', 'me', 'me']]
-    : [['#/clients', 'users', 'clients'], ['#/agenda', 'cal', 'agenda'], ['#/new', 'plus', 'newClient'], ['#/map', 'map', 'map'], ['#/me', 'me', 'me']];
-  const bottom = h('nav', { class: 'tabs-bottom', 'aria-label': 'Menu' }, ...tabs.map(([href, icn, k]) => h('a', { href, class: (cur.startsWith(href) ? 'on' : '') + (icn === 'plus' ? ' plus' : '') }, icn === 'plus' ? h('span', {}, ic('plus', 24)) : ic(icn), t(k))));
+    ? [['#/dashboard', 'chart', 'dashboard'], ['#/clients', 'users', 'clients'], ['cap', 'mic', 'capture'], ['#/agenda', 'cal', 'agenda'], ['#/me', 'me', 'me']]
+    : [['#/clients', 'users', 'clients'], ['#/agenda', 'cal', 'agenda'], ['cap', 'mic', 'capture'], ['#/map', 'map', 'map'], ['#/me', 'me', 'me']];
+  const bottom = h('nav', { class: 'tabs-bottom', 'aria-label': 'Menu' }, ...tabs.map(([href, icn, k]) => href === 'cap'
+    ? h('button', { class: 'cap', onclick: quickCapture, 'aria-label': t('captureT') }, h('span', {}, ic('mic', 26)), t(k))
+    : h('a', { href, class: cur.startsWith(href) ? 'on' : null }, ic(icn), t(k))));
   app().replaceChildren(h('div', { class: 'shell' }, side, h('div', { class: 'main' }, top, h('main', { class: 'content' }, body)), bottom));
   paintSync();
 }
@@ -502,10 +520,10 @@ async function viewClients() {
     for (const c of rows.slice(0, listState.limit)) {
       const lv = lastV.get(c.id);
       listEl.append(h('a', { class: 'item', href: '#/client/' + c.id },
-        h('span', { class: 'av', style: c.kind === 'client' ? 'background:var(--green-s);color:var(--green)' : 'background:var(--orange-s);color:var(--orange)' }, initials(c.name)),
+        h('span', { class: 'av', style: '--h:' + hueOf(c.name) }, initials(c.name)),
         h('div', { class: 'grow' },
           h('div', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' }, h('span', { class: 't' }, c.name), h('span', { class: 'badge b-' + c.kind }, t(c.kind))),
-          h('div', { class: 's' }, [c.code, c.city, admin() || S.user.perms.all ? userName(c.owner_id) : null].filter(Boolean).join(' · ')),
+          h('div', { class: 's' }, [c.company && c.company !== c.name ? c.company : null, c.city, c.code, admin() || S.user.perms.all ? userName(c.owner_id) : null].filter(Boolean).join(' · ')),
           h('div', { class: 's' }, lv ? t('lastVisit', { d: fdate(lv) }) : t('neverVisited'))),
         h('span', { class: c.lat != null ? 'pin' : 'nopin', title: c.lat != null ? t('located') : t('notLocated') }, ic('pin', 20))));
     }
@@ -559,6 +577,7 @@ async function viewClient(id) {
 
   const act = (href, icn, label, extra = {}) => h(href ? 'a' : 'button', { href, ...extra }, ic(icn, 22), label);
   const hero = h('section', { class: 'card hero' },
+    h('span', { class: 'hero-av', style: '--h:' + hueOf(c.name) }, initials(c.name)),
     h('div', { class: 'row', style: 'gap:6px' }, h('span', { class: 'badge b-' + c.kind }, t(c.kind)), h('span', { class: 'badge b-muted tnum' }, c.pendingCode ? t('codeAuto') : c.code)),
     h('h2', {}, c.name),
     c.company || c.sector ? h('div', { style: 'font-weight:600' }, [c.company, c.sector].filter(Boolean).join(' · ')) : null,
@@ -855,6 +874,32 @@ function aiBadge(v) {
 }
 function levelBar() { const i = h('i'); return { el: h('div', { class: 'lvl' }, i), set: (x) => { i.style.transform = `scaleX(${Math.min(1, x * 2.4).toFixed(3)})`; } }; }
 
+// --- bouton « Enregistrer » : choisir le client puis la note vocale ou la réunion
+async function quickCapture() {
+  const { clients, visits } = await loadData();
+  const last = new Map();
+  for (const v of visits) if (!last.get(v.client_id) || v.date > last.get(v.client_id)) last.set(v.client_id, v.date);
+  let mode = 'vocal', q = '';
+  const segEl = h('div', { class: 'seg' });
+  const paintSeg = () => segEl.replaceChildren(...[['vocal', 'newVocal', 'mic'], ['reunion', 'newMeeting', 'meet']].map(([k, l, i]) => h('button', { type: 'button', class: mode === k ? 'on' : null, 'aria-pressed': mode === k ? 'true' : 'false', onclick: () => { mode = k; paintSeg(); } }, ic(i, 18), t(l))));
+  paintSeg();
+  const list = h('div', { class: 'list pick' });
+  const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const paint = () => {
+    const nq = norm(q);
+    const rows = clients.filter((c) => !nq || norm([c.name, c.company, c.city, c.code, c.phone].join(' ')).includes(nq))
+      .sort((a, b) => (last.get(b.id) || b.updated_at || 0) - (last.get(a.id) || a.updated_at || 0)).slice(0, 30);
+    list.replaceChildren(...rows.map((c) => h('button', { class: 'item', onclick: () => { m.remove(); if (mode === 'reunion') go('#/meeting?client=' + c.id); else voiceNote(c); } },
+      h('span', { class: 'av', style: '--h:' + hueOf(c.name) }, initials(c.name)),
+      h('div', { class: 'grow' }, h('div', { class: 't' }, c.name), h('div', { class: 's' }, [c.company && c.company !== c.name ? c.company : null, c.city].filter(Boolean).join(' · ') || c.code)))),
+      rows.length ? '' : h('div', { class: 'empty' }, clients.length ? t('noneSearch') : t('none')));
+  };
+  const search = h('input', { class: 'input', type: 'search', placeholder: t('searchShort'), 'aria-label': t('searchShort'), oninput: (e) => { q = e.target.value; paint(); } });
+  const m = modal(h('h3', {}, t('captureT')), segEl, h('b', { style: 'font-size:14px' }, t('pickClient')), search, list,
+    h('a', { class: 'btn ghost', href: '#/new', onclick: () => m.remove() }, ic('plus', 18), t('newClientShort')));
+  paint();
+}
+
 // --- note écrite
 function viewNote(v, c, isNew, mine) {
   const vid = v.id || uuid();
@@ -914,7 +959,7 @@ async function voiceNote(c) {
     spoken.disabled = true;
     const stop = async () => { btn.disabled = true; clearInterval(iv); const d = r.elapsed(); await r.stop(); r = null; await finish(d); };
     const btn = h('button', { class: 'btn danger block big', onclick: stop }, ic('stop', 24), t('recStop'));
-    body.replaceChildren(h('div', { class: 'row rec-row' }, h('span', { class: 'dot' }), time), lv.el, btn);
+    body.replaceChildren(h('div', { class: 'row rec-row' }, h('span', { class: 'recdot' }), time), lv.el, btn);
     iv = setInterval(() => { const s = r ? r.elapsed() : 0; time.textContent = fdur(s); if (s >= VOICE_MAX_S && r) stop(); }, 400);
   }
   async function importFile() {
@@ -974,7 +1019,7 @@ async function viewMeeting(clientId) {
     };
     const endBtn = h('button', { class: 'btn danger block big', onclick: end }, ic('stop', 24), t('meetEnd'));
     intro.replaceWith(h('section', { class: 'card pad stack rec-live' },
-      h('div', { class: 'row rec-row' }, h('span', { class: 'dot' }), h('b', {}, t('meetRec')), h('span', { class: 'grow' }), h('span', { class: 'muted small' }, c.name)),
+      h('div', { class: 'row rec-row' }, h('span', { class: 'recdot' }), h('b', {}, t('meetRec')), h('span', { class: 'grow' }), h('span', { class: 'muted small' }, c.name)),
       time, lv.el, h('p', { class: 'small muted', style: 'margin:0' }, t('meetKeep')), endBtn));
     window.onbeforeunload = (e) => { e.preventDefault(); e.returnValue = t('meetLeave'); return t('meetLeave'); };
     const iv = setInterval(() => { const s = r.elapsed(); time.textContent = fdur(s); if (s >= MEETING_MAX_S) end(); }, 400);
@@ -1243,12 +1288,13 @@ async function viewJournal() {
 
 // =================================================================== écran : réglages (admin)
 function viewSettings() {
+  const thSel = h('select', { class: 'input' }, ...THEMES.map(([k, l]) => { const o = h('option', { value: k }, l); if (k === (S.settings.theme || 'indigo')) o.selected = true; return o; }));
   const f = { company: h('input', { class: 'input', value: S.settings.company }), cp: h('input', { class: 'input', value: S.settings.client_prefix, dir: 'ltr', maxlength: 6 }), pp: h('input', { class: 'input', value: S.settings.prospect_prefix, dir: 'ltr', maxlength: 6 }) };
   layout(t('settings'), h('form', { class: 'card pad stack', onsubmit: async (e) => {
     e.preventDefault();
-    try { const d = await api('PATCH', '/api/settings', { company: f.company.value, client_prefix: f.cp.value, prospect_prefix: f.pp.value }); S.settings = d.settings; await DB.put('meta', S.settings, 'settings'); toast(t('saved')); render(); }
+    try { const d = await api('PATCH', '/api/settings', { company: f.company.value, client_prefix: f.cp.value, prospect_prefix: f.pp.value, theme: thSel.value }); S.settings = d.settings; await DB.put('meta', S.settings, 'settings'); toast(t('saved')); render(); }
     catch (x) { toast(x.status === 0 ? t('offlineAdmin') : t('error', { e: x.message })); }
-  } }, h('label', { class: 'f' }, t('companyName'), f.company), h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('prefixC'), f.cp), h('label', { class: 'f' }, t('prefixP'), f.pp)), h('button', { class: 'btn primary', type: 'submit' }, t('save'))));
+  } }, h('label', { class: 'f' }, t('companyName'), f.company), h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('prefixC'), f.cp), h('label', { class: 'f' }, t('prefixP'), f.pp)), h('label', { class: 'f' }, t('themeDefault'), thSel), h('button', { class: 'btn primary', type: 'submit' }, t('save'))));
 }
 
 // =================================================================== écran : moi
@@ -1260,7 +1306,15 @@ async function viewMe() {
     ...S.failed.map((o) => h('div', { class: 'row' }, h('span', { class: 'grow small' }, `${o.type} · ${o.body && (o.body.name || o.body.agreed || o.body.client_id) || o.id} — ${o.failed}`),
       h('button', { class: 'btn sm', onclick: async () => { delete o.failed; await DB.put('outbox', o); await refreshPending(); kick(); viewMe(); } }, t('retry')),
       h('button', { class: 'btn sm danger', onclick: async () => { await DB.del('outbox', o.seq); if (o.type === 'file') { await DB.del('blobs', o.id); await DB.del('files', o.id); } await refreshPending(); viewMe(); } }, t('discard'))))) : null;
+  const themeBox = h('div', { class: 'themes' });
+  const paintThemes = () => themeBox.replaceChildren(...[['', t('themeCompany'), null, null], ...THEMES].map(([k, l, a, b]) => {
+    const th = THEMES.find((x) => x[0] === (k || S.settings.theme || 'indigo')) || THEMES[0];
+    return h('button', { class: 'sw' + (myTheme() === k ? ' on' : ''), 'aria-pressed': myTheme() === k ? 'true' : 'false', onclick: () => { try { if (k) localStorage.setItem('crm-theme', k); else localStorage.removeItem('crm-theme'); } catch (e) {} applyTheme(S.settings); paintThemes(); } },
+      h('i', {}, h('span', { style: 'background:' + (a || th[2]) }), h('span', { style: 'background:' + (b || th[3]) })), l);
+  }));
+  paintThemes();
   layout(t('me'), h('div', { class: 'stack' },
+    h('section', { class: 'card pad stack' }, h('b', {}, t('theme')), h('span', { class: 'small muted', style: 'margin-top:-8px' }, t('themeHelp')), themeBox),
     S.user.must_change ? h('div', { class: 'card pad', style: 'background:var(--orange-s);border-color:transparent' }, t('mustChange')) : null,
     h('section', { class: 'card pad' }, h('div', { class: 'item', style: 'border:0;padding:0' }, h('span', { class: 'av' }, initials(S.user.name)), h('div', { class: 'grow' }, h('div', { class: 't' }, S.user.name), h('div', { class: 's', dir: 'ltr', style: 'text-align:start' }, S.user.login), h('div', { class: 's' }, t(S.user.role) + ' · ' + S.settings.company)))),
     h('section', { class: 'card pad stack' }, h('div', { class: 'row' }, h('span', { id: 'sync2', class: 'grow small muted' }, t('lastSync', { d: lastSync ? fdt(lastSync) : '—' }) + (S.pending ? ' · ' + t('toSend', { n: S.pending }) : '')), h('button', { class: 'btn sm', onclick: async () => { await syncNow(true); viewMe(); } }, ic('sync', 18), t('syncNow')))),

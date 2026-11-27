@@ -17,7 +17,7 @@ a{color:var(--blue)}
 
 /* structure : barre latérale (ordinateur) / onglets en bas (téléphone) */
 .shell{display:flex;min-height:100vh}
-.side{width:236px;flex:none;background:#0A1B3F;color:#C9D4EA;display:flex;flex-direction:column;padding:16px 12px;position:sticky;top:0;height:100vh}
+.side{width:236px;flex:none;background:#0A1B3F;color:#C9D4EA;display:flex;flex-direction:column;padding:16px 12px;position:sticky;top:0;height:100vh;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .side .brand{display:flex;gap:10px;align-items:center;padding:4px 8px 18px;color:#fff}
 .side .brand img{width:34px;height:34px;border-radius:9px}
 .side .brand b{display:block;font-size:15px;line-height:1.2}

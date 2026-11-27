@@ -181,6 +181,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS login_streak ( uid TEXT PRIMARY KEY, last INTEGER NOT NULL, n INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS ach ( uid TEXT NOT NULL, id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, id) )",
   "CREATE TABLE IF NOT EXISTS season_claims ( season INTEGER NOT NULL, uid TEXT NOT NULL, tier INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (season, uid, tier) )",
+  "CREATE TABLE IF NOT EXISTS league_div ( uid TEXT PRIMARY KEY, div INTEGER NOT NULL DEFAULT 0 )",
+  "CREATE TABLE IF NOT EXISTS league_results ( season INTEGER NOT NULL, uid TEXT NOT NULL, div_from INTEGER, div_to INTEGER, sp INTEGER, rank INTEGER, size INTEGER, outcome TEXT, dates INTEGER, jry INTEGER, PRIMARY KEY (season, uid) )",
   "CREATE TABLE IF NOT EXISTS season_paid ( season INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS castle_weeks ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, pts INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE TABLE IF NOT EXISTS castle_week_paid ( week_id INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
@@ -1002,15 +1004,21 @@ const routes = {
   // ---------- Seasons ----------
   "GET /api/season": async (req, env) => {
     const u = await auth(req, env), now = Date.now(), id = L.SEASON.id(now);
-    const { top, mine } = await seasonBoard(env, id, u.uid, 20);
+    const rows = await seasonBoard(env, id), me = rows.find((r) => r.uid === u.uid);
+    const dv = (await one(env, "SELECT div FROM league_div WHERE uid = ?", u.uid)) || { div: 0 };
+    const arr = rows.filter((r) => r.div === dv.div), k = leagueZone(arr.length), n = arr.length, sp = me ? me.sp : 0;
+    const rank = me ? arr.findIndex((r) => r.uid === u.uid) + 1 : 0;
     const got = new Set((await all(env, "SELECT tier FROM season_claims WHERE season = ? AND uid = ?", id, u.uid)).map((r) => r.tier));
-    const rank = mine > 0 ? 1 + (await seasonBoard(env, id, null, 1000)).top.filter((r) => r.sp > mine).length : 0;
-    return { season: id, ends: L.SEASON.start(id) + L.SEASON.DAYS * DAY, sp: mine, rank, tiers: L.SEASON.TIERS.map((t, i) => ({ ...t, claimed: got.has(i), open: mine >= t.sp })), prizes: L.SEASON.PRIZES,
-      top: top.map((r, i) => ({ rank: i + 1, username: r.username, sp: r.sp })), now };
+    const lr = await one(env, "SELECT * FROM league_results WHERE season = ? AND uid = ?", id - 1, u.uid);
+    return { season: id, ends: L.SEASON.start(id) + L.SEASON.DAYS * DAY, div: dv.div, sp, rank, size: n, zone: k,
+      tiers: L.SEASON.TIERS.map((t, i) => ({ ...t, claimed: got.has(i), open: sp >= t.sp })), prizes: L.SEASON.PRIZES,
+      top: arr.slice(0, 20).map((r, i) => ({ rank: i + 1, username: r.username, sp: r.sp, zone: i < k ? "up" : i >= n - k && k > 0 ? "down" : "" })),
+      general: [...rows].sort((x, y) => y.div - x.div || y.sp - x.sp).slice(0, 10).map((r, i) => ({ rank: i + 1, username: r.username, sp: r.sp, div: r.div })),
+      last: lr ? { season: lr.season, from: lr.div_from, to: lr.div_to, sp: lr.sp, rank: lr.rank, size: lr.size, outcome: lr.outcome, dates: lr.dates, jry: lr.jry } : null, now };
   },
   "POST /api/season/claim": async (req, env) => {
     const u = await auth(req, env), now = Date.now(), id = L.SEASON.id(now);
-    const { mine } = await seasonBoard(env, id, u.uid, 1), sum = { dates: 0, jry: 0, spins: 0, tiers: 0 };
+    const mine = ((await seasonBoard(env, id)).find((r) => r.uid === u.uid) || { sp: 0 }).sp, sum = { dates: 0, jry: 0, spins: 0, tiers: 0 };
     for (let i = 0; i < L.SEASON.TIERS.length; i++) {
       const t = L.SEASON.TIERS[i]; if (mine < t.sp) continue;
       const r = await run(env, "INSERT OR IGNORE INTO season_claims (season, uid, tier, at) VALUES (?, ?, ?, ?)", id, u.uid, i, now);
@@ -3308,7 +3316,7 @@ const NOTE = {
   courtemp: { go: "rank", en: ["👑 A new Emperor of the Game!", "{u} took the throne. Open the Ranking to see the crown."], ar: ["👑 إمبراطور جديد للعبة!", "تربّع ‎{u} على العرش. افتح الترتيب لترى التاج."], fr: ["👑 Un nouvel Empereur du jeu !", "{u} a pris le trône. Ouvre le classement pour voir la couronne."] },
   elected: { go: "rank", en: ["🏛️ You were elected to Parliament", "You hold seat {seat} this month. Open the Court to see the Parliament."], ar: ["🏛️ تم انتخابك في البرلمان", "لديك المقعد رقم {seat} هذا الشهر. افتح البلاط لترى البرلمان."], fr: ["🏛️ Tu as été élu au Parlement", "Tu occupes le siège {seat} ce mois-ci. Ouvre la Cour pour voir le Parlement."] },
   kweek: { go: "kombat", en: ["⚔️ Kombat tournament: #{p}", "Open Jerry Kombat to collect your prize."], ar: ["⚔️ بطولة كومبات: المركز {p}", "افتح جيري كومبات لتستلم جائزتك."], fr: ["⚔️ Tournoi Kombat : {p}e", "Ouvre Jerry Kombat pour récupérer ton prix."] },
-  season: { go: "season", en: ["🏆 Season over: #{p}", "+{j} JRY points for your season rank."], ar: ["🏆 انتهى الموسم: المركز {p}", "+{j} نقطة JRY لترتيبك في الموسم."], fr: ["🏆 Saison terminée : {p}e", "+{j} points JRY pour ton rang de saison."] },
+  season: { go: "season", en: ["🏆 League season over", "Your result is ready: +{d} dates, +{j} JRY points."], ar: ["🏆 انتهى موسم الدوري", "نتيجتك جاهزة: +{d} تمرة و+{j} نقطة JRY."], fr: ["🏆 Saison de ligue terminée", "Ton résultat est prêt : +{d} dattes, +{j} points JRY."] },
   cweek: { go: "castle", en: ["🏰 Jerry Castle: #{p}", "+{d} dates for your place this week."], ar: ["🏰 قلعة جيري: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏰 Château de Jerry : {p}e", "+{d} dattes pour ta place cette semaine."] },
   mweek: { go: "merge", en: ["🐎 Horse Merge: #{p}", "+{d} dates for your place this week."], ar: ["🐎 دمج الخيل: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🐎 Fusion de chevaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   dweek: { go: "derby", en: ["🏁 Camel Derby: #{p}", "+{d} dates for your place this week."], ar: ["🏁 سباق الجمال: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏁 Course de chameaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
@@ -3381,28 +3389,42 @@ async function derbyGrant(env, uid, item, now) {
   }
 }
 // Last week's Derby: dates for the top 100 by trophies (given once)
-// Season points of every player: oasis dates/100 + horse merge points/10 + derby points + kombat coins/1000, summed over the season's 4 weeks
-async function seasonBoard(env, season, uid, limit) {
+// Monthly League: points come from the PLACE a player takes in each game's weekly ranking (1st 100, 2nd 80, 3rd 65, then down to 1 at rank 100),
+// summed over the 4 weeks of the season and over Harvest, Kombat, Derby, Horse Merge and Castle. Players compete inside their division.
+const leagueRank = (n) => [{ k: "week_scores", c: "score" }, { k: "merge_weeks", c: "pts" }, { k: "derby_weeks", c: "pts" }, { k: "kombat_weeks", c: "earned" }, { k: "castle_weeks", c: "pts" }]
+  .map((t) => `SELECT uid, ROW_NUMBER() OVER (PARTITION BY week_id ORDER BY ${t.c} DESC, updated_at ASC) AS rk FROM ${t.k} WHERE week_id BETWEEN ?1 AND ?2 AND ${t.c} > 0`).join(" UNION ALL ");
+async function seasonBoard(env, season) {
   const a = L.SEASON.start(season), b = a + 21 * DAY;
-  const sub = `SELECT uid, score / 100 AS sp FROM week_scores WHERE week_id BETWEEN ?1 AND ?2
-    UNION ALL SELECT uid, pts / 10 FROM merge_weeks WHERE week_id BETWEEN ?1 AND ?2
-    UNION ALL SELECT uid, pts FROM derby_weeks WHERE week_id BETWEEN ?1 AND ?2
-    UNION ALL SELECT uid, earned / 1000 FROM kombat_weeks WHERE week_id BETWEEN ?1 AND ?2`;
-  const top = await all(env, `SELECT s.uid, u.username, SUM(s.sp) AS sp FROM (${sub}) s JOIN users u ON u.uid = s.uid GROUP BY s.uid HAVING sp > 0 ORDER BY sp DESC, s.uid ASC LIMIT ?3`, a, b, limit);
-  let mine = 0;
-  if (uid) { const r = await one(env, `SELECT COALESCE(SUM(sp), 0) AS sp FROM (${sub}) WHERE uid = ?3`, a, b, uid); mine = (r && r.sp) || 0; }
-  return { top, mine };
+  return all(env, `WITH r AS (${leagueRank()}), p AS (SELECT uid, CASE rk WHEN 1 THEN 100 WHEN 2 THEN 80 WHEN 3 THEN 65 ELSE MAX(1, 60 - (rk - 4) * 59 / 96) END AS sp FROM r WHERE rk <= 100)
+    SELECT p.uid, u.username, SUM(p.sp) AS sp, COALESCE(d.div, 0) AS div FROM p JOIN users u ON u.uid = p.uid LEFT JOIN league_div d ON d.uid = p.uid GROUP BY p.uid ORDER BY sp DESC, p.uid ASC`, a, b);
 }
+const leagueZone = (n) => (n >= L.SEASON.MIN_ZONE ? Math.max(1, Math.floor(n * L.SEASON.ZONE)) : 0);
 async function grantSeasonPrizes(env) {
   await ensureSchema(env);
   const now = Date.now(), last = L.SEASON.id(now) - 1;
   if (last < 0) return 0;
   const g = await run(env, "INSERT OR IGNORE INTO season_paid (season, at) VALUES (?, ?)", last, now);
   if (!g.meta.changes) return 0;
-  const { top } = await seasonBoard(env, last, null, 10);
-  for (let i = 0; i < top.length; i++) await giveReward(env, top[i].uid, "jry", L.SEASON.PRIZES[i], now, "season");
-  await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "season", ref: last, vars: { p: i + 1, j: L.SEASON.PRIZES[i] } })));
-  return top.length;
+  const rows = await seasonBoard(env, last), out = [];
+  for (let d = 0; d < L.SEASON.DIVS.length; d++) {
+    const arr = rows.filter((r) => r.div === d), k = leagueZone(arr.length);
+    arr.forEach((r, i) => {
+      const up = i < k, down = !up && i >= arr.length - k && k > 0;
+      const nd = up && d < L.SEASON.DIVS.length - 1 ? d + 1 : down && d > 0 ? d - 1 : d;
+      const o = up ? "up" : down ? "down" : "stay", rw = L.SEASON.reward(o, d);
+      out.push({ ...r, rank: i + 1, size: arr.length, outcome: o, from: d, to: nd, dates: rw.dates, jry: rw.jry });
+    });
+  }
+  // the general ranking: highest division first, then points; its top 10 also win JRY points
+  [...out].sort((x, y) => y.from - x.from || y.sp - x.sp).slice(0, 10).forEach((r, i) => { r.jry += L.SEASON.PRIZES[i]; });
+  for (const r of out) {
+    await run(env, "INSERT OR REPLACE INTO league_results (season, uid, div_from, div_to, sp, rank, size, outcome, dates, jry) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", last, r.uid, r.from, r.to, r.sp, r.rank, r.size, r.outcome, r.dates, r.jry);
+    await run(env, "INSERT INTO league_div (uid, div) VALUES (?, ?) ON CONFLICT(uid) DO UPDATE SET div = excluded.div", r.uid, r.to);
+    if (r.dates) await giveReward(env, r.uid, "dates", r.dates, now, "season");
+    if (r.jry) await giveReward(env, r.uid, "jry", r.jry, now, "season");
+  }
+  await notify(env, out.map((r) => ({ uid: r.uid, kind: "season", ref: last, vars: { d: r.dates.toLocaleString("en-US"), j: r.jry } })));
+  return out.length;
 }
 async function achView(env, u) {
   const st = await one(env, "SELECT json FROM state WHERE uid = ?", u.uid);

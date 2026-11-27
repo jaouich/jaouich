@@ -253,7 +253,9 @@
       { sp: 50, dates: 2000 }, { sp: 150, jry: 20, spins: 1 }, { sp: 400, dates: 10000 }, { sp: 900, jry: 50 },
       { sp: 1800, dates: 30000, spins: 2 }, { sp: 3500, jry: 100 }, { sp: 6000, dates: 80000 }, { sp: 10000, jry: 300, spins: 3 },
     ],
-    PRIZES: [1000, 600, 400, 150, 150, 150, 150, 150, 150, 150], // JRY points for the top 10 of the season
+    PRIZES: [1000, 600, 400, 150, 150, 150, 150, 150, 150, 150], // extra JRY points for the top 10 of the general ranking
+    DIVS: ["bronze", "silver", "gold", "diamond", "champion"], ZONE: 0.2, MIN_ZONE: 5, // top 20% go up, bottom 20% go down (only when a division has 5+ active players)
+    reward(o, d) { return o === "up" ? { dates: 5000 * (d + 1), jry: 20 * (d + 1) } : o === "stay" ? { dates: 500 * (d + 1), jry: 0 } : { dates: 200, jry: 0 }; },
   };
 
   // 🔥 Daily login streak and achievements (checked and paid by the server only)

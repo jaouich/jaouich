@@ -1688,3 +1688,6 @@ main { overflow-x: hidden; }
 
 /* ---- Castle endless button ---- */
 .cs-endless { display: block; width: 100%; margin: -4px 0 10px; padding: 9px; border: 0; border-radius: 12px; background: linear-gradient(135deg, #6a3fb5, #3a1f7a); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+
+.ct-row.zone-up { background: rgba(76,175,80,.22); border-radius: 12px; } .ct-row.zone-down { background: rgba(229,57,53,.2); border-radius: 12px; }
+.lg-up { border-color: #66bb6a; } .lg-down { border-color: #ef5350; }

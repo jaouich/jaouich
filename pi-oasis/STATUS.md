@@ -116,3 +116,7 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 ## Seasons (step 4)
 - A season = 4 whole weeks from a Monday (`OasisLogic.SEASON`). Season points = oasis dates/100 + merge points/10 + derby points + kombat coins/1000, summed from the weekly tables (`seasonBoard`). 8-tier reward track (`season_claims`), top 10 of the finished season get 1000/600/400/150x7 JRY points via cron `grantSeasonPrizes` (`season_paid`, notification `season`). Routes `GET /api/season`, `POST /api/season/claim`. UI `public/season.js`, hub banner `#seasonOpen`. Tests `tests/season.mjs` (8).
 - Not done from the plan: Friday "harvest festival" event for Horse Merge.
+
+## Castle update: Endless Siege, 3 maps, 2 towers, weekly ranking
+- Endless Siege (`newGame(map, true)`, up to 60 waves, 48,000 ticks, 1,500 actions; replay-verified by `CASTLE.simulate(map, log, endless)`), score = cleared waves x 10000 + kills. Towers Tesla (chain to 3-4 enemies, 70% on the others) and Poison (damage every 5 ticks for 30 ticks). Maps dunes/ruins/storm (6 maps, DIFF up to 270). Rewards for maps 4-6 in `CASTLE_REWARD`.
+- Weekly ranking `castle_weeks` (best run of the week), `GET /api/castle/top`, cron `grantCastleWeek` (top 100: `MG.weekPrize` dates + JRY points, notification `cweek`). Endless pays 300 coins per cleared wave for the first 3 runs a day (`castle_day` key `uid:e`). Tests: `tests/castle.mjs` (44).

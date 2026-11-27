@@ -34,7 +34,7 @@ const MIN_WITHDRAW = 1;
 const SESSION_DAYS = 30;
 const DAY = 86400000;
 // Jerry Castle rewards: first clear per map (stars add 25% each), more stars later pay the difference, replays are small and capped per day
-const CASTLE_REWARD = { MAPS: [{ coins: 20000, dates: 300, replay: 3000 }, { coins: 40000, dates: 600, replay: 6000 }, { coins: 80000, dates: 1200, replay: 10000 }], REPLAYS: 3 };
+const CASTLE_REWARD = { MAPS: [{ coins: 20000, dates: 300, replay: 3000 }, { coins: 40000, dates: 600, replay: 6000 }, { coins: 80000, dates: 1200, replay: 10000 }, { coins: 120000, dates: 2000, replay: 14000 }, { coins: 160000, dates: 3000, replay: 18000 }, { coins: 200000, dates: 4500, replay: 24000 }], REPLAYS: 3, ENDLESS_RUNS: 3, ENDLESS_COINS: 300 };
 
 const round = (n) => Math.round(n * 1e7) / 1e7;
 const json = (o, status = 200) =>
@@ -182,6 +182,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS ach ( uid TEXT NOT NULL, id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, id) )",
   "CREATE TABLE IF NOT EXISTS season_claims ( season INTEGER NOT NULL, uid TEXT NOT NULL, tier INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (season, uid, tier) )",
   "CREATE TABLE IF NOT EXISTS season_paid ( season INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS castle_weeks ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, pts INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
+  "CREATE TABLE IF NOT EXISTS castle_week_paid ( week_id INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS castle_day ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
   "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
@@ -1680,16 +1682,33 @@ const routes = {
   },
 
   // body: { map, log: [[tick, action], ...] } -> verified result
+  "GET /api/castle/top": async (req, env) => {
+    const u = await auth(req, env), now = Date.now(), wid = L.weekId(now);
+    const top = await all(env, "SELECT u.username, w.pts FROM castle_weeks w JOIN users u ON u.uid = w.uid WHERE w.week_id = ? ORDER BY w.pts DESC, w.updated_at ASC LIMIT 100", wid);
+    const mine = await one(env, "SELECT pts, updated_at FROM castle_weeks WHERE week_id = ? AND uid = ?", wid, u.uid);
+    const rank = mine ? 1 + (await one(env, "SELECT COUNT(*) AS n FROM castle_weeks WHERE week_id = ? AND (pts > ? OR (pts = ? AND updated_at < ?))", wid, mine.pts, mine.pts, mine.updated_at)).n : 0;
+    return { top: top.map((r, i) => ({ rank: i + 1, username: r.username, pts: r.pts, waves: Math.floor(r.pts / 10000), prize: L.MG.weekPrize(i + 1) })), me: { rank, pts: mine ? mine.pts : 0 }, ends: wid + 7 * DAY, now };
+  },
   "POST /api/castle/finish": async (req, env, body) => {
     const u = await auth(req, env);
     const map = Number(body.map);
     if (!Number.isInteger(map) || !CASTLE.MAPS[map]) bad("badAction");
     const rows = await all(env, "SELECT map, stars, best_wave FROM castle_runs WHERE uid = ?", u.uid);
     if (map > 0 && !rows.some((x) => x.map === map - 1 && x.stars > 0)) bad("castle.locked");
-    const g = CASTLE.simulate(map, body.log);
+    const endless = !!body.endless;
+    const g = CASTLE.simulate(map, body.log, endless);
     if (g.error) bad("castle.log");
     const now = Date.now(), day = Math.floor(now / DAY), stars = CASTLE.stars(g), prev = rows.find((x) => x.map === map);
     let coins = 0, dates = 0, kind = "none";
+    if (endless) {
+      // Endless Siege: points for the weekly ranking, a small coin reward for the first runs of the day
+      const pts = CASTLE.score(g), wid = L.weekId(now), cl = CASTLE.cleared(g);
+      if (pts > 0) await run(env, `INSERT INTO castle_weeks (week_id, uid, pts, updated_at) VALUES (?, ?, ?, ?)
+        ON CONFLICT(week_id, uid) DO UPDATE SET pts = MAX(pts, excluded.pts), updated_at = CASE WHEN excluded.pts > pts THEN excluded.updated_at ELSE updated_at END`, wid, u.uid, pts, now);
+      const key = u.uid + ":e", d = await one(env, "SELECT n FROM castle_day WHERE uid = ? AND day = ?", key, day);
+      if (cl > 0 && ((d && d.n) || 0) < CASTLE_REWARD.ENDLESS_RUNS) { await run(env, "INSERT INTO castle_day (uid, day, n) VALUES (?, ?, 1) ON CONFLICT(uid, day) DO UPDATE SET n = n + 1", key, day); coins = cl * CASTLE_REWARD.ENDLESS_COINS; kind = "endless"; await giveReward(env, u.uid, "coins", coins, now, "castle"); }
+      return { endless: true, wave: cl, kills: g.kills, pts, coins, dates: 0, kind, now };
+    }
     if (g.won) {
       const R = CASTLE_REWARD.MAPS[Math.min(map, CASTLE_REWARD.MAPS.length - 1)];
       if (!prev || prev.stars === 0) { coins = Math.floor(R.coins * (1 + 0.25 * (stars - 1))); dates = R.dates; kind = "first"; }
@@ -3290,6 +3309,7 @@ const NOTE = {
   elected: { go: "rank", en: ["🏛️ You were elected to Parliament", "You hold seat {seat} this month. Open the Court to see the Parliament."], ar: ["🏛️ تم انتخابك في البرلمان", "لديك المقعد رقم {seat} هذا الشهر. افتح البلاط لترى البرلمان."], fr: ["🏛️ Tu as été élu au Parlement", "Tu occupes le siège {seat} ce mois-ci. Ouvre la Cour pour voir le Parlement."] },
   kweek: { go: "kombat", en: ["⚔️ Kombat tournament: #{p}", "Open Jerry Kombat to collect your prize."], ar: ["⚔️ بطولة كومبات: المركز {p}", "افتح جيري كومبات لتستلم جائزتك."], fr: ["⚔️ Tournoi Kombat : {p}e", "Ouvre Jerry Kombat pour récupérer ton prix."] },
   season: { go: "season", en: ["🏆 Season over: #{p}", "+{j} JRY points for your season rank."], ar: ["🏆 انتهى الموسم: المركز {p}", "+{j} نقطة JRY لترتيبك في الموسم."], fr: ["🏆 Saison terminée : {p}e", "+{j} points JRY pour ton rang de saison."] },
+  cweek: { go: "castle", en: ["🏰 Jerry Castle: #{p}", "+{d} dates for your place this week."], ar: ["🏰 قلعة جيري: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏰 Château de Jerry : {p}e", "+{d} dattes pour ta place cette semaine."] },
   mweek: { go: "merge", en: ["🐎 Horse Merge: #{p}", "+{d} dates for your place this week."], ar: ["🐎 دمج الخيل: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🐎 Fusion de chevaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   dweek: { go: "derby", en: ["🏁 Camel Derby: #{p}", "+{d} dates for your place this week."], ar: ["🏁 سباق الجمال: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏁 Course de chameaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   sold: { go: "market", en: ["💰 Your offer sold", "+{pi} Pi added to your sales balance."], ar: ["💰 تم بيع عرضك", "+{pi} Pi أُضيفت إلى رصيد مبيعاتك."], fr: ["💰 Ton offre est vendue", "+{pi} Pi ajoutés à ton solde de ventes."] },
@@ -3391,6 +3411,20 @@ async function achView(env, u) {
   const x = { streak: sr && sr.last >= today - 1 ? sr.n : 0, house: !!(await one(env, "SELECT 1 AS x FROM house_members WHERE uid = ?", u.uid)), supporter: (await paidOf(env, u.uid)) > 0 };
   const f = L.achFacts(s, x), got = new Set((await all(env, "SELECT id FROM ach WHERE uid = ?", u.uid)).map((r) => r.id));
   return { list: L.ACH.map((a) => ({ id: a.id, e: a.e, jry: a.jry, done: !!a.t(f), claimed: got.has(a.id) })) };
+}
+async function grantCastleWeek(env) {
+  await ensureSchema(env);
+  const now = Date.now(), last = L.weekId(now - 7 * DAY);
+  const g = await run(env, "INSERT OR IGNORE INTO castle_week_paid (week_id, at) VALUES (?, ?)", last, now);
+  if (!g.meta.changes) return 0;
+  const top = await all(env, "SELECT uid FROM castle_weeks WHERE week_id = ? AND pts > 0 ORDER BY pts DESC, updated_at ASC LIMIT 100", last);
+  for (let i = 0; i < top.length; i++) {
+    const w = L.MG.weekPrize(i + 1);
+    if (w.dates) await creditPoints(env, top[i].uid, "dates", w.dates, now, "castleweek");
+    if (w.jry) await giveReward(env, top[i].uid, "jry", w.jry, now, "castleweek");
+  }
+  await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "cweek", ref: last, vars: { p: i + 1, d: L.MG.weekPrize(i + 1).dates.toLocaleString("en-US") } })));
+  return top.length;
 }
 async function grantMergeWeek(env) {
   await ensureSchema(env);
@@ -4101,6 +4135,7 @@ export default {
         .catch((e) => logError(env, "weekly camels", 0, e.message))
         .then(() => grantDerbyWeek(env))
         .then(() => grantMergeWeek(env))
+        .then(() => grantCastleWeek(env))
         .then(() => grantSeasonPrizes(env))
         .then(() => grantArenaWeek(env))
         .then(() => arenaSweep(env))

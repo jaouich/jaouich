@@ -3,12 +3,15 @@
 // player's action log to decide the real result and the rewards). Integer maths only, fixed 100 ms steps,
 // no randomness: the same actions always give the same game.
 (function (root) {
-  const W = 9, H = 13, TICK_MS = 100, WAVES = 20, CASTLE_HP = 20, START_GOLD = 120, MAX_TOWERS = 24, MAX_TICKS = 24000, SELL = 0.7;
+  const W = 9, H = 13, TICK_MS = 100, WAVES = 20, CASTLE_HP = 20, START_GOLD = 120, MAX_TOWERS = 24, MAX_TICKS = 24000, SELL = 0.7, ENDLESS_WAVES = 60, ENDLESS_TICKS = 48000;
   // Roads are given by their corners; every step is one cell. The last cell is the castle.
   const ROADS = [
     { id: "oasis", pts: [[0, 0], [8, 0], [8, 3], [1, 3], [1, 6], [8, 6], [8, 9], [1, 9], [1, 12], [4, 12]] },
     { id: "canyon", pts: [[8, 0], [8, 2], [0, 2], [0, 4], [6, 4], [6, 6], [2, 6], [2, 8], [8, 8], [8, 10], [4, 10], [4, 12]] },
     { id: "gate", pts: [[4, 0], [4, 2], [1, 2], [1, 5], [7, 5], [7, 8], [2, 8], [2, 11], [4, 11], [4, 12]] },
+    { id: "dunes", pts: [[0, 0], [8, 0], [8, 2], [0, 2], [0, 4], [8, 4], [8, 6], [0, 6], [0, 8], [8, 8], [8, 10], [0, 10], [0, 12], [4, 12]] },
+    { id: "ruins", pts: [[0, 1], [7, 1], [7, 4], [2, 4], [2, 7], [6, 7], [6, 10], [1, 10], [1, 12], [4, 12]] },
+    { id: "storm", pts: [[0, 0], [8, 0], [8, 12], [0, 12], [0, 2], [6, 2], [6, 10], [2, 10], [2, 4], [4, 4]] },
   ];
   function expand(pts) {
     const out = [pts[0].slice()];
@@ -19,7 +22,7 @@
     }
     return out;
   }
-  const DIFF = [100, 140, 170]; // enemy strength in percent, per map
+  const DIFF = [100, 140, 170, 200, 235, 270]; // enemy strength in percent, per map
   const MAPS = ROADS.map((r, i) => { const path = expand(r.pts); return { id: r.id, diff: DIFF[i] || 100, path, key: new Set(path.map((p) => p[0] + "," + p[1])) }; });
 
   // speed in 1/100 cell per step; leak = castle damage; gold = reward for a kill
@@ -35,6 +38,8 @@
     cannon: { cost: 50, up: [60, 90], dmg: [14, 24, 40], range: [220, 240, 260], reload: [8, 8, 7] },
     archer: { cost: 40, up: [50, 80], dmg: [5, 9, 15], range: [300, 320, 340], reload: [3, 3, 2] },
     mortar: { cost: 90, up: [100, 140], dmg: [34, 56, 90], range: [350, 370, 390], reload: [18, 17, 16], splash: [110, 130, 150] },
+    tesla: { cost: 110, up: [120, 170], dmg: [12, 20, 32], range: [240, 260, 280], reload: [9, 8, 8], chain: [3, 3, 4], hop: 110 },
+    poison: { cost: 70, up: [80, 120], dmg: [1, 1, 2], range: [260, 280, 300], reload: [12, 11, 10], pdmg: [3, 5, 8], pTicks: 30 },
     frost: { cost: 60, up: [70, 100], dmg: [2, 3, 5], range: [230, 250, 270], reload: [6, 6, 5], slow: [40, 50, 60], slowTicks: 15 },
   };
   const KINDS = Object.keys(TOWER);
@@ -51,9 +56,9 @@
   const hpScale = (n) => 100 + 22 * (n - 1) + 3 * (n - 1) * (n - 1); // percent
   const waveBonus = (n) => 30 + 5 * n;
 
-  function newGame(map) {
+  function newGame(map, endless) {
     if (!MAPS[map]) throw new Error("bad map");
-    return { map, tick: 0, wave: 0, queue: [], enemies: [], towers: [], gold: START_GOLD, hp: CASTLE_HP, over: false, won: false, nextId: 1, kills: 0, cleared: true };
+    return { endless: !!endless, map, tick: 0, wave: 0, queue: [], enemies: [], towers: [], gold: START_GOLD, hp: CASTLE_HP, over: false, won: false, nextId: 1, kills: 0, cleared: true };
   }
   const invested = (t) => TOWER[t.kind].cost + TOWER[t.kind].up.slice(0, t.lvl - 1).reduce((a, b) => a + b, 0);
 
@@ -71,7 +76,7 @@
       return null;
     }
     if (a.a === "wave") {
-      if (s.wave >= WAVES || s.queue.length) return "wave";
+      if (s.wave >= (s.endless ? ENDLESS_WAVES : WAVES) || s.queue.length) return "wave";
       s.wave++;
       let delay = 0;
       for (const [type, n] of waveOf(s.wave)) for (let i = 0; i < n; i++) { s.queue.push({ type, at: s.tick + delay }); delay += 6; }
@@ -113,6 +118,7 @@
     // towers shoot the enemy that is furthest along the road
     const cell = (e) => { const i = Math.min(M.path.length - 1, Math.floor(e.pos / 100)), p = M.path[i], n = M.path[Math.min(M.path.length - 1, i + 1)], f = e.pos % 100; return [p[0] * 100 + 50 + Math.floor(((n[0] - p[0]) * f)), p[1] * 100 + 50 + Math.floor(((n[1] - p[1]) * f))]; };
     if (s.enemies.length && s.towers.length) {
+      if (s.tick % 5 === 0) for (const e of s.enemies) if (e.pUntil > s.tick) e.hp -= e.pdmg;
       const pts = s.enemies.map(cell);
       for (const t of s.towers) {
         if (t.cd > 0) { t.cd--; continue; }
@@ -131,8 +137,17 @@
         if (T.splash) {
           const sr = T.splash[t.lvl - 1], cx = pts[best][0], cy = pts[best][1];
           s.enemies.forEach((e, i) => { const dx = pts[i][0] - cx, dy = pts[i][1] - cy; if (e.hp > 0 && dx * dx + dy * dy <= sr * sr) e.hp -= d; });
+        } else if (T.chain) {
+          s.enemies[best].hp -= d;
+          let hit = 1;
+          for (let i = 0; i < s.enemies.length && hit < T.chain[t.lvl - 1]; i++) {
+            if (i === best || s.enemies[i].hp <= 0) continue;
+            const dx = pts[i][0] - pts[best][0], dy = pts[i][1] - pts[best][1];
+            if (dx * dx + dy * dy <= T.hop * T.hop) { s.enemies[i].hp -= Math.floor((d * 7) / 10); hit++; }
+          }
         } else {
           s.enemies[best].hp -= d;
+          if (T.pdmg) { const e = s.enemies[best]; e.pdmg = Math.max(e.pdmg || 0, T.pdmg[t.lvl - 1]); e.pUntil = s.tick + T.pTicks; }
           if (T.slow) { const e = s.enemies[best]; e.slow = Math.max(e.slow, T.slow[t.lvl - 1]); e.slowUntil = s.tick + T.slowTicks; }
         }
       }
@@ -142,26 +157,28 @@
     // wave finished
     if (!s.cleared && !s.queue.length && !s.enemies.length) {
       s.cleared = true; s.gold += waveBonus(s.wave);
-      if (s.wave >= WAVES) { s.over = true; s.won = true; }
+      if (s.wave >= (s.endless ? ENDLESS_WAVES : WAVES)) { s.over = true; s.won = true; }
     }
     return s;
   }
+  const cleared = (s) => (s.cleared ? s.wave : Math.max(0, s.wave - 1));
+  const score = (s) => cleared(s) * 10000 + Math.min(9999, s.kills); // endless ranking points
   const stars = (s) => (!s.won ? 0 : s.hp >= 18 ? 3 : s.hp >= 10 ? 2 : 1);
 
   // Replays an action log [[tick, action], ...] (ticks never go backwards). Returns the final game or { error }.
-  function simulate(map, log) {
-    const s = newGame(map);
+  function simulate(map, log, endless) {
+    const s = newGame(map, endless), maxTicks = endless ? ENDLESS_TICKS : MAX_TICKS;
     let i = 0;
     log = Array.isArray(log) ? log : [];
-    if (log.length > 600) return { error: "log" };
+    if (log.length > (endless ? 1500 : 600)) return { error: "log" };
     let prev = 0;
-    for (const e of log) { if (!Array.isArray(e) || !(e[0] >= prev) || e[0] > MAX_TICKS || typeof e[1] !== "object") return { error: "log" }; prev = e[0]; }
-    while (!s.over && s.tick < MAX_TICKS) {
+    for (const e of log) { if (!Array.isArray(e) || !(e[0] >= prev) || e[0] > maxTicks || typeof e[1] !== "object") return { error: "log" }; prev = e[0]; }
+    while (!s.over && s.tick < maxTicks) {
       while (i < log.length && log[i][0] <= s.tick) { const bad = act(s, log[i][1] || {}); if (bad) return { error: bad, at: i }; i++; }
       if (i >= log.length && !s.queue.length && !s.enemies.length) break; // nothing left to happen
       step(s);
     }
     return s;
   }
-  root.CastleLogic = { W, H, TICK_MS, WAVES, CASTLE_HP, START_GOLD, MAX_TOWERS, SELL, MAPS, ENEMY, TOWER, KINDS, waveOf, hpScale, waveBonus, newGame, act, step, stars, simulate, invested };
+  root.CastleLogic = { ENDLESS_WAVES, cleared, score, W, H, TICK_MS, WAVES, CASTLE_HP, START_GOLD, MAX_TOWERS, SELL, MAPS, ENEMY, TOWER, KINDS, waveOf, hpScale, waveBonus, newGame, act, step, stars, simulate, invested };
 })(typeof globalThis !== "undefined" ? globalThis : this);

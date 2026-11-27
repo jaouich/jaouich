@@ -8,15 +8,19 @@
   const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const fmtN = (n) => Number(n).toLocaleString("en-US");
   const EMO = { soldier: "🪖", runner: "🏃", shield: "🛡️", rider: "🐎", boss: "👹" };
-  const TEMO = { cannon: "💣", archer: "🏹", mortar: "🔥", frost: "❄️" };
-  const TCOL = { cannon: "#8d6e63", archer: "#43a047", mortar: "#e64a19", frost: "#29b6f6" };
-  let open = false, screen = "maps", prog = null, map = 0, S = null, log = [], kind = "cannon", sel = null, speed = 1, paused = false;
+  const TEMO = { cannon: "💣", archer: "🏹", mortar: "🔥", frost: "❄️", tesla: "⚡", poison: "☠️" };
+  const TCOL = { cannon: "#8d6e63", archer: "#43a047", mortar: "#e64a19", frost: "#29b6f6", tesla: "#7e57c2", poison: "#7cb342" };
+  let endless = false, board = null, open = false, screen = "maps", prog = null, map = 0, S = null, log = [], kind = "cannon", sel = null, speed = 1, paused = false;
   let raf = 0, last = 0, acc = 0, cv = null, ctx = null, cell = 40, result = null, sending = false;
 
   async function load() {
     if (!G.account) { prog = null; return render(); }
-    try { prog = await Pi.castle(); } catch (e) { G.toast(e.message); }
+    try { prog = await Pi.castle(); board = await Pi.castleTop(); } catch (e) { G.toast(e.message); }
     render();
+  }
+  function rankHtml() {
+    if (!board) return "";
+    return `<h4>🏆 ${t("cs.top")}</h4><p class="jm-note">${board.me.rank ? t("cs.me", { r: board.me.rank, w: Math.floor(board.me.pts / 10000) }) : t("cs.me0")}</p>` + (board.top.length ? board.top.slice(0, 20).map((x) => `<div class="ct-row"><i>${x.rank}</i><span><b>${esc(x.username)}</b><small>${x.prize.dates ? "+" + fmtN(x.prize.dates) + " 🌴" : ""}${x.prize.jry ? " · +" + x.prize.jry + " JRY" : ""}</small></span><em dir="ltr">${t("cs.wave")} ${x.waves}</em></div>`).join("") : `<p class="jm-note">${t("ct.empty")}</p>`);
   }
   const star = (n) => "★".repeat(n) + "☆".repeat(3 - n);
 
@@ -25,8 +29,8 @@
     if (el.classList.contains("hidden")) return;
     if (screen === "maps") {
       const body = !G.account ? `<p class="jm-note">${t("t.loginFirst")}</p>` : !prog ? `<p class="jm-note">…</p>`
-        : `<p class="jm-note">${t("cs.how")}</p>` + CL.MAPS.map((m, i) => { const p = prog.maps[i]; return `<button class="cs-map ${p.open ? "" : "lock"}" data-cs="map" data-i="${i}" ${p.open ? "" : "disabled"}><i>${p.open ? "🏰" : "🔒"}</i><span><b>${t("cs.map." + m.id)}</b><small>${p.open ? t("cs.best", { w: p.best, n: CL.WAVES }) : t("cs.locked")}</small></span><em dir="ltr">${star(p.stars)}</em></button>`; }).join("")
-          + `<p class="jm-note">${t("cs.rewards", { n: prog.replaysLeft })}</p>`;
+        : `<p class="jm-note">${t("cs.how")}</p>` + CL.MAPS.map((m, i) => { const p = prog.maps[i]; return `<button class="cs-map ${p.open ? "" : "lock"}" data-cs="map" data-i="${i}" ${p.open ? "" : "disabled"}><i>${p.open ? "🏰" : "🔒"}</i><span><b>${t("cs.map." + m.id)}</b><small>${p.open ? t("cs.best", { w: p.best, n: CL.WAVES }) : t("cs.locked")}</small></span><em dir="ltr">${star(p.stars)}</em></button>${p.open ? `<button class="cs-endless" data-cs="endless" data-i="${i}">♾️ ${t("cs.endless")}</button>` : ""}`; }).join("")
+          + `<p class="jm-note">${t("cs.rewards", { n: prog.replaysLeft })}</p><p class="jm-note">${t("cs.endlessD")}</p>` + rankHtml();
       el.innerHTML = `<header class="jm-head"><button class="jm-back" data-cs="close">‹ ${t("jm.back")}</button><b>🏰 ${t("cs.t")}</b><span></span></header><div class="jm-body">${body}</div>`;
       return;
     }
@@ -45,8 +49,8 @@
     draw(); hud();
   }
 
-  function startGame(i) {
-    map = i; S = CL.newGame(i); log = []; sel = null; result = null; kind = "cannon"; speed = 1; paused = false; sending = false; screen = "game";
+  function startGame(i, e) {
+    endless = !!e; map = i; S = CL.newGame(i, endless); log = []; sel = null; result = null; kind = "cannon"; speed = 1; paused = false; sending = false; screen = "game";
     render(); last = performance.now(); acc = 0; cancelAnimationFrame(raf); raf = requestAnimationFrame(loop);
   }
   function loop(now) {
@@ -63,8 +67,8 @@
   function hud() {
     if (!S || !$("csGold")) return;
     $("csGold").textContent = "🪙 " + S.gold; $("csHp").textContent = "❤️ " + S.hp;
-    $("csWave").textContent = `${t("cs.wave")} ${S.wave}/${CL.WAVES}`;
-    const go = document.querySelector(".cs-go"); if (go) go.disabled = S.over || S.queue.length > 0 || S.wave >= CL.WAVES;
+    $("csWave").textContent = S.endless ? `♾️ ${t("cs.wave")} ${S.wave}` : `${t("cs.wave")} ${S.wave}/${CL.WAVES}`;
+    const go = document.querySelector(".cs-go"); if (go) go.disabled = S.over || S.queue.length > 0 || S.wave >= (S.endless ? CL.ENDLESS_WAVES : CL.WAVES);
     const p = $("csPanel"), tw = sel && S.towers.find((q) => q.x === sel.x && q.y === sel.y);
     const key = tw ? tw.kind + tw.lvl + (S.gold >= (CL.TOWER[tw.kind].up[tw.lvl - 1] || 1e9)) : "";
     if (p.dataset.k !== key) {
@@ -88,12 +92,12 @@
   async function end() {
     const won = S.won;
     $("csOver").classList.remove("hidden");
-    $("csOver").innerHTML = `<div class="cs-res"><h2>${won ? "🏆 " + t("cs.win") : "💥 " + t("cs.lose")}</h2><p>${t("cs.wave")} ${S.wave}/${CL.WAVES} · ${star(CL.stars(S))}</p><p id="csRew" class="jm-note">…</p><div class="cs-btns"><button class="btn gold" data-cs="again">${t("cs.again")}</button><button class="btn secondary" data-cs="leave">${t("cs.maps")}</button></div></div>`;
+    $("csOver").innerHTML = `<div class="cs-res"><h2>${S.endless ? "♾️ " + t("cs.endlessOver") : won ? "🏆 " + t("cs.win") : "💥 " + t("cs.lose")}</h2><p>${S.endless ? t("cs.wavesDone", { n: CL.cleared(S), k: S.kills }) : `${t("cs.wave")} ${S.wave}/${CL.WAVES} · ${star(CL.stars(S))}`}</p><p id="csRew" class="jm-note">…</p><div class="cs-btns"><button class="btn gold" data-cs="again">${t("cs.again")}</button><button class="btn secondary" data-cs="leave">${t("cs.maps")}</button></div></div>`;
     if (sending) return; sending = true;
     try {
-      const r = await Pi.castleFinish(map, log);
+      const r = await Pi.castleFinish(map, log, S.endless);
       const parts = [r.coins ? "+" + fmtN(r.coins) + " 🪙" : "", r.dates ? "+" + fmtN(r.dates) + " 🌴" : ""].filter(Boolean);
-      if ($("csRew")) $("csRew").textContent = parts.length ? t("cs.got", { r: parts.join(" · ") }) : won ? t("cs.noMore") : t("cs.tryAgain");
+      if ($("csRew")) $("csRew").textContent = r.endless ? t("cs.endlessGot", { p: fmtN(r.pts), r: parts.join(" · ") || "-" }) : parts.length ? t("cs.got", { r: parts.join(" · ") }) : won ? t("cs.noMore") : t("cs.tryAgain");
       const me = await Pi.me(); G.setAccount(me.account); G.S = me.state; G.render();
     } catch (e) { if ($("csRew")) $("csRew").textContent = e.message; }
     load();
@@ -119,7 +123,7 @@
       ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
       ctx.font = c * 0.5 + "px sans-serif"; ctx.fillText(TEMO[tw.kind], px, py);
       ctx.fillStyle = "#ffd34d"; for (let i = 0; i < tw.lvl; i++) ctx.fillRect(px - c * 0.3 + i * c * 0.22, py + c * 0.3, c * 0.16, c * 0.1);
-      if (tw.shot && S.tick - tw.shot <= 1 && tw.aim) { ctx.strokeStyle = tw.kind === "frost" ? "#81d4fa" : "#fff59d"; ctx.lineWidth = tw.kind === "mortar" ? 4 : 2; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tw.aim[0] * c / 100, tw.aim[1] * c / 100); ctx.stroke(); }
+      if (tw.shot && S.tick - tw.shot <= 1 && tw.aim) { ctx.strokeStyle = tw.kind === "frost" ? "#81d4fa" : tw.kind === "tesla" ? "#d1c4e9" : tw.kind === "poison" ? "#aed581" : "#fff59d"; ctx.lineWidth = tw.kind === "mortar" ? 4 : 2; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tw.aim[0] * c / 100, tw.aim[1] * c / 100); ctx.stroke(); }
     }
     ctx.font = c * 0.62 + "px sans-serif";
     for (const e of S.enemies) {
@@ -135,9 +139,10 @@
     const b = e.target.closest("[data-cs]"); if (!b) return;
     const a = b.dataset.cs;
     if (a === "close") { open = false; cancelAnimationFrame(raf); $("castle").classList.add("hidden"); }
-    else if (a === "map") startGame(Number(b.dataset.i));
+    else if (a === "map") startGame(Number(b.dataset.i), false);
+    else if (a === "endless") startGame(Number(b.dataset.i), true);
     else if (a === "leave") { if (S && !S.over && log.length && !confirm(t("cs.leave"))) return; cancelAnimationFrame(raf); screen = "maps"; S = null; render(); load(); }
-    else if (a === "again") startGame(map);
+    else if (a === "again") startGame(map, endless);
     else if (a === "kind") { kind = b.dataset.k; document.querySelectorAll(".cs-bar [data-k]").forEach((x) => x.classList.toggle("on", x.dataset.k === kind)); }
     else if (a === "wave") { if (S && !S.over) act({ a: "wave" }); }
     else if (a === "up" && sel) act({ a: "up", x: sel.x, y: sel.y });

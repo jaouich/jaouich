@@ -1685,3 +1685,6 @@ main { overflow-x: hidden; }
 .hub-more > summary::-webkit-details-marker { display: none; }
 .hub-more > summary::after { content: " ▾"; } .hub-more[open] > summary::after { content: " ▴"; }
 .hub-more[open] > summary { margin-bottom: 10px; }
+
+/* ---- Castle endless button ---- */
+.cs-endless { display: block; width: 100%; margin: -4px 0 10px; padding: 9px; border: 0; border-radius: 12px; background: linear-gradient(135deg, #6a3fb5, #3a1f7a); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }

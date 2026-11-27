@@ -168,6 +168,7 @@ table.t tr:last-child td{border-bottom:0}
 .login .card{width:min(420px,100%);padding:24px}
 .login .brand{display:flex;gap:12px;align-items:center;margin-bottom:18px}
 .login .brand img{width:48px;height:48px;border-radius:12px}
+.login .brand{flex-wrap:wrap}.login .brand .grow{min-width:max-content}.login .brand select{flex:none;width:auto;margin-left:auto}
 .pw{font:700 22px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.06em;background:var(--soft);padding:12px;border-radius:12px;text-align:center;user-select:all}
 .spinner{width:18px;height:18px;border:2.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}

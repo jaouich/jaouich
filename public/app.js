@@ -408,7 +408,7 @@ async function showLogin() {
       t(a.role === 'admin' ? 'demoAdmin' : 'demoRep'))),
     h('span', { class: 'small muted' }, `${st.demo.accounts.map((a) => a.login).join(' / ')} · ${st.demo.accounts[0].password}`)) : null;
   app().replaceChildren(h('div', { class: 'login' }, h('div', { class: 'card' },
-    h('div', { class: 'brand' }, h('img', { src: '/logo.png', alt: '' }), h('div', { class: 'grow' }, h('b', { style: 'font-size:19px;display:block' }, 'MAGISALESFORCE'), h('span', { class: 'muted small' }, (st.settings && st.settings.company) || 'Magiscom Tech')), langSel),
+    h('div', { class: 'brand' }, h('img', { src: '/logo.png', alt: '' }), h('div', { class: 'grow' }, h('b', { style: 'font-size:17px;display:block;letter-spacing:-.01em' }, 'MAGISALESFORCE'), h('span', { class: 'muted small' }, (st.settings && st.settings.company) || 'Magiscom Tech')), langSel),
     demoBox, form)));
   if (!demoBox) setTimeout(() => (setup ? f.code || f.company : f.login).focus(), 50);
 }

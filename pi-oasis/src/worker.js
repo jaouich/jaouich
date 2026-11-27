@@ -178,6 +178,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS merge_weeks ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, pts INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE TABLE IF NOT EXISTS merge_week_paid ( week_id INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS merge_claims ( uid TEXT NOT NULL, lvl INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, lvl) )",
+  "CREATE TABLE IF NOT EXISTS login_streak ( uid TEXT PRIMARY KEY, last INTEGER NOT NULL, n INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS ach ( uid TEXT NOT NULL, id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, id) )",
   "CREATE TABLE IF NOT EXISTS castle_day ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
   "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
@@ -993,6 +995,39 @@ const routes = {
 
   // Jerry Kombat ranking. All time: coins held now (the league follows them).
   // ?week=1: this week's tournament (coins earned since Monday) + my prize from last week.
+  // ---------- Daily login streak and achievements ----------
+  "GET /api/streak": async (req, env) => {
+    const u = await auth(req, env), today = Math.floor(Date.now() / DAY);
+    const r = await one(env, "SELECT last, n FROM login_streak WHERE uid = ?", u.uid);
+    const alive = r && r.last >= today - 1, n = alive ? r.n : 0;
+    const claimed = !!(r && r.last === today), next = claimed ? r.n : n + 1;
+    return { n, claimed, day: ((next - 1) % 7) + 1, rewards: L.STREAK7 };
+  },
+  "POST /api/streak/claim": async (req, env) => {
+    const u = await auth(req, env), now = Date.now(), today = Math.floor(now / DAY);
+    const r = await one(env, "SELECT last, n FROM login_streak WHERE uid = ?", u.uid);
+    if (r && r.last === today) bad("st.done");
+    const n = r && r.last === today - 1 ? r.n + 1 : 1;
+    const g = r ? await run(env, "UPDATE login_streak SET last = ?, n = ? WHERE uid = ? AND last < ?", today, n, u.uid, today) : await run(env, "INSERT OR IGNORE INTO login_streak (uid, last, n) VALUES (?, ?, ?)", u.uid, today, n);
+    if (!g.meta.changes) bad("st.done");
+    const d = ((n - 1) % 7) + 1, out = { ok: true, n, day: d, dates: L.STREAK7.DATES[d - 1], jry: 0, spins: 0 };
+    await giveReward(env, u.uid, "dates", out.dates, now, "streak");
+    if (d === 7) { out.jry = L.STREAK7.JRY7; out.spins = L.STREAK7.SPINS7; await giveReward(env, u.uid, "jry", out.jry, now, "streak"); await giveReward(env, u.uid, "spins", out.spins, now, "streak"); }
+    return out;
+  },
+  "GET /api/ach": async (req, env) => achView(env, await auth(req, env)),
+  "POST /api/ach/claim": async (req, env) => {
+    const u = await auth(req, env), now = Date.now(), v = await achView(env, u);
+    let got = 0, jry = 0;
+    for (const a of v.list) {
+      if (!a.done || a.claimed) continue;
+      const r = await run(env, "INSERT OR IGNORE INTO ach (uid, id, at) VALUES (?, ?, ?)", u.uid, a.id, now);
+      if (r.meta.changes) { got++; jry += a.jry; await giveReward(env, u.uid, "jry", a.jry, now, "ach"); }
+    }
+    if (!got) bad("ach.none");
+    return { ok: true, got, jry };
+  },
+
   // ---------- Horse Merge: the game itself runs in the main state (actions mg*); this is ranking and milestone rewards ----------
   "GET /api/merge": async (req, env) => {
     const u = await auth(req, env), now = Date.now(), wid = L.weekId(now);
@@ -3300,6 +3335,14 @@ async function derbyGrant(env, uid, item, now) {
   }
 }
 // Last week's Derby: dates for the top 100 by trophies (given once)
+async function achView(env, u) {
+  const st = await one(env, "SELECT json FROM state WHERE uid = ?", u.uid);
+  let s = {}; try { s = JSON.parse((st && st.json) || "{}"); } catch {}
+  const today = Math.floor(Date.now() / DAY), sr = await one(env, "SELECT last, n FROM login_streak WHERE uid = ?", u.uid);
+  const x = { streak: sr && sr.last >= today - 1 ? sr.n : 0, house: !!(await one(env, "SELECT 1 AS x FROM house_members WHERE uid = ?", u.uid)), supporter: (await paidOf(env, u.uid)) > 0 };
+  const f = L.achFacts(s, x), got = new Set((await all(env, "SELECT id FROM ach WHERE uid = ?", u.uid)).map((r) => r.id));
+  return { list: L.ACH.map((a) => ({ id: a.id, e: a.e, jry: a.jry, done: !!a.t(f), claimed: got.has(a.id) })) };
+}
 async function grantMergeWeek(env) {
   await ensureSchema(env);
   const now = Date.now(), last = L.weekId(now - 7 * DAY);

@@ -109,3 +109,6 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - Runs inside the main state (`s.merge`: 20-cell grid, best level, merges, weekly points) with actions `mgBuy`, `mgDrop` (move / swap / merge equal levels), `mgSell`, `mgCollect` in `public/logic.js` (`OasisLogic.MG`). Income x1.8 per level (6 dates/h at level 1), storage 6 h, new horse cost x1.25 per best level, sell price fixed so there is no profit loop. No maximum level.
 - Ranking: `merge_weeks` (points = 2^(level-1) per merge), top 100 paid by cron `grantMergeWeek` (dates + JRY points, notification `mweek`). Milestone rewards every 5th best level: `merge_claims`, `GET /api/merge`, `POST /api/merge/claim`.
 - UI: `public/merge.js`, overlay `#merge`, hub banner `#mergeOpen`, deep link `?go=merge`. Tests: `tests/merge.mjs` (20).
+
+## Daily streak + achievements (step 3)
+- Streak: `login_streak`, `GET /api/streak`, `POST /api/streak/claim` (7-day cycle: 100/150/200/300/400/500/1000 dates, day 7 also 20 JRY points + a wheel spin; a missed day resets). Achievements: `ach` table, 16 badges (`OasisLogic.ACH`, conditions from the server state), 10 JRY points each, `GET /api/ach`, `POST /api/ach/claim`. UI `public/ach.js` (bar `#achBar`, page `#ach`). Tests `tests/streak.mjs` (12).

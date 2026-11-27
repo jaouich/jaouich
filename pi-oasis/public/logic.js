@@ -244,6 +244,18 @@
     view(xp) { const lv = this.level(xp), a = this.need(lv), b = this.need(lv + 1); return { lv, xp: xp || 0, cur: (xp || 0) - a, span: b - a, next: b }; },
   };
 
+  // 🔥 Daily login streak and achievements (checked and paid by the server only)
+  const STREAK7 = { DATES: [100, 150, 200, 300, 400, 500, 1000], JRY7: 20, SPINS7: 1 };
+  const ACH = [
+    { id: "lv5", e: "🌱", t: (f) => f.level >= 5 }, { id: "lv10", e: "🌴", t: (f) => f.level >= 10 }, { id: "lv20", e: "👑", t: (f) => f.level >= 20 },
+    { id: "merge1", e: "🐎", t: (f) => f.merges >= 1 }, { id: "merge50", e: "🐴", t: (f) => f.merges >= 50 }, { id: "mbest5", e: "🦄", t: (f) => f.mbest >= 5 }, { id: "mbest10", e: "🐉", t: (f) => f.mbest >= 10 },
+    { id: "palm5", e: "🌴", t: (f) => f.palm >= 5 }, { id: "palm20", e: "🌟", t: (f) => f.palm >= 20 },
+    { id: "camels5", e: "🐪", t: (f) => f.camels >= 5 }, { id: "legend", e: "🐫", t: (f) => f.legend },
+    { id: "streak3", e: "🔥", t: (f) => f.streak >= 3 }, { id: "streak7", e: "🔥", t: (f) => f.streak >= 7 }, { id: "streak30", e: "🏅", t: (f) => f.streak >= 30 },
+    { id: "house", e: "🏛️", t: (f) => f.house }, { id: "supporter", e: "💛", t: (f) => f.supporter },
+  ].map((a) => ({ ...a, jry: 10 }));
+  const achFacts = (s, x) => ({ level: LV.level(s.xp || 0), merges: (s.merge && s.merge.merges) || 0, mbest: (s.merge && s.merge.best) || 1, palm: (s.palm && s.palm.lv) || 0, camels: (s.animals || []).length, legend: (s.animals || []).some((a) => a.rarity === 3), streak: x.streak || 0, house: !!x.house, supporter: !!x.supporter });
+
   // 🐎 Horse Merge: two equal horses make the next level, with no maximum level. Lives inside the main state (uses the same dates).
   const MG = {
     CELLS: 20, STORE_H: 6, BASE: 30, SELL: 15,
@@ -740,6 +752,6 @@
   COURT.titleOf = (rank, paid) => (rank >= 1 && rank <= COURT.SEATS ? (rank <= 3 ? COURT.TITLES[rank - 1] : COURT.TITLES[3]) : paid > 0 ? COURT.notable : COURT.citizen);
   COURT.voteWeight = (paid) => 1 + Math.min(COURT.VOTE.CAP, Math.max(0, Number(paid) || 0));
   COURT.phase = (t) => { const d = new Date(t).getUTCDate(), P = COURT.PARLIAMENT; return d >= P.RESULTS_FROM ? "results" : d >= P.VOTING[0] ? "voting" : "candidacy"; };
-  const api = { LV, MG, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { LV, MG, STREAK7, ACH, achFacts, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

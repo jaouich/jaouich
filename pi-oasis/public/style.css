@@ -1663,3 +1663,15 @@ main { overflow-x: hidden; }
 .mg-cell i { font-style: normal; font-size: 34px; } .mg-cell b { position: absolute; right: 6px; bottom: 3px; font-size: .75rem; color: #ffd86b; }
 .mg-sel { min-height: 24px; text-align: center; font-weight: 700; }
 .mg-btns { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+
+/* ---- Streak and achievements ---- */
+.ach-bar { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; margin: 8px 0; padding: 10px 12px; border: 0; border-radius: 18px; background: linear-gradient(135deg, #e8590c, #a3300a); color: #fff; font: inherit; text-align: start; cursor: pointer; box-shadow: 0 4px 0 #6d1f05; }
+.ach-bar.hidden { display: none; } .ach-bar i { font-style: normal; font-size: 28px; } .ach-bar span { flex: 1; display: flex; flex-direction: column; } .ach-bar small { opacity: .9; font-size: .75rem; }
+.ach-bar .dot { width: 12px; height: 12px; border-radius: 50%; background: #ffd86b; box-shadow: 0 0 0 3px rgba(255,216,107,.4); }
+.ach-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.ach-day { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 10px; background: rgba(255,255,255,.08); text-align: center; font-size: .6rem; overflow: hidden; }
+.ach-day b { font-size: 18px; } .ach-day.done { background: rgba(255,216,107,.25); opacity: .8; } .ach-day.now { outline: 2px solid #ffd86b; background: rgba(255,216,107,.18); }
+.ach-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+.ach-card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px; border-radius: 14px; background: rgba(255,255,255,.06); text-align: center; opacity: .55; }
+.ach-card i { font-style: normal; font-size: 26px; } .ach-card b { font-size: .78rem; } .ach-card small { color: #ffd86b; }
+.ach-card.ready { opacity: 1; outline: 2px solid #ffd86b; } .ach-card.got { opacity: 1; background: rgba(76,175,80,.25); }

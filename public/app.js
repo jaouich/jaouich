@@ -128,6 +128,30 @@ Object.assign(T.en, {
   speakerC: 'Sales rep', speakerK: 'Client', 'a_ai.transcribe': 'Voice note transcribed', 'a_ai.meeting': 'Meeting analysed', expVisits: 'Activities and reports', recent: 'Recent activity', noVisits: 'No activity yet.',
 });
 // thèmes : choisis par chaque utilisateur sur son appareil, ou imposés par défaut par la direction
+Object.assign(T.fr, {
+  magi: 'Assistant Magi', magiHi: 'Bonjour {n} ! Je suis Magi. Écrivez ou parlez : je trouve un client, je planifie un rendez-vous, je crée une fiche ou une affaire, je réponds sur votre activité.',
+  magiPh: 'Écrivez ou parlez…', magiSend: 'Envoyer', magiMic: 'Parler', magiListening: 'Je vous écoute… touchez pour arrêter', magiThinking: 'Magi réfléchit…', magiHear: 'Je transcris…',
+  magiVoiceOn: 'Réponses à voix haute : activées', magiVoiceOff: 'Réponses à voix haute : désactivées', magiDone: 'C’est fait ✅', magiOpen: 'Ouvrir la fiche', magiNew: 'Nouvelle conversation',
+  magiS1: 'Mes rendez-vous de demain', magiS2: 'Clients pas visités depuis 30 jours', magiS3: 'Où en est le pipeline ?', magiS4: 'Ouvre l’agenda', magiNeedNet: 'Magi a besoin d’internet pour comprendre votre demande.',
+  magiSimilar: 'Attention : une fiche porte déjà ce nom', magiCall: 'Appeler', magiMail: 'Écrire un e-mail', magiGo: 'Itinéraire', magiNoPhone: 'Pas de numéro sur la fiche', magiNoGps: 'Pas de position GPS sur la fiche',
+  magiStage: 'Nouvelle étape', magiWhen: 'Quand', magiWhat: 'Objet', magiMicLang: 'Langue parlée',
+});
+Object.assign(T.ar, {
+  magi: 'المساعد ماجي', magiHi: 'مرحبا {n}! أنا ماجي. اكتب أو تكلم: أجد زبونا، أبرمج موعدا، أنشئ ملفا أو صفقة، وأجيب عن نشاطك.',
+  magiPh: 'اكتب أو تكلم…', magiSend: 'إرسال', magiMic: 'تكلم', magiListening: 'أنا أستمع… اضغط للتوقف', magiThinking: 'ماجي يفكر…', magiHear: 'جاري تحويل الصوت إلى نص…',
+  magiVoiceOn: 'قراءة الأجوبة بالصوت: مفعلة', magiVoiceOff: 'قراءة الأجوبة بالصوت: متوقفة', magiDone: 'تم ✅', magiOpen: 'فتح الملف', magiNew: 'محادثة جديدة',
+  magiS1: 'مواعيدي غدا', magiS2: 'الزبناء الذين لم أزرهم منذ 30 يوما', magiS3: 'كيف حال الصفقات؟', magiS4: 'افتح الأجندة', magiNeedNet: 'ماجي يحتاج إلى الإنترنت لفهم طلبك.',
+  magiSimilar: 'تنبيه: يوجد ملف بنفس الاسم', magiCall: 'اتصال', magiMail: 'إرسال بريد', magiGo: 'الطريق', magiNoPhone: 'لا يوجد رقم في الملف', magiNoGps: 'لا يوجد موقع GPS في الملف',
+  magiStage: 'المرحلة الجديدة', magiWhen: 'متى', magiWhat: 'الموضوع', magiMicLang: 'لغة الكلام',
+});
+Object.assign(T.en, {
+  magi: 'Magi assistant', magiHi: 'Hi {n}! I’m Magi. Type or talk: I find a client, schedule a meeting, create a record or a deal, and answer questions about your activity.',
+  magiPh: 'Type or talk…', magiSend: 'Send', magiMic: 'Talk', magiListening: 'Listening… tap to stop', magiThinking: 'Magi is thinking…', magiHear: 'Transcribing…',
+  magiVoiceOn: 'Spoken answers: on', magiVoiceOff: 'Spoken answers: off', magiDone: 'Done ✅', magiOpen: 'Open record', magiNew: 'New conversation',
+  magiS1: 'My meetings tomorrow', magiS2: 'Clients not visited for 30 days', magiS3: 'How is the pipeline?', magiS4: 'Open the agenda', magiNeedNet: 'Magi needs internet to understand you.',
+  magiSimilar: 'Careful: a record already has this name', magiCall: 'Call', magiMail: 'Send an e-mail', magiGo: 'Directions', magiNoPhone: 'No phone number on the record', magiNoGps: 'No GPS position on the record',
+  magiStage: 'New stage', magiWhen: 'When', magiWhat: 'Subject', magiMicLang: 'Spoken language',
+});
 const THEMES = [['indigo', 'Indigo', '#4F2FD0', '#F3F2FA'], ['majorelle', 'Majorelle', '#2443C7', '#F2B705'], ['menthe', 'Menthe', '#0B7A5E', '#EFF6F2'], ['ocean', 'Océan', '#0A6C8F', '#EEF5F8'], ['nuit', 'Nuit', '#8E7BFF', '#100E19']];
 function myTheme() { try { return localStorage.getItem('crm-theme') || ''; } catch (e) { return ''; } }
 function applyTheme(settings) {
@@ -158,6 +182,7 @@ function h(tag, a = {}, ...kids) {
 }
 const P = {
   pipe: '<rect x="3.5" y="4" width="4.5" height="16" rx="1.5"/><rect x="9.75" y="4" width="4.5" height="11" rx="1.5"/><rect x="16" y="4" width="4.5" height="7" rx="1.5"/>', spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>', vol: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
   send: '<path d="M4 12 20 4l-4 16-4-6.5z"/><path d="M12 13.5 20 4"/>', box: '<rect x="4" y="4" width="16" height="16" rx="4"/>', boxok: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 12.5l2.8 2.8L16.5 9.5"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>', meet: '<circle cx="8" cy="9" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M2.5 19.5a5.5 5.5 0 0 1 11 0M13.5 19.5a4.5 4.5 0 0 1 8 -2.8"/>',
   stop: '<rect x="6.5" y="6.5" width="11" height="11" rx="2"/>', web: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.4 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.4-3.5-8.5s1-5.9 3.5-8.5z"/>',
@@ -521,6 +546,7 @@ function layout(title, body, opts = {}) {
   const side = h('nav', { class: 'side', 'aria-label': 'Menu' },
     h('div', { class: 'brand' }, h('img', { src: '/logo.png', alt: '' }), h('div', {}, h('b', {}, 'Magiscom CRM'), h('small', {}, S.settings.company))),
     h('button', { class: 'cap', onclick: quickCapture }, ic('mic', 20), t('capture')),
+    h('button', { class: 'magi-side', onclick: openMagi }, robotIcon(), t('magi')),
     ...nav().map(([href, icn, k]) => h('a', { href, class: cur.startsWith(href) ? 'on' : null }, ic(icn, 20), t(k))),
     h('div', { class: 'grow' }),
     h('a', { href: '#/me', class: cur.startsWith('#/me') ? 'on' : null }, ic('me', 20), S.user.name));
@@ -530,7 +556,8 @@ function layout(title, body, opts = {}) {
   const bottom = h('nav', { class: 'tabs-bottom', 'aria-label': 'Menu' }, ...tabs.map(([href, icn, k]) => href === 'cap'
     ? h('button', { class: 'cap', onclick: quickCapture, 'aria-label': t('captureT') }, h('span', {}, ic('mic', 26)), t(k))
     : h('a', { href, class: cur.startsWith(href) ? 'on' : null }, ic(icn), t(k))));
-  app().replaceChildren(h('div', { class: 'shell' }, side, h('div', { class: 'main' }, top, h('main', { class: 'content' }, body)), bottom));
+  const fab = h('button', { class: 'magi-fab', 'aria-label': t('magi'), title: t('magi'), onclick: openMagi }, robotIcon());
+  app().replaceChildren(h('div', { class: 'shell' }, side, h('div', { class: 'main' }, top, h('main', { class: 'content' }, body)), bottom, fab));
   paintSync();
 }
 const go = (hash) => { location.hash = hash; };
@@ -1057,6 +1084,196 @@ async function followupModal(v) {
     } catch (e) { body.replaceChildren(h('p', { style: 'color:var(--red);margin:0' }, e.status === 0 ? t('aiOffline') : e.message), h('button', { class: 'btn ghost', onclick: () => m.remove() }, t('cancel'))); }
   };
   run();
+}
+
+
+// =================================================================== assistant « Magi » : on écrit ou on parle, il agit
+const ROBOT_SVG = '<svg viewBox="0 0 64 64" aria-hidden="true"><line x1="32" y1="5" x2="32" y2="13" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle class="bulb" cx="32" cy="5" r="4"/><rect x="9" y="12" width="46" height="36" rx="15" fill="currentColor"/><rect x="15" y="18" width="34" height="23" rx="10" fill="#fff"/><g class="eyes"><ellipse cx="25" cy="28" rx="3.6" ry="4.2" fill="#14112b"/><ellipse cx="39" cy="28" rx="3.6" ry="4.2" fill="#14112b"/></g><rect class="mouth" x="28" y="34" width="8" height="2.6" rx="1.3" fill="#14112b"/><rect x="20" y="50" width="24" height="12" rx="6" fill="currentColor" opacity=".8"/></svg>';
+const robotIcon = (cls) => { const s = h('span', { class: 'robot ' + (cls || '') }); s.innerHTML = ROBOT_SVG; return s; };
+const magi = { log: [], history: [], voice: (() => { try { return localStorage.getItem('crm-voice') === '1'; } catch (e) { return false; } })(), panel: null };
+const PAGE_HASH = { clients: '#/clients', pipeline: '#/pipeline', agenda: '#/agenda', map: '#/map', me: '#/me', new_client: '#/new', dashboard: '#/dashboard', team: '#/team', export: '#/export', journal: '#/journal', settings: '#/settings' };
+function speak(text) {
+  try {
+    if (!window.speechSynthesis || !text) return;
+    speechSynthesis.cancel();
+    const ar = /[؀-ۿ]/.test(text);
+    const u = new SpeechSynthesisUtterance(text.replace(/[*_#✅]/g, ''));
+    u.lang = ar ? 'ar-SA' : lang === 'en' ? 'en-GB' : 'fr-FR';
+    const v = speechSynthesis.getVoices().find((x) => x.lang && x.lang.toLowerCase().startsWith(ar ? 'ar' : u.lang.slice(0, 2)));
+    if (v) u.voice = v;
+    u.rate = 1.02;
+    const r = magi.panel && magi.panel.querySelector('.magi-head .robot');
+    u.onstart = () => r && r.classList.add('talk'); u.onend = u.onerror = () => r && r.classList.remove('talk');
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+function openMagi() {
+  if (magi.panel && document.body.contains(magi.panel)) return;
+  const log = h('div', { class: 'magi-log', 'aria-live': 'polite' });
+  const input = h('textarea', { class: 'input', rows: 1, placeholder: t('magiPh'), 'aria-label': t('magiPh'), onkeydown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }, oninput: () => { input.style.height = 'auto'; input.style.height = Math.min(120, input.scrollHeight) + 'px'; } });
+  let micLang = lang === 'ar' ? 'ar' : 'fr'; try { micLang = localStorage.getItem('crm-magi-lang') || micLang; } catch (e) {}
+  const langBtn = h('button', { type: 'button', class: 'magi-lang', title: t('magiMicLang'), onclick: () => { micLang = micLang === 'fr' ? 'ar' : 'fr'; try { localStorage.setItem('crm-magi-lang', micLang); } catch (e) {} langBtn.textContent = micLang === 'ar' ? 'ع' : 'FR'; } }, micLang === 'ar' ? 'ع' : 'FR');
+  const mic = h('button', { type: 'button', class: 'magi-mic', 'aria-label': t('magiMic'), onclick: () => listen() }, ic('mic', 22));
+  const sendBtn = h('button', { type: 'button', class: 'magi-send', 'aria-label': t('magiSend'), onclick: () => send() }, ic('send', 20));
+  const voiceBtn = h('button', { type: 'button', class: 'iconbtn' + (magi.voice ? ' on' : ''), 'aria-pressed': magi.voice ? 'true' : 'false', title: magi.voice ? t('magiVoiceOn') : t('magiVoiceOff'),
+    onclick: () => { magi.voice = !magi.voice; try { localStorage.setItem('crm-voice', magi.voice ? '1' : '0'); } catch (e) {} voiceBtn.classList.toggle('on', magi.voice); voiceBtn.setAttribute('aria-pressed', magi.voice ? 'true' : 'false'); voiceBtn.title = magi.voice ? t('magiVoiceOn') : t('magiVoiceOff'); if (!magi.voice) try { speechSynthesis.cancel(); } catch (e) {} toast(voiceBtn.title); } }, ic('vol', 20));
+  const resetBtn = h('button', { type: 'button', class: 'iconbtn', title: t('magiNew'), 'aria-label': t('magiNew'), onclick: () => { magi.log = []; magi.history = []; paint(); } }, ic('plus', 20));
+  const closeBtn = h('button', { type: 'button', class: 'iconbtn', 'aria-label': t('cancel'), onclick: () => close() }, ic('x', 20));
+  const panel = h('div', { class: 'magi-panel', role: 'dialog', 'aria-label': t('magi') },
+    h('div', { class: 'magi-head' }, robotIcon(), h('div', { class: 'grow' }, h('b', {}, 'Magi'), h('small', {}, t('magi'))), voiceBtn, resetBtn, closeBtn),
+    log,
+    h('div', { class: 'magi-in' }, langBtn, input, mic, sendBtn));
+  const veil = h('div', { class: 'magi-veil', onclick: () => close() });
+  document.body.append(veil, panel);
+  magi.panel = panel;
+  const close = () => { try { speechSynthesis.cancel(); } catch (e) {} if (rec) rec.cancel(); panel.remove(); veil.remove(); magi.panel = null; };
+  const onKey = (e) => { if (e.key === 'Escape' && magi.panel === panel) { close(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
+
+  const bubble = (who, ...kids) => h('div', { class: 'mg ' + who }, ...kids);
+  function paint() {
+    const items = [];
+    if (!magi.log.length) {
+      items.push(bubble('bot', t('magiHi', { n: (S.user.name || '').split(' ')[0] })));
+      items.push(h('div', { class: 'magi-sugg' }, ...['magiS1', 'magiS2', 'magiS3', 'magiS4'].map((k) => h('button', { type: 'button', onclick: () => send(t(k)) }, t(k)))));
+    }
+    for (const e of magi.log) items.push(e.el || (e.el = e.who === 'user' ? bubble('user', e.text) : bubble('bot', e.text)));
+    log.replaceChildren(...items);
+    log.scrollTop = log.scrollHeight;
+  }
+  const push = (entry) => { magi.log.push(entry); paint(); return entry; };
+  let busy = false;
+  async function send(text, spoken) {
+    const msg = String(text ?? input.value).trim();
+    if (!msg || busy) return;
+    input.value = ''; input.style.height = 'auto';
+    push({ who: 'user', text: msg });
+    if (!navigator.onLine) return push({ who: 'bot', text: t('magiNeedNet') });
+    busy = true;
+    const wait = push({ who: 'bot', el: bubble('bot wait', h('span', { class: 'spinner' }), t('magiThinking')) });
+    try {
+      const r = await api('POST', '/api/ai/assistant', { text: msg, lang, tz: new Date().getTimezoneOffset(), history: magi.history });
+      magi.history.push({ role: 'user', content: msg }, { role: 'assistant', content: r.reply });
+      magi.history = magi.history.slice(-6);
+      magi.log.splice(magi.log.indexOf(wait), 1);
+      const el = bubble('bot', h('div', { class: 'mg-t' }, r.reply));
+      push({ who: 'bot', el });
+      if (spoken || magi.voice) speak(r.reply);
+      await runAction(r.action || { type: 'none' }, el);
+      log.scrollTop = log.scrollHeight;
+    } catch (e) {
+      magi.log.splice(magi.log.indexOf(wait), 1);
+      push({ who: 'bot', el: bubble('bot err', e.status === 0 ? t('magiNeedNet') : e.message) });
+    } finally { busy = false; }
+  }
+  // --- micro : un message vocal court, transcrit puis envoyé
+  let rec = null;
+  async function listen() {
+    if (rec) return rec.stop();
+    if (!navigator.onLine) return push({ who: 'bot', text: t('magiNeedNet') });
+    const mime = audioMime();
+    if (mime === null) return toast(t('recUnsupported'));
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } }); }
+    catch (e) { return toast(t('recDenied', { e: e.message }), 6000); }
+    try { speechSynthesis.cancel(); } catch (e) {}
+    const parts = []; let cancelled = false;
+    const mr = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : {});
+    mr.ondataavailable = (e) => { if (e.data && e.data.size) parts.push(e.data); };
+    const status = push({ who: 'user', el: bubble('user listening', h('span', { class: 'recdot' }), t('magiListening')) });
+    status.el.onclick = () => rec && rec.stop();
+    mic.classList.add('on');
+    const limit = setTimeout(() => rec && rec.stop(), 60000);
+    rec = { stop: () => { try { mr.stop(); } catch (e) {} }, cancel: () => { cancelled = true; try { mr.stop(); } catch (e) {} } };
+    mr.onstop = async () => {
+      clearTimeout(limit); rec = null; mic.classList.remove('on');
+      stream.getTracks().forEach((x) => x.stop());
+      magi.log.splice(magi.log.indexOf(status), 1);
+      if (cancelled) return;
+      const blob = new Blob(parts, { type: (mr.mimeType || mime || 'audio/webm').split(';')[0] });
+      if (blob.size < 800) return paint();
+      const wait = push({ who: 'user', el: bubble('user wait', h('span', { class: 'spinner' }), t('magiHear')) });
+      try {
+        const r = await api('POST', '/api/ai/listen', blob, { 'Content-Type': blob.type || 'audio/webm', 'X-Lang': micLang });
+        magi.log.splice(magi.log.indexOf(wait), 1); paint();
+        if (r.text) send(r.text, true);
+      } catch (e) { magi.log.splice(magi.log.indexOf(wait), 1); push({ who: 'bot', el: bubble('bot err', e.status === 0 ? t('magiNeedNet') : e.message) }); }
+    };
+    mr.start();
+  }
+  // --- exécuter ce que Magi a compris
+  async function runAction(a, el) {
+    const c = a.client_id ? ((await DB.get('clients', a.client_id)) || a.client) : null;
+    const card = (...kids) => { const k = h('div', { class: 'mg-card' }, ...kids); el.append(k); return k; };
+    const doneMsg = (txt, href) => { push({ who: 'bot', el: bubble('bot', txt, href ? h('a', { class: 'btn small', href, onclick: () => close() }, t('magiOpen')) : null) }); };
+    const dateIn = (day, time, fallbackH) => { const d = day ? new Date(day + 'T' + (time || (fallbackH || '09:00'))) : new Date(Date.now() + 3600000); return h('input', { class: 'input', type: 'datetime-local', value: localInput(isNaN(d) ? Date.now() : d.getTime()) }); };
+    switch (a.type) {
+      case 'open_page': close(); return go(PAGE_HASH[a.page] || '#/');
+      case 'search': close(); listState.q = a.query; listState.kind = ''; listState.city = ''; return location.hash === '#/clients' ? render() : go('#/clients');
+      case 'open_client': close(); return go('#/client/' + a.client_id);
+      case 'meeting': close(); return go('#/meeting?client=' + a.client_id);
+      case 'voice_note': close(); return c && voiceNote(c);
+      case 'brief': close(); return c && briefModal(c);
+      case 'call': case 'whatsapp': { const ph = c && (c.phone || c.phone2); if (!ph) return card(h('p', { class: 'small muted' }, t('magiNoPhone')), h('a', { class: 'btn small', href: '#/client/' + a.client_id, onclick: close }, t('magiOpen')));
+        return card(h('a', { class: 'btn primary', href: a.type === 'call' ? telHref(ph) : waHref(ph), target: a.type === 'call' ? null : '_blank', rel: 'noopener' }, ic(a.type === 'call' ? 'phone' : 'wa', 18), a.type === 'call' ? t('magiCall') + ' ' + ph : 'WhatsApp')); }
+      case 'email': return card(c && c.email ? h('a', { class: 'btn primary', href: 'mailto:' + c.email }, ic('send', 18), t('magiMail')) : h('p', { class: 'small muted' }, '—'));
+      case 'directions': return card(c && c.lat != null ? h('a', { class: 'btn primary', href: gdir(c), target: '_blank', rel: 'noopener' }, ic('map', 18), t('magiGo')) : h('p', { class: 'small muted' }, t('magiNoGps')));
+      case 'create_activity': {
+        let kind = a.kind;
+        const segEl = h('div', { class: 'seg' });
+        const paintSeg = () => segEl.replaceChildren(...['rdv', 'appel', 'tache', 'note', 'visite'].map((k) => h('button', { type: 'button', class: kind === k ? 'on' : null, onclick: () => { kind = k; paintSeg(); } }, t(k))));
+        paintSeg();
+        const when = dateIn(a.date, a.time);
+        const what = h('textarea', { class: 'input', rows: 2, value: a.text || '' });
+        const k = card(h('div', { class: 'mg-c' }, (c && c.name) || ''), segEl, h('label', { class: 'f' }, t('magiWhen'), when), h('label', { class: 'f' }, t('magiWhat'), what),
+          h('div', { class: 'row' }, h('button', { class: 'btn primary grow', onclick: async () => {
+            const date = fromInput(when.value) || Date.now(), txt = what.value.trim();
+            const f = { client_id: a.client_id, kind, date };
+            if (kind === 'note') Object.assign(f, { status: 'done', summary: txt, date: Date.now() });
+            else if (kind === 'tache') Object.assign(f, { status: 'planned', summary: txt });
+            else Object.assign(f, { status: kind === 'visite' && date < Date.now() ? 'done' : 'planned', next_step: txt });
+            await saveVisit(uuid(), f, true);
+            k.remove(); doneMsg(t('magiDone') + ' ' + t(kind) + ' · ' + (kind === 'note' ? '' : fdt(date)), '#/client/' + a.client_id);
+          } }, ic('check', 18), t('confirm')), h('button', { class: 'btn ghost', onclick: () => k.remove() }, t('cancel'))));
+        return;
+      }
+      case 'create_client': {
+        const f = {}; const inp = (key, label, extra = {}) => h('label', { class: 'f' }, label, (f[key] = h('input', { class: 'input', value: a[key] || '', ...extra })));
+        let kind = a.client_kind;
+        const segEl = h('div', { class: 'seg' }); const paintSeg = () => segEl.replaceChildren(...['prospect', 'client'].map((x) => h('button', { type: 'button', class: kind === x ? 'on' : null, onclick: () => { kind = x; paintSeg(); } }, t(x)))); paintSeg();
+        const k = card(a.similar && a.similar.length ? h('div', { class: 'warn small' }, t('magiSimilar') + ' : ', ...a.similar.map((x) => h('a', { href: '#/client/' + x.id, onclick: close }, `${x.name} (${x.code})`))) : null,
+          inp('name', t('name')), segEl, inp('company', t('company')), inp('phone', t('phone'), { inputmode: 'tel' }), inp('city', t('city')), inp('sector', t('sector')),
+          h('div', { class: 'row' }, h('button', { class: 'btn primary grow', onclick: async () => {
+            const name = f.name.value.trim(); if (!name) return f.name.focus();
+            const id = uuid();
+            await saveClient(id, { name, kind, company: f.company.value.trim(), phone: f.phone.value.trim(), city: f.city.value.trim(), sector: f.sector.value.trim(), email: a.email || '' }, true);
+            k.remove(); doneMsg(t('magiDone') + ' ' + name, '#/client/' + id);
+          } }, ic('check', 18), t('confirm')), h('button', { class: 'btn ghost', onclick: () => k.remove() }, t('cancel'))));
+        return;
+      }
+      case 'create_deal': {
+        const title = h('input', { class: 'input', value: a.title || '' });
+        const amount = h('input', { class: 'input', inputmode: 'decimal', value: a.amount != null ? a.amount : '' });
+        const stage = h('select', { class: 'input' }, ...STAGES.map((x) => { const o = h('option', { value: x }, t(x)); if (x === a.stage) o.selected = true; return o; }));
+        const close_d = h('input', { class: 'input', type: 'date', value: a.date || '' });
+        const k = card(h('div', { class: 'mg-c' }, (c && c.name) || ''), h('label', { class: 'f' }, t('dealTitle'), title), h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('amount'), amount), h('label', { class: 'f' }, t('stage'), stage)), h('label', { class: 'f' }, t('closeDate'), close_d),
+          h('div', { class: 'row' }, h('button', { class: 'btn primary grow', onclick: async () => {
+            const n = Number(String(amount.value).replace(/\s/g, '').replace(',', '.'));
+            await saveDeal(uuid(), { client_id: a.client_id, title: title.value.trim() || 'Affaire', amount: Number.isFinite(n) && n > 0 ? n : null, stage: stage.value, close_date: close_d.value ? new Date(close_d.value + 'T12:00').getTime() : null }, true);
+            k.remove(); doneMsg(t('magiDone') + ' ' + (title.value.trim() || ''), '#/client/' + a.client_id);
+          } }, ic('check', 18), t('confirm')), h('button', { class: 'btn ghost', onclick: () => k.remove() }, t('cancel'))));
+        return;
+      }
+      case 'deal_stage': {
+        const d = (await DB.get('deals', a.deal_id)) || a.deal;
+        const k = card(h('div', { class: 'mg-c' }, `${d.title} · ${a.deal.client}`), h('p', { class: 'small', style: 'margin:0' }, t(d.stage) + ' → ', h('b', {}, t(a.stage))),
+          h('div', { class: 'row' }, h('button', { class: 'btn primary grow', onclick: async () => { await saveDeal(a.deal_id, { stage: a.stage }, false); k.remove(); doneMsg(t('magiDone') + ' ' + d.title + ' : ' + t(a.stage), '#/pipeline'); } }, ic('check', 18), t('confirm')), h('button', { class: 'btn ghost', onclick: () => k.remove() }, t('cancel'))));
+        return;
+      }
+    }
+  }
+  paint();
+  setTimeout(() => input.focus(), 60);
 }
 
 // --- bouton « Enregistrer » : choisir le client puis la note vocale ou la réunion

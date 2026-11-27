@@ -82,6 +82,8 @@ async function route(req, env, ctx, url = new URL(req.url)) {
     if (m === "PUT") return putDeal(r[1], req, env, me, log);
     if (m === "DELETE") return deleteDeal(r[1], env, me, log);
   }
+  if (p === "/api/ai/assistant" && m === "POST") return aiAssistant(req, env, me);
+  if (p === "/api/ai/listen" && m === "POST") return aiListen(req, env, me);
   if ((r = p.match(new RegExp(`^/api/ai/brief/${ID}$`))) && m === "POST") return aiBrief(r[1], req, env, me);
   if ((r = p.match(new RegExp(`^/api/ai/followup/${ID}$`))) && m === "POST") return aiFollowup(r[1], req, env, me);
   if ((r = p.match(new RegExp(`^/api/clients/${ID}$`)))) {
@@ -1314,4 +1316,175 @@ Langue : ${LANG_NAMES[lang]}. Remercie, récapitule ce qui a été convenu, rapp
   const user = activityDigest([v], 12000);
   try { const out = await llmJson(env, system, user, schema, 900); return json({ subject: String(out.objet || "").slice(0, 200), message: String(out.message || "").slice(0, 4000), channel, phone: c.phone || c.phone2 || "", email: c.email || "" }); }
   catch (e) { console.error("suivi", e); fail(502, "L'assistant n'a pas pu rédiger le message, réessayez"); }
+}
+
+// ------------------------------------------------------------------ assistant « Magi » : on écrit ou on parle, il agit
+const ASSIST_PAGES = ["clients", "pipeline", "agenda", "map", "me", "new_client", "dashboard", "team", "export", "journal", "settings"];
+const ASSIST_ACTIONS = ["none", "open_page", "search", "open_client", "create_activity", "create_client", "create_deal", "deal_stage", "voice_note", "meeting", "brief", "call", "whatsapp", "email", "directions"];
+const ASSIST_KINDS = ["rdv", "appel", "tache", "note", "visite"];
+const normTxt = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9؀-ۿ ]/g, " ");
+const dayStr = (ms, tz) => new Date(ms - tz * 60000).toISOString().slice(0, 16).replace("T", " ");
+
+async function aiListen(req, env, me) {
+  if (!env.AI) fail(503, "Le service d'intelligence artificielle n'est pas activé");
+  const len = Number(req.headers.get("Content-Length") || 0);
+  if (len > 8 * MB) fail(413, "Message vocal trop long");
+  const u8 = new Uint8Array(await req.arrayBuffer());
+  if (!u8.length) fail(400, "Audio vide");
+  if (u8.length > 8 * MB) fail(413, "Message vocal trop long");
+  const l = req.headers.get("X-Lang");
+  try { const r = await speechToText(env, u8, l === "ar" || l === "fr" ? l : ""); return json({ text: r.text }); }
+  catch (e) { console.error("écoute", e); fail(502, "Je n'ai pas pu comprendre l'audio, réessayez"); }
+}
+
+async function assistantContext(env, me, query, tz) {
+  const t = now();
+  const sc = scopeSql(me);
+  const clients = (await env.DB.prepare(`SELECT c.id, c.code, c.name, c.company, c.city, c.kind, c.sector, c.phone, c.phone2, c.email, c.lat, c.owner_id, c.updated_at,
+      (SELECT MAX(v.date) FROM visits v WHERE v.client_id = c.id AND v.deleted_at IS NULL AND v.status = 'done') AS last_done,
+      (SELECT MIN(v.date) FROM visits v WHERE v.client_id = c.id AND v.deleted_at IS NULL AND v.status = 'planned' AND v.date >= ?) AS next_planned
+    FROM clients c WHERE c.deleted_at IS NULL AND ${sc.sql} ORDER BY c.updated_at DESC LIMIT 3000`).bind(t - 86400000, ...sc.args).all()).results;
+  // si le portefeuille est grand, on garde d'abord les fiches qui ressemblent à la demande
+  const words = normTxt(query).split(/\s+/).filter((w) => w.length > 2);
+  const score = (c) => { const hay = normTxt([c.name, c.company, c.city, c.code, c.sector, c.phone].join(" ")); return words.reduce((a, w) => a + (hay.includes(w) ? 1 : 0), 0); };
+  let shown = clients;
+  if (clients.length > 140) {
+    const ranked = clients.map((c, i) => ({ c, s: score(c), i })).sort((a, b) => b.s - a.s || a.i - b.i);
+    shown = ranked.slice(0, 140).map((x) => x.c);
+  }
+  const users = (await env.DB.prepare("SELECT id, name, role FROM users WHERE active = 1").all()).results;
+  const uname = new Map(users.map((u) => [u.id, u.name]));
+  const fmtD = (ms) => (ms ? dayStr(ms, tz).slice(0, 10) : "-");
+  const refs = new Map();   // références courtes « C12 » / « D3 » : bien plus fiables à recopier pour le modèle qu'un identifiant long
+  shown.forEach((c, i) => refs.set("C" + (i + 1), c.id));
+  const cl = shown.map((c, i) => ["C" + (i + 1), c.code, c.name, c.company && c.company !== c.name ? c.company : "", c.city || "", c.kind, c.sector || "", c.phone || c.phone2 ? "tél" : "", c.email ? "mail" : "", c.lat != null ? "gps" : "", "dernier:" + fmtD(c.last_done), "prochain:" + fmtD(c.next_planned), me.p.all ? "suivi:" + (uname.get(c.owner_id) || "-") : ""].filter((x) => x !== "").join(" | ")).join("\n");
+  const byCity = {}; let nClients = 0, nProspects = 0, sleeping = 0;
+  for (const c of clients) { byCity[c.city || "?"] = (byCity[c.city || "?"] || 0) + 1; if (c.kind === "prospect") nProspects++; else nClients++; if (!c.last_done || c.last_done < t - 30 * 86400000) sleeping++; }
+  const planned = (await env.DB.prepare(`SELECT v.kind, v.date, v.summary, v.next_step, v.status, c.name AS cname, v.user_id FROM visits v JOIN clients c ON c.id = v.client_id
+    WHERE v.deleted_at IS NULL AND c.deleted_at IS NULL AND ${sc.sql} AND v.status = 'planned' AND v.date BETWEEN ? AND ? ORDER BY v.date LIMIT 50`).bind(...sc.args, t - 30 * 86400000, t + 21 * 86400000).all()).results;
+  const ag = planned.map((v) => `${dayStr(v.date, tz)} · ${v.kind}${v.date < t ? " (en retard)" : ""} · ${v.cname}${v.summary || v.next_step ? " · " + String(v.summary || v.next_step).slice(0, 80) : ""}${me.p.all ? " · " + (uname.get(v.user_id) || "") : ""}`).join("\n");
+  const deals = (await env.DB.prepare(`SELECT d.id, d.title, d.amount, d.stage, d.close_date, c.name AS cname FROM deals d JOIN clients c ON c.id = d.client_id
+    WHERE d.deleted_at IS NULL AND c.deleted_at IS NULL AND ${sc.sql} ORDER BY (d.stage IN ('gagne','perdu')), d.updated_at DESC LIMIT 60`).bind(...sc.args).all()).results;
+  deals.forEach((d, i) => refs.set("D" + (i + 1), d.id));
+  const dl = deals.map((d, i) => `D${i + 1} | ${d.title} | ${d.cname} | ${d.stage}${d.amount ? " | " + d.amount + " MAD" : ""}${d.close_date ? " | signature " + fmtD(d.close_date) : ""}`).join("\n");
+  const team = me.p.admin ? (await env.DB.prepare(`SELECT u.name, (SELECT COUNT(*) FROM visits v WHERE v.user_id = u.id AND v.deleted_at IS NULL AND v.status = 'done' AND v.date > ?) AS n7 FROM users u WHERE u.active = 1`).bind(t - 7 * 86400000).all()).results.map((u) => `${u.name} : ${u.n7} activités faites sur 7 jours`).join("\n") : "";
+  const text = `PORTEFEUILLE (${clients.length} fiches : ${nClients} clients, ${nProspects} prospects ; ${sleeping} sans activité faite depuis 30 jours ou plus)
+Par ville : ${Object.entries(byCity).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([k, v]) => k + " " + v).join(", ")}
+${clients.length > shown.length ? `(seules ${shown.length} fiches sont listées, les plus proches de la demande)\n` : ""}Fiches (réf | code | nom | société | ville | type | secteur | contacts | dates) :
+${cl || "(aucune fiche)"}
+
+AGENDA (rendez-vous, appels, tâches prévus, du plus proche au plus lointain) :
+${ag || "(rien de prévu)"}
+
+AFFAIRES (réf | titre | client | étape | montant | signature) :
+${dl || "(aucune affaire)"}
+${team ? "\nÉQUIPE :\n" + team : ""}`;
+  return { text: text.slice(0, 42000), clients, deals, refs };
+}
+
+async function aiAssistant(req, env, me) {
+  if (!env.AI) fail(503, "Le service d'intelligence artificielle n'est pas activé");
+  const b = await readJson(req, 30000);
+  const msg = str(b.text, 1500);
+  if (!msg) fail(400, "Écrivez ou dites ce que vous voulez faire");
+  const tz = num(b.tz, -840, 840) ?? 0;   // getTimezoneOffset() du téléphone
+  const history = (Array.isArray(b.history) ? b.history : []).slice(-6).filter((x) => x && (x.role === "user" || x.role === "assistant")).map((x) => ({ role: x.role, content: str(x.content, 600) })).filter((x) => x.content);
+  const s = await getSettings(env);
+  const ctx = await assistantContext(env, me, [msg, ...history.map((x) => x.content)].join(" "), tz);
+  const today = new Date(now() - tz * 60000);
+  const JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+  const schema = { type: "object", properties: {
+    reply: { type: "string" }, action: { type: "string", enum: ASSIST_ACTIONS },
+    page: { type: "string" }, query: { type: "string" }, client_id: { type: "string" }, deal_id: { type: "string" },
+    kind: { type: "string" }, date: { type: "string" }, time: { type: "string" }, text: { type: "string" },
+    title: { type: "string" }, amount: { type: "string" }, stage: { type: "string" },
+    name: { type: "string" }, company: { type: "string" }, phone: { type: "string" }, email: { type: "string" }, city: { type: "string" }, sector: { type: "string" }, client_kind: { type: "string" },
+  }, required: ["reply", "action"] };
+  const system = `Tu es « Magi », le robot assistant de Magiscom CRM, l'outil des commerciaux de la société « ${s.company} ».
+Tu parles à ${me.name} (${me.p.admin ? "directeur / administrateur : voit toute l'équipe" : "commercial : voit son portefeuille"}).
+Aujourd'hui : ${JOURS[today.getUTCDay()]} ${today.toISOString().slice(0, 10)}, il est ${today.toISOString().slice(11, 16)}.
+
+Ton rôle : comprendre la demande (écrite ou dictée, en français, en arabe ou en darija marocaine) et soit répondre à partir des données ci-dessous, soit déclencher UNE action dans l'application.
+Réponds dans la langue de l'utilisateur (darija → arabe simple ou darija ; français → français). Réponse courte : 1 à 3 phrases, ou une petite liste.
+
+Actions possibles (champ "action") :
+- none : simple réponse (question sur les données, conseil, salutation).
+- open_page : ouvrir un écran ; page ∈ ${ASSIST_PAGES.filter((x) => me.p.admin || !["dashboard", "team", "journal", "settings"].includes(x)).join(", ")}.
+- search : chercher des fiches ; query = mots à chercher (nom, ville, secteur…).
+- open_client : ouvrir la fiche ; client_id.
+- create_activity : planifier ou noter quelque chose pour un client ; client_id, kind ∈ rdv | appel | tache | note | visite, date (AAAA-MM-JJ), time (HH:MM, vide si inconnue), text (objet / contenu).
+- create_client : nouvelle fiche ; name, company, phone, email, city, sector, client_kind ∈ client | prospect.
+- create_deal : nouvelle affaire ; client_id, title, amount (nombre en MAD, vide si inconnu), stage ∈ nouveau | devis | negociation | gagne | perdu, date (signature prévue).
+- deal_stage : changer l'étape d'une affaire existante ; deal_id, stage.
+- voice_note : enregistrer une note vocale pour client_id.
+- meeting : lancer l'enregistrement d'une réunion avec client_id.
+- brief : préparer la visite de client_id (résumé IA).
+- call / whatsapp / email / directions : appeler, écrire sur WhatsApp, envoyer un e-mail ou aller chez client_id.
+
+Règles :
+- client_id = la référence de la fiche (ex. « C3 »), deal_id = la référence de l'affaire (ex. « D2 »), copiées depuis les listes ci-dessous. Si le client est ambigu ou introuvable, action = none et demande des précisions (ou propose search).
+- Dates relatives (« demain », « jeudi », « غدا », « الاثنين الجاي ») : calcule-les à partir d'aujourd'hui.
+- N'invente jamais un client, un chiffre, une date ou une information absente des données.
+- Les créations seront confirmées par l'utilisateur avant d'être enregistrées : décris dans reply ce que tu vas créer.
+
+DONNÉES :
+${ctx.text}`;
+  let out;
+  try {
+    const messages = [{ role: "system", content: system }, ...history, { role: "user", content: msg }];
+    let r;
+    try { r = await env.AI.run(LLM_MODEL, { messages, response_format: { type: "json_schema", json_schema: schema }, max_tokens: 900, temperature: 0.1 }); }
+    catch (e) { r = await env.AI.run(LLM_MODEL, { messages: [{ role: "system", content: system + "\nRéponds uniquement avec un objet JSON {reply, action, …}." }, ...messages.slice(1)], max_tokens: 900, temperature: 0.1 }); }
+    out = parseJsonLoose(r && (r.response !== undefined ? r.response : r));
+  } catch (e) { console.error("assistant", e); fail(502, "L'assistant ne répond pas pour le moment, réessayez"); }
+  if (!out || typeof out !== "object") fail(502, "L'assistant n'a pas compris, reformulez");
+  return json(cleanAssistant(out, ctx, me));
+}
+
+function cleanAssistant(out, ctx, me) {
+  const reply = str(out.reply, 2500) || "…";
+  let action = ASSIST_ACTIONS.includes(out.action) ? out.action : "none";
+  const a = { type: action };
+  const ids = new Set(ctx.clients.map((c) => c.id));
+  const ref = (v) => { const k = str(v, 60).toUpperCase().replace(/\s/g, ""); return ctx.refs.get(k) || str(v, 60); };
+  const cid = ref(out.client_id);
+  const needClient = ["open_client", "create_activity", "create_deal", "voice_note", "meeting", "brief", "call", "whatsapp", "email", "directions"];
+  if (needClient.includes(action)) {
+    if (!ids.has(cid)) return { reply, action: { type: "none" } };
+    a.client_id = cid;
+    const c = ctx.clients.find((x) => x.id === cid);
+    a.client = { id: c.id, name: c.name, code: c.code, city: c.city };
+  }
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(str(out.date, 10)) ? str(out.date, 10) : "";
+  const time = /^\d{1,2}:\d{2}$/.test(str(out.time, 5)) ? str(out.time, 5).padStart(5, "0") : "";
+  switch (action) {
+    case "open_page": {
+      const pg = str(out.page, 30);
+      if (!ASSIST_PAGES.includes(pg) || (!me.p.admin && ["dashboard", "team", "journal", "settings"].includes(pg))) return { reply, action: { type: "none" } };
+      a.page = pg; break;
+    }
+    case "search": a.query = str(out.query, 120); if (!a.query) a.type = "none"; break;
+    case "create_activity":
+      a.kind = ASSIST_KINDS.includes(out.kind) ? out.kind : "rdv";
+      a.date = day; a.time = time; a.text = str(out.text, 1000); break;
+    case "create_client":
+      a.name = str(out.name, 160); if (!a.name) return { reply, action: { type: "none" } };
+      for (const k of ["company", "phone", "email", "city", "sector"]) a[k] = str(out[k], 160);
+      a.client_kind = out.client_kind === "client" ? "client" : "prospect";
+      a.similar = ctx.clients.filter((c) => normTxt(c.name).trim() === normTxt(a.name).trim()).slice(0, 3).map((c) => ({ id: c.id, name: c.name, code: c.code, city: c.city }));
+      break;
+    case "create_deal": {
+      a.title = str(out.title, 160) || "Affaire";
+      const n = Number(String(out.amount || "").replace(/[^\d.,]/g, "").replace(",", "."));
+      a.amount = Number.isFinite(n) && n > 0 ? n : null;
+      a.stage = DEAL_STAGES.includes(out.stage) ? out.stage : "nouveau";
+      a.date = day; break;
+    }
+    case "deal_stage": {
+      const did = ref(out.deal_id); const d = ctx.deals.find((x) => x.id === did);
+      if (!d || !DEAL_STAGES.includes(out.stage)) return { reply, action: { type: "none" } };
+      a.deal_id = d.id; a.stage = out.stage; a.deal = { id: d.id, title: d.title, client: d.cname, stage: d.stage }; break;
+    }
+  }
+  return { reply, action: a };
 }

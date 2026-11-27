@@ -1,0 +1,72 @@
+// Test de bout en bout de l'IA dans le navigateur (micro simulé) : OUT=dossier PW=playwright node test/ui-ai.mjs
+import { start } from "./server.mjs";
+import { createRequire } from "node:module"; const { chromium } = createRequire(import.meta.url)(process.env.PW || "playwright");
+const OUT = process.env.OUT || "/tmp";
+const { server, env } = await start(8799);
+const B = "http://localhost:8799";
+let n = 0;
+env.AI = { async run(model, input) {
+  if (model.includes("whisper")) { n++; return { text: n === 1 ? "Passage chez Atlas Auto, le client veut un devis pour dix filtres à huile." : "Bonjour monsieur Alaoui. Bonjour, je cherche des plaquettes Bosch. Nous pouvons livrer mardi. Parfait, envoyez-moi le devis.", segments: [] }; }
+  const sc = input.response_format && input.response_format.json_schema;
+  if (sc && sc.properties.lines) return { response: { lines: [{ s: "Commercial", t: "Bonjour monsieur Alaoui." }, { s: "Client", t: "Bonjour, je cherche des plaquettes Bosch." }, { s: "Commercial", t: "Nous pouvons livrer mardi." }, { s: "Client", t: "Parfait, envoyez-moi le devis." }] } };
+  return { response: { resume: "Le client recherche des plaquettes Bosch ; livraison possible mardi.", convenu: "- Envoi du devis plaquettes Bosch\n- Livraison mardi", non_fait: "", demandes: "- Plaquettes Bosch", prochaine_etape: "Envoyer le devis", prochaine_date: "" } };
+} };
+const b = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
+const errs = [];
+const c = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, permissions: ["microphone", "geolocation"], geolocation: { latitude: 33.69, longitude: -7.38 } });
+const p = await c.newPage();
+p.on("pageerror", (e) => errs.push(e.message));
+p.on("console", (m) => { if (m.type() === "error") errs.push("console: " + m.text()); });
+const shot = (name) => p.screenshot({ path: `${OUT}/${name}.png` });
+await p.goto(B);
+await p.waitForSelector("text=Première configuration");
+const fa = p.locator("form input");
+await fa.nth(0).fill("Magiscom Tech"); await fa.nth(1).fill("Direction"); await fa.nth(2).fill("direction"); await fa.nth(3).fill("motdepasse1");
+await p.click("button[type=submit]");
+await p.waitForTimeout(1500);
+// fiche client avec les nouveaux champs
+await p.evaluate(() => { location.hash = "#/new"; }); await p.waitForTimeout(600);
+await p.fill("form input >> nth=0", "Garage Atlas Auto");
+await p.fill("form input[autocomplete=organization] >> nth=1", "Atlas Auto SARL");
+await p.fill("form input[inputmode=url]", "atlasauto.ma");
+await p.fill("form input[autocomplete=tel]", "0661 22 33 44");
+await shot("c1-fiche-form");
+await p.click("form button[type=submit]");
+await p.waitForSelector(".hero h2"); await p.waitForTimeout(1200);
+await shot("c2-fiche");
+const clientUrl = p.url();
+await p.click("text=Activité (0)");
+await p.waitForTimeout(300);
+await shot("c3-activite-vide");
+// note vocale
+await p.click("button:has-text('Note vocale')");
+await p.click(".sheet button:has-text('Enregistrer')");
+await p.waitForTimeout(3500);
+await shot("c4-enregistrement");
+await p.click(".sheet button:has-text('Arrêter')");
+await p.waitForTimeout(3500);
+await shot("c5-note-vocale");
+const vocalOk = await p.locator("text=devis pour dix filtres").count();
+// réunion
+await p.click("a:has-text('Réunion IA')");
+await p.waitForSelector("text=Commencer la réunion");
+await shot("c6-reunion-debut");
+await p.check("label.check input");
+await p.click("button:has-text('Commencer la réunion')");
+await p.waitForSelector("text=Enregistrement en cours");
+await p.waitForTimeout(4000);
+await shot("c7-reunion-en-cours");
+await p.click("button:has-text('Terminer la réunion')");
+await p.waitForSelector(".bub", { timeout: 15000 });
+await p.waitForTimeout(800);
+await shot("c8-reunion-rapport");
+await p.screenshot({ path: `${OUT}/c8b-reunion-rapport-full.png`, fullPage: true });
+const bubbles = await p.locator(".bub").count();
+const summary = await p.locator("textarea").first().inputValue();
+await p.goto(clientUrl); await p.waitForTimeout(1200);
+await p.click("text=/Activité \\(/"); await p.waitForTimeout(400);
+await shot("c9-activite");
+const audios = env.DB.db.prepare("SELECT COUNT(*) n FROM files WHERE category='audio'").get().n;
+const rdvs = env.DB.db.prepare("SELECT kind, ai_status, length(transcript) l FROM visits").all();
+console.log(JSON.stringify({ vocalOk, bubbles, summary, audios, rdvs, errs }));
+await b.close(); server.close();

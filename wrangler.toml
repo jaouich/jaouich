@@ -1,0 +1,32 @@
+name = "magiscom-crm"
+main = "dist/worker.js"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Nettoyage chaque nuit (corbeille de 30 jours, envois interrompus, sessions expirées) et remise à zéro de la démo
+[triggers]
+crons = ["20 3 * * *"]
+
+# Intelligence artificielle : transcription (Whisper) et comptes-rendus de réunion
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "magiscom-crm"
+database_id = "5db8d142-21bb-41aa-9bc7-d408398b2dc5"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "magiscom-crm-files"
+
+# Démonstration : https://<adresse>/demo (base et fichiers séparés, données fictives remises à zéro chaque nuit)
+[[d1_databases]]
+binding = "DEMO_DB"
+database_name = "magiscom-crm-demo"
+database_id = "d539701d-523d-4d43-b923-96aa2ab77da7"
+
+[[r2_buckets]]
+binding = "DEMO_MEDIA"
+bucket_name = "magiscom-crm-demo-files"

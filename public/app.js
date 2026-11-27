@@ -500,7 +500,7 @@ async function viewClient(id) {
       h('div', { class: 'grow' },
         h('b', {}, cc.lat == null ? t('geoNone') : t('geoTitle')),
         h('span', { class: 'small muted' }, cc.lat == null ? t('geoHint') : `${cc.lat.toFixed(5)}, ${cc.lng.toFixed(5)} · ${fdt(cc.geo_at)}` + (cc.geo_acc ? ` · ±${Math.round(cc.geo_acc)} m` : ''))),
-      cc.lat != null ? h('a', { class: 'btn sm ghost', href: gmaps(cc), target: '_blank', rel: 'noopener' }, 'Maps') : null);
+      ...(cc.lat != null ? [h('a', { class: 'btn sm ghost', href: gmaps(cc), target: '_blank', rel: 'noopener' }, 'Maps')] : []));
   }
   paintGeo(c);
   const geoBtn = editable ? h('button', { class: 'btn ' + (c.lat == null ? 'green' : 'ghost') + ' block', style: 'margin-top:10px', onclick: async () => {

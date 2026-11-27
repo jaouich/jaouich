@@ -1,5 +1,5 @@
 // Magiscom CRM : fonctionnement hors ligne (application + photos déjà vues)
-const SHELL = "crm-shell-v1", FILES = "crm-files-v1";
+const SHELL = "crm-shell-v2", FILES = "crm-files-v1";
 const SHELL_URLS = ["/", "/app.js", "/app.css", "/manifest.webmanifest", "/icon-192.png",
   "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css", "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(SHELL).then((c) => Promise.all(SHELL_URLS.map((u) => c.add(u).catch(() => {})))).then(() => self.skipWaiting())); });
@@ -22,6 +22,14 @@ self.addEventListener("fetch", (e) => {
   if (url.origin === location.origin && url.pathname.startsWith("/api/")) return;
   if (req.mode === "navigate") {
     e.respondWith(fetch(req).then((r) => { caches.open(SHELL).then((c) => c.put("/", r.clone())); return r; }).catch(() => caches.match("/")));
+    return;
+  }
+  // l'application elle-même : toujours la dernière version quand il y a du réseau, la copie locale sinon
+  if (url.origin === location.origin && SHELL_URLS.includes(url.pathname)) {
+    e.respondWith(Promise.race([
+      fetch(req, { cache: "no-cache" }).then((r) => { if (r.ok) { const cp = r.clone(); caches.open(SHELL).then((c) => c.put(req, cp)); } return r; }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("lent")), 4000)),
+    ]).catch(() => caches.match(req).then((hit) => hit || fetch(req))));
     return;
   }
   if (SHELL_URLS.includes(url.href) || SHELL_URLS.includes(url.pathname) || url.hostname.endsWith("tile.openstreetmap.org")) {

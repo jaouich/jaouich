@@ -1896,7 +1896,13 @@ async function start() {
 }
 async function boot() {
   setLang(lang);
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) {
+    const hadSw = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    // nouvelle version de l'application installée : on recharge une fois (sauf pendant un enregistrement)
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSw && !reloaded && !S.recording) { reloaded = true; location.reload(); } });
+    navigator.serviceWorker.register('/sw.js').then((r) => r.update().catch(() => {})).catch(() => {});
+  }
   try { await DB.open(); } catch (e) {}
   const me = await DB.get('meta', 'me').catch(() => null);
   const st = await DB.get('meta', 'settings').catch(() => null);

@@ -174,6 +174,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS nft_items ( id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, edition INTEGER NOT NULL, owner TEXT NOT NULL, price INTEGER, minted_at INTEGER NOT NULL, UNIQUE (kind, edition) )",
   "CREATE INDEX IF NOT EXISTS nft_owner ON nft_items(owner)",
   "CREATE TABLE IF NOT EXISTS castle_runs ( uid TEXT NOT NULL, map INTEGER NOT NULL, stars INTEGER NOT NULL DEFAULT 0, best_wave INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL, PRIMARY KEY (uid, map) )",
+  "CREATE TABLE IF NOT EXISTS level_claims ( uid TEXT NOT NULL, lvl INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, lvl) )",
   "CREATE TABLE IF NOT EXISTS castle_day ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
   "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
@@ -985,6 +986,33 @@ const routes = {
 
   // Jerry Kombat ranking. All time: coins held now (the league follows them).
   // ?week=1: this week's tournament (coins earned since Monday) + my prize from last week.
+  // ---------- Harvest levels: XP = dates earned honestly; each level pays once ----------
+  "GET /api/level": async (req, env) => {
+    const u = await auth(req, env);
+    const st = await one(env, "SELECT json_extract(json, '$.xp') AS xp FROM state WHERE uid = ?", u.uid);
+    const view = L.LV.view((st && st.xp) || 0);
+    const done = new Set((await all(env, "SELECT lvl FROM level_claims WHERE uid = ?", u.uid)).map((r) => r.lvl));
+    const pending = []; for (let l = 2; l <= Math.min(view.lv, 400); l++) if (!done.has(l)) pending.push({ lv: l, ...L.LV.reward(l) });
+    return { ...view, pending, now: Date.now() };
+  },
+  "POST /api/level/claim": async (req, env) => {
+    const u = await auth(req, env), now = Date.now();
+    const st = await one(env, "SELECT json_extract(json, '$.xp') AS xp FROM state WHERE uid = ?", u.uid);
+    const lv = L.LV.level((st && st.xp) || 0), sum = { dates: 0, jry: 0, spins: 0, levels: 0 };
+    for (let l = 2; l <= Math.min(lv, 400); l++) {
+      const r = await run(env, "INSERT OR IGNORE INTO level_claims (uid, lvl, at) VALUES (?, ?, ?)", u.uid, l, now);
+      if (!r.meta.changes) continue;
+      const w = L.LV.reward(l); sum.levels++;
+      for (const k of ["dates", "jry", "spins"]) if (w[k]) { await giveReward(env, u.uid, k, w[k], now, "level"); sum[k] += w[k]; }
+    }
+    if (!sum.levels) bad("lv.none");
+    return { ok: true, ...sum };
+  },
+  "GET /api/level/top": async (req, env) => {
+    const top = await all(env, "SELECT u.username, CAST(json_extract(s.json, '$.xp') AS INTEGER) AS xp FROM state s JOIN users u ON u.uid = s.uid WHERE json_extract(s.json, '$.xp') > 0 ORDER BY xp DESC LIMIT 50");
+    return { top: top.map((r) => ({ username: r.username, xp: r.xp, lv: L.LV.level(r.xp) })) };
+  },
+
   "GET /api/kombat/top": async (req, env) => {
     const now = Date.now();
     if (new URL(req.url).searchParams.get("week")) {

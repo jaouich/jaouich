@@ -224,7 +224,23 @@
   const int = (x) => (Number.isInteger(x) ? x : NaN);
 
   // n counts toward the weekly score; bonus (from a membership) only adds dates
-  function earn(s, n, bonus) { s.dates += n + (bonus || 0); s.week.score += n; }
+  function earn(s, n, bonus) { s.dates += n + (bonus || 0); s.week.score += n; s.xp = (s.xp || 0) + n; }
+
+  // Harvest levels: XP = dates earned honestly (no bonuses, purchases or prizes). No maximum level.
+  const LV = {
+    ICONS: ["🌱", "🌿", "🌴", "🧺", "🐪", "🏺", "🏙️", "👑", "💎", "🌟", "♾️"], // one per 3 levels, the last one from level 31
+    _n: [0, 0, 120],
+    need(l) { // total XP needed to reach level l
+      if (l <= 1) return 0;
+      while (this._n.length <= l) { const i = this._n.length; this._n.push(Math.round(this._n[i - 1] * (i <= 30 ? 1.6 : 1.5))); }
+      return this._n[l];
+    },
+    level(xp) { let l = 1; while (l < 1000 && this.need(l + 1) <= (xp || 0)) l++; return l; },
+    tier(l) { return Math.min(Math.floor((l - 1) / 3), this.ICONS.length - 1); },
+    icon(l) { return this.ICONS[this.tier(l)]; },
+    reward(l) { return l < 2 ? null : { dates: 100 * l, jry: l % 5 === 0 ? l : 0, spins: l % 5 === 0 ? 1 : 0 }; },
+    view(xp) { const lv = this.level(xp), a = this.need(lv), b = this.need(lv + 1); return { lv, xp: xp || 0, cur: (xp || 0) - a, span: b - a, next: b }; },
+  };
 
   function addAnimal(s, rarity, now, from) {
     const a = { id: s.nextAnimal++, rarity, born: now, lastCollect: now, lastBred: 0, from: from || "market" };
@@ -670,6 +686,6 @@
   COURT.titleOf = (rank, paid) => (rank >= 1 && rank <= COURT.SEATS ? (rank <= 3 ? COURT.TITLES[rank - 1] : COURT.TITLES[3]) : paid > 0 ? COURT.notable : COURT.citizen);
   COURT.voteWeight = (paid) => 1 + Math.min(COURT.VOTE.CAP, Math.max(0, Number(paid) || 0));
   COURT.phase = (t) => { const d = new Date(t).getUTCDate(), P = COURT.PARLIAMENT; return d >= P.RESULTS_FROM ? "results" : d >= P.VOTING[0] ? "voting" : "candidacy"; };
-  const api = { COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { LV, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

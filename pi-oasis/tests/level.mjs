@@ -1,0 +1,36 @@
+// Harvest levels: XP from honest earnings, infinite levels, rewards claimed once, ranking. Fresh harness.
+const B = "http://localhost:3457";
+const post = (p, b, tok) => fetch(B + p, { method: "POST", headers: { "Content-Type": "application/json", ...(tok ? { Authorization: "Bearer " + tok } : {}) }, body: typeof b === "string" ? b : JSON.stringify(b) }).then((r) => r.json());
+const get = (p, tok) => fetch(B + p, { headers: tok ? { Authorization: "Bearer " + tok } : {} }).then((r) => r.json());
+const sql = (q) => post("/__test/sql", q);
+const exec = (q) => fetch(B + "/__test/exec", { method: "POST", body: q });
+let pass = 0, fail = 0;
+const ok = (c, m, x) => { console.log((c ? "PASS  " : "FAIL  ") + m + (c || x === undefined ? "" : " -> " + JSON.stringify(x))); c ? pass++ : fail++; };
+global.window = global; await import("../public/logic.js"); const LV = globalThis.OasisLogic.LV;
+ok(LV.level(0) === 1 && LV.level(119) === 1 && LV.level(120) === 2, "level thresholds start at 120 XP");
+ok(LV.need(31) > LV.need(30) && LV.level(LV.need(60)) === 60 && LV.level(1e30) > 100, "no maximum level (60 and 100+ reachable)");
+ok(LV.reward(1) === null && LV.reward(5).jry === 5 && LV.reward(5).spins === 1 && LV.reward(3).jry === 0, "rewards: JRY and a spin every 5th level");
+const C = (await post("/api/auth", { accessToken: "tokC" })).session;
+const uid = (await sql("SELECT uid FROM users WHERE username='carol'"))[0].uid;
+let me = await get("/api/level", C);
+ok(me.lv === 1 && me.pending.length === 0, "new player: level 1, nothing to claim", me);
+let r = await post("/api/action", { action: { type: "daily" } }, C);
+ok(r.state && r.state.xp >= 25, "daily bonus counts as XP", r.state && r.state.xp);
+await exec(`UPDATE state SET json = json_set(json, '$.xp', 1000) WHERE uid='${uid}'`);
+me = await get("/api/level", C);
+ok(me.lv === LV.level(1000) && me.pending.length === me.lv - 1, "pending = every level reached", [me.lv, me.pending.length]);
+const before = (await sql(`SELECT json_extract(json,'$.dates') AS d FROM state WHERE uid='${uid}'`))[0].d;
+const jb = (await sql(`SELECT COALESCE(jry_pts,0) AS j FROM users WHERE uid='${uid}'`))[0].j;
+r = await post("/api/level/claim", {}, C);
+let expD = 0, expJ = 0; for (let l = 2; l <= me.lv; l++) { expD += LV.reward(l).dates; expJ += LV.reward(l).jry; }
+const after = (await sql(`SELECT json_extract(json,'$.dates') AS d FROM state WHERE uid='${uid}'`))[0].d;
+const ja = (await sql(`SELECT COALESCE(jry_pts,0) AS j FROM users WHERE uid='${uid}'`))[0].j;
+ok(r.ok && after - before === expD && ja - jb === expJ, "claim pays dates and JRY points", [after - before, expD, ja - jb, expJ]);
+r = await post("/api/level/claim", {}, C);
+ok(r.error || r.code, "second claim refused", r);
+ok((await get("/api/level", C)).pending.length === 0, "nothing pending after claim");
+await exec(`UPDATE state SET json = json_set(json, '$.xp', 100000) WHERE uid='${uid}'`);
+ok((await get("/api/level", C)).pending.length > 0, "new levels become claimable");
+const top = await get("/api/level/top", C);
+ok(top.top.length >= 1 && top.top[0].username === "carol" && top.top[0].lv > 1, "level ranking lists the player", top);
+console.log(`== ${pass} passed, ${fail} failed`);

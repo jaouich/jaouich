@@ -1641,3 +1641,14 @@ main { overflow-x: hidden; }
 .ct-opt span, .ct-opt em, .ct-opt button { position: relative; z-index: 1; } .ct-opt span { flex: 1; overflow-wrap: anywhere; } .ct-opt em { font-style: normal; font-weight: 800; color: #ffd86b; }
 .ct-opt.on { outline: 2px solid #ffd86b; }
 .th-sub { display: flex; align-items: center; gap: 8px; justify-content: center; font-size: .95rem; } .th-sub i { font-style: normal; font-size: 22px; } .th-sub small { opacity: .8; }
+
+/* ---- Harvest levels ---- */
+.lv-bar { display: flex; align-items: center; gap: 10px; width: 100%; margin: 8px 0; padding: 10px 12px; border: 0; border-radius: 18px; background: linear-gradient(135deg, #2f7d32, #145a1a); color: #fff; font: inherit; text-align: start; cursor: pointer; box-shadow: 0 4px 0 #0d3d12; }
+.lv-bar i { font-style: normal; font-size: 30px; }
+.lv-bar span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.lv-bar b { font-size: .95rem; } .lv-bar small { opacity: .85; font-size: .72rem; }
+.lv-bar em, .lv-meter { display: block; height: 10px; border-radius: 99px; background: rgba(0,0,0,.35); overflow: hidden; }
+.lv-bar em u, .lv-meter u { display: block; height: 100%; background: linear-gradient(90deg, #ffd86b, #f59e0b); border-radius: 99px; text-decoration: none; }
+.lv-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,.1); opacity: .7; }
+.lv-row.got { opacity: 1; background: rgba(255,216,107,.12); border-radius: 12px; }
+.lv-row i { font-style: normal; font-size: 24px; } .lv-row span { flex: 1; display: flex; flex-direction: column; } .lv-row small { opacity: .75; font-size: .72rem; } .lv-row em { font-style: normal; font-weight: 700; font-size: .78rem; color: #ffd86b; text-align: end; }

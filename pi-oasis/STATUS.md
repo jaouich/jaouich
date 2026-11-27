@@ -98,3 +98,9 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - Parliament: monthly cycle by UTC day: 1-7 candidacy, 8-14 voting, from 15 results; 15 MPs (1,000 coins/day), #1 Speaker (2,000). `COURT_NOW` test override.
 - Client: `public/court.js` (overlay `#court`, tabs Court/Houses/Parliament/Votes), `public/throne.js` (Emperor block on Ranking tab). All text says in-game titles, supports the project, not refundable, not an investment.
 - Tests: `tests/court.mjs` (47). Run each suite on a fresh harness.
+
+## Harvest Levels (step 1 of the fun update)
+- XP = dates earned honestly (`earn()` in `public/logic.js` adds `s.xp`; bonuses, purchases and prizes excluded). `OasisLogic.LV`: level 2 at 120 XP, x1.6 per level up to 30 then x1.5, no maximum. Reward per level: 100 x level dates; every 5th level also JRY points = level and a wheel spin.
+- Routes `GET /api/level`, `POST /api/level/claim` (table `level_claims`, once per level), `GET /api/level/top`. UI: `public/level.js` (bar `#lvBar` on the Farm tab, page `#levels`). JRY points are in-game; token conversion is not promised.
+- Tests: `tests/level.mjs` (11).
+- Next steps in the plan: Horse Merge game, login streak + achievements, seasons.

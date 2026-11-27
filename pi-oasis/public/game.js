@@ -1794,6 +1794,7 @@
     document.addEventListener("langchange", draw);
   }
 
+  try { const dm = document.getElementById("hubMore"); if (dm) { if (localStorage.getItem("oasis_more") === "1") dm.open = true; dm.addEventListener("toggle", () => { try { localStorage.setItem("oasis_more", dm.open ? "1" : "0"); } catch (e) {} }); } } catch (e) {}
   window.OasisGame = {
     get S() { return S; },
     set S(x) { S = x; },

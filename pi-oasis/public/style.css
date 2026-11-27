@@ -1678,3 +1678,10 @@ main { overflow-x: hidden; }
 
 /* ---- Seasons ---- */
 .hub-season { background: radial-gradient(120% 140% at 0% 0%, #f5b301 0%, #b9770e 55%, #6b3c07 100%); color: #fff; box-shadow: 0 5px 0 #43260a; }
+
+/* ---- collapsible "More" on the home screen ---- */
+.hub-more { margin-top: 14px; }
+.hub-more > summary { list-style: none; cursor: pointer; padding: 14px; text-align: center; font-weight: 800; border-radius: 18px; background: linear-gradient(135deg, #fff3d6, #f3d9a0); color: #6b4a14; box-shadow: 0 3px 0 #d9b46a; }
+.hub-more > summary::-webkit-details-marker { display: none; }
+.hub-more > summary::after { content: " ▾"; } .hub-more[open] > summary::after { content: " ▴"; }
+.hub-more[open] > summary { margin-bottom: 10px; }

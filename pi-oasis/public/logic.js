@@ -244,6 +244,24 @@
     view(xp) { const lv = this.level(xp), a = this.need(lv), b = this.need(lv + 1); return { lv, xp: xp || 0, cur: (xp || 0) - a, span: b - a, next: b }; },
   };
 
+  // 📦 Black Boxes: bought with 1-10 Pi. The contents are fixed for each box (nothing is random), a numbered card (up to 1,000,000 copies) comes with it.
+  const BBOX = {
+    MAX: 1000000, BURN: 0.2, // burning a card pays back 20% of the box's dates
+    TIERS: [
+      { p: 1, dates: 1500, coins: 100000, jry: 5, spins: 1, camel: 0, mult: 0, vipc: 0 },
+      { p: 2, dates: 3500, coins: 250000, jry: 12, spins: 2, camel: 0, mult: 0, vipc: 0 },
+      { p: 3, dates: 6500, coins: 500000, jry: 22, spins: 3, camel: 0, mult: 0, vipc: 0 },
+      { p: 4, dates: 11000, coins: 900000, jry: 40, spins: 3, camel: 1, mult: 0, vipc: 0 },
+      { p: 5, dates: 17000, coins: 1500000, jry: 70, spins: 4, camel: 2, mult: 3, vipc: 0 },
+      { p: 6, dates: 26000, coins: 2400000, jry: 110, spins: 4, camel: 2, mult: 5, vipc: 1 },
+      { p: 7, dates: 38000, coins: 3600000, jry: 170, spins: 5, camel: 3, mult: 7, vipc: 2 },
+      { p: 8, dates: 55000, coins: 5200000, jry: 250, spins: 6, camel: 3, mult: 10, vipc: 3 },
+      { p: 9, dates: 78000, coins: 7500000, jry: 380, spins: 7, camel: 3, mult: 15, vipc: 5 },
+      { p: 10, dates: 110000, coins: 11000000, jry: 550, spins: 8, camel: 3, mult: 20, vipc: 7 },
+    ], // camel: 1 rare, 2 epic, 3 legendary; mult: days of x2; vipc: days of the VIP Club
+    of(p) { return this.TIERS.find((x) => x.p === p) || null; },
+  };
+
   // 🏆 Seasons: 4 weeks. Season points (SP) are summed from the weekly results of every game.
   const SEASON = {
     DAYS: 28,
@@ -766,6 +784,6 @@
   COURT.titleOf = (rank, paid) => (rank >= 1 && rank <= COURT.SEATS ? (rank <= 3 ? COURT.TITLES[rank - 1] : COURT.TITLES[3]) : paid > 0 ? COURT.notable : COURT.citizen);
   COURT.voteWeight = (paid) => 1 + Math.min(COURT.VOTE.CAP, Math.max(0, Number(paid) || 0));
   COURT.phase = (t) => { const d = new Date(t).getUTCDate(), P = COURT.PARLIAMENT; return d >= P.RESULTS_FROM ? "results" : d >= P.VOTING[0] ? "voting" : "candidacy"; };
-  const api = { SEASON, LV, MG, STREAK7, ACH, achFacts, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { BBOX, SEASON, LV, MG, STREAK7, ACH, achFacts, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -135,6 +135,8 @@
     { id: "dragon", e: "🐉", r: "legendary", max: 10000, price: 2500000, perk: 0.12 },
     { id: "sun", e: "☀️", r: "mythic", max: 3, price: 15000000, perk: 0.2 },
   ];
+  // Black Boxes: 10 cards sold only for Pi (1 to 10 Pi), up to 1,000,000 copies each; the contents are fixed per box (OasisLogic.BBOX)
+  for (let p = 1; p <= 10; p++) COLLECTIBLES.push({ id: "box" + p, e: ["📦", "🎁", "🧰", "🪙", "🔮", "🏺", "💼", "🗝️", "👑", "🌌"][p - 1], r: "box", max: 1000000, price: 0, pi: p, perk: 0.01 * p });
   // Mint price rises 10% for every 1,000 copies already made, so early collectors pay less
   const MINT_STEP = 1000, MINT_RISE = 0.1;
   const mintPrice = (c, minted) => Math.round(c.price * (1 + MINT_RISE * Math.floor((minted || 0) / MINT_STEP)));

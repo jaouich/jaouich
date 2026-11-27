@@ -13,7 +13,7 @@ const HC = await H("tokC"), HD = await H("tokD");
 const uid = async (n) => (await sql(`SELECT uid FROM users WHERE username='${n}'`))[0].uid;
 const uC = await uid("carol"), uD = await uid("dina");
 
-ok(K.COLLECTIBLES.filter((c) => c.r !== "mythic").every((c) => c.max === 10000) && K.COLLECTIBLES.filter((c) => c.r === "mythic").every((c) => c.max <= 3), "10,000 copies of every card except the mythic ones");
+ok(K.COLLECTIBLES.filter((c) => c.r !== "mythic" && !c.pi).every((c) => c.max === 10000) && K.COLLECTIBLES.filter((c) => c.r === "mythic").every((c) => c.max <= 3), "10,000 copies of every card except the mythic ones");
 const scorp = K.nftById("scorpion");
 ok(K.mintPrice(scorp, 0) === scorp.price && K.mintPrice(scorp, 999) === scorp.price && K.mintPrice(scorp, 1000) === Math.round(scorp.price * 1.1) && K.mintPrice(scorp, 5000) === Math.round(scorp.price * 1.5), "mint price rises 10% per 1,000 copies");
 

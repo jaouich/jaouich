@@ -186,6 +186,9 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS season_paid ( season INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS castle_weeks ( week_id INTEGER NOT NULL, uid TEXT NOT NULL, pts INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (week_id, uid) )",
   "CREATE TABLE IF NOT EXISTS castle_week_paid ( week_id INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS bbox_counter ( tier INTEGER PRIMARY KEY, n INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS bbox_opens ( pay_id TEXT PRIMARY KEY, uid TEXT NOT NULL, tier INTEGER NOT NULL, edition INTEGER NOT NULL, item_id INTEGER, at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS bbox_burns ( item_id INTEGER PRIMARY KEY, uid TEXT NOT NULL, tier INTEGER NOT NULL, edition INTEGER NOT NULL, dates INTEGER NOT NULL, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS castle_day ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
   "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
@@ -1089,6 +1092,26 @@ const routes = {
     return { ok: true, ...sum };
   },
 
+  // ---------- Black Boxes: my openings and burning a card ----------
+  "GET /api/bbox": async (req, env) => {
+    const u = await auth(req, env);
+    const opens = await all(env, "SELECT tier, edition, at FROM bbox_opens WHERE uid = ? AND edition > 0 ORDER BY at DESC LIMIT 10", u.uid);
+    const minted = await all(env, "SELECT tier, n FROM bbox_counter");
+    return { opens, minted: Object.fromEntries(minted.map((x) => [x.tier, x.n])), now: Date.now() };
+  },
+  "POST /api/bbox/burn": async (req, env, body) => {
+    const u = await auth(req, env), now = Date.now();
+    const it = await one(env, "SELECT * FROM nft_items WHERE id = ? AND owner = ?", Number(body.id) || 0, u.uid);
+    if (!it || !/^box\d+$/.test(it.kind)) bad("k.nftNotYours");
+    const tier = Number(it.kind.slice(3)), B = L.BBOX.of(tier);
+    const r = await run(env, "DELETE FROM nft_items WHERE id = ? AND owner = ?", it.id, u.uid);
+    if (!r.meta.changes) bad("k.nftGone");
+    const dates = Math.floor(B.dates * L.BBOX.BURN);
+    await run(env, "INSERT OR IGNORE INTO bbox_burns (item_id, uid, tier, edition, dates, at) VALUES (?, ?, ?, ?, ?, ?)", it.id, u.uid, tier, it.edition, dates, now);
+    await creditPoints(env, u.uid, "dates", dates, now, "burn");
+    return { ok: true, dates, now };
+  },
+
   // ---------- Harvest levels: XP = dates earned honestly; each level pays once ----------
   "GET /api/level": async (req, env) => {
     const u = await auth(req, env);
@@ -1410,6 +1433,7 @@ const routes = {
     const u = await auth(req, env);
     const c = KL.nftById(String(body.kind || ""));
     if (!c) bad("badAction");
+    if (c.pi) bad("k.nftPaid"); // Black Boxes are sold for Pi only
     const now = Date.now();
     const st = await stateFor(env, u, now, tierOf(u, now, await isPartner(env, u.username)));
     st.kombat = KL.norm(st.kombat, now);
@@ -3113,6 +3137,11 @@ function checkPaymentInner(p, uid) {
     if (!(fee === L.COURT.HOUSE.FEE || fee === L.COURT.HOUSE.FEE_SUPPORTER) || Number(p.amount) !== fee || !KL.tribeNameOk(name) || !KL.TRIBE.EMOJIS.includes(String(m.emoji))) bad("badPayment");
     return { price: fee, house: { name, emoji: String(m.emoji), fee } };
   }
+  if (p.metadata?.type === "bbox") {
+    const tier = Number(p.metadata.tier);
+    if (!Number.isInteger(tier) || !L.BBOX.of(tier) || Number(p.amount) !== tier) bad("badPayment");
+    return { price: tier, bbox: tier };
+  }
   if (p.metadata?.type === "vipclub") {
     if (Number(p.amount) !== VC.VIPC.PRICE) bad("badPayment");
     return { price: VC.VIPC.PRICE, vipc: true };
@@ -3200,7 +3229,7 @@ async function completePayment(env, id, txid, uid) {
 }
 
 // The Pi waiting in a player's box (prizes and refunds not sent yet) can pay for things inside the app.
-const BOX_SPEND_TYPES = ["house", "vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
+const BOX_SPEND_TYPES = ["bbox", "house", "vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
 async function boxTake(env, uid, price) {
   const rows = await all(env, "SELECT id, amount FROM payouts WHERE uid = ? AND status = 'new' AND kind IN ('prize', 'refund') ORDER BY created_at ASC", uid);
   const have = rows.reduce((a, r) => a + Number(r.amount), 0);
@@ -3280,6 +3309,7 @@ async function grantItem(env, u, item, id, now, internal) {
   if (item.supFree && u) await supSurprise(env, u.uid, now);
   if (item.royal && u) await royalGrant(env, u.uid, item.royal, id, now, item.price);
   if (item.house && u) await houseCreate(env, u, item.house, id, now, item.price);
+  if (item.bbox && u) await bboxOpen(env, u, item.bbox, id, now);
   const camel = (item.lvl && item.lvl.camel) || (item.sup && item.sup.camel);
   if (camel && u) {
     const st = await loadState(env, u.uid, now);
@@ -3432,6 +3462,26 @@ async function grantSeasonPrizes(env) {
   }
   await notify(env, out.map((r) => ({ uid: r.uid, kind: "season", ref: last, vars: { d: r.dates.toLocaleString("en-US"), j: r.jry } })));
   return out.length;
+}
+// Black Box paid: a numbered card plus the fixed contents of that box
+async function bboxOpen(env, u, tier, payId, now) {
+  const first = await run(env, "INSERT OR IGNORE INTO bbox_opens (pay_id, uid, tier, edition, at) VALUES (?, ?, ?, 0, ?)", payId, u.uid, tier, now);
+  if (!first.meta.changes) return; // this payment was already opened
+  const B = L.BBOX.of(tier), kind = "box" + tier;
+  const c = await one(env, "INSERT INTO bbox_counter (tier, n) VALUES (?, 1) ON CONFLICT(tier) DO UPDATE SET n = n + 1 RETURNING n", tier);
+  const ed = c.n;
+  await run(env, "INSERT INTO nft_items (kind, edition, owner, minted_at) VALUES (?, ?, ?, ?)", kind, ed, u.uid, now);
+  const it = await one(env, "SELECT id FROM nft_items WHERE kind = ? AND edition = ?", kind, ed);
+  await run(env, "INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, NULL, ?, 0, ?)", it.id, u.uid, now);
+  await run(env, "UPDATE bbox_opens SET edition = ?, item_id = ? WHERE pay_id = ?", ed, it.id, payId);
+  await creditPoints(env, u.uid, "dates", B.dates, now, "bbox");
+  await creditPoints(env, u.uid, "coins", B.coins, now, "bbox");
+  await giveReward(env, u.uid, "jry", B.jry, now, "bbox");
+  await giveReward(env, u.uid, "spins", B.spins, now, "bbox");
+  if (B.vipc) await giveReward(env, u.uid, "vipclub", B.vipc, now, "bbox");
+  const cur = multOf(u, now);
+  if (B.mult && !(cur && cur.f > 2)) await (await applyMult(env, u, { id: L.MULT[0].id, days: B.mult }, now)).run();
+  if (B.camel) { const st = await loadState(env, u.uid, now); L.addAnimal(st, B.camel, now, "bbox"); await saveState(env, u.uid, st, now); }
 }
 async function achView(env, u) {
   const st = await one(env, "SELECT json FROM state WHERE uid = ?", u.uid);

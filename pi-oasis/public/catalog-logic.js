@@ -24,7 +24,7 @@
   // All entries: { id, kind: nft | royal | badge, sec, required, r (rarity for the look), e }
   function entries() {
     if (cache) return cache;
-    const C = root.KombatLogic.COLLECTIBLES, R = root.OasisLogic.ROYAL.TIERS.filter((x) => !x.premium), out = [];
+    const C = root.KombatLogic.COLLECTIBLES.filter((x) => !x.pi), R = root.OasisLogic.ROYAL.TIERS.filter((x) => !x.premium), out = [];
     C.forEach((c, i) => out.push({ id: c.id, kind: "nft", sec: c.r === "mythic" ? "honors" : i < 8 ? "series1" : "series2", required: c.r !== "mythic", r: c.r, e: c.e, max: c.max, price: c.price, perk: c.perk }));
     R.forEach((t) => out.push({ id: t.id, kind: "royal", sec: "royal", required: true, r: ROYAL_R[t.id] || "rare", e: t.e, price: t.price, color: t.color }));
     BADGES.forEach((b) => out.push({ id: b.id, kind: "badge", sec: "honors", required: false, r: b.r, e: b.e }));

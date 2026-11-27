@@ -534,8 +534,19 @@
       G.toast(t("k.jry.ok"));
     } catch (e) { G.toast(errMsg(e)); }
   });
+  // ---------- Black Boxes ----------
+  const OL = window.OasisLogic;
+  function showReveal(tier, ed) {
+    const B = OL.BBOX.of(tier), c = KL.nftById("box" + tier), CAM = ["", t("bb.camel1"), t("bb.camel2"), t("bb.camel3")];
+    const rows = [["🌴", t("bb.r.dates", { n: big(B.dates) })], ["🪙", t("bb.r.coins", { n: big(B.coins) })], ["💠", t("bb.r.jry", { n: B.jry })], ["🎡", t("bb.r.spins", { n: B.spins })],
+      B.camel ? ["🐪", CAM[B.camel]] : null, B.mult ? ["⚡", t("bb.r.mult", { n: B.mult })] : null, B.vipc ? ["👑", t("bb.r.vipc", { n: B.vipc })] : null, ["🃏", t("bb.r.card", { n: ed || "?", e: c.e })]].filter(Boolean);
+    const el = document.createElement("div"); el.className = "bb-reveal";
+    el.innerHTML = `<div class="bb-box"><div class="bb-lid">${c.e}</div><h3>${t("n.c.box" + tier)}</h3>${rows.map((r, i) => `<p style="animation-delay:${0.25 * i + 0.3}s"><i>${r[0]}</i>${r[1]}</p>`).join("")}<button class="btn gold" type="button">OK</button></div>`;
+    el.querySelector("button").addEventListener("click", () => el.remove());
+    document.body.appendChild(el);
+  }
   // ---------- Jerry Collectibles: mint, market, my copies ----------
-  let nTab = "mint", nData = null;
+  let nTab = "boxes", nData = null;
   const nCard = (c, inner, ed) => `<div class="n-card r-${c.r}"><div class="n-art"><span>${c.e}</span>${ed ? `<em>#${ed}/${c.max}</em>` : ""}</div>
     <b>${t("n.c." + c.id)}</b><small class="n-r">${t("n.r." + c.r)} · +${Math.round(c.perk * 100)}%/h</small>${inner}</div>`;
   async function renderNft() {
@@ -545,12 +556,19 @@
     document.querySelectorAll("[data-ntab]").forEach((b) => b.classList.toggle("on", b.dataset.ntab === nTab));
     let html = "";
     if (nTab === "mint") {
-      html = KL.COLLECTIBLES.map((c) => {
+      html = KL.COLLECTIBLES.filter((c) => !c.pi).map((c) => {
         const n = d.minted[c.id] || 0, left = c.max - n, cost = KL.mintPrice(c, n);
         return nCard(c, `<small>${t("n.left", { n: left, max: c.max })}</small>${left > 0
           ? `<button class="k-buy" data-mint="${c.id}" ${coins >= cost ? "" : "disabled"}><b><i class="kcoin s"></i>${big(cost)}</b><small>${t("n.mintBtn")}</small></button>`
           : `<span class="n-out">${t("n.soldOut")}</span>`}`);
       }).join("");
+    } else if (nTab === "boxes") {
+      html = `<p class="k-note">${t("bb.d")}</p>` + OL.BBOX.TIERS.map((B) => {
+        const c = KL.nftById("box" + B.p), n = (d.minted && d.minted["box" + B.p]) || 0;
+        return `<div class="n-card r-box bb-card"><div class="n-art"><span>${c.e}</span><em>1/${(c.max).toLocaleString("en-US")}</em></div><b>${t("n.c.box" + B.p)}</b>
+          <small class="n-r">${t("bb.guar", { d: big(B.dates), j: B.jry })}</small><small>${t("bb.more")}</small><small>${t("bb.perk", { n: B.p })}</small>
+          <button class="k-buy bb-buy" data-bbuy="${B.p}"><b>${B.p} Pi</b><small>${t("bb.buy")}</small></button></div>`;
+      }).join("") + `<p class="k-note">${t("bb.rules")}</p>`;
     } else if (nTab === "market") {
       const mineKinds = new Set((d.mine || []).filter((x) => x.price == null && !x.swap_want).map((x) => x.kind));
       html = d.market.length ? d.market.map((it) => {
@@ -572,7 +590,7 @@
         : it.price != null
         ? `<small>${t("n.listed", { n: (it.cur === "jry" ? "💠 " : "") + big(it.price) })}</small><button class="k-goal-share" data-unlist="${it.id}">${t("n.unlist")}</button>`
         : `<div class="n-sellrow"><button class="k-goal-share" data-list="${it.id}">🪙 ${t("n.sell")}</button><button class="k-goal-share" data-list="${it.id}" data-cur="jry">💠 ${t("n.sell")}</button></div>
-           <div class="n-sellrow"><select class="n-want" data-for="${it.id}">${opts.replace(`<option value="${it.kind}">`, `<option value="${it.kind}" disabled>`)}</select><button class="k-goal-share" data-wantbtn="${it.id}">🔁</button></div>`, it.edition)).join("") : `<div class="k-note">${t("n.none")}</div>`;
+           <div class="n-sellrow"><select class="n-want" data-for="${it.id}">${opts.replace(`<option value="${it.kind}">`, `<option value="${it.kind}" disabled>`)}</select><button class="k-goal-share" data-wantbtn="${it.id}">🔁</button></div>${/^box\d+$/.test(it.kind) ? `<div class="n-sellrow"><button class="k-goal-share" data-burn="${it.id}" data-tier="${it.kind.slice(3)}">🔥 ${t("bb.burn")}</button></div>` : ""}`, it.edition)).join("") : `<div class="k-note">${t("n.none")}</div>`;
     }
     $("nList").innerHTML = html;
     $("nRecent").innerHTML = d.recent.length ? d.recent.map((r) => `<div><span>${KL.nftById(r.kind).e}</span><b>#${r.edition} ${esc(r.seller || "")} → ${esc(r.buyer)}</b><small></small><span><i class="kcoin s"></i>${big(r.price)}</span></div>`).join("") : `<p class="k-note">${t("n.noSales")}</p>`;
@@ -580,12 +598,23 @@
   document.querySelector('[data-kp="collect"]').addEventListener("click", async (e) => {
     const tab = e.target.closest("[data-ntab]");
     if (tab) { nTab = tab.dataset.ntab; return renderNft(); }
-    const b = e.target.closest("[data-mint],[data-buy-nft],[data-list],[data-unlist],[data-swap],[data-wantbtn]");
+    const b = e.target.closest("[data-mint],[data-buy-nft],[data-list],[data-unlist],[data-swap],[data-wantbtn],[data-bbuy],[data-burn]");
     if (!b) return;
     if (!G.account) return G.toast(t("t.loginFirst"));
     try {
       await flush();
-      if (b.dataset.mint) {
+      if (b.dataset.bbuy) {
+        const tier = +b.dataset.bbuy;
+        if (!confirm(t("bb.confirm", { p: tier }))) return;
+        await Pi.buyBbox(tier);
+        const me = await Pi.me(); G.setAccount(me.account); G.S = me.state; G.render();
+        const o = (await Pi.bbox()).opens[0]; showReveal(tier, o && o.edition); sfx.chest(); coinRain(40);
+      } else if (b.dataset.burn) {
+        if (!confirm(t("bb.confirmBurn", { d: big(Math.floor(OL.BBOX.of(+b.dataset.tier).dates * OL.BBOX.BURN)) }))) return;
+        const r = await Pi.bboxBurn(+b.dataset.burn);
+        G.toast(t("bb.burned", { d: big(r.dates) })); sfx.coin();
+        const me = await Pi.me(); G.S = me.state; G.render();
+      } else if (b.dataset.mint) {
         const r = await Pi.nftMint(b.dataset.mint);
         G.S = r.state; G.setClock(r.now);
         const c = KL.nftById(r.item.kind);

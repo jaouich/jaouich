@@ -129,7 +129,7 @@ Object.assign(T.en, {
 });
 // thèmes : choisis par chaque utilisateur sur son appareil, ou imposés par défaut par la direction
 Object.assign(T.fr, {
-  magi: 'Assistant Magi', magiHi: 'Bonjour {n} ! Je suis Magi. Écrivez ou parlez : je trouve un client, je planifie un rendez-vous, je crée une fiche ou une affaire, je réponds sur votre activité.',
+  magiMenu: 'Questions rapides', magi: 'Assistant Magi', magiHi: 'Bonjour {n} ! Je suis Magi. Écrivez ou parlez : je trouve un client, je planifie un rendez-vous, je crée une fiche ou une affaire, je réponds sur votre activité.',
   magiPh: 'Écrivez ou parlez…', magiSend: 'Envoyer', magiMic: 'Parler', magiListening: 'Je vous écoute… touchez pour arrêter', magiThinking: 'Magi réfléchit…', magiHear: 'Je transcris…',
   magiVoiceOn: 'Réponses à voix haute : activées', magiVoiceOff: 'Réponses à voix haute : désactivées', magiDone: 'C’est fait ✅', magiOpen: 'Ouvrir la fiche', magiNew: 'Nouvelle conversation',
   magiS1: 'Mes rendez-vous de demain', magiS2: 'Clients pas visités depuis 30 jours', magiS3: 'Où en est le pipeline ?', magiS4: 'Ouvre l’agenda', magiNeedNet: 'Magi a besoin d’internet pour comprendre votre demande.',
@@ -137,7 +137,7 @@ Object.assign(T.fr, {
   magiStage: 'Nouvelle étape', magiWhen: 'Quand', magiWhat: 'Objet', magiMicLang: 'Langue parlée',
 });
 Object.assign(T.ar, {
-  magi: 'المساعد ماجي', magiHi: 'مرحبا {n}! أنا ماجي. اكتب أو تكلم: أجد زبونا، أبرمج موعدا، أنشئ ملفا أو صفقة، وأجيب عن نشاطك.',
+  magiMenu: 'أسئلة سريعة', magi: 'المساعد ماجي', magiHi: 'مرحبا {n}! أنا ماجي. اكتب أو تكلم: أجد زبونا، أبرمج موعدا، أنشئ ملفا أو صفقة، وأجيب عن نشاطك.',
   magiPh: 'اكتب أو تكلم…', magiSend: 'إرسال', magiMic: 'تكلم', magiListening: 'أنا أستمع… اضغط للتوقف', magiThinking: 'ماجي يفكر…', magiHear: 'جاري تحويل الصوت إلى نص…',
   magiVoiceOn: 'قراءة الأجوبة بالصوت: مفعلة', magiVoiceOff: 'قراءة الأجوبة بالصوت: متوقفة', magiDone: 'تم ✅', magiOpen: 'فتح الملف', magiNew: 'محادثة جديدة',
   magiS1: 'مواعيدي غدا', magiS2: 'الزبناء الذين لم أزرهم منذ 30 يوما', magiS3: 'كيف حال الصفقات؟', magiS4: 'افتح الأجندة', magiNeedNet: 'ماجي يحتاج إلى الإنترنت لفهم طلبك.',
@@ -145,7 +145,7 @@ Object.assign(T.ar, {
   magiStage: 'المرحلة الجديدة', magiWhen: 'متى', magiWhat: 'الموضوع', magiMicLang: 'لغة الكلام',
 });
 Object.assign(T.en, {
-  magi: 'Magi assistant', magiHi: 'Hi {n}! I’m Magi. Type or talk: I find a client, schedule a meeting, create a record or a deal, and answer questions about your activity.',
+  magiMenu: 'Quick questions', magi: 'Magi assistant', magiHi: 'Hi {n}! I’m Magi. Type or talk: I find a client, schedule a meeting, create a record or a deal, and answer questions about your activity.',
   magiPh: 'Type or talk…', magiSend: 'Send', magiMic: 'Talk', magiListening: 'Listening… tap to stop', magiThinking: 'Magi is thinking…', magiHear: 'Transcribing…',
   magiVoiceOn: 'Spoken answers: on', magiVoiceOff: 'Spoken answers: off', magiDone: 'Done ✅', magiOpen: 'Open record', magiNew: 'New conversation',
   magiS1: 'My meetings tomorrow', magiS2: 'Clients not visited for 30 days', magiS3: 'How is the pipeline?', magiS4: 'Open the agenda', magiNeedNet: 'Magi needs internet to understand you.',
@@ -182,6 +182,7 @@ function h(tag, a = {}, ...kids) {
 }
 const P = {
   pipe: '<rect x="3.5" y="4" width="4.5" height="16" rx="1.5"/><rect x="9.75" y="4" width="4.5" height="11" rx="1.5"/><rect x="16" y="4" width="4.5" height="7" rx="1.5"/>', spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+  list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>', vol: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
   send: '<path d="M4 12 20 4l-4 16-4-6.5z"/><path d="M12 13.5 20 4"/>', box: '<rect x="4" y="4" width="16" height="16" rx="4"/>', boxok: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 12.5l2.8 2.8L16.5 9.5"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>', meet: '<circle cx="8" cy="9" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M2.5 19.5a5.5 5.5 0 0 1 11 0M13.5 19.5a4.5 4.5 0 0 1 8 -2.8"/>',
@@ -1087,6 +1088,34 @@ async function followupModal(v) {
 }
 
 
+
+// questions rapides de Magi : [texte, true = à compléter avant d'envoyer]
+const MAGI_MENU = {
+  fr: [
+    ['Aujourd’hui', [['Qu’est-ce que j’ai aujourd’hui ?'], ['Mes rendez-vous de demain'], ['Mes tâches en retard']]],
+    ['Clients', [['Clients pas visités depuis 30 jours'], ['Mes prospects à relancer'], ['Ouvre la fiche ', 1], ['Nouveau prospect : ', 1]]],
+    ['Planifier', [['Programme un rendez-vous demain à 10h avec ', 1], ['Rappelle-moi d’appeler ', 1], ['Note pour le client ', 1]]],
+    ['Ventes', [['Où en est le pipeline ?'], ['Quelles affaires sont en négociation ?'], ['Crée une affaire pour ', 1]]],
+    ['Équipe', [['Activité de l’équipe cette semaine'], ['Qui n’a fait aucune visite cette semaine ?']], 'admin'],
+    ['Aller à', [['Ouvre l’agenda'], ['Ouvre le pipeline'], ['Ouvre la carte']]],
+  ],
+  ar: [
+    ['اليوم', [['شنو عندي اليوم؟'], ['مواعيدي غدا'], ['المهام المتأخرة']]],
+    ['الزبناء', [['الزبناء اللي ما زرتهمش هادي 30 يوم'], ['الزبناء المحتملين اللي خاصني نتابعهم'], ['حل ليا ملف ', 1], ['زبون محتمل جديد: ', 1]]],
+    ['البرمجة', [['برمج ليا موعد غدا على 10 مع ', 1], ['فكرني نعيط لـ ', 1], ['ملاحظة للزبون ', 1]]],
+    ['المبيعات', [['كيف حال الصفقات؟'], ['شنو هي الصفقات اللي فالتفاوض؟'], ['دير صفقة جديدة لـ ', 1]]],
+    ['الفريق', [['نشاط الفريق هاد السيمانة'], ['شكون ما دار حتى زيارة هاد السيمانة؟']], 'admin'],
+    ['افتح', [['افتح الأجندة'], ['افتح الصفقات'], ['افتح الخريطة']]],
+  ],
+  en: [
+    ['Today', [['What do I have today?'], ['My meetings tomorrow'], ['My overdue tasks']]],
+    ['Clients', [['Clients not visited for 30 days'], ['Prospects to follow up'], ['Open the record of ', 1], ['New prospect: ', 1]]],
+    ['Plan', [['Schedule a meeting tomorrow at 10am with ', 1], ['Remind me to call ', 1], ['Note for client ', 1]]],
+    ['Sales', [['How is the pipeline?'], ['Which deals are in negotiation?'], ['Create a deal for ', 1]]],
+    ['Team', [['Team activity this week'], ['Who made no visit this week?']], 'admin'],
+    ['Go to', [['Open the agenda'], ['Open the pipeline'], ['Open the map']]],
+  ],
+};
 // =================================================================== assistant « Magi » : on écrit ou on parle, il agit
 const ROBOT_SVG = '<svg viewBox="0 0 64 64" aria-hidden="true"><line x1="32" y1="5" x2="32" y2="13" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle class="bulb" cx="32" cy="5" r="4"/><rect x="9" y="12" width="46" height="36" rx="15" fill="currentColor"/><rect x="15" y="18" width="34" height="23" rx="10" fill="#fff"/><g class="eyes"><ellipse cx="25" cy="28" rx="3.6" ry="4.2" fill="#14112b"/><ellipse cx="39" cy="28" rx="3.6" ry="4.2" fill="#14112b"/></g><rect class="mouth" x="28" y="34" width="8" height="2.6" rx="1.3" fill="#14112b"/><rect x="20" y="50" width="24" height="12" rx="6" fill="currentColor" opacity=".8"/></svg>';
 const robotIcon = (cls) => { const s = h('span', { class: 'robot ' + (cls || '') }); s.innerHTML = ROBOT_SVG; return s; };
@@ -1119,9 +1148,20 @@ function openMagi() {
     onclick: () => { magi.voice = !magi.voice; try { localStorage.setItem('crm-voice', magi.voice ? '1' : '0'); } catch (e) {} voiceBtn.classList.toggle('on', magi.voice); voiceBtn.setAttribute('aria-pressed', magi.voice ? 'true' : 'false'); voiceBtn.title = magi.voice ? t('magiVoiceOn') : t('magiVoiceOff'); if (!magi.voice) try { speechSynthesis.cancel(); } catch (e) {} toast(voiceBtn.title); } }, ic('vol', 20));
   const resetBtn = h('button', { type: 'button', class: 'iconbtn', title: t('magiNew'), 'aria-label': t('magiNew'), onclick: () => { magi.log = []; magi.history = []; paint(); } }, ic('plus', 20));
   const closeBtn = h('button', { type: 'button', class: 'iconbtn', 'aria-label': t('cancel'), onclick: () => close() }, ic('x', 20));
+  const menuSheet = h('div', { class: 'magi-menu', hidden: true });
+  const fillMenu = () => menuSheet.replaceChildren(...(MAGI_MENU[lang] || MAGI_MENU.fr).filter((g) => g[2] !== 'admin' || S.user.role === 'admin').map(([title, qs]) =>
+    h('div', { class: 'mm-g' }, h('b', {}, title), h('div', { class: 'mm-q' }, ...qs.map(([q, fill]) => h('button', { type: 'button', class: fill ? 'fill' : null, onclick: () => {
+      toggleMenu(false);
+      if (fill) { input.value = q; input.focus(); input.setSelectionRange(q.length, q.length); input.dispatchEvent(new Event('input')); }
+      else send(q);
+    } }, fill ? q.trim().replace(/[:：]$/, '').trim() + '…' : q))))));
+  const toggleMenu = (on) => { const show = on ?? menuSheet.hidden; if (show) fillMenu(); menuSheet.hidden = !show; menuBtn.setAttribute('aria-expanded', show ? 'true' : 'false'); menuBtn.classList.toggle('on', show); };
+  const menuBtn = h('button', { type: 'button', class: 'magi-menubtn', 'aria-expanded': 'false', onclick: () => toggleMenu() }, ic('list', 18), t('magiMenu'));
   const panel = h('div', { class: 'magi-panel', role: 'dialog', 'aria-label': t('magi') },
     h('div', { class: 'magi-head' }, robotIcon(), h('div', { class: 'grow' }, h('b', {}, 'Magi'), h('small', {}, t('magi'))), voiceBtn, resetBtn, closeBtn),
     log,
+    menuSheet,
+    h('div', { class: 'magi-bar' }, menuBtn),
     h('div', { class: 'magi-in' }, langBtn, input, mic, sendBtn));
   const veil = h('div', { class: 'magi-veil', onclick: () => close() });
   document.body.append(veil, panel);
@@ -1146,6 +1186,7 @@ function openMagi() {
   async function send(text, spoken) {
     const msg = String(text ?? input.value).trim();
     if (!msg || busy) return;
+    toggleMenu(false);
     input.value = ''; input.style.height = 'auto';
     push({ who: 'user', text: msg });
     if (!navigator.onLine) return push({ who: 'bot', text: t('magiNeedNet') });

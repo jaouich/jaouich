@@ -11,7 +11,8 @@ const PART_MAX = 95 * MB;
 const MAX_BIG = 4096 * MB;               // vidéo longue : 4 Go
 const CATEGORIES = ["photo", "video", "document", "devis", "audio"];
 const KINDS = ["client", "prospect"];
-const VISIT_KINDS = ["visite", "rdv", "appel", "note", "vocal", "reunion"];
+const VISIT_KINDS = ["visite", "rdv", "appel", "note", "vocal", "reunion", "tache"];
+const DEAL_STAGES = ["nouveau", "devis", "negociation", "gagne", "perdu"];
 const VISIT_STATUS = ["planned", "done", "cancelled"];
 const BLOCKED_EXT = /\.(exe|bat|cmd|com|msi|scr|js|vbs|ps1|sh|jar|apk|html?|svg)$/i;
 
@@ -64,6 +65,8 @@ async function route(req, env, ctx, url = new URL(req.url)) {
   if (p === "/api/me/password" && m === "POST") return changePassword(req, env, me);
   if (p === "/api/sync" && m === "GET") return sync(url, env, me);
   if (p === "/api/clients/reassign" && m === "POST") return reassign(req, env, me, log);
+  if (p === "/api/clients/import" && m === "POST") return importClients(req, env, me, log);
+  if (p === "/api/export/deals.xlsx" && m === "GET") return exportDeals(url, env, me, log);
   if (p === "/api/files/mp" && m === "POST") return mpCreate(req, env, me);
   if (p === "/api/users" && m === "GET") return listUsers(env, me);
   if (p === "/api/users" && m === "POST") return createUser(req, env, me, log);
@@ -75,6 +78,12 @@ async function route(req, env, ctx, url = new URL(req.url)) {
 
   let r;
   const ID = "([0-9a-zA-Z-]{8,40})";
+  if ((r = p.match(new RegExp(`^/api/deals/${ID}$`)))) {
+    if (m === "PUT") return putDeal(r[1], req, env, me, log);
+    if (m === "DELETE") return deleteDeal(r[1], env, me, log);
+  }
+  if ((r = p.match(new RegExp(`^/api/ai/brief/${ID}$`))) && m === "POST") return aiBrief(r[1], req, env, me);
+  if ((r = p.match(new RegExp(`^/api/ai/followup/${ID}$`))) && m === "POST") return aiFollowup(r[1], req, env, me);
   if ((r = p.match(new RegExp(`^/api/clients/${ID}$`)))) {
     if (m === "PUT") return putClient(r[1], req, env, me, log);
     if (m === "GET") return getClient(r[1], env, me);
@@ -376,8 +385,9 @@ async function sync(url, env, me) {
   }
   const visits = (await env.DB.prepare(`SELECT v.* FROM visits v JOIN clients c ON c.id = v.client_id WHERE ${sc.sql} AND v.updated_at > ? ORDER BY v.updated_at LIMIT 20000`).bind(...sc.args, since).all()).results;
   const files = (await env.DB.prepare(`SELECT f.id, f.client_id, f.visit_id, f.user_id, f.name, f.mime, f.size, f.category, f.note, f.seq, f.transcript, f.created_at, f.updated_at, f.deleted_at FROM files f JOIN clients c ON c.id = f.client_id WHERE ${sc.sql} AND f.updated_at > ? ORDER BY f.updated_at LIMIT 20000`).bind(...sc.args, since).all()).results;
+  const deals = (await env.DB.prepare(`SELECT d.* FROM deals d JOIN clients c ON c.id = d.client_id WHERE ${sc.sql} AND d.updated_at > ? ORDER BY d.updated_at LIMIT 20000`).bind(...sc.args, since).all()).results;
   const users = (await env.DB.prepare("SELECT id, name, role, active FROM users").all()).results.map((u) => ({ ...u, active: !!u.active }));
-  return json({ now: t, full: !since, clients, gone, visits, files, users, me: pubUser(me), settings: await getSettings(env) });
+  return json({ now: t, full: !since, clients, gone, visits, files, deals, users, me: pubUser(me), settings: await getSettings(env) });
 }
 
 // ------------------------------------------------------------------ clients
@@ -726,7 +736,8 @@ async function stats(url, env, me) {
   const { results: daily } = await env.DB.prepare(`SELECT CAST((date - ?) / ? AS INTEGER) AS d, COUNT(*) AS n FROM visits
     WHERE deleted_at IS NULL AND status='done' AND date > ? GROUP BY d`).bind(t - 30 * day, day, t - 30 * day).all();
   const { results: cities } = await env.DB.prepare("SELECT COALESCE(city,'—') AS city, COUNT(*) AS n FROM clients WHERE deleted_at IS NULL GROUP BY COALESCE(city,'—') ORDER BY n DESC LIMIT 8").all();
-  return json({ totals, per_user: per.map((u) => ({ ...u, active: !!u.active })), daily, cities });
+  const { results: pipeline } = await env.DB.prepare("SELECT stage, COUNT(*) AS n, COALESCE(SUM(amount),0) AS amount FROM deals WHERE deleted_at IS NULL AND (stage NOT IN ('gagne','perdu') OR closed_at > ?) GROUP BY stage").bind(t - 30 * day).all();
+  return json({ totals, per_user: per.map((u) => ({ ...u, active: !!u.active })), daily, cities, pipeline });
 }
 async function listAudit(url, env, me) {
   needAdmin(me);
@@ -868,7 +879,7 @@ async function resetDemo(env) {
   } while (cursor);
   const mps = (await env.DB.prepare("SELECT r2_key, upload_id FROM uploads_mp").all()).results;
   for (const u of mps) { try { await env.MEDIA.resumeMultipartUpload(u.r2_key, u.upload_id).abort(); } catch {} }
-  await env.DB.batch(["users", "sessions", "login_attempts", "settings", "clients", "visits", "files", "uploads_mp", "audit"].map((t) => env.DB.prepare(`DELETE FROM ${t}`)));
+  await env.DB.batch(["users", "sessions", "login_attempts", "settings", "clients", "visits", "files", "uploads_mp", "audit", "deals"].map((t) => env.DB.prepare(`DELETE FROM ${t}`)));
   await seedDemo(env);
 }
 
@@ -991,6 +1002,24 @@ async function seedDemo(env) {
     .bind("demo-v-vocal", "demo-c-002", "demo-u-com", "vocal", "done", t - D - 5 * H, "Passage à la pharmacie Ennour. Le docteur Bennani veut renouveler le contrat de maintenance mais demande une formation pour sa nouvelle employée. Rappeler lundi pour fixer la date de formation.", "done", "fr", 38, t - D - 5 * H, t - 3000));
   st.push(env.DB.prepare("INSERT INTO visits (id,client_id,user_id,kind,status,date,summary,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)")
     .bind("demo-v-note", "demo-c-004", "demo-u-com", "note", "done", t - 3 * D, "Le client compare avec un concurrent : préparer une offre avec remise volume pour 3 postes.", t - 3 * D, t - 2000));
+  // affaires (pipeline) et tâches
+  const dealRows = [
+    ["demo-d-01", "demo-c-001", "demo-u-com", "Câblage 2,5 mm² – commande trimestrielle", 18500, "negociation", 6],
+    ["demo-d-02", "demo-c-001", "demo-u-com", "Gamme peinture 2027", 42000, "devis", 20],
+    ["demo-d-03", "demo-c-002", "demo-u-com", "Contrat de maintenance annuel", 24000, "gagne", -3],
+    ["demo-d-04", "demo-c-004", "demo-u-com", "Équipement 3 postes atelier", 36500, "devis", 12],
+    ["demo-d-05", "demo-c-003", "demo-u-com", "Caisse enregistreuse + logiciel", 9800, "nouveau", 30],
+    ["demo-d-06", "demo-c-009", "demo-u-you", "Gestion de flotte – 12 véhicules", 64000, "negociation", 9],
+    ["demo-d-07", "demo-c-010", "demo-u-you", "Papeterie annuelle", 15200, "perdu", -8],
+    ["demo-d-08", "demo-c-015", "demo-u-sal", "Linge hôtelier 120 chambres", 88000, "devis", 25],
+    ["demo-d-09", "demo-c-016", "demo-u-sal", "Licences logiciel comptable", 21000, "gagne", -12],
+    ["demo-d-10", "demo-c-022", "demo-u-nad", "Présentoirs vitrine", 7400, "nouveau", 40],
+  ];
+  for (const [id, cid, uid, title, amount, stage, dd] of dealRows)
+    st.push(env.DB.prepare("INSERT INTO deals (id,client_id,user_id,title,amount,stage,close_date,closed_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+      .bind(id, cid, uid, title, amount, stage, t + dd * D, stage === "gagne" || stage === "perdu" ? t + dd * D : null, t - 20 * D, t - Math.abs(dd) * H));
+  [["demo-t-1", "demo-c-001", "Envoyer le catalogue peinture et le devis", 1], ["demo-t-2", "demo-c-002", "Fixer la date de formation avec le Dr Bennani", 0], ["demo-t-3", "demo-c-004", "Préparer l'offre remise volume 3 postes", 3]]
+    .forEach(([id, cid, txt, dd]) => st.push(env.DB.prepare("INSERT INTO visits (id,client_id,user_id,kind,status,date,summary,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)").bind(id, cid, "demo-u-com", "tache", "planned", t + dd * D + 2 * H, txt, t - D, t - 1000)));
   // journal : quelques lignes pour l'exemple
   st.push(env.DB.prepare("INSERT INTO audit (at,user_id,action,entity,entity_id,detail) VALUES (?,?,?,?,?,?), (?,?,?,?,?,?), (?,?,?,?,?,?)")
     .bind(t - 3 * D, "demo-u-dir", "user.create", "user", "demo-u-nad", "Nadia El Fassi (commercial)", t - 2 * D, "demo-u-dir", "export.clients", "export", null, "24 fiche(s)", t - D, "demo-u-com", "client.geo", "client", "demo-c-004", "CL-00003 Garage Atlas Auto"));
@@ -1135,4 +1164,154 @@ async function aiProcess(id, req, env, me, log) {
     console.error("ia", e);
     return done({ ai_status: "error", ai_error: String(e.message || e).slice(0, 300) });
   }
+}
+
+
+// ------------------------------------------------------------------ affaires (pipeline)
+async function putDeal(id, req, env, me, log) {
+  if (!/^[0-9a-zA-Z-]{8,40}$/.test(id)) fail(400, "Identifiant invalide");
+  const b = await readJson(req);
+  const old = await env.DB.prepare("SELECT * FROM deals WHERE id = ?").bind(id).first();
+  const t = now();
+  const f = {};
+  if (b.title !== undefined) { f.title = str(b.title, 160); if (f.title.length < 2) fail(400, "Indiquez l'objet de l'affaire"); }
+  if (b.amount !== undefined) f.amount = b.amount === null || b.amount === "" ? null : num(Number(b.amount), 0, 1e12);
+  if (b.stage !== undefined) f.stage = DEAL_STAGES.includes(b.stage) ? b.stage : "nouveau";
+  if (b.close_date !== undefined) f.close_date = b.close_date ? tstamp(b.close_date) : null;
+  if (b.notes !== undefined) f.notes = opt(b.notes, 4000);
+  if (!old) {
+    const c = await loadClient(env, str(b.client_id, 40), me);
+    if (!f.title) fail(400, "Indiquez l'objet de l'affaire");
+    f.stage = f.stage || "nouveau";
+    if (f.stage === "gagne" || f.stage === "perdu") f.closed_at = t;
+    const cols = ["id", "client_id", "user_id", "created_at", "updated_at", ...Object.keys(f)];
+    await env.DB.prepare(`INSERT INTO deals (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`).bind(id, c.id, me.id, tstamp(b.created_at) && b.created_at < t ? b.created_at : t, t, ...Object.values(f)).run();
+    // une affaire gagnée transforme le prospect en client
+    if (f.stage === "gagne" && c.kind === "prospect") await env.DB.prepare("UPDATE clients SET kind = 'client', updated_at = ? WHERE id = ?").bind(t, c.id).run();
+    await log("deal.create", "deal", id, `${c.code} ${c.name} · ${f.title}`);
+  } else {
+    if (old.deleted_at) fail(410, "Cette affaire a été supprimée");
+    const c = await loadClient(env, old.client_id, me);
+    if (!(me.p.admin || old.user_id === me.id || canEdit(me, c))) fail(403, "Cette affaire est suivie par un autre commercial");
+    if (f.stage && f.stage !== old.stage) {
+      f.closed_at = f.stage === "gagne" || f.stage === "perdu" ? t : null;
+      if (f.stage === "gagne" && c.kind === "prospect") await env.DB.prepare("UPDATE clients SET kind = 'client', updated_at = ? WHERE id = ?").bind(t, c.id).run();
+    }
+    const keys = Object.keys(f);
+    if (keys.length) await env.DB.prepare(`UPDATE deals SET ${keys.map((k) => k + " = ?").join(", ")}, updated_at = ? WHERE id = ?`).bind(...Object.values(f), t, id).run();
+    await log(f.stage && f.stage !== old.stage ? "deal.stage" : "deal.update", "deal", id, `${c.code} ${c.name} · ${f.title || old.title}${f.stage && f.stage !== old.stage ? " → " + f.stage : ""}`);
+  }
+  return json({ deal: await env.DB.prepare("SELECT * FROM deals WHERE id = ?").bind(id).first() }, old ? 200 : 201);
+}
+async function deleteDeal(id, env, me, log) {
+  const d = await env.DB.prepare("SELECT * FROM deals WHERE id = ? AND deleted_at IS NULL").bind(id).first();
+  if (!d) fail(404, "Affaire introuvable");
+  if (!(me.p.admin || d.user_id === me.id)) fail(403, "Seul l'auteur ou la direction peut supprimer cette affaire");
+  const t = now();
+  await env.DB.prepare("UPDATE deals SET deleted_at = ?, updated_at = ? WHERE id = ?").bind(t, t, id).run();
+  await log("deal.delete", "deal", id, d.title);
+  return json({ ok: true });
+}
+async function exportDeals(url, env, me, log) {
+  if (!me.p.export) fail(403, "Vous n'avez pas le droit d'exporter");
+  const sc = scopeSql(me);
+  const { results } = await env.DB.prepare(`SELECT d.*, c.code, c.name AS client_name, c.city, u.name AS user_name FROM deals d JOIN clients c ON c.id = d.client_id LEFT JOIN users u ON u.id = d.user_id
+    WHERE ${sc.sql} AND d.deleted_at IS NULL ORDER BY d.stage, d.close_date`).bind(...sc.args).all();
+  const L = { nouveau: "Nouveau", devis: "Devis envoyé", negociation: "Négociation", gagne: "Gagné", perdu: "Perdu" };
+  const head = ["Affaire", "Étape", "Montant (MAD)", "Signature prévue", "Code client", "Client", "Ville", "Commercial", "Créée le", "Clôturée le", "Notes"];
+  const rows = results.map((d) => [d.title, L[d.stage] || d.stage, d.amount, fmtDate(d.close_date), d.code, d.client_name, d.city, d.user_name, fmtDate(d.created_at), fmtDate(d.closed_at), d.notes]);
+  await log("export.deals", "export", null, `${rows.length} ligne(s)`);
+  return xlsxResponse("affaires", [{ name: "Affaires", head, rows }]);
+}
+
+// ------------------------------------------------------------------ import de clients (Excel / CSV exporté de Sage, EBP…)
+async function importClients(req, env, me, log) {
+  needAdmin(me);
+  const b = await readJson(req);
+  const rows = Array.isArray(b.rows) ? b.rows.slice(0, 500) : [];
+  if (!rows.length) fail(400, "Aucune ligne à importer");
+  const owner = b.owner_id ? await activeUserId(env, b.owner_id) : null;
+  const t = now();
+  let created = 0, updated = 0;
+  const errors = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] || {};
+    try {
+      const f = {};
+      for (const [k, max] of Object.entries(CLIENT_FIELDS)) if (r[k] != null && String(r[k]).trim()) f[k] = k === "name" ? str(r[k], max) : opt(String(r[k]), max);
+      if (f.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) delete f.email;
+      if (f.website) { let w = f.website.replace(/\s+/g, ""); if (!/^https?:\/\//i.test(w)) w = "https://" + w; try { f.website = new URL(w).href.slice(0, 300); } catch { delete f.website; } }
+      const kind = r.kind === "client" || r.kind === "prospect" ? r.kind : b.kind === "client" ? "client" : "prospect";
+      let code = r.code ? String(r.code).trim().toUpperCase().replace(/\s+/g, "").slice(0, 30) : null;
+      if (code && !/^[A-Z0-9][A-Z0-9_.\-\/]{0,29}$/.test(code)) code = null;
+      const ex = code ? await env.DB.prepare("SELECT id FROM clients WHERE code = ? AND deleted_at IS NULL").bind(code).first() : null;
+      if (ex) {
+        const keys = Object.keys(f);
+        if (keys.length) await env.DB.prepare(`UPDATE clients SET ${keys.map((k) => k + " = ?").join(", ")}, updated_at = ? WHERE id = ?`).bind(...Object.values(f), t, ex.id).run();
+        updated++;
+        continue;
+      }
+      if (!f.name || f.name.length < 2) { errors.push({ line: i + 1, error: "Nom manquant" }); continue; }
+      if (!code || (await env.DB.prepare("SELECT 1 FROM clients WHERE code = ?").bind(code).first())) code = await nextCode(env, kind);
+      const id = crypto.randomUUID();
+      const cols = ["id", "code", "kind", "owner_id", "created_by", "created_at", "updated_at", ...Object.keys(f)];
+      await env.DB.prepare(`INSERT INTO clients (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`).bind(id, code, kind, owner || me.id, me.id, t, t, ...Object.values(f)).run();
+      created++;
+    } catch (e) { errors.push({ line: i + 1, error: e.message || "Erreur" }); }
+  }
+  await log("client.import", "client", null, `${created} créé(s), ${updated} mis à jour`);
+  return json({ created, updated, errors: errors.slice(0, 50) });
+}
+
+// ------------------------------------------------------------------ IA : préparer une visite, rédiger un message de suivi
+function activityDigest(visits, max = 9000) {
+  const K = { visite: "Visite", rdv: "Rendez-vous", appel: "Appel", note: "Note", vocal: "Note vocale", reunion: "Réunion", tache: "Tâche" };
+  let out = "";
+  for (const v of visits) {
+    const parts = [v.summary, v.agreed && "Convenu : " + v.agreed, v.not_done && "Non fait : " + v.not_done, v.demands && "Demandes : " + v.demands, v.next_step && "Prochaine étape : " + v.next_step,
+      !v.summary && v.transcript ? "Transcription : " + String(v.transcript).slice(0, 1200) : null].filter(Boolean).join("\n");
+    const line = `## ${fmtDate(v.date)} · ${K[v.kind] || v.kind}${v.status === "planned" ? " (prévu)" : ""}\n${parts || "(sans détail)"}\n`;
+    if (out.length + line.length > max) break;
+    out += line;
+  }
+  return out;
+}
+async function aiBrief(clientId, req, env, me) {
+  if (!env.AI) fail(503, "Le service d'intelligence artificielle n'est pas activé");
+  const b = await readJson(req);
+  const lang = ["fr", "ar", "en"].includes(b.lang) ? b.lang : "fr";
+  const c = await loadClient(env, clientId, me);
+  const { results: visits } = await env.DB.prepare("SELECT * FROM visits WHERE client_id = ? AND deleted_at IS NULL ORDER BY date DESC LIMIT 25").bind(c.id).all();
+  const { results: deals } = await env.DB.prepare("SELECT * FROM deals WHERE client_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 10").bind(c.id).all();
+  const s = await getSettings(env);
+  const fiche = [`Client : ${c.name}`, c.company && `Société : ${c.company}`, c.sector && `Activité : ${c.sector}`, c.city && `Ville : ${c.city}`, `Type : ${c.kind}`, c.notes && `Remarques : ${c.notes}`].filter(Boolean).join("\n");
+  const aff = deals.map((d) => `- ${d.title} · ${d.stage}${d.amount ? " · " + d.amount + " MAD" : ""}${d.close_date ? " · signature prévue " + fmtDate(d.close_date).slice(0, 10) : ""}`).join("\n");
+  const schema = { type: "object", properties: { resume: { type: "string" }, a_savoir: { type: "array", items: { type: "string" } }, en_attente: { type: "array", items: { type: "string" } }, a_proposer: { type: "array", items: { type: "string" } }, questions: { type: "array", items: { type: "string" } } }, required: ["resume", "a_savoir", "en_attente", "a_proposer", "questions"] };
+  const system = `Tu es l'assistant d'un commercial de la société « ${s.company} ». Il va rencontrer ce client. À partir de la fiche, des affaires en cours et de l'historique des échanges, prépare une fiche de visite courte et concrète, en ${LANG_NAMES[lang]}.
+- resume : la situation du client en 2 à 4 phrases ;
+- a_savoir : les faits importants à garder en tête (préférences, problèmes passés, contacts) ;
+- en_attente : les demandes du client et les promesses faites qui ne sont pas encore réglées ;
+- a_proposer : ce que le commercial peut proposer ou faire avancer pendant la visite ;
+- questions : 2 à 4 questions utiles à poser.
+N'invente rien : appuie-toi uniquement sur les informations fournies. Listes de 0 à 5 éléments, phrases courtes. Aujourd'hui : ${isoDay(now())}.`;
+  const user = `${fiche}\n\nAffaires :\n${aff || "(aucune)"}\n\nHistorique (du plus récent au plus ancien) :\n${activityDigest(visits) || "(aucun échange enregistré)"}`;
+  try { return json({ brief: await llmJson(env, system, user, schema, 1500) }); }
+  catch (e) { console.error("brief", e); fail(502, "L'assistant n'a pas pu préparer la visite, réessayez"); }
+}
+async function aiFollowup(visitId, req, env, me) {
+  if (!env.AI) fail(503, "Le service d'intelligence artificielle n'est pas activé");
+  const b = await readJson(req);
+  const lang = ["fr", "ar", "en"].includes(b.lang) ? b.lang : "fr";
+  const channel = b.channel === "email" ? "email" : "whatsapp";
+  const v = await env.DB.prepare("SELECT * FROM visits WHERE id = ? AND deleted_at IS NULL").bind(visitId).first();
+  if (!v) fail(404, "Activité introuvable");
+  const c = await loadClient(env, v.client_id, me);
+  const s = await getSettings(env);
+  const schema = { type: "object", properties: { objet: { type: "string" }, message: { type: "string" } }, required: ["objet", "message"] };
+  const system = `Tu rédiges, pour un commercial de la société « ${s.company} », le message de suivi à envoyer au client « ${c.contact || c.name} »${c.company ? ` (${c.company})` : ""} après l'échange décrit ci-dessous.
+Canal : ${channel === "email" ? "e-mail professionnel (objet + corps, formule de politesse, signature « " + me.name + " – " + s.company + " »)" : "message WhatsApp : court, cordial, 3 à 6 lignes, sans objet, signé « " + me.name + " »"}.
+Langue : ${LANG_NAMES[lang]}. Remercie, récapitule ce qui a été convenu, rappelle la prochaine étape et la date si elles existent. N'invente ni prix ni engagement absent du compte-rendu.`;
+  const user = activityDigest([v], 12000);
+  try { const out = await llmJson(env, system, user, schema, 900); return json({ subject: String(out.objet || "").slice(0, 200), message: String(out.message || "").slice(0, 4000), channel, phone: c.phone || c.phone2 || "", email: c.email || "" }); }
+  catch (e) { console.error("suivi", e); fail(502, "L'assistant n'a pas pu rédiger le message, réessayez"); }
 }

@@ -102,3 +102,21 @@ CREATE TABLE IF NOT EXISTS audit (
   ip TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit(at);
+
+-- Affaires (opportunités) : le pipeline commercial
+CREATE TABLE IF NOT EXISTS deals (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  amount REAL,                              -- montant estimé (MAD, HT)
+  stage TEXT NOT NULL DEFAULT 'nouveau',    -- nouveau | devis | negociation | gagne | perdu
+  close_date INTEGER,                       -- date de signature prévue
+  notes TEXT,
+  closed_at INTEGER,                        -- passage à gagné / perdu
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  deleted_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_deals_client ON deals(client_id);
+CREATE INDEX IF NOT EXISTS idx_deals_upd ON deals(updated_at);

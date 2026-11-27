@@ -3,6 +3,9 @@
 Fiches clients et prospects, notes écrites, **notes vocales transcrites** et **réunions enregistrées**
 avec transcription (qui a dit quoi) et compte-rendu rédigés par l'IA (Cloudflare Workers AI :
 Whisper large v3 turbo pour la parole, Llama 3.3 70B pour les répliques et le compte-rendu).
+Pipeline des affaires (Nouveau → Devis → Négociation → Gagné/Perdu), tâches avec échéance,
+assistant IA « Préparer la visite » et « Message de suivi » (WhatsApp / e-mail), import Excel/CSV (Sage, EBP),
+détection des doublons, recherche dans les échanges, 5 thèmes.
 Français et arabe. Fonctionne hors ligne : les enregistrements partent dès que le réseau revient.
 
 - Déploiement : Cloudflare Workers (`wrangler.toml`), base D1 `magiscom-crm`, fichiers R2 `magiscom-crm-files`, liaison IA `AI`.

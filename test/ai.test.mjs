@@ -20,6 +20,8 @@ env.AI = {
       const segs = input.messages[1].content.split("\n").map((l) => l.replace(/^\d+\.\s*/, ""));
       return { response: { lines: segs.map((t, i) => ({ s: i % 2 ? "Client" : "Commercial", t })) } };
     }
+    if (schema && schema.properties.a_savoir) return { response: { resume: "Client fidèle, attend le catalogue.", a_savoir: ["Préfère le matin"], en_attente: ["Catalogue peinture"], a_proposer: ["Remise volume"], questions: ["Quel budget ?"] } };
+    if (schema && schema.properties.objet) return { response: { objet: "Suite à notre rencontre", message: "Bonjour, merci pour votre accueil. Comme convenu : 40 rouleaux. Karim" } };
     return { response: JSON.stringify({ resume: "Le client commande 40 rouleaux.", convenu: "- 40 rouleaux de câble", non_fait: "- Peinture en attente", demandes: "- Catalogue 2027", prochaine_etape: "Envoyer le catalogue", prochaine_date: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10) }) };
   },
 };
@@ -110,6 +112,49 @@ ok(r.status === 403, "analyse réservée à l'auteur");
 // --- export
 r = await admin.req("GET", "/api/export/visits.xlsx");
 ok(r.status === 200, "export des activités");
+
+// --- affaires (pipeline)
+const did = uuid();
+r = await admin.req("PUT", "/api/deals/" + did, { client_id: cid, title: "Câblage trimestriel", amount: 18500, stage: "devis", close_date: Date.now() + 10 * 86400000 });
+ok(r.status === 201 && r.data.deal.stage === "devis" && r.data.deal.amount === 18500, "affaire créée");
+const pc = uuid();
+await admin.req("PUT", "/api/clients/" + pc, { name: "Prospect Gagné", kind: "prospect" });
+r = await admin.req("PUT", "/api/deals/" + uuid(), { client_id: pc, title: "Première commande", amount: 5000, stage: "nouveau" });
+r = await admin.req("PUT", "/api/deals/" + r.data.deal.id, { stage: "gagne" });
+ok(r.data.deal.closed_at > 0, "affaire gagnée datée");
+r = await admin.req("GET", "/api/sync");
+ok(r.data.clients.find((c) => c.id === pc).kind === "client", "affaire gagnée : le prospect devient client");
+ok(r.data.deals.length === 2, "affaires synchronisées");
+r = await admin.req("GET", "/api/stats");
+ok(r.data.pipeline.some((x) => x.stage === "devis" && x.amount === 18500), "pipeline au tableau de bord");
+r = await admin.req("GET", "/api/export/deals.xlsx");
+ok(r.status === 200, "export des affaires");
+r = await admin.req("PUT", "/api/deals/" + uuid(), { client_id: cid, title: "x" });
+ok(r.status === 400, "objet trop court refusé");
+
+// --- tâche
+r = await admin.req("PUT", "/api/visits/" + uuid(), { client_id: cid, kind: "tache", status: "planned", date: Date.now() + 86400000, summary: "Envoyer le devis" });
+ok(r.status === 201 && r.data.visit.kind === "tache", "tâche créée");
+
+// --- import (codes existants mis à jour, nouveaux créés)
+r = await admin.req("POST", "/api/clients/import", { kind: "client", rows: [{ code: "CLI001", name: "Société Import Un", phone: "0522 11 22 33", city: "Rabat" }, { code: "CLI001", name: "Société Import Un", website: "import-un.ma" }, { name: "Sans Code SARL", email: "pas-un-email" }, { code: "X2" }] });
+ok(r.data.created === 2 && r.data.updated === 1 && r.data.errors.length === 1, "import : " + JSON.stringify(r.data));
+r = await admin.req("GET", "/api/sync");
+const imp = r.data.clients.find((c) => c.code === "CLI001");
+ok(imp && imp.kind === "client" && imp.website === "https://import-un.ma/" && imp.phone === "0522 11 22 33", "import : fiche complétée");
+ok(r.data.clients.find((c) => c.name === "Sans Code SARL").email == null, "import : e-mail invalide ignoré");
+r = await k.req("POST", "/api/clients/import", { rows: [{ name: "Test" }] });
+ok(r.status === 403, "import réservé à la direction");
+
+// --- préparer la visite + message de suivi
+r = await admin.req("POST", "/api/ai/brief/" + cid, { lang: "fr" });
+ok(r.status === 200 && r.data.brief.en_attente[0] === "Catalogue peinture", "fiche de préparation de visite");
+const lastPrompt = calls[calls.length - 1].input.messages[1].content;
+ok(lastPrompt.includes("Câblage trimestriel") && lastPrompt.includes("Le client commande 40 rouleaux"), "la préparation utilise affaires et historique");
+r = await admin.req("POST", "/api/ai/followup/" + mid, { channel: "whatsapp", lang: "fr" });
+ok(r.status === 200 && r.data.message.includes("40 rouleaux") && r.data.phone === "0661 22 33 44", "message de suivi WhatsApp");
+r = await admin.req("POST", "/api/ai/followup/" + mid, { channel: "email" });
+ok(r.data.channel === "email" && r.data.email === "contact@alamal.ma", "message de suivi e-mail");
 
 // --- sans IA configurée
 const keep = env.AI; delete env.AI;

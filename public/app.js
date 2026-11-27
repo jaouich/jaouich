@@ -80,6 +80,14 @@ Object.assign(T.fr, {
   meetT: 'Réunion avec le client', meetP: 'L’échange est enregistré, puis l’IA écrit la transcription (qui a dit quoi) et le compte-rendu.', meetConsent: 'Le client a accepté que la réunion soit enregistrée', meetStart: 'Commencer la réunion', meetEnd: 'Terminer la réunion', meetRec: 'Enregistrement en cours', meetKeep: 'Gardez l’écran allumé et le téléphone près des interlocuteurs.', meetLeave: 'Une réunion est en cours d’enregistrement. Quitter quand même ?', meetSaved: 'Réunion enregistrée : analyse par l’IA en cours',
   aiPending: 'Analyse par l’IA en cours…', aiWaitNet: 'En attente de réseau : l’analyse sera faite à l’envoi', aiError: 'L’analyse n’a pas abouti : {e}', aiRetry: 'Relancer l’analyse', aiRegen: 'Régénérer le compte-rendu', aiNone: 'Pas encore analysé', aiAnalyze: 'Analyser avec l’IA',
   transcript: 'Transcription', transcriptWho: 'Transcription (qui a dit quoi)', summary: 'Résumé', recordings: 'Enregistrements', part: 'Partie {n}', duration: 'Durée', editText: 'Modifier le texte', aiTooBig: 'Fichier audio trop lourd pour la transcription (24 Mo maximum)', audio: 'Audio',
+  pipeline: 'Pipeline', deals: 'Affaires', deal: 'Affaire', newDeal: 'Nouvelle affaire', dealTitle: 'Objet de l’affaire', dealTitlePh: 'Ex. : équipement de 3 postes', amount: 'Montant estimé (MAD HT)', closeDate: 'Signature prévue', stage: 'Étape',
+  nouveau: 'Nouveau', devis: 'Devis envoyé', negociation: 'Négociation', gagne: 'Gagné', perdu: 'Perdu', noDeals: 'Aucune affaire. Ajoutez-en une dès qu’un besoin chiffrable apparaît.', openDeals: 'En cours', wonDeals: 'Gagnées (30 j)', weighted: 'Total en cours', moveTo: 'Passer à',
+  tache: 'Tâche', tasks: 'Tâches', newTask: 'Tâche', taskTxt: 'À faire', taskPh: 'Ex. : envoyer le devis peinture', dueDate: 'Échéance', taskDone: 'Faite', noTasks: 'Aucune tâche en attente.',
+  brief: 'Préparer la visite', briefT: 'Préparation de visite', briefWait: 'L’assistant relit la fiche, les affaires et l’historique…', bSituation: 'Situation', bKnow: 'À savoir', bPending: 'En attente', bPropose: 'À proposer', bQuestions: 'Questions à poser', aiOffline: 'Connexion nécessaire pour l’assistant.',
+  followup: 'Message de suivi', followupWait: 'Rédaction du message…', copy: 'Copier', copied: 'Copié', sendWa: 'Ouvrir WhatsApp', sendMail: 'Ouvrir l’e-mail', subject: 'Objet', email: 'E-mail',
+  dupQ: 'Une fiche semblable existe déjà : « {n} ». Créer quand même ?', dupOpen: 'Ouvrir la fiche existante', dupCreate: 'Créer quand même',
+  importT: 'Importer des clients', importP: 'Fichier Excel (.xlsx) ou CSV exporté de Sage, EBP ou autre. Les colonnes sont reconnues par leur titre (code, nom, téléphone, e-mail, ville…). Un code déjà présent met la fiche à jour.', importPick: 'Choisir le fichier', importRows: '{n} ligne(s) lues · colonnes reconnues : {c}', importGo: 'Importer {n} fiche(s)', importKind: 'Importer comme', importOwner: 'Attribuer à', importDone: '{c} créée(s), {u} mise(s) à jour', importErr: 'Fichier illisible : {e}', importNone: 'Aucune colonne « nom » trouvée dans le fichier.', expDeals: 'Affaires (pipeline)',
+  'a_deal.create': 'Affaire créée', 'a_deal.update': 'Affaire modifiée', 'a_deal.stage': 'Étape d’affaire', 'a_deal.delete': 'Affaire supprimée', 'a_client.import': 'Import de clients', 'a_export.deals': 'Export affaires',
   theme: 'Thème', themeHelp: 'L’apparence de l’application sur cet appareil.', themeDefault: 'Thème par défaut de la société', themeCompany: 'Celui de la société', capture: 'Enregistrer', captureT: 'Enregistrer un échange', pickClient: 'Pour quel client ?', newClientShort: 'Nouveau client', searchShort: 'Rechercher un client…',
   speakerC: 'Commercial', speakerK: 'Client', 'a_ai.transcribe': 'Note vocale transcrite', 'a_ai.meeting': 'Réunion analysée', expVisits: 'Activités et comptes-rendus', kpiVisits7: 'Activités (7 jours)', kpiVisits30: 'Activités (30 jours)', visits30: 'Activités par jour (30 derniers jours)', lastVisitCol: 'Dernière activité', recent: 'Activité récente', noVisits: 'Aucune activité pour le moment.',
 });
@@ -91,6 +99,13 @@ Object.assign(T.ar, {
   meetT: 'اجتماع مع الزبون', meetP: 'يُسجَّل الحوار، ثم يكتب الذكاء الاصطناعي النص (من قال ماذا) والتقرير.', meetConsent: 'وافق الزبون على تسجيل الاجتماع', meetStart: 'بدء الاجتماع', meetEnd: 'إنهاء الاجتماع', meetRec: 'التسجيل جارٍ', meetKeep: 'اترك الشاشة مضاءة والهاتف قريبًا من المتحدثين.', meetLeave: 'هناك اجتماع قيد التسجيل. الخروج رغم ذلك؟', meetSaved: 'تم حفظ الاجتماع: التحليل جارٍ',
   aiPending: 'التحليل بالذكاء الاصطناعي جارٍ…', aiWaitNet: 'في انتظار الشبكة: سيتم التحليل عند الإرسال', aiError: 'لم ينجح التحليل: {e}', aiRetry: 'إعادة التحليل', aiRegen: 'إعادة إنشاء التقرير', aiNone: 'لم يُحلَّل بعد', aiAnalyze: 'تحليل بالذكاء الاصطناعي',
   transcript: 'النص', transcriptWho: 'النص (من قال ماذا)', summary: 'الملخص', recordings: 'التسجيلات', part: 'الجزء {n}', duration: 'المدة', editText: 'تعديل النص', aiTooBig: 'الملف الصوتي ثقيل جدًا (24 ميغا كحد أقصى)', audio: 'صوت',
+  pipeline: 'الصفقات', deals: 'الصفقات', deal: 'صفقة', newDeal: 'صفقة جديدة', dealTitle: 'موضوع الصفقة', dealTitlePh: 'مثال: تجهيز 3 مكاتب', amount: 'المبلغ التقديري (درهم)', closeDate: 'تاريخ التوقيع المتوقع', stage: 'المرحلة',
+  nouveau: 'جديدة', devis: 'عرض مرسل', negociation: 'تفاوض', gagne: 'رابحة', perdu: 'خاسرة', noDeals: 'لا توجد صفقات بعد.', openDeals: 'جارية', wonDeals: 'رابحة (30 يومًا)', weighted: 'المجموع الجاري', moveTo: 'نقل إلى',
+  tache: 'مهمة', tasks: 'المهام', newTask: 'مهمة', taskTxt: 'ما يجب فعله', taskPh: 'مثال: إرسال عرض السعر', dueDate: 'الأجل', taskDone: 'منجزة', noTasks: 'لا توجد مهام.',
+  brief: 'التحضير للزيارة', briefT: 'تحضير الزيارة', briefWait: 'المساعد يراجع الملف والصفقات والسجل…', bSituation: 'الوضعية', bKnow: 'يجب معرفته', bPending: 'في الانتظار', bPropose: 'ما يمكن اقتراحه', bQuestions: 'أسئلة مفيدة', aiOffline: 'يلزم الاتصال بالإنترنت.',
+  followup: 'رسالة متابعة', followupWait: 'جارٍ تحرير الرسالة…', copy: 'نسخ', copied: 'تم النسخ', sendWa: 'فتح واتساب', sendMail: 'فتح البريد', subject: 'الموضوع',
+  dupQ: 'يوجد ملف مشابه: «{n}». إنشاء رغم ذلك؟', dupOpen: 'فتح الملف الموجود', dupCreate: 'إنشاء رغم ذلك',
+  importT: 'استيراد الزبناء', importP: 'ملف Excel أو CSV مُصدَّر من Sage أو EBP. تُعرف الأعمدة من عناوينها. الرمز الموجود يُحدِّث الملف.', importPick: 'اختيار الملف', importRows: '{n} سطر · أعمدة معروفة: {c}', importGo: 'استيراد {n} ملف', importKind: 'استيراد كـ', importOwner: 'إسناد إلى', importDone: '{c} جديد، {u} محدَّث', importErr: 'ملف غير مقروء: {e}', importNone: 'لم يتم العثور على عمود الاسم.', expDeals: 'الصفقات',
   theme: 'المظهر', themeHelp: 'مظهر التطبيق على هذا الجهاز.', themeDefault: 'المظهر الافتراضي للشركة', themeCompany: 'مظهر الشركة', capture: 'تسجيل', captureT: 'تسجيل محادثة', pickClient: 'لأي زبون؟', newClientShort: 'زبون جديد', searchShort: 'ابحث عن زبون…',
   speakerC: 'المندوب', speakerK: 'الزبون', 'a_ai.transcribe': 'تم تحويل ملاحظة صوتية', 'a_ai.meeting': 'تم تحليل اجتماع', expVisits: 'الأنشطة والتقارير', recent: 'آخر الأنشطة', noVisits: 'لا يوجد نشاط بعد.',
 });
@@ -102,6 +117,13 @@ Object.assign(T.en, {
   meetT: 'Meeting with the client', meetP: 'The conversation is recorded, then AI writes the transcript (who said what) and the report.', meetConsent: 'The client agreed to the meeting being recorded', meetStart: 'Start the meeting', meetEnd: 'End the meeting', meetRec: 'Recording', meetKeep: 'Keep the screen on and the phone close to the speakers.', meetLeave: 'A meeting is being recorded. Leave anyway?', meetSaved: 'Meeting saved: AI analysis in progress',
   aiPending: 'AI analysis in progress…', aiWaitNet: 'Waiting for network: analysis will run once sent', aiError: 'Analysis failed: {e}', aiRetry: 'Retry analysis', aiRegen: 'Regenerate the report', aiNone: 'Not analysed yet', aiAnalyze: 'Analyse with AI',
   transcript: 'Transcript', transcriptWho: 'Transcript (who said what)', summary: 'Summary', recordings: 'Recordings', part: 'Part {n}', duration: 'Duration', editText: 'Edit text', aiTooBig: 'Audio file too large for transcription (24 MB max)', audio: 'Audio',
+  pipeline: 'Pipeline', deals: 'Deals', deal: 'Deal', newDeal: 'New deal', dealTitle: 'Deal name', dealTitlePh: 'E.g. equipment for 3 desks', amount: 'Estimated amount (MAD)', closeDate: 'Expected signature', stage: 'Stage',
+  nouveau: 'New', devis: 'Quote sent', negociation: 'Negotiation', gagne: 'Won', perdu: 'Lost', noDeals: 'No deals yet.', openDeals: 'Open', wonDeals: 'Won (30 d)', weighted: 'Open total', moveTo: 'Move to',
+  tache: 'Task', tasks: 'Tasks', newTask: 'Task', taskTxt: 'To do', taskPh: 'E.g. send the quote', dueDate: 'Due', taskDone: 'Done', noTasks: 'No pending task.',
+  brief: 'Prepare the visit', briefT: 'Visit preparation', briefWait: 'The assistant is reading the record, deals and history…', bSituation: 'Situation', bKnow: 'Good to know', bPending: 'Pending', bPropose: 'To propose', bQuestions: 'Questions to ask', aiOffline: 'Connection needed for the assistant.',
+  followup: 'Follow-up message', followupWait: 'Writing the message…', copy: 'Copy', copied: 'Copied', sendWa: 'Open WhatsApp', sendMail: 'Open e-mail', subject: 'Subject',
+  dupQ: 'A similar record already exists: “{n}”. Create anyway?', dupOpen: 'Open the existing record', dupCreate: 'Create anyway',
+  importT: 'Import clients', importP: 'Excel (.xlsx) or CSV file exported from Sage, EBP or other. Columns are matched by their title. An existing code updates the record.', importPick: 'Choose the file', importRows: '{n} row(s) · matched columns: {c}', importGo: 'Import {n} record(s)', importKind: 'Import as', importOwner: 'Assign to', importDone: '{c} created, {u} updated', importErr: 'Unreadable file: {e}', importNone: 'No “name” column found.', expDeals: 'Deals (pipeline)',
   theme: 'Theme', themeHelp: 'How the app looks on this device.', themeDefault: 'Company default theme', themeCompany: 'Company theme', capture: 'Record', captureT: 'Record a conversation', pickClient: 'Which client?', newClientShort: 'New client', searchShort: 'Search a client…',
   speakerC: 'Sales rep', speakerK: 'Client', 'a_ai.transcribe': 'Voice note transcribed', 'a_ai.meeting': 'Meeting analysed', expVisits: 'Activities and reports', recent: 'Recent activity', noVisits: 'No activity yet.',
 });
@@ -135,6 +157,8 @@ function h(tag, a = {}, ...kids) {
   return e;
 }
 const P = {
+  pipe: '<rect x="3.5" y="4" width="4.5" height="16" rx="1.5"/><rect x="9.75" y="4" width="4.5" height="11" rx="1.5"/><rect x="16" y="4" width="4.5" height="7" rx="1.5"/>', spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+  send: '<path d="M4 12 20 4l-4 16-4-6.5z"/><path d="M12 13.5 20 4"/>', box: '<rect x="4" y="4" width="16" height="16" rx="4"/>', boxok: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 12.5l2.8 2.8L16.5 9.5"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>', meet: '<circle cx="8" cy="9" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M2.5 19.5a5.5 5.5 0 0 1 11 0M13.5 19.5a4.5 4.5 0 0 1 8 -2.8"/>',
   stop: '<rect x="6.5" y="6.5" width="11" height="11" rx="2"/>', web: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.4 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.4-3.5-8.5s1-5.9 3.5-8.5z"/>',
   back: '<path d="M14.5 5 7.5 12l7 7"/>', chev: '<path d="M9.5 5l7 7-7 7"/>', users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>',
@@ -185,13 +209,13 @@ const DB = {
   open() {
     if (this.db) return Promise.resolve(this.db);
     return new Promise((ok, ko) => {
-      const r = indexedDB.open(BASE ? 'crm-demo' : 'crm', 1);
+      const r = indexedDB.open(BASE ? 'crm-demo' : 'crm', 2);
       r.onupgradeneeded = () => {
-        const d = r.result;
-        for (const s of ['clients', 'visits', 'files', 'users']) d.createObjectStore(s, { keyPath: 'id' });
-        d.createObjectStore('outbox', { keyPath: 'seq', autoIncrement: true });
-        d.createObjectStore('blobs');
-        d.createObjectStore('meta');
+        const d = r.result, have = (n) => d.objectStoreNames.contains(n);
+        for (const s of ['clients', 'visits', 'files', 'users', 'deals']) if (!have(s)) d.createObjectStore(s, { keyPath: 'id' });
+        if (!have('outbox')) d.createObjectStore('outbox', { keyPath: 'seq', autoIncrement: true });
+        if (!have('blobs')) d.createObjectStore('blobs');
+        if (!have('meta')) d.createObjectStore('meta');
       };
       r.onsuccess = () => { this.db = r.result; ok(this.db); };
       r.onerror = () => ko(r.error);
@@ -215,7 +239,7 @@ const DB = {
   del(store, key) { return this.run([store], 'readwrite', (tx) => { tx.objectStore(store).delete(key); }); },
   putMany(store, vals) { return this.run([store], 'readwrite', (tx) => { const s = tx.objectStore(store); for (const v of vals) s.put(v); }); },
   delMany(store, keys) { return this.run([store], 'readwrite', (tx) => { const s = tx.objectStore(store); for (const k of keys) s.delete(k); }); },
-  async wipe() { return this.run(['clients', 'visits', 'files', 'users', 'outbox', 'blobs', 'meta'], 'readwrite', (tx) => { for (const s of ['clients', 'visits', 'files', 'users', 'outbox', 'blobs', 'meta']) tx.objectStore(s).clear(); }); },
+  async wipe() { const all = ['clients', 'visits', 'files', 'users', 'deals', 'outbox', 'blobs', 'meta']; return this.run(all, 'readwrite', (tx) => { for (const s of all) tx.objectStore(s).clear(); }); },
 };
 
 // =================================================================== serveur
@@ -255,6 +279,7 @@ function kick(delay = 300) { clearTimeout(kickTimer); kickTimer = setTimeout(() 
 async function sendOp(op) {
   if (op.type === 'client') return api('PUT', '/api/clients/' + op.id, op.body);
   if (op.type === 'visit') return api('PUT', '/api/visits/' + op.id, op.body);
+  if (op.type === 'deal') return api('PUT', '/api/deals/' + op.id, op.body);
   if (op.type === 'ai') {
     // l'analyse ne doit jamais bloquer les autres envois : en cas de refus, l'activité affiche « Relancer »
     try { return await api('POST', '/api/ai/process/' + op.id, op.body || {}); }
@@ -299,6 +324,7 @@ async function syncNow(force) {
         await DB.del('outbox', op.seq);
         if (res && res.client) await DB.put('clients', res.client);
         if (res && res.visit) await DB.put('visits', res.visit);
+        if (res && res.deal) await DB.put('deals', res.deal);
         if (op.type === 'file') {
           await DB.del('blobs', op.id);
           if (res && res.file) await DB.put('files', { ...res.file, local: false });
@@ -318,6 +344,7 @@ async function syncNow(force) {
     if (d.gone && d.gone.length) await DB.delMany('clients', d.gone);
     if (d.visits.length) await DB.putMany('visits', d.visits);
     if (d.files.length) await DB.putMany('files', d.files);
+    if (d.deals && d.deals.length) await DB.putMany('deals', d.deals);
     await DB.putMany('users', d.users);
     S.users = new Map(d.users.map((u) => [u.id, u]));
     S.user = d.me; S.settings = d.settings;
@@ -326,7 +353,7 @@ async function syncNow(force) {
     await DB.put('meta', Math.max(0, d.now - 10000), 'since');
     S.lastSync = Date.now();
     await DB.put('meta', S.lastSync, 'lastSync');
-    changed = changed || d.clients.length || d.visits.length || d.files.length || (d.gone && d.gone.length);
+    changed = changed || d.clients.length || d.visits.length || d.files.length || (d.deals && d.deals.length) || (d.gone && d.gone.length);
     S.online = true;
   } catch (e) {
     if (e.status === 0) S.online = false; else if (e.status !== 401) S.lastError = e.message;
@@ -355,9 +382,9 @@ function paintSync(pct) {
 
 // =================================================================== données locales
 async function loadData() {
-  const [clients, visits, files, users] = await Promise.all([DB.all('clients'), DB.all('visits'), DB.all('files'), DB.all('users')]);
+  const [clients, visits, files, users, deals] = await Promise.all([DB.all('clients'), DB.all('visits'), DB.all('files'), DB.all('users'), DB.all('deals')]);
   S.users = new Map(users.map((u) => [u.id, u]));
-  return { clients: clients.filter((c) => !c.deleted_at), visits: visits.filter((v) => !v.deleted_at), files: files.filter((f) => !f.deleted_at) };
+  return { clients: clients.filter((c) => !c.deleted_at), visits: visits.filter((v) => !v.deleted_at), files: files.filter((f) => !f.deleted_at), deals: deals.filter((x) => !x.deleted_at) };
 }
 async function saveClient(id, fields, isNew) {
   const old = (await DB.get('clients', id)) || {};
@@ -381,6 +408,16 @@ async function saveVisit(id, fields, isNew) {
   const prev = ops.find((o) => o.type === 'visit' && o.id === id && !o.failed);
   if (prev) { prev.body = { ...prev.body, ...fields }; await DB.put('outbox', prev); kick(); }
   else await queue({ type: 'visit', id, body: isNew ? { ...fields, created_at: local.created_at } : fields });
+  return local;
+}
+async function saveDeal(id, fields, isNew) {
+  const old = (await DB.get('deals', id)) || {};
+  const local = { ...old, ...fields, id, updated_at: Date.now() };
+  if (isNew) Object.assign(local, { user_id: S.user.id, created_at: Date.now() });
+  await DB.put('deals', local);
+  const prev = (await DB.all('outbox')).find((o) => o.type === 'deal' && o.id === id && !o.failed);
+  if (prev) { prev.body = { ...prev.body, ...fields }; await DB.put('outbox', prev); kick(); }
+  else await queue({ type: 'deal', id, body: isNew ? { ...fields, created_at: local.created_at } : fields });
   return local;
 }
 async function compressImage(file) {
@@ -471,8 +508,8 @@ async function showLogin() {
 // =================================================================== mise en page
 function nav() {
   const items = admin()
-    ? [['#/dashboard', 'chart', 'dashboard'], ['#/clients', 'users', 'clients'], ['#/agenda', 'cal', 'agenda'], ['#/map', 'map', 'map'], ['#/team', 'me', 'team'], ['#/export', 'xls', 'export'], ['#/journal', 'log', 'journal'], ['#/settings', 'gear', 'settings']]
-    : [['#/clients', 'users', 'clients'], ['#/agenda', 'cal', 'agenda'], ['#/map', 'map', 'map'], ...(canExport() ? [['#/export', 'xls', 'export']] : [])];
+    ? [['#/dashboard', 'chart', 'dashboard'], ['#/clients', 'users', 'clients'], ['#/pipeline', 'pipe', 'pipeline'], ['#/agenda', 'cal', 'agenda'], ['#/map', 'map', 'map'], ['#/team', 'me', 'team'], ['#/export', 'xls', 'export'], ['#/journal', 'log', 'journal'], ['#/settings', 'gear', 'settings']]
+    : [['#/clients', 'users', 'clients'], ['#/pipeline', 'pipe', 'pipeline'], ['#/agenda', 'cal', 'agenda'], ['#/map', 'map', 'map'], ...(canExport() ? [['#/export', 'xls', 'export']] : [])];
   return items;
 }
 function layout(title, body, opts = {}) {
@@ -489,7 +526,7 @@ function layout(title, body, opts = {}) {
     h('a', { href: '#/me', class: cur.startsWith('#/me') ? 'on' : null }, ic('me', 20), S.user.name));
   const tabs = admin()
     ? [['#/dashboard', 'chart', 'dashboard'], ['#/clients', 'users', 'clients'], ['cap', 'mic', 'capture'], ['#/agenda', 'cal', 'agenda'], ['#/me', 'me', 'me']]
-    : [['#/clients', 'users', 'clients'], ['#/agenda', 'cal', 'agenda'], ['cap', 'mic', 'capture'], ['#/map', 'map', 'map'], ['#/me', 'me', 'me']];
+    : [['#/clients', 'users', 'clients'], ['#/agenda', 'cal', 'agenda'], ['cap', 'mic', 'capture'], ['#/pipeline', 'pipe', 'pipeline'], ['#/me', 'me', 'me']];
   const bottom = h('nav', { class: 'tabs-bottom', 'aria-label': 'Menu' }, ...tabs.map(([href, icn, k]) => href === 'cap'
     ? h('button', { class: 'cap', onclick: quickCapture, 'aria-label': t('captureT') }, h('span', {}, ic('mic', 26)), t(k))
     : h('a', { href, class: cur.startsWith(href) ? 'on' : null }, ic(icn), t(k))));
@@ -506,13 +543,15 @@ async function viewClients() {
   for (const v of visits) if (v.status === 'done' && (!lastV.get(v.client_id) || v.date > lastV.get(v.client_id))) lastV.set(v.client_id, v.date);
   const cities = [...new Set(clients.map((c) => c.city).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const owners = [...new Set(clients.map((c) => c.owner_id).filter(Boolean))];
+  const actText = new Map();
+  for (const v of visits) actText.set(v.client_id, (actText.get(v.client_id) || '') + ' ' + [v.summary, v.agreed, v.demands, v.not_done, v.next_step, v.transcript].filter(Boolean).join(' '));
   const listEl = h('div', { class: 'list' });
   const countEl = h('p', { class: 'muted small', style: 'margin:0 2px 8px' });
   const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   function paint() {
     const q = norm(listState.q);
     let rows = clients.filter((c) => (!listState.kind || c.kind === listState.kind) && (!listState.owner || c.owner_id === listState.owner) && (!listState.city || c.city === listState.city)
-      && (!q || norm([c.name, c.code, c.city, c.phone, c.phone2, c.contact, c.address, c.sector, c.company, c.email, c.website].join(' ')).includes(q)));
+      && (!q || norm([c.name, c.code, c.city, c.phone, c.phone2, c.contact, c.address, c.sector, c.company, c.email, c.website].join(' ')).includes(q) || (q.length >= 3 && norm(actText.get(c.id)).includes(q))));
     rows.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
     countEl.textContent = t('clientsN', { n: rows.length });
     listEl.replaceChildren();
@@ -546,7 +585,8 @@ let clientTab = 'infos';
 async function viewClient(id) {
   const c = await DB.get('clients', id);
   if (!c || c.deleted_at) { layout(t('clients'), h('div', { class: 'empty' }, t('noneSearch')), { back: '#/clients' }); return; }
-  const { visits, files } = await loadData();
+  const { visits, files, deals } = await loadData();
+  const ds = deals.filter((x) => x.client_id === id).sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
   const vs = visits.filter((v) => v.client_id === id).sort((a, b) => b.date - a.date);
   const fs = files.filter((f) => f.client_id === id).sort((a, b) => b.created_at - a.created_at);
   const editable = admin() || S.user.perms.edit_all || c.owner_id === S.user.id || (c.created_by === S.user.id && !c.owner_id);
@@ -588,16 +628,18 @@ async function viewClient(id) {
       c.phone ? act(waHref(c.phone), 'wa', t('whatsapp'), { target: '_blank', rel: 'noopener' }) : act(null, 'wa', t('whatsapp'), { disabled: true, style: 'opacity:.4' }),
       c.lat != null ? act(gdir(c), 'route', t('route'), { target: '_blank', rel: 'noopener' }) : act(c.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([c.name, c.address, c.city].filter(Boolean).join(', '))}` : null, 'route', t('route'), c.address ? { target: '_blank', rel: 'noopener' } : { disabled: true, style: 'opacity:.4' }),
       editable ? act('#/client/' + id + '/edit', 'edit', t('edit')) : act(null, 'edit', t('edit'), { disabled: true, style: 'opacity:.4' })),
-    geoBox, geoBtn);
+    geoBox, geoBtn,
+    h('button', { class: 'btn brief block', onclick: () => briefModal(c) }, ic('spark', 20), t('brief')));
 
   const tabBody = h('div', {});
   const tabs = h('div', { class: 'tabbar', role: 'tablist' });
-  const TABS = [['infos', t('infos')], ['visits', `${t('activity')} (${vs.length})`], ['docs', `${t('documents')} (${fs.length})`]];
+  const TABS = [['infos', t('infos')], ['visits', `${t('activity')} (${vs.length})`], ['deals', `${t('deals')} (${ds.length})`], ['docs', `${t('documents')} (${fs.length})`]];
   function showTab(k) {
     clientTab = k;
     tabs.replaceChildren(...TABS.map(([key, label]) => h('button', { role: 'tab', class: key === k ? 'on' : null, 'aria-selected': key === k ? 'true' : 'false', onclick: () => showTab(key) }, label)));
     if (k === 'infos') tabBody.replaceChildren(infosTab(c));
     else if (k === 'visits') tabBody.replaceChildren(visitsTab(c, vs, fs));
+    else if (k === 'deals') tabBody.replaceChildren(dealsTab(c, ds));
     else tabBody.replaceChildren(docsTab(c, fs, null));
   }
   showTab(clientTab);
@@ -625,15 +667,29 @@ function visitsTab(c, vs, fs) {
     h('div', { class: 'grid2' },
       h('a', { class: 'btn primary', href: `#/meeting?client=${c.id}` }, ic('meet', 20), t('newMeeting')),
       h('button', { class: 'btn primary', onclick: () => voiceNote(c) }, ic('mic', 20), t('newVocal'))),
-    h('div', { class: 'grid3' },
+    h('div', { class: 'grid4' },
       h('a', { class: 'btn', href: `#/visit/new?client=${c.id}&kind=note` }, ic('note', 20), t('newNote')),
+      h('a', { class: 'btn', href: `#/visit/new?client=${c.id}&kind=tache&status=planned` }, ic('boxok', 20), t('newTask')),
       h('a', { class: 'btn', href: `#/visit/new?client=${c.id}&kind=visite` }, ic('check', 20), t('visite')),
       h('a', { class: 'btn', href: `#/visit/new?client=${c.id}&kind=rdv&status=planned` }, ic('cal', 20), t('rdv'))));
   if (!vs.length) box.append(h('div', { class: 'empty' }, t('noVisits')));
   for (const v of vs) box.append(visitCard(v, fs, false));
   return box;
 }
+function taskCard(v, clientName) {
+  const done = v.status === 'done';
+  const box = h('button', { class: 'tick' + (done ? ' on' : ''), 'aria-pressed': done ? 'true' : 'false', 'aria-label': t('taskDone'), onclick: async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    await saveVisit(v.id, { status: done ? 'planned' : 'done' }, false);
+    render();
+  } }, ic(done ? 'boxok' : 'box', 24));
+  const late = !done && v.date < Date.now();
+  return h('a', { class: 'card task' + (done ? ' done' : ''), href: '#/visit/' + v.id },
+    box, h('div', { class: 'grow' }, clientName ? h('div', { class: 'small muted' }, clientName) : null, h('div', { class: 'tt' }, v.summary || t('tache')),
+      h('div', { class: 'small ' + (late ? 'late' : 'muted') }, t('dueDate') + ' : ' + fdt(v.date))));
+}
 function visitCard(v, fs, withClient, clientName) {
+  if (v.kind === 'tache') return taskCard(v, withClient ? clientName : null);
   const photos = (fs || []).filter((f) => f.visit_id === v.id);
   const sec = (label, text) => (text ? [h('div', { class: 'lab' }, label), h('p', {}, text)] : null);
   return h('a', { class: 'card visit ' + v.status, href: '#/visit/' + v.id, style: 'text-decoration:none;color:inherit;display:block' },
@@ -716,6 +772,18 @@ async function viewClientForm(id) {
     e.preventDefault();
     const name = f.name.value.trim();
     if (name.length < 2) { err.textContent = t('name') + ' : ' + t('required'); f.name.focus(); return; }
+    if (isNew) {
+      const { clients } = await loadData();
+      const nn = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+      const tel = (x) => String(x || '').replace(/\D/g, '').slice(-9);
+      const p1 = tel(f.phone.value), p2 = tel(f.phone2.value);
+      const dup = clients.find((x) => (nn(x.name) && nn(x.name) === nn(name)) || (p1.length >= 9 && [tel(x.phone), tel(x.phone2)].includes(p1)) || (p2.length >= 9 && [tel(x.phone), tel(x.phone2)].includes(p2)));
+      if (dup) {
+        const choice = await new Promise((res) => { const mm = modal(h('p', { style: 'margin:0' }, t('dupQ', { n: dup.name + (dup.city ? ' (' + dup.city + ')' : '') })),
+          h('div', { class: 'row' }, h('button', { class: 'btn primary grow', onclick: () => { mm.remove(); res('open'); } }, t('dupOpen')), h('button', { class: 'btn ghost', onclick: () => { mm.remove(); res('create'); } }, t('dupCreate')))); });
+        if (choice === 'open') return go('#/client/' + dup.id);
+      }
+    }
     const fields = { name, kind };
     for (const k of ['company', 'contact', 'phone', 'phone2', 'email', 'website', 'city', 'address', 'sector', 'ice', 'notes']) fields[k] = f[k].value.trim();
     const code = f.code.value.trim().toUpperCase();
@@ -751,7 +819,7 @@ async function viewVisitForm(id, params) {
   const c = await DB.get('clients', v.client_id);
   if (!c) return go('#/clients');
   const mine = admin() || v.user_id === S.user.id || isNew;
-  if (v.kind === 'note') return viewNote(v, c, isNew, mine);
+  if (v.kind === 'note' || v.kind === 'tache') return viewNote(v, c, isNew, mine);
   if (!isNew && (v.kind === 'vocal' || v.kind === 'reunion')) return viewAiActivity(v, c, mine);
   const vid = id || uuid();
   let kind = v.kind, status = v.status;
@@ -788,6 +856,7 @@ async function viewVisitForm(id, params) {
     h('label', { class: 'f' }, t('demands'), ta('demands', t('demandsPh'))),
     h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('nextStep'), (f.next_step = h('input', { class: 'input', value: v.next_step || '', disabled: !mine }))), h('label', { class: 'f' }, t('nextDate'), f.next_date)),
     v.lat != null ? h('p', { class: 'small muted', style: 'margin:0' }, '📍 ' + t('checkIn') + ' · ' + t('by', { u: userName(v.user_id) })) : null,
+    !isNew && v.status === 'done' ? h('button', { type: 'button', class: 'btn brief', onclick: () => followupModal(v) }, ic('send', 18), t('followup')) : null,
     mine ? h('div', { class: 'row' }, h('button', { class: 'btn primary grow', type: 'submit' }, ic('check', 20), t('save')), h('button', { type: 'button', class: 'btn ghost', onclick: () => history.back() }, t('cancel'))) : null,
     admin() && !isNew ? h('button', { type: 'button', class: 'btn danger', onclick: async () => {
       if (!(await confirmBox(t('deleteQ'), t('delete'), true))) return;
@@ -874,6 +943,122 @@ function aiBadge(v) {
 }
 function levelBar() { const i = h('i'); return { el: h('div', { class: 'lvl' }, i), set: (x) => { i.style.transform = `scaleX(${Math.min(1, x * 2.4).toFixed(3)})`; } }; }
 
+
+// =================================================================== affaires (pipeline)
+const STAGES = ['nouveau', 'devis', 'negociation', 'gagne', 'perdu'];
+const money = (n) => (n == null || n === '' ? '—' : new Intl.NumberFormat(locale(), { maximumFractionDigits: 0 }).format(n) + ' MAD');
+function dealCard(d, clientName, onChange) {
+  const sel = h('select', { class: 'stage-sel s-' + d.stage, 'aria-label': t('moveTo'), onclick: (e) => { e.preventDefault(); e.stopPropagation(); }, onchange: async (e) => {
+    await saveDeal(d.id, { stage: e.target.value }, false);
+    toast(t('saved')); onChange ? onChange() : render();
+  } }, ...STAGES.map((k) => { const o = h('option', { value: k }, t(k)); if (k === d.stage) o.selected = true; return o; }));
+  return h('div', { class: 'card deal', role: 'button', tabindex: '0', onclick: () => dealModal(null, d), onkeydown: (e) => { if (e.key === 'Enter') dealModal(null, d); } },
+    clientName ? h('div', { class: 'small muted' }, clientName) : null, h('div', { class: 'tt' }, d.title),
+    h('div', { class: 'row', style: 'margin-top:8px;justify-content:space-between' }, h('b', { class: 'tnum amt' }, money(d.amount)), sel),
+    h('div', { class: 'row', style: 'margin-top:4px' }, d.close_date ? h('span', { class: 'small ' + (d.close_date < Date.now() && !['gagne', 'perdu'].includes(d.stage) ? 'late' : 'muted') }, t('closeDate') + ' : ' + fdate(d.close_date)) : null));
+}
+function dealsTab(c, ds) {
+  const open = ds.filter((d) => !['gagne', 'perdu'].includes(d.stage));
+  return h('div', { class: 'stack' },
+    h('div', { class: 'row' }, h('div', { class: 'grow small muted' }, open.length ? `${t('openDeals')} : ${open.length} · ${money(open.reduce((a, d) => a + (d.amount || 0), 0))}` : ''),
+      h('button', { class: 'btn primary', onclick: () => dealModal(c, null) }, ic('plus', 18), t('newDeal'))),
+    ds.length ? h('div', { class: 'stack', style: 'gap:8px' }, ...ds.map((d) => dealCard(d))) : h('div', { class: 'empty' }, t('noDeals')));
+}
+async function dealModal(c, d) {
+  const isNew = !d;
+  if (!c) c = await DB.get('clients', d.client_id);
+  d = d || { stage: 'nouveau' };
+  const mine = isNew || admin() || d.user_id === S.user.id || S.user.perms.edit_all;
+  const f = {
+    title: h('input', { class: 'input', value: d.title || '', placeholder: t('dealTitlePh'), required: true, disabled: !mine }),
+    amount: h('input', { class: 'input', type: 'number', min: 0, step: 100, inputmode: 'numeric', value: d.amount ?? '', dir: 'ltr', disabled: !mine }),
+    close: h('input', { class: 'input', type: 'date', value: d.close_date ? localInput(d.close_date).slice(0, 10) : '', disabled: !mine }),
+    notes: h('textarea', { class: 'input', rows: 3, value: d.notes || '', disabled: !mine }),
+  };
+  let stage = d.stage;
+  const seg = h('div', { class: 'seg stages' });
+  const paint = () => seg.replaceChildren(...STAGES.map((k) => h('button', { type: 'button', class: (stage === k ? 'on ' : '') + 's-' + k, disabled: !mine, onclick: () => { stage = k; paint(); } }, t(k))));
+  paint();
+  const m = modal(h('h3', {}, isNew ? t('newDeal') : t('deal')), h('p', { class: 'muted small', style: 'margin:0' }, c ? c.name : ''),
+    h('label', { class: 'f' }, t('dealTitle'), f.title), h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('amount'), f.amount), h('label', { class: 'f' }, t('closeDate'), f.close)),
+    h('div', { class: 'f' }, h('span', {}, t('stage')), seg), h('label', { class: 'f' }, t('notes'), f.notes),
+    h('div', { class: 'row' },
+      mine ? h('button', { class: 'btn primary grow', onclick: async () => {
+        const title = f.title.value.trim();
+        if (title.length < 2) { f.title.focus(); return; }
+        const id = d.id || uuid();
+        await saveDeal(id, { client_id: c.id, title, amount: f.amount.value === '' ? null : Number(f.amount.value), stage, close_date: f.close.value ? new Date(f.close.value + 'T10:00').getTime() : null, notes: f.notes.value.trim() }, isNew);
+        m.remove(); toast(navigator.onLine ? t('saved') : t('savedOffline'));
+        if (location.hash.startsWith('#/client/')) clientTab = 'deals';
+        render();
+      } }, ic('check', 20), t('save')) : null,
+      h('button', { class: 'btn ghost', onclick: () => m.remove() }, t('cancel'))),
+    !isNew && (admin() || d.user_id === S.user.id) ? h('button', { class: 'btn danger', onclick: async () => {
+      if (!(await confirmBox(t('deleteQ'), t('delete'), true))) return;
+      try { await api('DELETE', '/api/deals/' + d.id); await DB.put('deals', { ...d, deleted_at: Date.now() }); m.remove(); render(); } catch (e) { toast(e.status === 0 ? t('offlineAdmin') : t('error', { e: e.message })); }
+    } }, ic('trash', 18), t('delete')) : null);
+  if (isNew) setTimeout(() => f.title.focus(), 50);
+}
+const pipeState = { user: '' };
+async function viewPipeline() {
+  const { clients, deals } = await loadData();
+  const cm = new Map(clients.map((c) => [c.id, c]));
+  const list = deals.filter((d) => cm.has(d.client_id) && (!pipeState.user || d.user_id === pipeState.user));
+  const month = Date.now() - 30 * 86400000;
+  const cols = STAGES.map((k) => {
+    const ds = list.filter((d) => d.stage === k && (!['gagne', 'perdu'].includes(k) || (d.closed_at || d.updated_at) > month)).sort((a, b) => (a.close_date || 9e15) - (b.close_date || 9e15));
+    return h('section', { class: 'pcol s-' + k },
+      h('header', {}, h('b', {}, t(k)), h('span', { class: 'small muted tnum' }, `${ds.length} · ${money(ds.reduce((a, d) => a + (d.amount || 0), 0))}`)),
+      ...ds.map((d) => dealCard(d, (cm.get(d.client_id) || {}).name)));
+  });
+  const open = list.filter((d) => !['gagne', 'perdu'].includes(d.stage));
+  const won = list.filter((d) => d.stage === 'gagne' && (d.closed_at || 0) > month);
+  const users = [...S.users.values()].filter((u) => u.active);
+  const filt = (admin() || S.user.perms.all) && users.length > 1 ? h('select', { class: 'input', style: 'max-width:260px', onchange: (e) => { pipeState.user = e.target.value; viewPipeline(); } },
+    h('option', { value: '' }, t('allOwners')), ...users.map((u) => { const o = h('option', { value: u.id }, u.name); if (u.id === pipeState.user) o.selected = true; return o; })) : null;
+  layout(t('pipeline'), [
+    h('div', { class: 'row', style: 'margin-bottom:12px' }, h('div', { class: 'pstat' }, h('span', {}, t('weighted')), h('b', { class: 'tnum' }, money(open.reduce((a, d) => a + (d.amount || 0), 0)))),
+      h('div', { class: 'pstat' }, h('span', {}, t('wonDeals')), h('b', { class: 'tnum' }, money(won.reduce((a, d) => a + (d.amount || 0), 0)))), h('div', { class: 'grow' }), filt),
+    list.length ? h('div', { class: 'board' }, ...cols) : h('div', { class: 'empty' }, t('noDeals'))]);
+}
+
+// =================================================================== assistant : préparer la visite, message de suivi
+function aiWaitModal(title, wait) {
+  const body = h('div', { class: 'stack' }, h('div', { class: 'ai-st' }, h('span', { class: 'spinner' }), wait));
+  const m = modal(h('h3', {}, ic('spark', 20), ' ', title), body);
+  return { m, body };
+}
+async function briefModal(c) {
+  if (!navigator.onLine) return toast(t('aiOffline'));
+  const { m, body } = aiWaitModal(t('briefT') + ' — ' + c.name, t('briefWait'));
+  try {
+    const { brief: b } = await api('POST', '/api/ai/brief/' + c.id, { lang });
+    const sec = (label, arr) => (arr && arr.length ? h('div', { class: 'bsec' }, h('b', {}, label), h('ul', {}, ...arr.map((x) => h('li', {}, x)))) : null);
+    body.replaceChildren(...[h('p', { style: 'margin:0' }, b.resume || ''), sec(t('bKnow'), b.a_savoir), sec(t('bPending'), b.en_attente), sec(t('bPropose'), b.a_proposer), sec(t('bQuestions'), b.questions),
+      h('button', { class: 'btn ghost', onclick: () => m.remove() }, t('confirm'))].filter(Boolean));
+  } catch (e) { body.replaceChildren(h('p', { style: 'color:var(--red);margin:0' }, e.status === 0 ? t('aiOffline') : e.message), h('button', { class: 'btn ghost', onclick: () => m.remove() }, t('cancel'))); }
+}
+async function followupModal(v) {
+  if (!navigator.onLine) return toast(t('aiOffline'));
+  let channel = 'whatsapp';
+  const { m, body } = aiWaitModal(t('followup'), t('followupWait'));
+  const run = async () => {
+    body.replaceChildren(h('div', { class: 'ai-st' }, h('span', { class: 'spinner' }), t('followupWait')));
+    try {
+      const r = await api('POST', '/api/ai/followup/' + v.id, { channel, lang });
+      const subj = h('input', { class: 'input', value: r.subject || '' });
+      const msg = h('textarea', { class: 'input', rows: 9, value: r.message || '' });
+      const seg = h('div', { class: 'seg' }, ...[['whatsapp', 'WhatsApp'], ['email', t('email')]].map(([k, l]) => h('button', { type: 'button', class: channel === k ? 'on' : null, onclick: () => { if (channel !== k) { channel = k; run(); } } }, l)));
+      const copy = h('button', { class: 'btn', onclick: async () => { try { await navigator.clipboard.writeText((channel === 'email' ? subj.value + '\n\n' : '') + msg.value); toast(t('copied')); } catch (e) {} } }, t('copy'));
+      const send = channel === 'whatsapp'
+        ? h('a', { class: 'btn primary grow', target: '_blank', rel: 'noopener', onclick: (e) => { e.currentTarget.href = (r.phone ? waHref(r.phone) : 'https://wa.me/') + (r.phone ? '?' : '?') + 'text=' + encodeURIComponent(msg.value); } }, ic('wa', 18), t('sendWa'))
+        : h('a', { class: 'btn primary grow', onclick: (e) => { e.currentTarget.href = 'mailto:' + encodeURIComponent(r.email || '') + '?subject=' + encodeURIComponent(subj.value) + '&body=' + encodeURIComponent(msg.value); } }, ic('send', 18), t('sendMail'));
+      body.replaceChildren(...[seg, channel === 'email' ? h('label', { class: 'f' }, t('subject'), subj) : null, msg].filter(Boolean), h('div', { class: 'row' }, send, copy), h('button', { class: 'btn ghost', onclick: () => m.remove() }, t('cancel')));
+    } catch (e) { body.replaceChildren(h('p', { style: 'color:var(--red);margin:0' }, e.status === 0 ? t('aiOffline') : e.message), h('button', { class: 'btn ghost', onclick: () => m.remove() }, t('cancel'))); }
+  };
+  run();
+}
+
 // --- bouton « Enregistrer » : choisir le client puis la note vocale ou la réunion
 async function quickCapture() {
   const { clients, visits } = await loadData();
@@ -903,22 +1088,26 @@ async function quickCapture() {
 // --- note écrite
 function viewNote(v, c, isNew, mine) {
   const vid = v.id || uuid();
-  const txt = h('textarea', { class: 'input', rows: 7, placeholder: t('notePh'), disabled: !mine, value: v.summary || '' });
+  const task = v.kind === 'tache';
+  if (task && isNew) { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); v.date = d.getTime(); }
+  const txt = h('textarea', { class: 'input', rows: task ? 3 : 7, placeholder: task ? t('taskPh') : t('notePh'), disabled: !mine, value: v.summary || '' });
   const date = h('input', { class: 'input', type: 'datetime-local', value: localInput(v.date), disabled: !mine });
+  const doneBox = h('input', { type: 'checkbox', checked: v.status === 'done', disabled: !mine });
   const form = h('form', { class: 'card pad stack', onsubmit: async (e) => {
     e.preventDefault();
     if (!mine) return history.back();
     if (!txt.value.trim()) { txt.focus(); return; }
-    await saveVisit(vid, { client_id: c.id, kind: 'note', status: 'done', date: fromInput(date.value) || Date.now(), summary: txt.value.trim() }, isNew);
+    await saveVisit(vid, { client_id: c.id, kind: task ? 'tache' : 'note', status: task && !doneBox.checked ? 'planned' : 'done', date: fromInput(date.value) || Date.now(), summary: txt.value.trim() }, isNew);
     toast(navigator.onLine ? t('saved') : t('savedOffline'));
     clientTab = 'visits';
     location.replace('#/client/' + c.id);
   } },
     h('div', { class: 'item', style: 'border:0;padding:0' }, h('span', { class: 'av' }, initials(c.name)), h('div', { class: 'grow' }, h('div', { class: 't' }, c.name), h('div', { class: 's' }, [c.code, c.company].filter(Boolean).join(' · ')))),
-    h('label', { class: 'f' }, t('noteTxt'), txt), h('label', { class: 'f' }, t('date'), date),
+    h('label', { class: 'f' }, task ? t('taskTxt') : t('noteTxt'), txt), h('label', { class: 'f' }, task ? t('dueDate') : t('date'), date),
+    task && !isNew ? h('label', { class: 'check' }, doneBox, t('taskDone')) : null,
     mine ? h('div', { class: 'row' }, h('button', { class: 'btn primary grow', type: 'submit' }, ic('check', 20), t('save')), h('button', { type: 'button', class: 'btn ghost', onclick: () => history.back() }, t('cancel'))) : null,
     admin() && !isNew ? delVisitBtn(v, c) : null);
-  layout(t('note'), form, { back: '#/client/' + c.id });
+  layout(task ? t('tache') : t('note'), form, { back: '#/client/' + c.id });
   if (isNew) setTimeout(() => txt.focus(), 50);
 }
 function delVisitBtn(v, c) {
@@ -1041,6 +1230,7 @@ async function viewAiActivity(v, c, mine) {
     h('div', { class: 'item', style: 'border:0;padding:0' }, h('span', { class: 'av' }, initials(c.name)), h('a', { class: 'grow', href: '#/client/' + c.id, style: 'color:inherit;text-decoration:none' }, h('div', { class: 't' }, c.name), h('div', { class: 's' }, [fdt(v.date), userName(v.user_id), v.duration ? fdur(v.duration) : null].filter(Boolean).join(' · ')))),
     aiBadge(v),
     mine && !busy && audios.length ? h('button', { class: 'btn', onclick: async () => { await askAi(v); render(); } }, ic('sync', 18), v.ai_status === 'done' || v.transcript ? (v.kind === 'reunion' ? t('aiRegen') : t('aiRetry')) : v.ai_status === 'error' ? t('aiRetry') : t('aiAnalyze')) : null,
+    v.ai_status === 'done' || v.transcript ? h('button', { class: 'btn brief', onclick: () => followupModal(v) }, ic('send', 18), t('followup')) : null,
     audios.length ? [h('h2', { class: 'sec', style: 'margin:6px 0 0' }, t('recordings')), players] : null);
   const blocks = [head];
   if (v.kind === 'vocal') {
@@ -1083,9 +1273,10 @@ async function viewAgenda() {
   const mineOnly = (v) => (!agendaState.user || v.user_id === agendaState.user) && cm.has(v.client_id);
   const now = Date.now(), d0 = new Date(); d0.setHours(0, 0, 0, 0);
   const today0 = d0.getTime(), today1 = today0 + 86400000;
-  const planned = visits.filter((v) => v.status === 'planned' && mineOnly(v)).sort((a, b) => a.date - b.date);
+  const tasks = visits.filter((v) => v.kind === 'tache' && v.status === 'planned' && mineOnly(v)).sort((a, b) => a.date - b.date);
+  const planned = visits.filter((v) => v.status === 'planned' && v.kind !== 'tache' && mineOnly(v)).sort((a, b) => a.date - b.date);
   const overdue = planned.filter((v) => v.date < today0), today = planned.filter((v) => v.date >= today0 && v.date < today1), next = planned.filter((v) => v.date >= today1);
-  const recent = visits.filter((v) => v.status === 'done' && mineOnly(v)).sort((a, b) => b.date - a.date).slice(0, 40);
+  const recent = visits.filter((v) => v.status === 'done' && v.kind !== 'tache' && mineOnly(v)).sort((a, b) => b.date - a.date).slice(0, 40);
   const rdvItem = (v) => {
     const c = cm.get(v.client_id);
     return h('div', { class: 'item' },
@@ -1098,6 +1289,8 @@ async function viewAgenda() {
   const filt = (admin() || S.user.perms.all) && users.length > 1 ? h('select', { class: 'input', style: 'max-width:280px', 'aria-label': t('owner'), onchange: (e) => { agendaState.user = e.target.value; viewAgenda(); } },
     h('option', { value: '' }, t('allOwners')), ...users.map((u) => { const o = h('option', { value: u.id }, u.name); if (u.id === agendaState.user) o.selected = true; return o; })) : null;
   layout(t('agenda'), [filt,
+    h('h2', { class: 'sec' }, `${t('tasks')} (${tasks.length})`),
+    tasks.length ? h('div', { class: 'stack', style: 'gap:8px' }, ...tasks.map((v) => taskCard(v, (cm.get(v.client_id) || {}).name))) : h('div', { class: 'empty' }, t('noTasks')),
     overdue.length ? sec(t('overdue'), overdue) : null,
     sec(t('today'), today, t('nothingPlanned')),
     next.length ? sec(t('upcoming'), next) : null,
@@ -1175,7 +1368,13 @@ async function viewDashboard() {
     h('td', {}, h('span', { class: 'dot', style: 'background:' + (u.active ? (u.last_seen && Date.now() - u.last_seen < 86400000 ? 'var(--green)' : '#B4BCCB') : 'var(--red)') }), h('a', { href: '#/team' }, u.name), u.role === 'admin' ? h('span', { class: 'badge b-muted', style: 'margin-inline-start:6px' }, t('admin')) : null),
     h('td', { class: 'tnum' }, u.clients - u.prospects), h('td', { class: 'tnum' }, u.prospects), h('td', { class: 'tnum' }, h('b', {}, u.visits_7)), h('td', { class: 'tnum' }, u.visits_30),
     h('td', {}, u.last_visit ? fdate(u.last_visit) : '—'), h('td', { class: 'tnum' }, u.files), h('td', {}, ago(u.last_seen))));
+  const pl = new Map((d.pipeline || []).map((x) => [x.stage, x]));
+  const openAmt = ['nouveau', 'devis', 'negociation'].reduce((a, k) => a + ((pl.get(k) || {}).amount || 0), 0);
+  const pipeBox = h('a', { class: 'card pad pipe-sum', href: '#/pipeline' }, h('b', {}, t('pipeline')),
+    h('div', { class: 'pbars' }, ...STAGES.map((k) => { const x = pl.get(k) || { n: 0, amount: 0 }; return h('div', { class: 'pb s-' + k }, h('span', {}, t(k)), h('b', { class: 'tnum' }, x.n), h('small', { class: 'tnum' }, money(x.amount))); })),
+    h('div', { class: 'small muted' }, t('weighted') + ' : ' + money(openAmt)));
   layout(t('dashboard'), [
+    pipeBox,
     h('div', { class: 'kpis' }, kpi(T0.clients, t('kpiClients')), kpi(T0.prospects, t('kpiProspects')), kpi(T0.visits_7, t('kpiVisits7')), kpi(T0.planned, t('kpiPlanned')),
       kpi(T0.visits_30, t('kpiVisits30')), kpi(`${T0.located}/${T0.clients + T0.prospects}`, t('kpiLocated')), kpi(T0.files, t('kpiFiles'), fsize(T0.storage)), kpi(T0.new_30, t('kpiNew'))),
     h('div', { class: 'cols', style: 'margin-top:12px' },
@@ -1263,7 +1462,111 @@ async function viewExport() {
     h('section', { class: 'card pad stack' }, h('h3', { style: 'margin:0' }, t('expVisits')),
       h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('from'), vfrom), h('label', { class: 'f' }, t('to'), vto)), admin() || S.user.perms.all ? h('label', { class: 'f' }, t('owner'), vu) : null,
       h('button', { class: 'btn primary', onclick: () => { const q = new URLSearchParams(); if (vfrom.value) q.set('from', new Date(vfrom.value + 'T00:00').getTime()); if (vto.value) q.set('to', new Date(vto.value + 'T23:59:59').getTime()); if (vu.value) q.set('user', vu.value); dl(BASE + '/api/export/visits.xlsx?' + q); } }, ic('xls', 20), t('download'))),
+    h('section', { class: 'card pad stack' }, h('h3', { style: 'margin:0' }, t('expDeals')),
+      h('button', { class: 'btn primary', onclick: () => dl(BASE + '/api/export/deals.xlsx') }, ic('xls', 20), t('download'))),
+    admin() ? importBox(users) : null,
     h('p', { class: 'small muted' }, t('expHelp'))));
+}
+// --- import Excel / CSV (fichiers exportés de Sage, EBP…)
+const IMPORT_COLS = {
+  code: ['code', 'codeclient', 'reference', 'ref', 'numero', 'numeroclient', 'compte', 'codetiers', 'ctnum'],
+  name: ['nom', 'name', 'raisonsociale', 'client', 'intitule', 'nomclient', 'denomination', 'ctintitule', 'tiers'],
+  company: ['societe', 'entreprise', 'company', 'nomsociete'],
+  contact: ['contact', 'interlocuteur', 'personneacontacter', 'responsable'],
+  phone: ['gsm', 'mobile', 'portable', 'telephonemobile', 'tel2', 'cell'],
+  phone2: ['telephone', 'tel', 'fixe', 'telephonefixe', 'phone', 'ctelephone'],
+  email: ['email', 'mail', 'courriel', 'adresseemail', 'emailcontact'],
+  website: ['siteweb', 'site', 'web', 'website', 'url', 'siteinternet'],
+  city: ['ville', 'city', 'localite', 'ctville'],
+  address: ['adresse', 'address', 'rue', 'ctadresse', 'adresse1'],
+  sector: ['secteur', 'activite', 'secteurdactivite', 'categorie', 'famille'],
+  ice: ['ice', 'identifiantcommun'],
+  notes: ['remarques', 'notes', 'commentaire', 'commentaires', 'observation'],
+};
+const colKey = (hd) => { const n = String(hd || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, ''); for (const [k, al] of Object.entries(IMPORT_COLS)) if (al.includes(n)) return k; return null; };
+function parseCsv(text) {
+  const first = text.split(/\r?\n/, 1)[0] || '';
+  const sep = [';', ',', '\t'].sort((a, b) => first.split(b).length - first.split(a).length)[0];
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === sep) { row.push(cur); cur = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += ch;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter((r) => r.some((x) => String(x).trim()));
+}
+async function unzipEntries(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf), out = {};
+  let e = buf.byteLength - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('zip');
+  let p = dv.getUint32(e + 16, true); const n = dv.getUint16(e + 10, true);
+  for (let i = 0; i < n; i++) {
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nl));
+    p += 46 + nl + xl + cl;
+    if (!/^xl\/(sharedStrings|worksheets\/sheet1)\.xml$/.test(name)) continue;
+    const start = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true);
+    const data = u8.subarray(start, start + csize);
+    out[name] = method === 0 ? new TextDecoder().decode(data) : await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+  }
+  return out;
+}
+async function parseXlsx(buf) {
+  const z = await unzipEntries(buf);
+  const P = new DOMParser();
+  const ss = z['xl/sharedStrings.xml'] ? [...P.parseFromString(z['xl/sharedStrings.xml'], 'application/xml').getElementsByTagName('si')].map((si) => [...si.getElementsByTagName('t')].map((x) => x.textContent).join('')) : [];
+  const doc = P.parseFromString(z['xl/worksheets/sheet1.xml'] || '<x/>', 'application/xml');
+  const rows = [];
+  for (const r of doc.getElementsByTagName('row')) {
+    const row = [];
+    for (const c of r.getElementsByTagName('c')) {
+      const ref = c.getAttribute('r') || '', col = ref.replace(/\d+/g, '').split('').reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+      const tp = c.getAttribute('t'), v = c.getElementsByTagName('v')[0], is = c.getElementsByTagName('t')[0];
+      row[col >= 0 ? col : row.length] = tp === 's' ? ss[Number(v && v.textContent)] : tp === 'inlineStr' ? (is ? is.textContent : '') : v ? v.textContent : '';
+    }
+    rows.push(Array.from(row, (x) => (x == null ? '' : String(x))));
+  }
+  return rows.filter((r) => r.some((x) => String(x).trim()));
+}
+function importBox(users) {
+  const info = h('p', { class: 'small muted', style: 'margin:0' });
+  const kindSel = h('select', { class: 'input' }, h('option', { value: 'client' }, t('client')), h('option', { value: 'prospect' }, t('prospect')));
+  const ownSel = h('select', { class: 'input' }, h('option', { value: '' }, S.user.name), ...users.filter((u) => u.active && u.id !== S.user.id).map((u) => h('option', { value: u.id }, u.name)));
+  const go2 = h('button', { class: 'btn primary', disabled: true }, ic('plus', 18), t('importPick'));
+  let rows = [];
+  const pick = h('button', { class: 'btn', onclick: async () => {
+    const [file] = await pickFiles('.xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, false);
+    if (!file) return;
+    try {
+      const table = /\.csv$/i.test(file.name) || file.type === 'text/csv' ? parseCsv(await file.text()) : await parseXlsx(await file.arrayBuffer());
+      const head = (table[0] || []).map(colKey);
+      if (!head.includes('name')) { info.textContent = t('importNone'); go2.disabled = true; return; }
+      rows = table.slice(1).map((r) => { const o = {}; head.forEach((k, i) => { if (k && r[i] != null && String(r[i]).trim()) o[k] = String(r[i]).trim(); }); return o; }).filter((o) => o.name || o.code);
+      info.textContent = t('importRows', { n: rows.length, c: [...new Set(head.filter(Boolean))].map((k) => t(k === 'name' ? 'name' : k === 'company' ? 'companyF' : k)).join(', ') });
+      go2.disabled = !rows.length; go2.replaceChildren(ic('plus', 18), t('importGo', { n: rows.length }));
+    } catch (e) { info.textContent = t('importErr', { e: e.message }); go2.disabled = true; }
+  } }, ic('file', 18), t('importPick'));
+  go2.onclick = async () => {
+    if (!navigator.onLine) return toast(t('offlineAdmin'));
+    go2.disabled = true;
+    let c = 0, u = 0;
+    try {
+      for (let i = 0; i < rows.length; i += 300) {
+        go2.replaceChildren(h('span', { class: 'spinner' }), `${Math.min(i + 300, rows.length)} / ${rows.length}`);
+        const r = await api('POST', '/api/clients/import', { rows: rows.slice(i, i + 300), kind: kindSel.value, owner_id: ownSel.value || null });
+        c += r.created; u += r.updated;
+      }
+      info.textContent = t('importDone', { c, u }); toast(t('importDone', { c, u }), 5000); rows = [];
+      syncNow(true);
+    } catch (e) { toast(t('error', { e: e.message })); }
+    go2.replaceChildren(ic('plus', 18), t('importPick'));
+  };
+  return h('section', { class: 'card pad stack' }, h('h3', { style: 'margin:0' }, t('importT')), h('p', { class: 'small muted', style: 'margin:0' }, t('importP')),
+    h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('importKind'), kindSel), h('label', { class: 'f' }, t('importOwner'), ownSel)), pick, info, go2);
 }
 
 // =================================================================== écran : journal (admin)
@@ -1352,6 +1655,7 @@ async function render() {
       case 'client': return seg[2] === 'edit' ? viewClientForm(seg[1]) : viewClient(seg[1]);
       case 'visit': return viewVisitForm(seg[1] === 'new' ? null : seg[1], params);
       case 'meeting': return viewMeeting(params.get('client'));
+      case 'pipeline': return viewPipeline();
       case 'agenda': return viewAgenda();
       case 'map': return viewMap();
       case 'me': return viewMe();

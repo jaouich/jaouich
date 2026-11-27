@@ -65,6 +65,7 @@ ok(r.error || r.code, "milestones pay once");
 const lastWk = (() => { const d = new Date(Date.now() - 7 * 86400000); const day = (d.getUTCDay() + 6) % 7; return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day); })();
 await exec(`INSERT INTO merge_weeks VALUES (${lastWk}, '${uid}', 50, 1)`);
 const d0 = (await st()).dates;
+await fetch(B + "/__test/exec", { method: "POST", body: `INSERT OR IGNORE INTO season_paid VALUES (${globalThis.OasisLogic.SEASON.id(Date.now()) - 1}, 1)` }); // keep the league payout out of this test
 await fetch(B + "/__test/cron").catch(() => {}); await fetch(B + "/__test/cron").catch(() => {});
 const d1 = (await st()).dates, paid = await sql("SELECT COUNT(*) AS n FROM merge_week_paid");
 ok(paid[0].n === 1 && d1 - d0 === MG.weekPrize(1).dates, "cron pays last week once", [d1 - d0, paid[0].n]);

@@ -72,6 +72,7 @@ ok(r.derby.camels[1].n === "نجمة الواحة", "camel renamed (Arabic name)
 const last = weekId(Date.now() - 7 * 86400000);
 await exec(`INSERT INTO derby_weeks (week_id, uid, pts, updated_at) VALUES (${last}, 'uC', 500, 1), (${last}, 'uB', 300, 2);`);
 const d0 = (await get("/api/me", HC)).state.dates;
+await fetch(B + "/__test/exec", { method: "POST", body: `INSERT OR IGNORE INTO season_paid VALUES (${globalThis.OasisLogic.SEASON.id(Date.now()) - 1}, 1)` }); // keep the league payout out of this test
 await fetch(B + "/__test/cron");
 ok((await get("/api/me", HC)).state.dates === d0 + 25000, "last week's Derby #1 gets 25,000 dates");
 await fetch(B + "/__test/cron");

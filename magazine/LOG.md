@@ -13,3 +13,4 @@ Site: https://jaouich6.wordpress.com (blog id 257964560). Daily scheduled task: 
 - 2026-11-24 | catch-up | manga ch5 'الباب تحت الرمال' (card: dragon); story the-fox-and-the-last-bucket | lesson and documentary skipped in the catch-up
 - 2026-11-25 | catch-up | manga ch6 'سر الساحر' (card: sun); guide harvest-levels-merge-and-league-guide | lesson skipped
 - 2026-11-26 | catch-up | manga ch7 'الصداقة تفتح الباب' (card: star); article safe-online-work-first-steps (general tips, no sources needed) | lesson skipped; Nov 23 was already covered by ch4
+- 2026-11-27 | daily | manga ch8 'الصقر والخريطة الغامضة' (card: falcon); article fake-giveaway-phishing-signs (general consumer-protection guidance, no specific sources) | lesson and documentary skipped (video rendering not run this session)

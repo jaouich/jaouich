@@ -3104,6 +3104,7 @@ function checkPayment(p, uid) {
   try { return checkPaymentInner(p, uid); } catch (e) {
     // remember what was refused so the error log can say why (no player data)
     if (e instanceof HttpError) e.info = `type=${p.metadata && p.metadata.type} amount=${p.amount} dir=${p.direction} cancelled=${!!(p.status && (p.status.cancelled || p.status.user_cancelled))}`;
+    if (e instanceof HttpError && p.metadata && p.metadata.type === "house") e.info += ` nameOk=${KL.tribeNameOk(String(p.metadata.name || "").trim().replace(/\s+/g, " "))} emojiOk=${KL.TRIBE.EMOJIS.includes(String(p.metadata.emoji))} fee=${p.metadata.fee}`;
     throw e;
   }
 }

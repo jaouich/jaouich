@@ -95,6 +95,7 @@
       else if (a === "leave") { await Pi.houseLeave(); G.toast(t("hs.left")); }
       else if (a === "found") {
         const name = ($("ctHouseName").value || "").trim().replace(/\s+/g, " "), fee = D.houses.fee;
+        if (!window.KombatLogic.tribeNameOk(name)) { G.toast(t("hs.nameBad")); busy = false; return render(); }
         if (!confirm(t("hs.confirm", { p: fee, n: name }))) { busy = false; return render(); }
         const r = await Pi.buyHouse(name, house.emoji, fee); if (r.account) G.setAccount(r.account); G.toast(t("hs.created")); house.name = "";
       }

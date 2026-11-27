@@ -1675,3 +1675,6 @@ main { overflow-x: hidden; }
 .ach-card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px; border-radius: 14px; background: rgba(255,255,255,.06); text-align: center; opacity: .55; }
 .ach-card i { font-style: normal; font-size: 26px; } .ach-card b { font-size: .78rem; } .ach-card small { color: #ffd86b; }
 .ach-card.ready { opacity: 1; outline: 2px solid #ffd86b; } .ach-card.got { opacity: 1; background: rgba(76,175,80,.25); }
+
+/* ---- Seasons ---- */
+.hub-season { background: radial-gradient(120% 140% at 0% 0%, #f5b301 0%, #b9770e 55%, #6b3c07 100%); color: #fff; box-shadow: 0 5px 0 #43260a; }

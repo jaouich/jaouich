@@ -359,6 +359,8 @@
     weekMine: () => api("/api/week/mine"),
     courtClaim: () => api("/api/court/claim", {}),
     court: () => api("/api/court"),
+    season: () => api("/api/season"),
+    seasonClaim: () => api("/api/season/claim", {}),
     streak: () => api("/api/streak"),
     streakClaim: () => api("/api/streak/claim", {}),
     ach: () => api("/api/ach"),

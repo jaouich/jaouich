@@ -180,6 +180,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS merge_claims ( uid TEXT NOT NULL, lvl INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, lvl) )",
   "CREATE TABLE IF NOT EXISTS login_streak ( uid TEXT PRIMARY KEY, last INTEGER NOT NULL, n INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS ach ( uid TEXT NOT NULL, id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (uid, id) )",
+  "CREATE TABLE IF NOT EXISTS season_claims ( season INTEGER NOT NULL, uid TEXT NOT NULL, tier INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (season, uid, tier) )",
+  "CREATE TABLE IF NOT EXISTS season_paid ( season INTEGER PRIMARY KEY, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS castle_day ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
   "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
@@ -995,6 +997,29 @@ const routes = {
 
   // Jerry Kombat ranking. All time: coins held now (the league follows them).
   // ?week=1: this week's tournament (coins earned since Monday) + my prize from last week.
+  // ---------- Seasons ----------
+  "GET /api/season": async (req, env) => {
+    const u = await auth(req, env), now = Date.now(), id = L.SEASON.id(now);
+    const { top, mine } = await seasonBoard(env, id, u.uid, 20);
+    const got = new Set((await all(env, "SELECT tier FROM season_claims WHERE season = ? AND uid = ?", id, u.uid)).map((r) => r.tier));
+    const rank = mine > 0 ? 1 + (await seasonBoard(env, id, null, 1000)).top.filter((r) => r.sp > mine).length : 0;
+    return { season: id, ends: L.SEASON.start(id) + L.SEASON.DAYS * DAY, sp: mine, rank, tiers: L.SEASON.TIERS.map((t, i) => ({ ...t, claimed: got.has(i), open: mine >= t.sp })), prizes: L.SEASON.PRIZES,
+      top: top.map((r, i) => ({ rank: i + 1, username: r.username, sp: r.sp })), now };
+  },
+  "POST /api/season/claim": async (req, env) => {
+    const u = await auth(req, env), now = Date.now(), id = L.SEASON.id(now);
+    const { mine } = await seasonBoard(env, id, u.uid, 1), sum = { dates: 0, jry: 0, spins: 0, tiers: 0 };
+    for (let i = 0; i < L.SEASON.TIERS.length; i++) {
+      const t = L.SEASON.TIERS[i]; if (mine < t.sp) continue;
+      const r = await run(env, "INSERT OR IGNORE INTO season_claims (season, uid, tier, at) VALUES (?, ?, ?, ?)", id, u.uid, i, now);
+      if (!r.meta.changes) continue;
+      sum.tiers++;
+      for (const k of ["dates", "jry", "spins"]) if (t[k]) { await giveReward(env, u.uid, k, t[k], now, "season"); sum[k] += t[k]; }
+    }
+    if (!sum.tiers) bad("se.none");
+    return { ok: true, ...sum };
+  },
+
   // ---------- Daily login streak and achievements ----------
   "GET /api/streak": async (req, env) => {
     const u = await auth(req, env), today = Math.floor(Date.now() / DAY);
@@ -3264,6 +3289,7 @@ const NOTE = {
   courtemp: { go: "rank", en: ["👑 A new Emperor of the Game!", "{u} took the throne. Open the Ranking to see the crown."], ar: ["👑 إمبراطور جديد للعبة!", "تربّع ‎{u} على العرش. افتح الترتيب لترى التاج."], fr: ["👑 Un nouvel Empereur du jeu !", "{u} a pris le trône. Ouvre le classement pour voir la couronne."] },
   elected: { go: "rank", en: ["🏛️ You were elected to Parliament", "You hold seat {seat} this month. Open the Court to see the Parliament."], ar: ["🏛️ تم انتخابك في البرلمان", "لديك المقعد رقم {seat} هذا الشهر. افتح البلاط لترى البرلمان."], fr: ["🏛️ Tu as été élu au Parlement", "Tu occupes le siège {seat} ce mois-ci. Ouvre la Cour pour voir le Parlement."] },
   kweek: { go: "kombat", en: ["⚔️ Kombat tournament: #{p}", "Open Jerry Kombat to collect your prize."], ar: ["⚔️ بطولة كومبات: المركز {p}", "افتح جيري كومبات لتستلم جائزتك."], fr: ["⚔️ Tournoi Kombat : {p}e", "Ouvre Jerry Kombat pour récupérer ton prix."] },
+  season: { go: "season", en: ["🏆 Season over: #{p}", "+{j} JRY points for your season rank."], ar: ["🏆 انتهى الموسم: المركز {p}", "+{j} نقطة JRY لترتيبك في الموسم."], fr: ["🏆 Saison terminée : {p}e", "+{j} points JRY pour ton rang de saison."] },
   mweek: { go: "merge", en: ["🐎 Horse Merge: #{p}", "+{d} dates for your place this week."], ar: ["🐎 دمج الخيل: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🐎 Fusion de chevaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   dweek: { go: "derby", en: ["🏁 Camel Derby: #{p}", "+{d} dates for your place this week."], ar: ["🏁 سباق الجمال: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏁 Course de chameaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   sold: { go: "market", en: ["💰 Your offer sold", "+{pi} Pi added to your sales balance."], ar: ["💰 تم بيع عرضك", "+{pi} Pi أُضيفت إلى رصيد مبيعاتك."], fr: ["💰 Ton offre est vendue", "+{pi} Pi ajoutés à ton solde de ventes."] },
@@ -3335,6 +3361,29 @@ async function derbyGrant(env, uid, item, now) {
   }
 }
 // Last week's Derby: dates for the top 100 by trophies (given once)
+// Season points of every player: oasis dates/100 + horse merge points/10 + derby points + kombat coins/1000, summed over the season's 4 weeks
+async function seasonBoard(env, season, uid, limit) {
+  const a = L.SEASON.start(season), b = a + 21 * DAY;
+  const sub = `SELECT uid, score / 100 AS sp FROM week_scores WHERE week_id BETWEEN ?1 AND ?2
+    UNION ALL SELECT uid, pts / 10 FROM merge_weeks WHERE week_id BETWEEN ?1 AND ?2
+    UNION ALL SELECT uid, pts FROM derby_weeks WHERE week_id BETWEEN ?1 AND ?2
+    UNION ALL SELECT uid, earned / 1000 FROM kombat_weeks WHERE week_id BETWEEN ?1 AND ?2`;
+  const top = await all(env, `SELECT s.uid, u.username, SUM(s.sp) AS sp FROM (${sub}) s JOIN users u ON u.uid = s.uid GROUP BY s.uid HAVING sp > 0 ORDER BY sp DESC, s.uid ASC LIMIT ?3`, a, b, limit);
+  let mine = 0;
+  if (uid) { const r = await one(env, `SELECT COALESCE(SUM(sp), 0) AS sp FROM (${sub}) WHERE uid = ?3`, a, b, uid); mine = (r && r.sp) || 0; }
+  return { top, mine };
+}
+async function grantSeasonPrizes(env) {
+  await ensureSchema(env);
+  const now = Date.now(), last = L.SEASON.id(now) - 1;
+  if (last < 0) return 0;
+  const g = await run(env, "INSERT OR IGNORE INTO season_paid (season, at) VALUES (?, ?)", last, now);
+  if (!g.meta.changes) return 0;
+  const { top } = await seasonBoard(env, last, null, 10);
+  for (let i = 0; i < top.length; i++) await giveReward(env, top[i].uid, "jry", L.SEASON.PRIZES[i], now, "season");
+  await notify(env, top.map((r, i) => ({ uid: r.uid, kind: "season", ref: last, vars: { p: i + 1, j: L.SEASON.PRIZES[i] } })));
+  return top.length;
+}
 async function achView(env, u) {
   const st = await one(env, "SELECT json FROM state WHERE uid = ?", u.uid);
   let s = {}; try { s = JSON.parse((st && st.json) || "{}"); } catch {}
@@ -4052,6 +4101,7 @@ export default {
         .catch((e) => logError(env, "weekly camels", 0, e.message))
         .then(() => grantDerbyWeek(env))
         .then(() => grantMergeWeek(env))
+        .then(() => grantSeasonPrizes(env))
         .then(() => grantArenaWeek(env))
         .then(() => arenaSweep(env))
         .then(() => catalogNotify(env))

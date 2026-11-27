@@ -244,6 +244,18 @@
     view(xp) { const lv = this.level(xp), a = this.need(lv), b = this.need(lv + 1); return { lv, xp: xp || 0, cur: (xp || 0) - a, span: b - a, next: b }; },
   };
 
+  // 🏆 Seasons: 4 weeks. Season points (SP) are summed from the weekly results of every game.
+  const SEASON = {
+    DAYS: 28,
+    id(now) { return Math.floor((weekId(now) - 4 * 86400000) / (28 * 86400000)); },
+    start(id) { return id * 28 * 86400000 + 4 * 86400000; },
+    TIERS: [
+      { sp: 50, dates: 2000 }, { sp: 150, jry: 20, spins: 1 }, { sp: 400, dates: 10000 }, { sp: 900, jry: 50 },
+      { sp: 1800, dates: 30000, spins: 2 }, { sp: 3500, jry: 100 }, { sp: 6000, dates: 80000 }, { sp: 10000, jry: 300, spins: 3 },
+    ],
+    PRIZES: [1000, 600, 400, 150, 150, 150, 150, 150, 150, 150], // JRY points for the top 10 of the season
+  };
+
   // 🔥 Daily login streak and achievements (checked and paid by the server only)
   const STREAK7 = { DATES: [100, 150, 200, 300, 400, 500, 1000], JRY7: 20, SPINS7: 1 };
   const ACH = [
@@ -752,6 +764,6 @@
   COURT.titleOf = (rank, paid) => (rank >= 1 && rank <= COURT.SEATS ? (rank <= 3 ? COURT.TITLES[rank - 1] : COURT.TITLES[3]) : paid > 0 ? COURT.notable : COURT.citizen);
   COURT.voteWeight = (paid) => 1 + Math.min(COURT.VOTE.CAP, Math.max(0, Number(paid) || 0));
   COURT.phase = (t) => { const d = new Date(t).getUTCDate(), P = COURT.PARLIAMENT; return d >= P.RESULTS_FROM ? "results" : d >= P.VOTING[0] ? "voting" : "candidacy"; };
-  const api = { LV, MG, STREAK7, ACH, achFacts, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { SEASON, LV, MG, STREAK7, ACH, achFacts, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

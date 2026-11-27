@@ -112,3 +112,7 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 
 ## Daily streak + achievements (step 3)
 - Streak: `login_streak`, `GET /api/streak`, `POST /api/streak/claim` (7-day cycle: 100/150/200/300/400/500/1000 dates, day 7 also 20 JRY points + a wheel spin; a missed day resets). Achievements: `ach` table, 16 badges (`OasisLogic.ACH`, conditions from the server state), 10 JRY points each, `GET /api/ach`, `POST /api/ach/claim`. UI `public/ach.js` (bar `#achBar`, page `#ach`). Tests `tests/streak.mjs` (12).
+
+## Seasons (step 4)
+- A season = 4 whole weeks from a Monday (`OasisLogic.SEASON`). Season points = oasis dates/100 + merge points/10 + derby points + kombat coins/1000, summed from the weekly tables (`seasonBoard`). 8-tier reward track (`season_claims`), top 10 of the finished season get 1000/600/400/150x7 JRY points via cron `grantSeasonPrizes` (`season_paid`, notification `season`). Routes `GET /api/season`, `POST /api/season/claim`. UI `public/season.js`, hub banner `#seasonOpen`. Tests `tests/season.mjs` (8).
+- Not done from the plan: Friday "harvest festival" event for Horse Merge.

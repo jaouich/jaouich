@@ -10,3 +10,6 @@ Site: https://jaouich6.wordpress.com (blog id 257964560). Daily scheduled task: 
 - 2026-11-22 | daily | manga ch3 'طائر في البحيرة'; article pi-beginner-checklist (sources weak: third-party guides only, so a cautious checklist); lesson ai-right-way/04; vote week W49 (no votes were cast for W48, rotated freely); no documentary today (docs 1-3 were added today) | no problems
 
 - Magazine: share bar (Facebook/WhatsApp/Telegram/X/copy/native) on articles+manga, card promo block per manga chapter (character cards, price rises 10% per 1,000 minted), characters section, how-to-play articles, manga ch.4, daily code box on the home page.
+- 2026-11-24 | catch-up | manga ch5 'الباب تحت الرمال' (card: dragon); story the-fox-and-the-last-bucket | lesson and documentary skipped in the catch-up
+- 2026-11-25 | catch-up | manga ch6 'سر الساحر' (card: sun); guide harvest-levels-merge-and-league-guide | lesson skipped
+- 2026-11-26 | catch-up | manga ch7 'الصداقة تفتح الباب' (card: star); article safe-online-work-first-steps (general tips, no sources needed) | lesson skipped; Nov 23 was already covered by ch4

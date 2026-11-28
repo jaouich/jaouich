@@ -129,7 +129,7 @@ Object.assign(T.en, {
 });
 // thèmes : choisis par chaque utilisateur sur son appareil, ou imposés par défaut par la direction
 Object.assign(T.fr, {
-  importTpl: 'Télécharger le modèle Excel', expOwn: 'Vous exportez les fiches dont vous êtes responsable.', jobTitle: 'Fonction (titre affiché)', jobTitlePh: 'ex. Directrice commerciale, Chef d’équipe…', roleHelp: 'Le rôle donne les droits : « Administrateur » voit tout et gère l’équipe ; « Commercial » gère son portefeuille. La fonction est seulement le titre affiché.', forgot: 'Mot de passe oublié ?', forgotT: 'Mot de passe oublié', forgotRep: 'Commercial : demandez à votre direction. Elle ouvre « Commerciaux », touche votre nom puis « Nouveau mot de passe ».', forgotAdmin: 'Direction : entrez votre identifiant, le code de secours et un nouveau mot de passe.', recCode: 'Code de secours', recNew: 'Nouveau mot de passe', recGo: 'Changer le mot de passe', recSaveT: 'Votre nouveau code de secours', recSaveP: 'Notez-le et gardez-le en lieu sûr (papier, coffre). L’ancien ne marche plus. Sans ce code, seule l’assistance Magiscom peut débloquer un compte de direction.', recSec: 'Code de secours de la direction', recSecP: 'Si un directeur oublie son mot de passe, ce code permet d’en choisir un nouveau depuis l’écran de connexion. Gardez-le hors du téléphone.', recSecOk: 'Un code de secours existe.', recSecNone: 'Aucun code de secours : créez-en un maintenant.', recGen: 'Générer un nouveau code', recPw: 'Confirmez avec votre mot de passe', recTip: 'Conseil : créez au moins deux comptes « Administrateur ».', importShort: 'Importer', importLine: 'Ligne {n}', close: 'Fermer', magiOpenPage: 'Ouvrir cet écran', magiToday: 'Aujourd’hui : {x}.', magiRdv: '{n} rendez-vous / appel(s)', magiLate: '{n} en retard', magiSleep: '{n} client(s) sans visite depuis 30 jours', magiFree: 'rien de prévu', magiOffHelp: 'Sans internet, je peux ouvrir un écran, trouver un client ou résumer votre journée. Pour le reste, je reviens dès que le réseau est là.', magiFound: 'Voici ce que j’ai trouvé :', magiMarkDone: 'Marquer comme fait', magiMoveTo: 'Déplacer au', magiChanges: 'Modifications', magiAdd: 'à ajouter', magiOpenAct: 'Ouvrir l’activité', magiNoMeet: 'Pas encore de réunion ou de visite avec compte-rendu pour ce client.', aiToday: 'IA aujourd’hui', aiTodayD: '{a} questions à Magi · {s} transcriptions · {l} rapports', aiYest: 'Hier : {a} · {s} · {l}', magiMenu: 'Questions rapides', magi: 'Assistant Magi', magiHi: 'Bonjour {n} ! Je suis Magi. Écrivez ou parlez : je trouve un client, je planifie un rendez-vous, je crée une fiche ou une affaire, je réponds sur votre activité.',
+  importXls: 'Ancien format Excel (.xls) : ouvrez-le dans Excel puis « Enregistrer sous » → Classeur Excel (.xlsx).', importFound: 'Titres trouvés : {c}. Renommez la colonne du nom en « Nom ».', importWhere: 'feuille « {s} », titres ligne {l}', importTpl: 'Télécharger le modèle Excel', expOwn: 'Vous exportez les fiches dont vous êtes responsable.', jobTitle: 'Fonction (titre affiché)', jobTitlePh: 'ex. Directrice commerciale, Chef d’équipe…', roleHelp: 'Le rôle donne les droits : « Administrateur » voit tout et gère l’équipe ; « Commercial » gère son portefeuille. La fonction est seulement le titre affiché.', forgot: 'Mot de passe oublié ?', forgotT: 'Mot de passe oublié', forgotRep: 'Commercial : demandez à votre direction. Elle ouvre « Commerciaux », touche votre nom puis « Nouveau mot de passe ».', forgotAdmin: 'Direction : entrez votre identifiant, le code de secours et un nouveau mot de passe.', recCode: 'Code de secours', recNew: 'Nouveau mot de passe', recGo: 'Changer le mot de passe', recSaveT: 'Votre nouveau code de secours', recSaveP: 'Notez-le et gardez-le en lieu sûr (papier, coffre). L’ancien ne marche plus. Sans ce code, seule l’assistance Magiscom peut débloquer un compte de direction.', recSec: 'Code de secours de la direction', recSecP: 'Si un directeur oublie son mot de passe, ce code permet d’en choisir un nouveau depuis l’écran de connexion. Gardez-le hors du téléphone.', recSecOk: 'Un code de secours existe.', recSecNone: 'Aucun code de secours : créez-en un maintenant.', recGen: 'Générer un nouveau code', recPw: 'Confirmez avec votre mot de passe', recTip: 'Conseil : créez au moins deux comptes « Administrateur ».', importShort: 'Importer', importLine: 'Ligne {n}', close: 'Fermer', magiOpenPage: 'Ouvrir cet écran', magiToday: 'Aujourd’hui : {x}.', magiRdv: '{n} rendez-vous / appel(s)', magiLate: '{n} en retard', magiSleep: '{n} client(s) sans visite depuis 30 jours', magiFree: 'rien de prévu', magiOffHelp: 'Sans internet, je peux ouvrir un écran, trouver un client ou résumer votre journée. Pour le reste, je reviens dès que le réseau est là.', magiFound: 'Voici ce que j’ai trouvé :', magiMarkDone: 'Marquer comme fait', magiMoveTo: 'Déplacer au', magiChanges: 'Modifications', magiAdd: 'à ajouter', magiOpenAct: 'Ouvrir l’activité', magiNoMeet: 'Pas encore de réunion ou de visite avec compte-rendu pour ce client.', aiToday: 'IA aujourd’hui', aiTodayD: '{a} questions à Magi · {s} transcriptions · {l} rapports', aiYest: 'Hier : {a} · {s} · {l}', magiMenu: 'Questions rapides', magi: 'Assistant Magi', magiHi: 'Bonjour {n} ! Je suis Magi. Écrivez ou parlez : je trouve un client, je planifie un rendez-vous, je crée une fiche ou une affaire, je réponds sur votre activité.',
   magiPh: 'Écrivez ou parlez…', magiSend: 'Envoyer', magiMic: 'Parler', magiListening: 'Je vous écoute… touchez pour arrêter', magiThinking: 'Magi réfléchit…', magiHear: 'Je transcris…',
   magiVoiceOn: 'Réponses à voix haute : activées', magiVoiceOff: 'Réponses à voix haute : désactivées', magiDone: 'C’est fait ✅', magiOpen: 'Ouvrir la fiche', magiNew: 'Nouvelle conversation',
   magiS1: 'Mes rendez-vous de demain', magiS2: 'Clients pas visités depuis 30 jours', magiS3: 'Où en est le pipeline ?', magiS4: 'Ouvre l’agenda', magiNeedNet: 'Magi a besoin d’internet pour comprendre votre demande.',
@@ -137,7 +137,7 @@ Object.assign(T.fr, {
   magiStage: 'Nouvelle étape', magiWhen: 'Quand', magiWhat: 'Objet', magiMicLang: 'Langue parlée',
 });
 Object.assign(T.ar, {
-  importTpl: 'تحميل نموذج Excel', expOwn: 'تصدّر الملفات التي أنت مسؤول عنها.', jobTitle: 'الوظيفة (الاسم المعروض)', jobTitlePh: 'مثلا: مديرة تجارية، رئيس فريق…', roleHelp: 'الدور يحدد الصلاحيات: «مدير» يرى كل شيء ويسيّر الفريق، و«مندوب» يسيّر محفظته. الوظيفة مجرد اسم معروض.', forgot: 'نسيت كلمة المرور؟', forgotT: 'نسيت كلمة المرور', forgotRep: 'المندوب: اطلب من الإدارة. تفتح «المناديب» ثم تضغط على اسمك ثم «كلمة مرور جديدة».', forgotAdmin: 'الإدارة: أدخل اسم المستخدم ورمز الطوارئ وكلمة مرور جديدة.', recCode: 'رمز الطوارئ', recNew: 'كلمة المرور الجديدة', recGo: 'تغيير كلمة المرور', recSaveT: 'رمز الطوارئ الجديد', recSaveP: 'اكتبه واحتفظ به في مكان آمن (ورقة، خزنة). الرمز القديم لم يعد يعمل. بدون هذا الرمز لا يمكن فتح حساب الإدارة إلا عبر دعم ماجيسكوم.', recSec: 'رمز الطوارئ للإدارة', recSecP: 'إذا نسي المدير كلمة المرور، يسمح هذا الرمز باختيار كلمة جديدة من شاشة الدخول. احتفظ به خارج الهاتف.', recSecOk: 'يوجد رمز طوارئ.', recSecNone: 'لا يوجد رمز طوارئ: أنشئ واحدا الآن.', recGen: 'إنشاء رمز جديد', recPw: 'أكد بكلمة المرور', recTip: 'نصيحة: أنشئ حسابين على الأقل بدور «مدير».', importShort: 'استيراد', importLine: 'السطر {n}', close: 'إغلاق', magiOpenPage: 'فتح هذه الشاشة', magiToday: 'اليوم: {x}.', magiRdv: '{n} موعد / اتصال', magiLate: '{n} متأخرة', magiSleep: '{n} زبون بدون زيارة منذ 30 يوما', magiFree: 'لا شيء مبرمج', magiOffHelp: 'بدون إنترنت يمكنني فتح شاشة، إيجاد زبون أو تلخيص يومك. والباقي عند عودة الشبكة.', magiFound: 'هذا ما وجدته:', magiMarkDone: 'تحديد كمنجز', magiMoveTo: 'تأجيل إلى', magiChanges: 'التعديلات', magiAdd: 'للإضافة', magiOpenAct: 'فتح النشاط', magiNoMeet: 'لا يوجد بعد اجتماع أو زيارة بتقرير لهذا الزبون.', aiToday: 'الذكاء الاصطناعي اليوم', aiTodayD: '{a} سؤال لماجي · {s} تحويل صوت · {l} تقرير', aiYest: 'أمس: {a} · {s} · {l}', magiMenu: 'أسئلة سريعة', magi: 'المساعد ماجي', magiHi: 'مرحبا {n}! أنا ماجي. اكتب أو تكلم: أجد زبونا، أبرمج موعدا، أنشئ ملفا أو صفقة، وأجيب عن نشاطك.',
+  importXls: 'صيغة Excel قديمة (.xls): افتحه في Excel ثم «حفظ باسم» ← مصنف Excel ‏(.xlsx).', importFound: 'العناوين الموجودة: {c}. سمِّ عمود الاسم «Nom».', importWhere: 'ورقة «{s}»، العناوين في السطر {l}', importTpl: 'تحميل نموذج Excel', expOwn: 'تصدّر الملفات التي أنت مسؤول عنها.', jobTitle: 'الوظيفة (الاسم المعروض)', jobTitlePh: 'مثلا: مديرة تجارية، رئيس فريق…', roleHelp: 'الدور يحدد الصلاحيات: «مدير» يرى كل شيء ويسيّر الفريق، و«مندوب» يسيّر محفظته. الوظيفة مجرد اسم معروض.', forgot: 'نسيت كلمة المرور؟', forgotT: 'نسيت كلمة المرور', forgotRep: 'المندوب: اطلب من الإدارة. تفتح «المناديب» ثم تضغط على اسمك ثم «كلمة مرور جديدة».', forgotAdmin: 'الإدارة: أدخل اسم المستخدم ورمز الطوارئ وكلمة مرور جديدة.', recCode: 'رمز الطوارئ', recNew: 'كلمة المرور الجديدة', recGo: 'تغيير كلمة المرور', recSaveT: 'رمز الطوارئ الجديد', recSaveP: 'اكتبه واحتفظ به في مكان آمن (ورقة، خزنة). الرمز القديم لم يعد يعمل. بدون هذا الرمز لا يمكن فتح حساب الإدارة إلا عبر دعم ماجيسكوم.', recSec: 'رمز الطوارئ للإدارة', recSecP: 'إذا نسي المدير كلمة المرور، يسمح هذا الرمز باختيار كلمة جديدة من شاشة الدخول. احتفظ به خارج الهاتف.', recSecOk: 'يوجد رمز طوارئ.', recSecNone: 'لا يوجد رمز طوارئ: أنشئ واحدا الآن.', recGen: 'إنشاء رمز جديد', recPw: 'أكد بكلمة المرور', recTip: 'نصيحة: أنشئ حسابين على الأقل بدور «مدير».', importShort: 'استيراد', importLine: 'السطر {n}', close: 'إغلاق', magiOpenPage: 'فتح هذه الشاشة', magiToday: 'اليوم: {x}.', magiRdv: '{n} موعد / اتصال', magiLate: '{n} متأخرة', magiSleep: '{n} زبون بدون زيارة منذ 30 يوما', magiFree: 'لا شيء مبرمج', magiOffHelp: 'بدون إنترنت يمكنني فتح شاشة، إيجاد زبون أو تلخيص يومك. والباقي عند عودة الشبكة.', magiFound: 'هذا ما وجدته:', magiMarkDone: 'تحديد كمنجز', magiMoveTo: 'تأجيل إلى', magiChanges: 'التعديلات', magiAdd: 'للإضافة', magiOpenAct: 'فتح النشاط', magiNoMeet: 'لا يوجد بعد اجتماع أو زيارة بتقرير لهذا الزبون.', aiToday: 'الذكاء الاصطناعي اليوم', aiTodayD: '{a} سؤال لماجي · {s} تحويل صوت · {l} تقرير', aiYest: 'أمس: {a} · {s} · {l}', magiMenu: 'أسئلة سريعة', magi: 'المساعد ماجي', magiHi: 'مرحبا {n}! أنا ماجي. اكتب أو تكلم: أجد زبونا، أبرمج موعدا، أنشئ ملفا أو صفقة، وأجيب عن نشاطك.',
   magiPh: 'اكتب أو تكلم…', magiSend: 'إرسال', magiMic: 'تكلم', magiListening: 'أنا أستمع… اضغط للتوقف', magiThinking: 'ماجي يفكر…', magiHear: 'جاري تحويل الصوت إلى نص…',
   magiVoiceOn: 'قراءة الأجوبة بالصوت: مفعلة', magiVoiceOff: 'قراءة الأجوبة بالصوت: متوقفة', magiDone: 'تم ✅', magiOpen: 'فتح الملف', magiNew: 'محادثة جديدة',
   magiS1: 'مواعيدي غدا', magiS2: 'الزبناء الذين لم أزرهم منذ 30 يوما', magiS3: 'كيف حال الصفقات؟', magiS4: 'افتح الأجندة', magiNeedNet: 'ماجي يحتاج إلى الإنترنت لفهم طلبك.',
@@ -145,7 +145,7 @@ Object.assign(T.ar, {
   magiStage: 'المرحلة الجديدة', magiWhen: 'متى', magiWhat: 'الموضوع', magiMicLang: 'لغة الكلام',
 });
 Object.assign(T.en, {
-  importTpl: 'Download the Excel template', expOwn: 'You export the records you are responsible for.', jobTitle: 'Job title (shown)', jobTitlePh: 'e.g. Sales director, Team leader…', roleHelp: 'The role sets the rights: “Administrator” sees everything and manages the team; “Sales rep” manages their own portfolio. The job title is only what is shown.', forgot: 'Forgot password?', forgotT: 'Forgot password', forgotRep: 'Sales rep: ask your manager. They open “Team”, tap your name, then “New password”.', forgotAdmin: 'Management: enter your login, the recovery code and a new password.', recCode: 'Recovery code', recNew: 'New password', recGo: 'Change password', recSaveT: 'Your new recovery code', recSaveP: 'Write it down and keep it safe. The old one no longer works. Without it, only Magiscom support can unlock a management account.', recSec: 'Management recovery code', recSecP: 'If a manager forgets their password, this code lets them choose a new one from the login screen. Keep it off the phone.', recSecOk: 'A recovery code exists.', recSecNone: 'No recovery code: create one now.', recGen: 'Generate a new code', recPw: 'Confirm with your password', recTip: 'Tip: create at least two “Administrator” accounts.', importShort: 'Import', importLine: 'Line {n}', close: 'Close', magiOpenPage: 'Open this screen', magiToday: 'Today: {x}.', magiRdv: '{n} meeting(s) / call(s)', magiLate: '{n} overdue', magiSleep: '{n} client(s) not visited for 30 days', magiFree: 'nothing planned', magiOffHelp: 'Offline I can open a screen, find a client or sum up your day. The rest as soon as the network is back.', magiFound: 'Here is what I found:', magiMarkDone: 'Mark as done', magiMoveTo: 'Move to', magiChanges: 'Changes', magiAdd: 'to add', magiOpenAct: 'Open activity', magiNoMeet: 'No meeting or visit with a report for this client yet.', aiToday: 'AI today', aiTodayD: '{a} Magi questions · {s} transcriptions · {l} reports', aiYest: 'Yesterday: {a} · {s} · {l}', magiMenu: 'Quick questions', magi: 'Magi assistant', magiHi: 'Hi {n}! I’m Magi. Type or talk: I find a client, schedule a meeting, create a record or a deal, and answer questions about your activity.',
+  importXls: 'Old Excel format (.xls): open it in Excel then “Save as” → Excel Workbook (.xlsx).', importFound: 'Headers found: {c}. Rename the name column to “Name”.', importWhere: 'sheet “{s}”, headers on row {l}', importTpl: 'Download the Excel template', expOwn: 'You export the records you are responsible for.', jobTitle: 'Job title (shown)', jobTitlePh: 'e.g. Sales director, Team leader…', roleHelp: 'The role sets the rights: “Administrator” sees everything and manages the team; “Sales rep” manages their own portfolio. The job title is only what is shown.', forgot: 'Forgot password?', forgotT: 'Forgot password', forgotRep: 'Sales rep: ask your manager. They open “Team”, tap your name, then “New password”.', forgotAdmin: 'Management: enter your login, the recovery code and a new password.', recCode: 'Recovery code', recNew: 'New password', recGo: 'Change password', recSaveT: 'Your new recovery code', recSaveP: 'Write it down and keep it safe. The old one no longer works. Without it, only Magiscom support can unlock a management account.', recSec: 'Management recovery code', recSecP: 'If a manager forgets their password, this code lets them choose a new one from the login screen. Keep it off the phone.', recSecOk: 'A recovery code exists.', recSecNone: 'No recovery code: create one now.', recGen: 'Generate a new code', recPw: 'Confirm with your password', recTip: 'Tip: create at least two “Administrator” accounts.', importShort: 'Import', importLine: 'Line {n}', close: 'Close', magiOpenPage: 'Open this screen', magiToday: 'Today: {x}.', magiRdv: '{n} meeting(s) / call(s)', magiLate: '{n} overdue', magiSleep: '{n} client(s) not visited for 30 days', magiFree: 'nothing planned', magiOffHelp: 'Offline I can open a screen, find a client or sum up your day. The rest as soon as the network is back.', magiFound: 'Here is what I found:', magiMarkDone: 'Mark as done', magiMoveTo: 'Move to', magiChanges: 'Changes', magiAdd: 'to add', magiOpenAct: 'Open activity', magiNoMeet: 'No meeting or visit with a report for this client yet.', aiToday: 'AI today', aiTodayD: '{a} Magi questions · {s} transcriptions · {l} reports', aiYest: 'Yesterday: {a} · {s} · {l}', magiMenu: 'Quick questions', magi: 'Magi assistant', magiHi: 'Hi {n}! I’m Magi. Type or talk: I find a client, schedule a meeting, create a record or a deal, and answer questions about your activity.',
   magiPh: 'Type or talk…', magiSend: 'Send', magiMic: 'Talk', magiListening: 'Listening… tap to stop', magiThinking: 'Magi is thinking…', magiHear: 'Transcribing…',
   magiVoiceOn: 'Spoken answers: on', magiVoiceOff: 'Spoken answers: off', magiDone: 'Done ✅', magiOpen: 'Open record', magiNew: 'New conversation',
   magiS1: 'My meetings tomorrow', magiS2: 'Clients not visited for 30 days', magiS3: 'How is the pipeline?', magiS4: 'Open the agenda', magiNeedNet: 'Magi needs internet to understand you.',
@@ -1843,20 +1843,20 @@ async function viewExport() {
 const IMPORT_COLS = {
   code: ['code', 'codeclient', 'reference', 'ref', 'numero', 'numeroclient', 'compte', 'codetiers', 'ctnum'],
   kind: ['type', 'statut', 'typeclient', 'typedefiche', 'clientprospect'],
-  name: ['nom', 'name', 'raisonsociale', 'client', 'intitule', 'nomclient', 'denomination', 'ctintitule', 'tiers'],
-  company: ['societe', 'entreprise', 'company', 'nomsociete'],
-  contact: ['contact', 'interlocuteur', 'personneacontacter', 'responsable'],
-  phone: ['gsm', 'mobile', 'portable', 'telephonemobile', 'tel2', 'cell'],
+  name: ['nom', 'name', 'raisonsociale', 'raisonsocial', 'client', 'intitule', 'nomclient', 'denomination', 'ctintitule', 'tiers', 'prospect', 'nomduprospect', 'nomprospect', 'nomcomplet', 'nomprenom', 'nometprenom', 'prenomnom', 'etablissement', 'enseigne', 'nomhotel', 'hotel', 'nomdelentreprise', 'nomentreprise', 'nomdelasociete', 'nomsociete', 'nomcommercial', 'customer', 'companyname', 'الاسم', 'الشركة'],
+  company: ['societe', 'entreprise', 'company', 'groupe', 'organisation'],
+  contact: ['contact', 'interlocuteur', 'personneacontacter', 'responsable', 'nomcontact', 'contactprincipal', 'gerant', 'directeur', 'drh', 'responsablerh', 'decideur', 'fonction'],
+  phone: ['gsm', 'mobile', 'portable', 'telephonemobile', 'tel2', 'cell', 'whatsapp', 'gsm1', 'mobile1', 'numerogsm', 'numerodetelephone', 'numtel', 'ntel', 'notel', 'numerotelephone', 'tele', 'telephone1', 'tel1', 'الهاتف'],
   phone2: ['telephone', 'tel', 'fixe', 'telephonefixe', 'phone', 'ctelephone'],
-  email: ['email', 'mail', 'courriel', 'adresseemail', 'emailcontact'],
+  email: ['email', 'mail', 'courriel', 'adresseemail', 'emailcontact', 'adressemail', 'mails', 'emails', 'email1', 'البريد'],
   website: ['siteweb', 'site', 'web', 'website', 'url', 'siteinternet'],
-  city: ['ville', 'city', 'localite', 'ctville'],
-  address: ['adresse', 'address', 'rue', 'ctadresse', 'adresse1'],
+  city: ['ville', 'city', 'localite', 'ctville', 'region', 'villes', 'المدينة'],
+  address: ['adresse', 'address', 'rue', 'ctadresse', 'adresse1', 'adressecomplete', 'العنوان'],
   sector: ['secteur', 'activite', 'secteurdactivite', 'secteuractivite', 'categorie', 'famille'],
   ice: ['ice', 'identifiantcommun'],
   notes: ['remarques', 'notes', 'commentaire', 'commentaires', 'observation'],
 };
-const colKey = (hd) => { const n = String(hd || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, ''); for (const [k, al] of Object.entries(IMPORT_COLS)) if (al.includes(n)) return k; return null; };
+const colKey = (hd) => { const n = String(hd || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\u0600-\u06ff]/g, ''); for (const [k, al] of Object.entries(IMPORT_COLS)) if (al.includes(n)) return k; return null; };
 function parseCsv(text) {
   const first = text.split(/\r?\n/, 1)[0] || '';
   const sep = [';', ',', '\t'].sort((a, b) => first.split(b).length - first.split(a).length)[0];
@@ -1881,29 +1881,62 @@ async function unzipEntries(buf) {
     const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
     const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nl));
     p += 46 + nl + xl + cl;
-    if (!/^xl\/(sharedStrings|worksheets\/sheet1)\.xml$/.test(name)) continue;
+    if (!/^xl\/(sharedStrings\.xml|workbook\.xml|_rels\/workbook\.xml\.rels|worksheets\/[^/]+\.xml)$/.test(name)) continue;
     const start = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true);
     const data = u8.subarray(start, start + csize);
     out[name] = method === 0 ? new TextDecoder().decode(data) : await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
   }
   return out;
 }
+// toutes les feuilles d'un classeur, dans l'ordre du classeur
 async function parseXlsx(buf) {
   const z = await unzipEntries(buf);
   const P = new DOMParser();
-  const ss = z['xl/sharedStrings.xml'] ? [...P.parseFromString(z['xl/sharedStrings.xml'], 'application/xml').getElementsByTagName('si')].map((si) => [...si.getElementsByTagName('t')].map((x) => x.textContent).join('')) : [];
-  const doc = P.parseFromString(z['xl/worksheets/sheet1.xml'] || '<x/>', 'application/xml');
-  const rows = [];
-  for (const r of doc.getElementsByTagName('row')) {
-    const row = [];
-    for (const c of r.getElementsByTagName('c')) {
-      const ref = c.getAttribute('r') || '', col = ref.replace(/\d+/g, '').split('').reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0) - 1;
-      const tp = c.getAttribute('t'), v = c.getElementsByTagName('v')[0], is = c.getElementsByTagName('t')[0];
-      row[col >= 0 ? col : row.length] = tp === 's' ? ss[Number(v && v.textContent)] : tp === 'inlineStr' ? (is ? is.textContent : '') : v ? v.textContent : '';
+  const tags = (doc, n) => [...doc.getElementsByTagNameNS('*', n)];
+  const ss = z['xl/sharedStrings.xml'] ? tags(P.parseFromString(z['xl/sharedStrings.xml'], 'application/xml'), 'si').map((si) => tags(si, 't').filter((x) => !x.closest || !x.closest('rPh')).map((x) => x.textContent).join('')) : [];
+  let order = [];
+  try {
+    const rels = {}; for (const r of tags(P.parseFromString(z['xl/_rels/workbook.xml.rels'] || '<x/>', 'application/xml'), 'Relationship')) rels[r.getAttribute('Id')] = r.getAttribute('Target');
+    order = tags(P.parseFromString(z['xl/workbook.xml'] || '<x/>', 'application/xml'), 'sheet').map((sh) => { const id = sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id'); const tg = String(rels[id] || '').replace(/^\/?xl\//, '').replace(/^\//, ''); return { name: sh.getAttribute('name'), path: 'xl/' + tg }; }).filter((x) => z[x.path]);
+  } catch (e) {}
+  if (!order.length) order = Object.keys(z).filter((k) => /^xl\/worksheets\/[^/]+\.xml$/.test(k)).sort().map((k) => ({ name: k, path: k }));
+  return order.map(({ name, path }) => {
+    const doc = P.parseFromString(z[path], 'application/xml');
+    const rows = [];
+    for (const r of tags(doc, 'row')) {
+      const row = [];
+      for (const c of tags(r, 'c')) {
+        const ref = c.getAttribute('r') || '', col = ref.replace(/\d+/g, '').split('').reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+        const tp = c.getAttribute('t'), v = tags(c, 'v')[0];
+        const val = tp === 's' ? ss[Number(v && v.textContent)] : tp === 'inlineStr' ? tags(c, 't').map((x) => x.textContent).join('') : v ? v.textContent : '';
+        row[col >= 0 ? col : row.length] = val;
+      }
+      rows.push(Array.from(row, (x) => (x == null ? '' : String(x))));
     }
-    rows.push(Array.from(row, (x) => (x == null ? '' : String(x))));
+    return { name, rows: rows.filter((r) => r.some((x) => String(x).trim())) };
+  });
+}
+// trouve la feuille et la ligne de titres les plus probables, puis transforme en fiches
+function tableToRows(sheets) {
+  let best = null;
+  for (const sh of sheets) {
+    for (let i = 0; i < Math.min(15, sh.rows.length); i++) {
+      const keys = sh.rows[i].map(colKey);
+      const n = new Set(keys.filter(Boolean)).size;
+      const score = n + (keys.includes('name') ? 3 : 0) + (keys.includes('company') ? 2 : 0);
+      if (n && (!best || score > best.score)) best = { sh, i, keys, score };
+    }
   }
-  return rows.filter((r) => r.some((x) => String(x).trim()));
+  if (!best) {
+    const sh = sheets.find((x) => x.rows.length) || { rows: [] };
+    return { rows: [], keys: [], found: (sh.rows[0] || []).filter((x) => String(x).trim()).slice(0, 12) };
+  }
+  let keys = best.keys.slice();
+  // pas de colonne « nom » : on prend la société, sinon le contact
+  if (!keys.includes('name')) { const alt = keys.indexOf('company') >= 0 ? keys.indexOf('company') : keys.indexOf('contact'); if (alt >= 0) keys[alt] = 'name'; }
+  const seen = new Set(); keys = keys.map((k) => { if (!k || seen.has(k)) return null; seen.add(k); return k; });
+  const rows = best.sh.rows.slice(best.i + 1).map((r) => { const o = {}; keys.forEach((k, j) => { if (k && r[j] != null && String(r[j]).trim()) o[k] = o[k] ? o[k] : String(r[j]).trim(); }); return o; }).filter((o) => o.name || o.code);
+  return { rows, keys: keys.filter(Boolean), sheet: best.sh.name, headerRow: best.i + 1, found: best.sh.rows[best.i].filter((x) => String(x).trim()).slice(0, 12) };
 }
 function importBox(users, onDone) {
   const info = h('p', { class: 'small muted', style: 'margin:0' });
@@ -1913,14 +1946,15 @@ function importBox(users, onDone) {
   const errBox = h('ul', { class: 'small imp-err', hidden: true });
   let rows = [];
   const pick = h('button', { class: 'btn', onclick: async () => {
-    const [file] = await pickFiles('.xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, false);
+    const [file] = await pickFiles('.xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel', null, false);
     if (!file) return;
     try {
-      const table = /\.csv$/i.test(file.name) || file.type === 'text/csv' ? parseCsv(await file.text()) : await parseXlsx(await file.arrayBuffer());
-      const head = (table[0] || []).map(colKey);
-      if (!head.includes('name')) { info.textContent = t('importNone'); go2.disabled = true; return; }
-      rows = table.slice(1).map((r) => { const o = {}; head.forEach((k, i) => { if (k && r[i] != null && String(r[i]).trim()) o[k] = String(r[i]).trim(); }); return o; }).filter((o) => o.name || o.code);
-      info.textContent = t('importRows', { n: rows.length, c: [...new Set(head.filter(Boolean))].map((k) => t(k === 'name' ? 'name' : k === 'company' ? 'companyF' : k === 'kind' ? 'kind' : k)).join(', ') });
+      if (/\.xls$/i.test(file.name)) { info.textContent = t('importXls'); go2.disabled = true; return; }
+      const sheets = /\.csv$/i.test(file.name) || file.type === 'text/csv' ? [{ name: 'CSV', rows: parseCsv(await file.text()) }] : await parseXlsx(await file.arrayBuffer());
+      const r0 = tableToRows(sheets);
+      if (!r0.keys.includes('name')) { info.textContent = t('importNone') + (r0.found.length ? ' ' + t('importFound', { c: r0.found.join(' · ') }) : ''); go2.disabled = true; return; }
+      rows = r0.rows;
+      info.textContent = t('importRows', { n: rows.length, c: [...new Set(r0.keys)].map((k) => t(k === 'name' ? 'name' : k === 'company' ? 'companyF' : k === 'kind' ? 'kind' : k)).join(', ') }) + (sheets.length > 1 || r0.headerRow > 1 ? ' · ' + t('importWhere', { s: r0.sheet, l: r0.headerRow }) : '');
       go2.disabled = !rows.length; go2.replaceChildren(ic('plus', 18), t('importGo', { n: rows.length }));
     } catch (e) { info.textContent = t('importErr', { e: e.message }); go2.disabled = true; }
   } }, ic('file', 18), t('importPick'));

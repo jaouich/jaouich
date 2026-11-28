@@ -157,3 +157,10 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - `CAR_PHOTOS: false` in `public/config.js` switches back to the drawn cars at once.
 - OPEN RISK (told to the owner): the photos show real cars; shapes and trade dress may still be recognisable. Replace with licensed or original pictures before the Mainnet listing, or switch `CAR_PHOTOS` off.
 - Tests: garage suite 37 checks.
+
+## Luxury cars: bigger prices and a car market (Phase G2)
+- Luxury car prices raised to a 10M-100M dates range (Titan X 10M, Colossus 20M, Apex Turbo 35M, Sovereign GT 55M, Highland Prestige 75M, Monarch 100M); upgrades cost half then the full price. Grand Collector gift raised to 200M dates.
+- Car market (tab "Car market" in the Garage): a luxury car can be sold for dates, Kombat coins, JRY points or Pi. The shop keeps 10% (`GARAGE.TAX`); for Pi 10% stays in the app, the seller gets the rest in the sales balance (same withdraw as the points market).
+- Mechanics: a listed car stays in the seller's garage flagged `garage.sale` (can't be upgraded or listed twice) until sold; the offer lives in `mk_offers` (kind 'car', columns car/lvl/cur). Dates/coins/JRY: `/api/carmarket/buy` (buyer pays, the car moves with its level, seller credited 90%). Pi: the usual Pi payment type `mk`; `mkReserve` blocks a buyer who already owns that car; `mkSettle` moves the car or refunds the Pi. Seller can take a car back any time (`/api/carmarket/cancel`).
+- Owner decision recorded: Pi sales between players are ON. Risk (told to the owner): Pi's rules on selling items for Pi between users are not verified. Kill switch: `/api/carmarket/list` can be limited to non-Pi currencies by removing "pi" from `LUXE.CURS` in public/logic.js.
+- Tests: garage suite 62 checks (list, buy with each currency, tax, cancel, Pi payment, wrong amount, not in the points market).

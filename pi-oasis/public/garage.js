@@ -43,10 +43,11 @@
       ${lv >= GR.MAXLV ? `<span class="gr-max">✅ ${t("gr.max")}</span>` : `<button class="btn small ${lv ? "" : "gold"}" data-gr="${lv ? "up" : "buy"}" data-id="${c.id}" ${can && !busy ? "" : "disabled"}>${lv ? t("gr.up") : t("gr.buy")} · <span dir="ltr">${fmtN(cost)}</span> 🌴</button>`}</div>`;
   }
   function luxeCard(c, o, dates) {
-    const lv = o[c.id] || 0, cost = lv ? (lv < GR.MAXLV ? GR.upCost(c, lv) : 0) : c.price, can = dates >= cost, name = t("gr.col." + c.col);
+    const lv = o[c.id] || 0, cost = lv ? (lv < GR.MAXLV ? GR.upCost(c, lv) : 0) : c.price, can = dates >= cost, name = t("gr.col." + c.col), listed = !!(G.S.garage.sale && G.S.garage.sale[c.id]);
     return `<div class="gr-card lux ${lv ? "own" : ""}">${img(c.id, t("gr.m." + c.model) + " " + name)}<b>${name}</b>
       <small>${t("gr.bonus", { p: pct(c.b * (GR.LV[Math.max(0, lv - 1)] || 1)) })}${lv ? " · " + t("gr.level", { n: lv }) : ""}</small>
-      ${lv >= GR.MAXLV ? `<span class="gr-max">✅ ${t("gr.max")}</span>` : `<button class="btn small ${lv ? "" : "gold"}" data-gr="${lv ? "up" : "buy"}" data-id="${c.id}" ${can && !busy ? "" : "disabled"}>${lv ? t("gr.up") : t("gr.buy")} · <span dir="ltr">${fmtN(cost)}</span> 🌴</button>`}</div>`;
+      ${listed ? `<span class="gr-max">🏷️ ${t("gr.listed")}</span>` : lv >= GR.MAXLV ? `<span class="gr-max">✅ ${t("gr.max")}</span>` : `<button class="btn small ${lv ? "" : "gold"}" data-gr="${lv ? "up" : "buy"}" data-id="${c.id}" ${can && !busy ? "" : "disabled"}>${lv ? t("gr.up") : t("gr.buy")} · <span dir="ltr">${fmtN(cost)}</span> 🌴</button>`}
+      ${lv && !listed ? `<button class="btn small ghost" data-gr="sell" data-id="${c.id}">${t("gr.sell")}</button>` : ""}</div>`;
   }
   function luxeSection(o, dates) {
     const LX = L.LUXE, have = LX.CARS.filter((c) => o[c.id]).length, crown = G.S.garage && G.S.garage.crown;
@@ -67,6 +68,29 @@
       <details class="gr-starter" ${PHOTOS ? "" : "open"}><summary>${t("gr.starter")}</summary><div class="gr-grid">${GR.CARS.map((c) => starterCard(c, o, dates)).join("")}</div></details>
       <p class="jm-note">${t("gr.rules")} ${PHOTOS ? t("gr.pics") : ""}</p>`;
   }
+  const CUR = { dates: "🌴", coins: "🪙", jry: "JRY", pi: "Pi" };
+  let mk = null;
+  async function loadMk() { if (!G.account) return; try { mk = await Pi.carMk(); } catch (e) {} draw(); }
+  function marketTab() {
+    if (!G.account) return `<p class="jm-note">${t("t.loginFirst")}</p>`;
+    const offers = (mk && mk.offers) || [], tax = pct((mk && mk.tax) || GR.TAX);
+    return `<p class="jm-note">${t("gr.mk.d", { p: tax })}</p>` + (offers.length ? `<div class="gr-grid">` + offers.map((o) => {
+      const c = GR.byId(o.car); if (!c) return "";
+      return `<div class="gr-card lux">${img(c.id, t("gr.m." + c.model))}<b>${t("gr.m." + c.model)} · ${t("gr.col." + c.col)}</b>
+        <small>${t("gr.level", { n: o.lvl || 1 })} · ${t("gr.bonus", { p: pct(c.b * (GR.LV[(o.lvl || 1) - 1] || 1)) })}</small><small>@${o.seller}</small>
+        ${o.mine ? `<button class="btn small ghost" data-gr="unlist" data-offer="${o.id}" ${o.busy ? "disabled" : ""}>${t("gr.unlist")}</button>`
+          : `<button class="btn small gold" data-gr="mkbuy" data-offer="${o.id}" ${o.busy ? "disabled" : ""}><span dir="ltr">${fmtN(o.price)} ${CUR[o.cur]}</span></button>`}</div>`;
+    }).join("") + `</div>` : `<p class="jm-note">${t("gr.mk.empty")}</p>`);
+  }
+  async function sellCar(id) {
+    if (!G.account) return G.toast(t("t.loginFirst"));
+    const cur = (prompt(t("gr.sell.cur"), "dates") || "").trim().toLowerCase();
+    if (!L.LUXE.CURS.includes(cur)) return cur ? G.toast(t("gr.sell.badcur")) : null;
+    const price = Number((prompt(t("gr.sell.price", { c: CUR[cur], p: pct(GR.TAX) })) || "").replace(/,/g, ""));
+    if (!(price > 0)) return;
+    try { const r = await Pi.carList(id, price, cur); G.S = r.state; G.render(); G.toast(t("gr.sell.ok")); } catch (e) { G.toast(e.message); }
+    loadMk(); draw();
+  }
   function piTab() {
     const minted = (info && info.minted) || {};
     return `<p class="jm-note">${t("gr.pi.d")}</p><div class="gr-grid">` + CR.TIERS.map((c) => {
@@ -80,15 +104,27 @@
   function draw() {
     const el = $("garage"); if (el.classList.contains("hidden")) return;
     el.innerHTML = `<header class="jm-head"><button class="jm-back" data-gr="close">‹ ${t("ct.back")}</button><b>🚗 ${t("gr.title")}</b><span></span></header>
-      <div class="ct-tabs"><button data-gr="tab" data-t="dates" class="${tab === "dates" ? "on" : ""}">${t("gr.tab.dates")}</button><button data-gr="tab" data-t="pi" class="${tab === "pi" ? "on" : ""}">${t("gr.tab.pi")}</button></div>
-      <div class="jm-body">${tab === "dates" ? datesTab() : piTab()}</div>`;
+      <div class="ct-tabs"><button data-gr="tab" data-t="dates" class="${tab === "dates" ? "on" : ""}">${t("gr.tab.dates")}</button><button data-gr="tab" data-t="pi" class="${tab === "pi" ? "on" : ""}">${t("gr.tab.pi")}</button><button data-gr="tab" data-t="mk" class="${tab === "mk" ? "on" : ""}">${t("gr.tab.mk")}</button></div>
+      <div class="jm-body">${tab === "dates" ? datesTab() : tab === "mk" ? marketTab() : piTab()}</div>`;
   }
   document.addEventListener("click", async (e) => {
     if (e.target.closest("#garageOpen")) { $("garage").classList.remove("hidden"); tab = "dates"; draw(); return loadInfo(); }
     const b = e.target.closest("#garage [data-gr]"); if (!b) return;
     const a = b.dataset.gr;
     if (a === "close") return $("garage").classList.add("hidden");
-    if (a === "tab") { tab = b.dataset.t; draw(); return tab === "pi" ? loadInfo() : null; }
+    if (a === "tab") { tab = b.dataset.t; draw(); return tab === "pi" ? loadInfo() : tab === "mk" ? loadMk() : null; }
+    if (a === "sell") return sellCar(b.dataset.id);
+    if (a === "unlist") { try { const r = await Pi.carCancel(+b.dataset.offer); G.S = r.state; G.render(); } catch (e) { G.toast(e.message); } return loadMk(); }
+    if (a === "mkbuy") {
+      const o = ((mk && mk.offers) || []).find((x) => x.id === +b.dataset.offer); if (!o) return;
+      if (!confirm(t("gr.mk.confirm", { n: fmtN(o.price), c: CUR[o.cur] }))) return;
+      try {
+        if (o.cur === "pi") { await Pi.buyMk({ id: o.id, pi: o.price }); const me = await Pi.me(); G.setAccount(me.account); G.S = me.state; }
+        else { const r = await Pi.carBuy(o.id); G.S = r.state; }
+        G.render(); G.toast(t("gr.mk.bought")); G.burst();
+      } catch (x) { G.toast(x.message); }
+      return loadMk();
+    }
     if (a === "buy") return act({ type: "gBuy", id: b.dataset.id });
     if (a === "up") return act({ type: "gUp", id: b.dataset.id });
     if (a === "crown") return act({ type: "gCrown" });

@@ -309,6 +309,9 @@ const ALTERS = [
   "ALTER TABLE users ADD COLUMN jry_bal REAL",
   "ALTER TABLE users ADD COLUMN jry_at INTEGER",
   "ALTER TABLE nft_credits ADD COLUMN src TEXT",
+  "ALTER TABLE mk_offers ADD COLUMN car TEXT",
+  "ALTER TABLE mk_offers ADD COLUMN lvl INTEGER",
+  "ALTER TABLE mk_offers ADD COLUMN cur TEXT",
   "ALTER TABLE nft_items ADD COLUMN cur TEXT NOT NULL DEFAULT 'coins'",
   "ALTER TABLE nft_items ADD COLUMN swap_want TEXT",
   "ALTER TABLE users ADD COLUMN jry_bought INTEGER NOT NULL DEFAULT 0",
@@ -1938,8 +1941,8 @@ const routes = {
   "GET /api/mk": async (req, env) => {
     const u = await auth(req, env);
     const open = await all(env, `SELECT o.*, s.username AS seller FROM mk_offers o JOIN users s ON s.uid = o.uid
-      WHERE o.status IN ('open', 'reserved') AND o.kind != 'card' ORDER BY o.pi / o.amount ASC, o.id ASC LIMIT 60`);
-    const mine = await all(env, "SELECT * FROM mk_offers WHERE uid = ? AND kind != 'card' ORDER BY id DESC LIMIT 15", u.uid);
+      WHERE o.status IN ('open', 'reserved') AND o.kind NOT IN ('card', 'car') ORDER BY o.pi / o.amount ASC, o.id ASC LIMIT 60`);
+    const mine = await all(env, "SELECT * FROM mk_offers WHERE uid = ? AND kind NOT IN ('card', 'car') ORDER BY id DESC LIMIT 15", u.uid);
     const view = (o) => ({ id: o.id, kind: o.kind, amount: o.amount, pi: o.pi, status: o.status, seller: o.seller, mine: o.uid === u.uid });
     const pend = await one(env, "SELECT amount FROM withdrawals WHERE uid = ? AND src = 'mk' AND status IN ('pending', 'processing')", u.uid);
     return { offers: open.map(view), mine: mine.map(view), balance: Number(u.mk_balance) || 0, pending: pend ? pend.amount : 0,
@@ -1972,7 +1975,7 @@ const routes = {
   "POST /api/mk/cancel": async (req, env, body) => {
     const u = await auth(req, env);
     const o = await one(env, "SELECT * FROM mk_offers WHERE id = ? AND uid = ?", Number(body.id), u.uid);
-    if (!o) bad("mk.gone");
+    if (!o || o.kind === "car") bad("mk.gone");
     const now = Date.now();
     if (o.status === "reserved") {
       let stale = now - o.reserved_at > MK.HOLD_MS;
@@ -1984,6 +1987,89 @@ const routes = {
     await creditPoints(env, u.uid, o.kind, o.amount, now, "market");
     const tier = tierOf(u, now, await isPartner(env, u.username));
     return { ok: true, state: await stateFor(env, u, now, tier) };
+  },
+  // ---------- Luxury car market: sell a luxury car for dates, Kombat coins, JRY points or Pi (the shop keeps L.GARAGE.TAX) ----------
+  "GET /api/carmarket": async (req, env) => {
+    const u = await auth(req, env);
+    const rows = await all(env, `SELECT o.id, o.car, o.lvl, o.pi AS price, o.cur, o.status, o.uid, s.username AS seller FROM mk_offers o JOIN users s ON s.uid = o.uid
+      WHERE o.kind = 'car' AND o.status IN ('open', 'reserved') ORDER BY o.id DESC LIMIT 80`);
+    return { offers: rows.map((o) => ({ id: o.id, car: o.car, lvl: o.lvl, price: o.price, cur: o.cur, seller: o.seller, mine: o.uid === u.uid, busy: o.status === "reserved" })), tax: L.GARAGE.TAX };
+  },
+  "POST /api/carmarket/list": async (req, env, body) => {
+    const u = await auth(req, env);
+    const G = L.GARAGE, X = L.LUXE, c = G.byId(String(body.car));
+    const cur = String(body.cur);
+    if (!c || !c.luxe || !X.CURS.includes(cur)) bad("badAction");
+    const price = cur === "pi" ? round(Number(body.price)) : Math.floor(Number(body.price));
+    if (cur === "pi" ? !(price >= MK.MIN_PI && price <= MK.MAX_PI) : !(price >= X.MIN[cur] && price <= X.MAX[cur])) bad("k.nftPrice");
+    const n = await one(env, "SELECT COUNT(*) AS n FROM mk_offers WHERE uid = ? AND kind = 'car' AND status IN ('open', 'reserved')", u.uid);
+    if (n.n >= X.MAX_OPEN) bad("mk.tooMany");
+    const now = Date.now();
+    const st = await stateFor(env, u, now, tierOf(u, now, await isPartner(env, u.username)));
+    const lvl = st.garage.own[c.id];
+    if (!lvl || st.garage.sale[c.id]) bad("gr.notYours");
+    st.garage.sale[c.id] = 1;
+    await saveState(env, u.uid, st, now);
+    try { await run(env, "INSERT INTO mk_offers (uid, kind, amount, pi, status, car, lvl, cur, created_at, updated_at) VALUES (?, 'car', 1, ?, 'open', ?, ?, ?, ?, ?)", u.uid, price, c.id, lvl, cur, now, now); }
+    catch (e) { await garageEdit(env, u.uid, now, (g) => { delete g.sale[c.id]; }); throw e; }
+    return { state: st, now };
+  },
+  "POST /api/carmarket/cancel": async (req, env, body) => {
+    const u = await auth(req, env);
+    const o = await one(env, "SELECT * FROM mk_offers WHERE id = ? AND uid = ? AND kind = 'car'", Number(body.id), u.uid);
+    if (!o) bad("mk.gone");
+    const now = Date.now();
+    if (o.status === "reserved") {
+      let stale = now - o.reserved_at > MK.HOLD_MS;
+      if (stale && o.cur === "pi") { try { const { p } = await findPayment(env, o.pay_id); stale = !p.transaction; } catch (e) {} }
+      if (!stale) bad("mk.busy");
+    }
+    const r = await run(env, "UPDATE mk_offers SET status = 'cancelled', updated_at = ? WHERE id = ? AND status IN ('open', 'reserved') AND COALESCE(pay_id, '') = ?", now, o.id, o.pay_id || "");
+    if (!r.meta.changes) bad("mk.busy");
+    await garageEdit(env, u.uid, now, (g) => { delete g.sale[o.car]; });
+    return { state: await stateFor(env, u, now, tierOf(u, now, await isPartner(env, u.username))), now };
+  },
+  // Buy with dates, Kombat coins or JRY points (Pi purchases go through the Pi payment, type "mk")
+  "POST /api/carmarket/buy": async (req, env, body) => {
+    const u = await auth(req, env);
+    const now = Date.now(), tag = "buy:" + u.uid;
+    const o = await one(env, "SELECT * FROM mk_offers WHERE id = ? AND kind = 'car'", Number(body.id));
+    if (!o || o.status !== "open") bad("gr.gone");
+    if (o.cur === "pi") bad("badAction");
+    if (o.uid === u.uid) bad("mk.own");
+    const claim = await run(env, "UPDATE mk_offers SET status = 'reserved', buyer = ?, pay_id = ?, reserved_at = ?, updated_at = ? WHERE id = ? AND status = 'open'", u.uid, tag, now, now, o.id);
+    if (!claim.meta.changes) bad("gr.gone");
+    let jryTaken = false, bought = false;
+    try {
+      if (o.cur === "jry") {
+        const d = await run(env, "UPDATE users SET jry_pts = jry_pts - ? WHERE uid = ? AND jry_pts >= ?", o.pi, u.uid, o.pi);
+        if (!d.meta.changes) bad("k.noJry", { n: o.pi });
+        jryTaken = true;
+      }
+      const tier = tierOf(u, now, await isPartner(env, u.username));
+      let st;
+      for (let i = 0; ; i++) {
+        st = await stateFor(env, u, now, tier);
+        if (st.garage.own[o.car]) bad("gr.have");
+        if (o.cur === "dates") { if (st.dates < o.pi) bad("notEnough"); st.dates -= o.pi; }
+        else if (o.cur === "coins") { st.kombat = KL.norm(st.kombat, now); if (st.kombat.coins < o.pi) bad("k.noCoins", { n: o.pi - Math.floor(st.kombat.coins) }); st.kombat.coins -= o.pi; }
+        st.garage.own[o.car] = o.lvl || 1;
+        try { await saveState(env, u.uid, st, now); break; } catch (e) { if (e instanceof StateConflict && i < 4) continue; throw e; }
+      }
+      bought = true;
+      await garageEdit(env, o.uid, now, (g) => { delete g.own[o.car]; delete g.sale[o.car]; });
+      await giveReward(env, o.uid, o.cur, Math.floor(o.pi * (1 - L.GARAGE.TAX)), now, "carsale");
+      await run(env, "UPDATE mk_offers SET status = 'sold', updated_at = ? WHERE id = ?", now, o.id);
+      await notify(env, [{ uid: o.uid, kind: "carsold", ref: o.id, vars: { car: o.car, n: Math.floor(o.pi * (1 - L.GARAGE.TAX)).toLocaleString("en-US"), cur: o.cur } }]).catch(() => {});
+      return { state: st, now };
+    } catch (e) {
+      if (bought) await logError(env, "car sale half done #" + o.id, 0, String(e.message || e)).catch(() => {});
+      else {
+        if (jryTaken) await giveReward(env, u.uid, "jry", o.pi, now, "refund");
+        await run(env, "UPDATE mk_offers SET status = 'open', buyer = NULL, pay_id = NULL, updated_at = ? WHERE id = ? AND pay_id = ?", now, o.id, tag);
+      }
+      throw e;
+    }
   },
   // Withdraw the sales balance (from MIN_WITHDRAW Pi): paid to the player's Pi wallet by the hourly run
   "POST /api/mk/withdraw": async (req, env) => {
@@ -3494,6 +3580,7 @@ const NOTE = {
   cweek: { go: "castle", en: ["🏰 Jerry Castle: #{p}", "+{d} dates for your place this week."], ar: ["🏰 قلعة جيري: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏰 Château de Jerry : {p}e", "+{d} dattes pour ta place cette semaine."] },
   mweek: { go: "merge", en: ["🐎 Horse Merge: #{p}", "+{d} dates for your place this week."], ar: ["🐎 دمج الخيل: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🐎 Fusion de chevaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
   dweek: { go: "derby", en: ["🏁 Camel Derby: #{p}", "+{d} dates for your place this week."], ar: ["🏁 سباق الجمال: المركز {p}", "+{d} تمرة لمركزك هذا الأسبوع."], fr: ["🏁 Course de chameaux : {p}e", "+{d} dattes pour ta place cette semaine."] },
+  carsold: { go: "garage", en: ["🚘 Your car sold", "+{n} {cur} added (after the shop tax)."], ar: ["🚘 بيعت سيارتك", "+{n} {cur} أُضيفت (بعد ضريبة المحل)."], fr: ["🚘 Ta voiture est vendue", "+{n} {cur} ajoutés (après la taxe de la boutique)."] },
   sold: { go: "market", en: ["💰 Your offer sold", "+{pi} Pi added to your sales balance."], ar: ["💰 تم بيع عرضك", "+{pi} Pi أُضيفت إلى رصيد مبيعاتك."], fr: ["💰 Ton offre est vendue", "+{pi} Pi ajoutés à ton solde de ventes."] },
 };
 // items: [{ uid, kind, ref, vars }]. Best effort: a failure never breaks the game.
@@ -4051,6 +4138,15 @@ async function giveReward(env, uid, kind, n, now, src) {
   if (kind === "vipclub") return addVipcDays(env, uid, n, now);
   if (kind === "spins") return run(env, "UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?", n, uid);
 }
+// Change a player's garage (own / sale) with the usual compare-and-set retry; returns what the function returns
+async function garageEdit(env, uid, now, fn) {
+  for (let i = 0; ; i++) {
+    const st = await loadState(env, uid, now);
+    st.garage = st.garage || { own: {} }; st.garage.own = st.garage.own || {}; st.garage.sale = st.garage.sale || {};
+    const out = fn(st.garage);
+    try { await saveState(env, uid, st, now); return out; } catch (e) { if (e instanceof StateConflict && i < 5) continue; throw e; }
+  }
+}
 async function creditPoints(env, uid, kind, n, now, src) {
   if (kind === "coins") return run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, ?)", uid, n, now, src);
   if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", uid))) await saveState(env, uid, L.fresh(now), now);
@@ -4061,6 +4157,10 @@ async function mkReserve(env, u, item, payId, now) {
   if (!o || o.status === "sold" || o.status === "cancelled") bad("mk.gone");
   if (o.uid === u.uid) bad("mk.own");
   if (Math.abs(o.pi - item.price) > 1e-7) bad("badPayment");
+  if (o.kind === "car") { // a luxury car: Pi offers only, and the buyer must not own that car already
+    if (o.cur !== "pi") bad("badPayment");
+    if ((await loadState(env, u.uid, now)).garage.own[o.car]) bad("gr.have");
+  }
   let r = await run(env, "UPDATE mk_offers SET status = 'reserved', buyer = ?, pay_id = ?, reserved_at = ?, updated_at = ? WHERE id = ? AND (status = 'open' OR (status = 'reserved' AND pay_id = ?))",
     u.uid, payId, now, now, o.id, payId);
   if (r.meta.changes) return;
@@ -4086,7 +4186,16 @@ async function mkSettle(env, item, payId, buyerUid, now) {
     return runPayouts(env).catch((e) => logError(env, "mk refund", 0, e.message));
   }
   const isCard = o.kind === "card";
-  if (isCard) {
+  if (o.kind === "car") {
+    // the car changes hands with its level; it is only given if the seller still has it and the buyer does not
+    const got = await garageEdit(env, buyerUid, now, (g) => { if (g.own[o.car]) return false; g.own[o.car] = o.lvl || 1; return true; });
+    const gone = got && (await garageEdit(env, o.uid, now, (g) => { const had = !!g.own[o.car]; delete g.own[o.car]; delete g.sale[o.car]; return had; }));
+    if (!got || !gone) {
+      if (got) await garageEdit(env, buyerUid, now, (g) => { delete g.own[o.car]; });
+      await run(env, "INSERT OR IGNORE INTO payouts (id, kind, ref, uid, amount, memo, status, created_at, updated_at) VALUES (?, 'refund', ?, ?, ?, 'Pi Oasis car refund', 'new', ?, ?)", crypto.randomUUID(), payId, buyerUid, item.price, now, now);
+      return runPayouts(env).catch((e) => logError(env, "car refund", 0, e.message));
+    }
+  } else if (isCard) {
     // the card changes hands with its number and signature; it is only given if the seller still owns it
     const mv = await run(env, "UPDATE royal_cards SET uid = ? WHERE id = ? AND uid = ?", buyerUid, o.amount, o.uid);
     if (!mv.meta.changes) {
@@ -4094,7 +4203,7 @@ async function mkSettle(env, item, payId, buyerUid, now) {
       return runPayouts(env).catch((e) => logError(env, "card refund", 0, e.message));
     }
   } else await creditPoints(env, buyerUid, o.kind, o.amount, now, "market");
-  const tax = round(o.pi * (isCard ? L.ROYAL.RESALE_TAX : MK.TAX));
+  const tax = round(o.pi * (o.kind === "car" ? L.GARAGE.TAX : isCard ? L.ROYAL.RESALE_TAX : MK.TAX));
   await env.DB.batch([
     env.DB.prepare("UPDATE users SET mk_balance = ROUND(COALESCE(mk_balance, 0) + ?, 7) WHERE uid = ?").bind(round(o.pi - tax), o.uid),
     // part of the tax feeds the weekly prize pool

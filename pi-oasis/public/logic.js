@@ -214,6 +214,7 @@
     if (!s.merge || !Array.isArray(s.merge.grid)) s.merge = MG.fresh(now);
     if (s.merge.wk.id !== weekId(now)) s.merge.wk = { id: weekId(now), n: 0 };
     if (!s.garage || typeof s.garage.own !== "object") s.garage = { own: {} };
+    if (!s.garage.sale || typeof s.garage.sale !== "object") s.garage.sale = {}; // luxury cars listed in the car market
     if (!Array.isArray(s.animals)) { s.animals = []; s.nextAnimal = 1; }
     if (!s.city) s.city = freshCity(now);
     if (!s.missions || s.missions.day !== Math.floor(now / 86400000)) s.missions = newMissions(s.missions, now);
@@ -248,7 +249,8 @@
   // 🚗 Garage: cars bought with dates (a date sink). Each car gives a small bonus on camel collection, palm hits and the daily gift
   // (bonus dates never count for the ranking or the level); the total is capped. All brands are invented.
   const GARAGE = {
-    CAP: 0.3, MAXLV: 3, LV: [1, 1.25, 1.5],
+    CAP: 0.3, MAXLV: 3, TAX: 0.1, // TAX: the shop keeps 10% of every luxury car resale
+    LV: [1, 1.25, 1.5],
     CARS: [
       { id: "g1", price: 50000, b: 0.005, type: "hatch", color: "#f4b400" },
       { id: "g2", price: 120000, b: 0.01, type: "pickup", color: "#8d6e63" },
@@ -274,14 +276,14 @@
   // 🚘 Luxury collection (photos): 6 invented models x 4 paints, bought with dates. A copy in another paint is another car; owning all 4 paints of a model
   // gives a small set bonus (still inside the garage cap) and all 24 give the Grand Collector title with a one-time dates gift (never counted for ranking or level).
   const LUXE = {
-    SET: 0.01, CROWN: 20000000,
+    SET: 0.01, CROWN: 200000000, MAX_OPEN: 10, MIN: { dates: 1000, coins: 1000, jry: 1 }, MAX: { dates: 1e12, coins: 1e12, jry: 1e8 }, CURS: ["dates", "coins", "jry", "pi"], 
     MODELS: [
-      { id: "m1", img: "urus", price: 1500000, b: 0.02, cols: ["solar", "orange", "green", "violet"] },
-      { id: "m2", img: "g63", price: 2000000, b: 0.025, cols: ["ivory", "forest", "crimson", "azure"] },
-      { id: "m3", img: "porsche", price: 2500000, b: 0.03, cols: ["ruby", "cobalt", "emerald", "gold"] },
-      { id: "m4", img: "bentley", price: 3000000, b: 0.035, cols: ["sapphire", "emerald", "crimson", "amber"] },
-      { id: "m5", img: "rangerover", price: 4000000, b: 0.04, cols: ["slate", "forest", "midnight", "burgundy"] },
-      { id: "m6", img: "phantom", price: 5000000, b: 0.05, cols: ["onyx", "royal", "emerald", "burgundy"] },
+      { id: "m1", img: "urus", price: 10000000, b: 0.02, cols: ["solar", "orange", "green", "violet"] },
+      { id: "m2", img: "g63", price: 20000000, b: 0.025, cols: ["ivory", "forest", "crimson", "azure"] },
+      { id: "m3", img: "porsche", price: 35000000, b: 0.03, cols: ["ruby", "cobalt", "emerald", "gold"] },
+      { id: "m4", img: "bentley", price: 55000000, b: 0.035, cols: ["sapphire", "emerald", "crimson", "amber"] },
+      { id: "m5", img: "rangerover", price: 75000000, b: 0.04, cols: ["slate", "forest", "midnight", "burgundy"] },
+      { id: "m6", img: "phantom", price: 100000000, b: 0.05, cols: ["onyx", "royal", "emerald", "burgundy"] },
     ],
     CARS: [],
     photo(id) { const c = this.CARS.find((x) => x.id === id); return c ? "cars/" + c.img + "-" + c.col + ".webp" : null; },
@@ -456,7 +458,7 @@
       }
       case "gUp": {
         const c = GARAGE.byId(String(a.id)), lv = c && s.garage.own[c.id];
-        if (!c || !lv || lv >= GARAGE.MAXLV) fail("badAction");
+        if (!c || !lv || lv >= GARAGE.MAXLV || (s.garage.sale && s.garage.sale[c.id])) fail("badAction");
         const cost = GARAGE.upCost(c, lv);
         if (s.dates < cost) fail("notEnough");
         s.dates -= cost; s.garage.own[c.id] = lv + 1;

@@ -1736,3 +1736,5 @@ main { overflow-x: hidden; }
 .gr-crown.own { border-color: #ffd86b; } .gr-crown small { opacity: .85; font-size: .74rem; }
 .gr-starter { margin-top: 14px; } .gr-starter summary { cursor: pointer; font-weight: 700; min-height: 40px; display: flex; align-items: center; }
 .gr-card .btn { font-size: .78rem; padding-inline: 6px; white-space: nowrap; }
+.ct-tabs button { min-width: 0; } .gr-card .btn.ghost { background: transparent; border: 1px solid rgba(255,255,255,.35); color: inherit; }
+#garage .ct-tabs { display: flex; flex-wrap: wrap; gap: 6px; } #garage .ct-tabs button { flex: 1 1 30%; font-size: .78rem; padding-inline: 6px; }

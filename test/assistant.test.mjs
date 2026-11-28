@@ -127,6 +127,44 @@ env.AI.run = realRun;
 r = await admin.req("GET", "/api/stats");
 ok(r.data.ai_usage && r.data.ai_usage.assistant >= 10, "compteur d'utilisation IA : " + JSON.stringify(r.data.ai_usage));
 
+// 9. Magi plus complet : mode d'emploi, activités, fiche ouverte, nouvelles actions, suggestions
+const taskId = uuid(), rdvId = uuid();
+await karim.req("PUT", "/api/visits/" + taskId, { client_id: amal, kind: "tache", status: "planned", date: Date.now() - 2 * 86400000, summary: "Envoyer le devis peinture" });
+await karim.req("PUT", "/api/visits/" + rdvId, { client_id: atlas, kind: "rdv", status: "planned", date: Date.now() + 86400000, next_step: "Démo caisse" });
+await karim.req("PUT", "/api/clients/" + amal, { notes: "Client exigeant sur les délais" });
+const line = (sys, needle) => sys.split("\n").find((x) => x.includes(needle)) || "";
+nextOut = (id, sys) => ({ reply: "ok", action: "none", suggestions: ["Planifier une visite", "Voir le pipeline", "x".repeat(200), "4e"] });
+r = await karim.req("POST", "/api/ai/assistant", { text: "comment j'importe des clients ?", client_id: amal });
+let sys2 = last.messages[0].content;
+ok(sys2.includes("MODE D'EMPLOI") && sys2.includes("import de clients"), "mode d'emploi dans le contexte");
+ok(sys2.includes("FICHE OUVERTE") && sys2.includes("Client exigeant sur les délais"), "fiche ouverte détaillée");
+ok(/A\d+ \|.*tache \(EN RETARD\) \| Droguerie Al Amal/.test(sys2), "tâche en retard avec référence");
+ok(r.data.suggestions.length === 3 && r.data.suggestions[2].length <= 90, "suggestions nettoyées");
+nextOut = { reply: "Les commerciaux.", action: "guide", page: "team" };
+r = await karim.req("POST", "/api/ai/assistant", { text: "import" });
+ok(r.data.action.type === "guide" && !r.data.action.page, "guide : page direction refusée au commercial");
+nextOut = { reply: "L'agenda.", action: "guide", page: "agenda" };
+r = await karim.req("POST", "/api/ai/assistant", { text: "agenda ?" });
+ok(r.data.action.type === "guide" && r.data.action.page === "agenda", "guide avec écran");
+nextOut = (id, sys) => ({ reply: "2 clients.", action: "show_clients", client_ids: [line(sys, "| Droguerie Al Amal |").split(" | ")[0], line(sys, "| Garage Atlas |").split(" | ")[0], "C99", "inventé"] });
+r = await karim.req("POST", "/api/ai/assistant", { text: "mes clients" });
+ok(r.data.action.type === "show_clients" && r.data.action.clients.length === 2 && r.data.action.clients[0].name === "Droguerie Al Amal", "liste de fiches : " + JSON.stringify(r.data.action));
+nextOut = (id, sys) => ({ reply: "Je marque la tâche comme faite.", action: "complete_activity", activity_id: line(sys, "Envoyer le devis peinture").split(" | ")[0] });
+r = await karim.req("POST", "/api/ai/assistant", { text: "j'ai envoyé le devis" });
+ok(r.data.action.type === "complete_activity" && r.data.action.activity_id === taskId && r.data.action.activity.client === "Droguerie Al Amal", "terminer une tâche");
+nextOut = (id, sys) => ({ reply: "Je déplace.", action: "reschedule", activity_id: line(sys, "Démo caisse").split(" | ")[0], date: "2026-12-05", time: "15:30" });
+r = await karim.req("POST", "/api/ai/assistant", { text: "décale la démo au 5 décembre 15h30" });
+ok(r.data.action.type === "reschedule" && r.data.action.activity_id === rdvId && r.data.action.date === "2026-12-05" && r.data.action.time === "15:30", "déplacer un rdv");
+nextOut = (id, sys) => ({ reply: "x", action: "reschedule", activity_id: line(sys, "Démo caisse").split(" | ")[0], date: "" });
+r = await karim.req("POST", "/api/ai/assistant", { text: "x" });
+ok(r.data.action.type === "none", "déplacement sans date refusé");
+nextOut = (id) => ({ reply: "Je mets à jour.", action: "update_client", client_id: id("Droguerie Al Amal"), phone: "0661 99 88 77", email: "contact@alamal.ma", notes: "Préfère WhatsApp", name: "pirate" });
+r = await karim.req("POST", "/api/ai/assistant", { text: "nouveau numéro pour al amal" });
+ok(r.data.action.type === "update_client" && r.data.action.changes.phone === "0661 99 88 77" && r.data.action.changes.email && !r.data.action.changes.name && r.data.action.current.phone === "0661223344", "modifier une fiche : " + JSON.stringify(r.data.action));
+nextOut = (id) => ({ reply: "Message de suivi.", action: "followup", client_id: id("Garage Atlas") });
+r = await karim.req("POST", "/api/ai/assistant", { text: "message de suivi atlas" });
+ok(r.data.action.type === "followup" && r.data.action.client_id === atlas, "message de suivi");
+
 // 8. écoute (micro) + sans connexion
 r = await karim.req("POST", "/api/ai/listen", new TextEncoder().encode("Programme un rendez-vous demain"), { "Content-Type": "audio/webm", "X-Lang": "fr" });
 ok(r.status === 200 && r.data.text === "Programme un rendez-vous demain", "transcription du micro");

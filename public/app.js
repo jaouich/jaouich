@@ -129,7 +129,7 @@ Object.assign(T.en, {
 });
 // thèmes : choisis par chaque utilisateur sur son appareil, ou imposés par défaut par la direction
 Object.assign(T.fr, {
-  aiToday: 'IA aujourd’hui', aiTodayD: '{a} questions à Magi · {s} transcriptions · {l} rapports', aiYest: 'Hier : {a} · {s} · {l}', magiMenu: 'Questions rapides', magi: 'Assistant Magi', magiHi: 'Bonjour {n} ! Je suis Magi. Écrivez ou parlez : je trouve un client, je planifie un rendez-vous, je crée une fiche ou une affaire, je réponds sur votre activité.',
+  magiOpenPage: 'Ouvrir cet écran', magiToday: 'Aujourd’hui : {x}.', magiRdv: '{n} rendez-vous / appel(s)', magiLate: '{n} en retard', magiSleep: '{n} client(s) sans visite depuis 30 jours', magiFree: 'rien de prévu', magiOffHelp: 'Sans internet, je peux ouvrir un écran, trouver un client ou résumer votre journée. Pour le reste, je reviens dès que le réseau est là.', magiFound: 'Voici ce que j’ai trouvé :', magiMarkDone: 'Marquer comme fait', magiMoveTo: 'Déplacer au', magiChanges: 'Modifications', magiAdd: 'à ajouter', magiOpenAct: 'Ouvrir l’activité', magiNoMeet: 'Pas encore de réunion ou de visite avec compte-rendu pour ce client.', aiToday: 'IA aujourd’hui', aiTodayD: '{a} questions à Magi · {s} transcriptions · {l} rapports', aiYest: 'Hier : {a} · {s} · {l}', magiMenu: 'Questions rapides', magi: 'Assistant Magi', magiHi: 'Bonjour {n} ! Je suis Magi. Écrivez ou parlez : je trouve un client, je planifie un rendez-vous, je crée une fiche ou une affaire, je réponds sur votre activité.',
   magiPh: 'Écrivez ou parlez…', magiSend: 'Envoyer', magiMic: 'Parler', magiListening: 'Je vous écoute… touchez pour arrêter', magiThinking: 'Magi réfléchit…', magiHear: 'Je transcris…',
   magiVoiceOn: 'Réponses à voix haute : activées', magiVoiceOff: 'Réponses à voix haute : désactivées', magiDone: 'C’est fait ✅', magiOpen: 'Ouvrir la fiche', magiNew: 'Nouvelle conversation',
   magiS1: 'Mes rendez-vous de demain', magiS2: 'Clients pas visités depuis 30 jours', magiS3: 'Où en est le pipeline ?', magiS4: 'Ouvre l’agenda', magiNeedNet: 'Magi a besoin d’internet pour comprendre votre demande.',
@@ -137,7 +137,7 @@ Object.assign(T.fr, {
   magiStage: 'Nouvelle étape', magiWhen: 'Quand', magiWhat: 'Objet', magiMicLang: 'Langue parlée',
 });
 Object.assign(T.ar, {
-  aiToday: 'الذكاء الاصطناعي اليوم', aiTodayD: '{a} سؤال لماجي · {s} تحويل صوت · {l} تقرير', aiYest: 'أمس: {a} · {s} · {l}', magiMenu: 'أسئلة سريعة', magi: 'المساعد ماجي', magiHi: 'مرحبا {n}! أنا ماجي. اكتب أو تكلم: أجد زبونا، أبرمج موعدا، أنشئ ملفا أو صفقة، وأجيب عن نشاطك.',
+  magiOpenPage: 'فتح هذه الشاشة', magiToday: 'اليوم: {x}.', magiRdv: '{n} موعد / اتصال', magiLate: '{n} متأخرة', magiSleep: '{n} زبون بدون زيارة منذ 30 يوما', magiFree: 'لا شيء مبرمج', magiOffHelp: 'بدون إنترنت يمكنني فتح شاشة، إيجاد زبون أو تلخيص يومك. والباقي عند عودة الشبكة.', magiFound: 'هذا ما وجدته:', magiMarkDone: 'تحديد كمنجز', magiMoveTo: 'تأجيل إلى', magiChanges: 'التعديلات', magiAdd: 'للإضافة', magiOpenAct: 'فتح النشاط', magiNoMeet: 'لا يوجد بعد اجتماع أو زيارة بتقرير لهذا الزبون.', aiToday: 'الذكاء الاصطناعي اليوم', aiTodayD: '{a} سؤال لماجي · {s} تحويل صوت · {l} تقرير', aiYest: 'أمس: {a} · {s} · {l}', magiMenu: 'أسئلة سريعة', magi: 'المساعد ماجي', magiHi: 'مرحبا {n}! أنا ماجي. اكتب أو تكلم: أجد زبونا، أبرمج موعدا، أنشئ ملفا أو صفقة، وأجيب عن نشاطك.',
   magiPh: 'اكتب أو تكلم…', magiSend: 'إرسال', magiMic: 'تكلم', magiListening: 'أنا أستمع… اضغط للتوقف', magiThinking: 'ماجي يفكر…', magiHear: 'جاري تحويل الصوت إلى نص…',
   magiVoiceOn: 'قراءة الأجوبة بالصوت: مفعلة', magiVoiceOff: 'قراءة الأجوبة بالصوت: متوقفة', magiDone: 'تم ✅', magiOpen: 'فتح الملف', magiNew: 'محادثة جديدة',
   magiS1: 'مواعيدي غدا', magiS2: 'الزبناء الذين لم أزرهم منذ 30 يوما', magiS3: 'كيف حال الصفقات؟', magiS4: 'افتح الأجندة', magiNeedNet: 'ماجي يحتاج إلى الإنترنت لفهم طلبك.',
@@ -145,7 +145,7 @@ Object.assign(T.ar, {
   magiStage: 'المرحلة الجديدة', magiWhen: 'متى', magiWhat: 'الموضوع', magiMicLang: 'لغة الكلام',
 });
 Object.assign(T.en, {
-  aiToday: 'AI today', aiTodayD: '{a} Magi questions · {s} transcriptions · {l} reports', aiYest: 'Yesterday: {a} · {s} · {l}', magiMenu: 'Quick questions', magi: 'Magi assistant', magiHi: 'Hi {n}! I’m Magi. Type or talk: I find a client, schedule a meeting, create a record or a deal, and answer questions about your activity.',
+  magiOpenPage: 'Open this screen', magiToday: 'Today: {x}.', magiRdv: '{n} meeting(s) / call(s)', magiLate: '{n} overdue', magiSleep: '{n} client(s) not visited for 30 days', magiFree: 'nothing planned', magiOffHelp: 'Offline I can open a screen, find a client or sum up your day. The rest as soon as the network is back.', magiFound: 'Here is what I found:', magiMarkDone: 'Mark as done', magiMoveTo: 'Move to', magiChanges: 'Changes', magiAdd: 'to add', magiOpenAct: 'Open activity', magiNoMeet: 'No meeting or visit with a report for this client yet.', aiToday: 'AI today', aiTodayD: '{a} Magi questions · {s} transcriptions · {l} reports', aiYest: 'Yesterday: {a} · {s} · {l}', magiMenu: 'Quick questions', magi: 'Magi assistant', magiHi: 'Hi {n}! I’m Magi. Type or talk: I find a client, schedule a meeting, create a record or a deal, and answer questions about your activity.',
   magiPh: 'Type or talk…', magiSend: 'Send', magiMic: 'Talk', magiListening: 'Listening… tap to stop', magiThinking: 'Magi is thinking…', magiHear: 'Transcribing…',
   magiVoiceOn: 'Spoken answers: on', magiVoiceOff: 'Spoken answers: off', magiDone: 'Done ✅', magiOpen: 'Open record', magiNew: 'New conversation',
   magiS1: 'My meetings tomorrow', magiS2: 'Clients not visited for 30 days', magiS3: 'How is the pipeline?', magiS4: 'Open the agenda', magiNeedNet: 'Magi needs internet to understand you.',
@@ -1136,6 +1136,28 @@ function speak(text) {
     speechSynthesis.speak(u);
   } catch (e) {}
 }
+async function magiFocus() {
+  const m = location.hash.match(/^#\/(client|visit)\/([0-9a-zA-Z-]{8,40})/) || location.hash.match(/^#\/meeting\?client=([0-9a-zA-Z-]{8,40})/);
+  if (!m) return null;
+  if (m[1] === 'visit') { const v = await DB.get('visits', m[2]).catch(() => null); return v ? v.client_id : null; }
+  return m[2] || m[1];
+}
+// résumé de la journée calculé sur le téléphone (marche aussi hors ligne)
+async function magiDay() {
+  const [visits, clients] = await Promise.all([DB.all('visits'), DB.all('clients')]);
+  const d0 = new Date(); d0.setHours(0, 0, 0, 0); const t0 = d0.getTime(), t1 = t0 + 86400000;
+  const cname = new Map(clients.map((c) => [c.id, c.name]));
+  const mine = visits.filter((v) => !v.deleted_at && v.user_id === S.user.id && v.status === 'planned');
+  const today = mine.filter((v) => v.date >= t0 && v.date < t1).sort((a, b) => a.date - b.date);
+  const late = mine.filter((v) => v.date < t0);
+  const lastDone = new Map(); for (const v of visits) if (!v.deleted_at && v.status === 'done') lastDone.set(v.client_id, Math.max(lastDone.get(v.client_id) || 0, v.date));
+  const sleep = clients.filter((c) => !c.deleted_at && c.owner_id === S.user.id && (lastDone.get(c.id) || 0) < Date.now() - 30 * 86400000).length;
+  const parts = [];
+  if (today.length) parts.push(t('magiRdv', { n: today.length }) + ' (' + today.slice(0, 4).map((v) => new Date(v.date).toTimeString().slice(0, 5) + ' ' + (cname.get(v.client_id) || '')).join(' · ') + ')');
+  if (late.length) parts.push(t('magiLate', { n: late.length }));
+  if (sleep) parts.push(t('magiSleep', { n: sleep }));
+  return t('magiToday', { x: parts.length ? parts.join(', ') : t('magiFree') });
+}
 function openMagi() {
   if (magi.panel && document.body.contains(magi.panel)) return;
   const log = h('div', { class: 'magi-log', 'aria-live': 'polite' });
@@ -1175,6 +1197,7 @@ function openMagi() {
     const items = [];
     if (!magi.log.length) {
       items.push(bubble('bot', t('magiHi', { n: (S.user.name || '').split(' ')[0] })));
+      if (dayTxt) items.push(bubble('bot', dayTxt));
       items.push(h('div', { class: 'magi-sugg' }, ...['magiS1', 'magiS2', 'magiS3', 'magiS4'].map((k) => h('button', { type: 'button', onclick: () => send(t(k)) }, t(k)))));
     }
     for (const e of magi.log) items.push(e.el || (e.el = e.who === 'user' ? bubble('user', e.text) : bubble('bot', e.text)));
@@ -1182,18 +1205,30 @@ function openMagi() {
     log.scrollTop = log.scrollHeight;
   }
   const push = (entry) => { magi.log.push(entry); paint(); return entry; };
-  let busy = false;
+  let busy = false, dayTxt = '';
+  magiDay().then((x) => { dayTxt = x; if (!magi.log.length) paint(); }).catch(() => {});
+  // sans internet : quelques demandes comprises sur le téléphone
+  async function offline(msg) {
+    const n = msg.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const pages = [[/agenda|rendez|rdv|اجند|أجند|مواعيد|موعد/, 'agenda'], [/pipeline|affaire|صفق/, 'pipeline'], [/carte|map|خريط/, 'map'], [/nouve(au|lle) (client|fiche|prospect)|زبون جديد|ملف جديد/, 'new_client']];
+    if (/aujourd|journee|اليوم|نهار|today/.test(n)) return push({ who: 'bot', text: await magiDay() });
+    for (const [re, pg] of pages) if (re.test(n)) { close(); return go(PAGE_HASH[pg]); }
+    const words = n.split(/\s+/).filter((w) => w.length > 2);
+    const hits = (await DB.all('clients')).filter((c) => !c.deleted_at && words.some((w) => [c.name, c.company, c.city, c.code].join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(w))).slice(0, 12);
+    if (hits.length) { const el = bubble('bot', h('div', { class: 'mg-t' }, t('magiFound'))); push({ who: 'bot', el }); return runAction({ type: 'show_clients', clients: hits.map((c) => ({ id: c.id, name: c.name, code: c.code, city: c.city, kind: c.kind })) }, el); }
+    push({ who: 'bot', text: t('magiOffHelp') });
+  }
   async function send(text, spoken) {
     const msg = String(text ?? input.value).trim();
     if (!msg || busy) return;
     toggleMenu(false);
     input.value = ''; input.style.height = 'auto';
     push({ who: 'user', text: msg });
-    if (!navigator.onLine) return push({ who: 'bot', text: t('magiNeedNet') });
+    if (!navigator.onLine) return offline(msg);
     busy = true;
     const wait = push({ who: 'bot', el: bubble('bot wait', h('span', { class: 'spinner' }), t('magiThinking')) });
     try {
-      const r = await api('POST', '/api/ai/assistant', { text: msg, lang, tz: new Date().getTimezoneOffset(), history: magi.history });
+      const r = await api('POST', '/api/ai/assistant', { text: msg, lang, tz: new Date().getTimezoneOffset(), history: magi.history, client_id: await magiFocus() });
       magi.history.push({ role: 'user', content: msg }, { role: 'assistant', content: r.reply });
       magi.history = magi.history.slice(-6);
       magi.log.splice(magi.log.indexOf(wait), 1);
@@ -1201,10 +1236,12 @@ function openMagi() {
       push({ who: 'bot', el });
       if (spoken || magi.voice) speak(r.reply);
       await runAction(r.action || { type: 'none' }, el);
+      if (r.suggestions && r.suggestions.length) el.append(h('div', { class: 'magi-sugg small' }, ...r.suggestions.map((q) => h('button', { type: 'button', onclick: () => send(q) }, q))));
       log.scrollTop = log.scrollHeight;
     } catch (e) {
       magi.log.splice(magi.log.indexOf(wait), 1);
-      push({ who: 'bot', el: bubble('bot err', e.status === 0 ? t('magiNeedNet') : e.message) });
+      if (e.status === 0) { busy = false; return offline(msg); }
+      push({ who: 'bot', el: bubble('bot err', e.message) });
     } finally { busy = false; }
   }
   // --- micro : un message vocal court, transcrit puis envoyé
@@ -1248,7 +1285,46 @@ function openMagi() {
     const card = (...kids) => { const k = h('div', { class: 'mg-card' }, ...kids); el.append(k); return k; };
     const doneMsg = (txt, href) => { push({ who: 'bot', el: bubble('bot', txt, href ? h('a', { class: 'btn small', href, onclick: () => close() }, t('magiOpen')) : null) }); };
     const dateIn = (day, time, fallbackH) => { const d = day ? new Date(day + 'T' + (time || (fallbackH || '09:00'))) : new Date(Date.now() + 3600000); return h('input', { class: 'input', type: 'datetime-local', value: localInput(isNaN(d) ? Date.now() : d.getTime()) }); };
+    const cancelBtn = (k) => h('button', { class: 'btn ghost', onclick: () => k.remove() }, t('cancel'));
     switch (a.type) {
+      case 'guide': return a.page ? card(h('a', { class: 'btn primary', href: PAGE_HASH[a.page] || '#/', onclick: () => close() }, ic('send', 18), t('magiOpenPage'))) : null;
+      case 'show_clients': {
+        const k = card(h('div', { class: 'mg-list' }, ...a.clients.map((x) => h('a', { href: '#/client/' + x.id, onclick: () => close() }, h('span', { class: 'av', style: '--h:' + hueOf(x.name) }, (x.name || '?').trim().charAt(0).toUpperCase()), h('span', { class: 'grow' }, h('b', {}, x.name), h('small', {}, [x.code, x.city, t(x.kind)].filter(Boolean).join(' · ')))))));
+        k.classList.add('flat'); return;
+      }
+      case 'open_activity': close(); return go('#/visit/' + a.activity_id);
+      case 'complete_activity': {
+        const v = a.activity;
+        const k = card(h('div', { class: 'mg-c' }, `${t(v.kind)} · ${v.client}`), h('div', { class: 'small muted' }, fdt(v.date) + (v.text ? ' · ' + v.text : '')),
+          h('div', { class: 'row' }, h('button', { class: 'btn primary grow', onclick: async () => { await saveVisit(a.activity_id, { status: 'done' }, false); k.remove(); doneMsg(t('magiDone') + ' ' + t(v.kind) + ' · ' + v.client, '#/client/' + v.client_id); } }, ic('check', 18), t('magiMarkDone')), cancelBtn(null)));
+        k.querySelector('.btn.ghost').onclick = () => k.remove(); return;
+      }
+      case 'reschedule': {
+        const v = a.activity;
+        const old = new Date(v.date);
+        const when = dateIn(a.date, a.time || old.toTimeString().slice(0, 5));
+        const k = card(h('div', { class: 'mg-c' }, `${t(v.kind)} · ${v.client}`), h('div', { class: 'small muted' }, fdt(v.date) + ' →'), h('label', { class: 'f' }, t('magiMoveTo'), when),
+          h('div', { class: 'row' }, h('button', { class: 'btn primary grow', onclick: async () => { const d = fromInput(when.value); if (!d) return; await saveVisit(a.activity_id, { date: d }, false); k.remove(); doneMsg(t('magiDone') + ' ' + t(v.kind) + ' · ' + fdt(d), '#/agenda'); } }, ic('check', 18), t('confirm')), h('button', { class: 'btn ghost', onclick: () => k.remove() }, t('cancel'))));
+        return;
+      }
+      case 'update_client': {
+        const ins = {};
+        const rows = Object.entries(a.changes).map(([key, val]) => h('label', { class: 'f' }, (key === 'notes' ? t('notes') + ' (' + t('magiAdd') + ')' : t(key)) + (key !== 'notes' && a.current[key] ? ' — ' + a.current[key] : ''), (ins[key] = key === 'notes' ? h('textarea', { class: 'input', rows: 2, value: val }) : h('input', { class: 'input', value: val }))));
+        const k = card(h('div', { class: 'mg-c' }, t('magiChanges') + ' · ' + ((c && c.name) || '')), ...rows,
+          h('div', { class: 'row' }, h('button', { class: 'btn primary grow', onclick: async () => {
+            const cur = (await DB.get('clients', a.client_id)) || {};
+            const f = {};
+            for (const [key, el2] of Object.entries(ins)) { const v2 = el2.value.trim(); if (!v2) continue; f[key] = key === 'notes' ? [cur.notes, v2].filter(Boolean).join('\n') : v2; }
+            if (Object.keys(f).length) await saveClient(a.client_id, f, false);
+            k.remove(); doneMsg(t('magiDone') + ' ' + ((c && c.name) || ''), '#/client/' + a.client_id);
+          } }, ic('check', 18), t('confirm')), h('button', { class: 'btn ghost', onclick: () => k.remove() }, t('cancel'))));
+        return;
+      }
+      case 'followup': {
+        const vs = (await DB.all('visits')).filter((v) => v.client_id === a.client_id && !v.deleted_at && v.status === 'done' && (v.summary || v.agreed || v.next_step || v.transcript)).sort((x, y) => y.date - x.date);
+        if (!vs.length) return card(h('p', { class: 'small muted', style: 'margin:0' }, t('magiNoMeet')));
+        close(); return followupModal(vs.find((v) => v.kind === 'reunion') || vs[0]);
+      }
       case 'open_page': close(); return go(PAGE_HASH[a.page] || '#/');
       case 'search': close(); listState.q = a.query; listState.kind = ''; listState.city = ''; return location.hash === '#/clients' ? render() : go('#/clients');
       case 'open_client': close(); return go('#/client/' + a.client_id);

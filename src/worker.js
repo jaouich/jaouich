@@ -1353,7 +1353,22 @@ Langue : ${LANG_NAMES[lang]}. Remercie, récapitule ce qui a été convenu, rapp
 
 // ------------------------------------------------------------------ assistant « Magi » : on écrit ou on parle, il agit
 const ASSIST_PAGES = ["clients", "pipeline", "agenda", "map", "me", "new_client", "dashboard", "team", "export", "journal", "settings"];
-const ASSIST_ACTIONS = ["none", "open_page", "search", "open_client", "create_activity", "create_client", "create_deal", "deal_stage", "voice_note", "meeting", "brief", "call", "whatsapp", "email", "directions"];
+const ASSIST_ACTIONS = ["none", "guide", "open_page", "search", "show_clients", "open_client", "open_activity", "create_activity", "complete_activity", "reschedule", "update_client", "create_client", "create_deal", "deal_stage", "voice_note", "meeting", "brief", "followup", "call", "whatsapp", "email", "directions"];
+const ASSIST_EDIT = ["contact", "phone", "phone2", "email", "website", "city", "address", "company", "sector", "notes"];
+// mode d'emploi de l'application, pour que Magi sache expliquer et guider
+const APP_GUIDE = `MODE D'EMPLOI DE MAGISCOM CRM (pour expliquer et guider ; page = écran à proposer) :
+- Clients (page clients) : liste, recherche, filtres client/prospect et ville. « + Nouveau » (page new_client) crée une fiche ; doublon signalé.
+- Fiche client : code auto, nom, société, secteur, GSM, fixe, e-mail, site web, adresse, remarques ; boutons Appeler, WhatsApp, Itinéraire, Modifier ; « Mettre à jour la position » enregistre le GPS ; onglets Infos, Activité, Affaires, Documents.
+- Documents (onglet de la fiche) : Photo, Vidéo (jusqu'à 4 Go), Fichier (PDF, Excel, Word…) ; plusieurs fichiers à la fois ; marche hors ligne.
+- Bouton « Enregistrer » (micro au centre en bas) : Note vocale (10 min, l'IA écrit le texte) ou Réunion IA (2 h, accord du client obligatoire ; l'IA sépare commercial/client et fait le compte-rendu : résumé, convenu, non fait, demandes, prochaine étape → RDV ajouté à l'agenda).
+- « Préparer la visite » (fiche) : résumé IA avant un RDV. « Message de suivi » (après une réunion) : WhatsApp ou e-mail prêt.
+- Affaires : onglet Affaires de la fiche ou page pipeline ; étapes nouveau → devis → négociation → gagné / perdu ; gagné = le prospect devient client.
+- Agenda (page agenda) : tâches à cocher, RDV du jour et à venir, « Faire le compte-rendu » après un RDV.
+- Carte (page map) : clients localisés.
+- Moi (page me) : thème de couleurs, langue, mot de passe, synchronisation, déconnexion (attention : la déconnexion efface les données du téléphone).
+- Hors ligne : tout s'enregistre sur le téléphone et part au retour du réseau (point vert « À jour »). L'IA (Magi, transcription, rapports) a besoin d'internet.
+- Direction seulement : tableau de bord (dashboard), commerciaux et droits (team : ajouter, mot de passe provisoire, transférer le portefeuille, désactiver), export Excel et import de clients depuis Excel/CSV (export, 500 lignes par envoi, .xlsx ou .csv), journal (journal), réglages (settings : société, préfixes des codes, thème).
+- Première connexion : identifiant donné par la direction, puis choisir son mot de passe. Mot de passe oublié : la direction en génère un nouveau.`;
 const ASSIST_KINDS = ["rdv", "appel", "tache", "note", "visite"];
 const normTxt = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9؀-ۿ ]/g, " ");
 const dayStr = (ms, tz) => new Date(ms - tz * 60000).toISOString().slice(0, 16).replace("T", " ");
@@ -1370,10 +1385,10 @@ async function aiListen(req, env, me) {
   catch (e) { console.error("écoute", e); if (aiFailMsg(e)) fail(429, aiFailMsg(e)); fail(502, "Je n'ai pas pu comprendre l'audio, réessayez"); }
 }
 
-async function assistantContext(env, me, query, tz) {
+async function assistantContext(env, me, query, tz, focusId) {
   const t = now();
   const sc = scopeSql(me);
-  const clients = (await env.DB.prepare(`SELECT c.id, c.code, c.name, c.company, c.city, c.kind, c.sector, c.phone, c.phone2, c.email, c.lat, c.owner_id, c.updated_at,
+  const clients = (await env.DB.prepare(`SELECT c.id, c.code, c.name, c.company, c.contact, c.city, c.address, c.kind, c.sector, c.phone, c.phone2, c.email, c.website, c.notes, c.lat, c.owner_id, c.updated_at,
       (SELECT MAX(v.date) FROM visits v WHERE v.client_id = c.id AND v.deleted_at IS NULL AND v.status = 'done') AS last_done,
       (SELECT MIN(v.date) FROM visits v WHERE v.client_id = c.id AND v.deleted_at IS NULL AND v.status = 'planned' AND v.date >= ?) AS next_planned
     FROM clients c WHERE c.deleted_at IS NULL AND ${sc.sql} ORDER BY c.updated_at DESC LIMIT 3000`).bind(t - 86400000, ...sc.args).all()).results;
@@ -1382,37 +1397,67 @@ async function assistantContext(env, me, query, tz) {
   const score = (c) => { const hay = normTxt([c.name, c.company, c.city, c.code, c.sector, c.phone].join(" ")); return words.reduce((a, w) => a + (hay.includes(w) ? 1 : 0), 0); };
   let shown = clients;
   if (clients.length > 140) {
-    const ranked = clients.map((c, i) => ({ c, s: score(c), i })).sort((a, b) => b.s - a.s || a.i - b.i);
+    const ranked = clients.map((c, i) => ({ c, s: score(c) + (c.id === focusId ? 99 : 0), i })).sort((a, b) => b.s - a.s || a.i - b.i);
     shown = ranked.slice(0, 140).map((x) => x.c);
   }
+  const focus = focusId ? clients.find((c) => c.id === focusId) : null;
   const users = (await env.DB.prepare("SELECT id, name, role FROM users WHERE active = 1").all()).results;
   const uname = new Map(users.map((u) => [u.id, u.name]));
   const fmtD = (ms) => (ms ? dayStr(ms, tz).slice(0, 10) : "-");
   const refs = new Map();   // références courtes « C12 » / « D3 » : bien plus fiables à recopier pour le modèle qu'un identifiant long
   shown.forEach((c, i) => refs.set("C" + (i + 1), c.id));
-  const cl = shown.map((c, i) => ["C" + (i + 1), c.code, c.name, c.company && c.company !== c.name ? c.company : "", c.city || "", c.kind, c.sector || "", c.phone || c.phone2 ? "tél" : "", c.email ? "mail" : "", c.lat != null ? "gps" : "", "dernier:" + fmtD(c.last_done), "prochain:" + fmtD(c.next_planned), me.p.all ? "suivi:" + (uname.get(c.owner_id) || "-") : ""].filter((x) => x !== "").join(" | ")).join("\n");
+  const refOf = new Map(shown.map((c, i) => [c.id, "C" + (i + 1)]));
+  const cl = shown.map((c, i) => ["C" + (i + 1), c.code, c.name, c.company && c.company !== c.name ? c.company : "", c.contact ? "contact " + c.contact : "", c.city || "", c.kind, c.sector || "", c.phone || c.phone2 ? "tél" : "", c.email ? "mail" : "", c.lat != null ? "gps" : "", "dernier:" + fmtD(c.last_done), "prochain:" + fmtD(c.next_planned), me.p.all ? "suivi:" + (uname.get(c.owner_id) || "-") : ""].filter((x) => x !== "").join(" | ")).join("\n");
   const byCity = {}; let nClients = 0, nProspects = 0, sleeping = 0;
   for (const c of clients) { byCity[c.city || "?"] = (byCity[c.city || "?"] || 0) + 1; if (c.kind === "prospect") nProspects++; else nClients++; if (!c.last_done || c.last_done < t - 30 * 86400000) sleeping++; }
-  const planned = (await env.DB.prepare(`SELECT v.kind, v.date, v.summary, v.next_step, v.status, c.name AS cname, v.user_id FROM visits v JOIN clients c ON c.id = v.client_id
-    WHERE v.deleted_at IS NULL AND c.deleted_at IS NULL AND ${sc.sql} AND v.status = 'planned' AND v.date BETWEEN ? AND ? ORDER BY v.date LIMIT 50`).bind(...sc.args, t - 30 * 86400000, t + 21 * 86400000).all()).results;
-  const ag = planned.map((v) => `${dayStr(v.date, tz)} · ${v.kind}${v.date < t ? " (en retard)" : ""} · ${v.cname}${v.summary || v.next_step ? " · " + String(v.summary || v.next_step).slice(0, 80) : ""}${me.p.all ? " · " + (uname.get(v.user_id) || "") : ""}`).join("\n");
+  // activités : à venir / en retard (avec références A1, A2…) et dernières faites
+  const snip = (v, n) => String(v.summary || v.agreed || v.next_step || v.transcript || v.demands || "").replace(/\s+/g, " ").slice(0, n);
+  const planned = (await env.DB.prepare(`SELECT v.id, v.client_id, v.kind, v.date, v.summary, v.next_step, v.agreed, v.transcript, v.demands, v.status, c.name AS cname, v.user_id FROM visits v JOIN clients c ON c.id = v.client_id
+    WHERE v.deleted_at IS NULL AND c.deleted_at IS NULL AND ${sc.sql} AND v.status = 'planned' AND v.date BETWEEN ? AND ? ORDER BY v.date LIMIT 50`).bind(...sc.args, t - 60 * 86400000, t + 30 * 86400000).all()).results;
+  const recent = (await env.DB.prepare(`SELECT v.id, v.client_id, v.kind, v.date, v.summary, v.next_step, v.agreed, v.transcript, v.demands, v.status, c.name AS cname, v.user_id FROM visits v JOIN clients c ON c.id = v.client_id
+    WHERE v.deleted_at IS NULL AND c.deleted_at IS NULL AND ${sc.sql} AND v.status = 'done' ORDER BY v.date DESC LIMIT 30`).bind(...sc.args).all()).results;
+  const acts = new Map(); let an = 0;
+  const actLine = (v) => { const r = "A" + (++an); refs.set(r, v.id); acts.set(v.id, v); return `${r} | ${dayStr(v.date, tz)} | ${v.kind}${v.status === "planned" && v.date < t ? " (EN RETARD)" : ""} | ${v.cname}${refOf.has(v.client_id) ? " (" + refOf.get(v.client_id) + ")" : ""}${snip(v, 90) ? " | " + snip(v, 90) : ""}${me.p.all ? " | " + (uname.get(v.user_id) || "") : ""}`; };
+  const ag = planned.map(actLine).join("\n");
+  const done = recent.map(actLine).join("\n");
   const deals = (await env.DB.prepare(`SELECT d.id, d.title, d.amount, d.stage, d.close_date, c.name AS cname FROM deals d JOIN clients c ON c.id = d.client_id
     WHERE d.deleted_at IS NULL AND c.deleted_at IS NULL AND ${sc.sql} ORDER BY (d.stage IN ('gagne','perdu')), d.updated_at DESC LIMIT 60`).bind(...sc.args).all()).results;
   deals.forEach((d, i) => refs.set("D" + (i + 1), d.id));
   const dl = deals.map((d, i) => `D${i + 1} | ${d.title} | ${d.cname} | ${d.stage}${d.amount ? " | " + d.amount + " MAD" : ""}${d.close_date ? " | signature " + fmtD(d.close_date) : ""}`).join("\n");
-  const team = me.p.admin ? (await env.DB.prepare(`SELECT u.name, (SELECT COUNT(*) FROM visits v WHERE v.user_id = u.id AND v.deleted_at IS NULL AND v.status = 'done' AND v.date > ?) AS n7 FROM users u WHERE u.active = 1`).bind(t - 7 * 86400000).all()).results.map((u) => `${u.name} : ${u.n7} activités faites sur 7 jours`).join("\n") : "";
+  const team = me.p.admin ? (await env.DB.prepare(`SELECT u.name, u.role, u.last_seen,
+      (SELECT COUNT(*) FROM clients c WHERE c.owner_id = u.id AND c.deleted_at IS NULL) AS nc,
+      (SELECT COUNT(*) FROM visits v WHERE v.user_id = u.id AND v.deleted_at IS NULL AND v.status = 'done' AND v.date > ?) AS n7,
+      (SELECT COUNT(*) FROM visits v WHERE v.user_id = u.id AND v.deleted_at IS NULL AND v.status = 'done' AND v.date > ?) AS n30,
+      (SELECT COUNT(*) FROM deals d WHERE d.user_id = u.id AND d.deleted_at IS NULL AND d.stage = 'gagne' AND d.closed_at > ?) AS won30
+    FROM users u WHERE u.active = 1`).bind(t - 7 * 86400000, t - 30 * 86400000, t - 30 * 86400000).all()).results.map((u) => `${u.name} (${u.role === "admin" ? "direction" : "commercial"}) : ${u.nc} fiches, ${u.n7} activités faites sur 7 jours, ${u.n30} sur 30 jours, ${u.won30} affaires gagnées sur 30 jours, vu ${u.last_seen ? dayStr(u.last_seen, tz).slice(0, 10) : "jamais"}`).join("\n") : "";
+  // fiche ouverte à l'écran : tous les détails
+  let focusTxt = "";
+  if (focus) {
+    const fa = (await env.DB.prepare("SELECT kind, date, status, summary, agreed, not_done, demands, next_step, transcript FROM visits WHERE client_id = ? AND deleted_at IS NULL ORDER BY date DESC LIMIT 10").bind(focus.id).all()).results;
+    const nf = await env.DB.prepare("SELECT COUNT(*) n FROM files WHERE client_id = ? AND deleted_at IS NULL").bind(focus.id).first();
+    focusTxt = `FICHE OUVERTE À L'ÉCRAN (« ce client », « lui », « هاد الزبون ») : ${refOf.get(focus.id) || ""} ${focus.code} ${focus.name} (${focus.kind})
+Société : ${focus.company || "-"} · Contact : ${focus.contact || "-"} · Secteur : ${focus.sector || "-"} · GSM : ${focus.phone || "-"} · Fixe : ${focus.phone2 || "-"} · E-mail : ${focus.email || "-"} · Site : ${focus.website || "-"}
+Ville : ${focus.city || "-"} · Adresse : ${focus.address || "-"} · GPS : ${focus.lat != null ? "oui" : "non"} · Documents : ${nf ? nf.n : 0}
+Remarques : ${String(focus.notes || "-").slice(0, 600)}
+Historique (récent d'abord) :
+${fa.map((v) => `- ${dayStr(v.date, tz).slice(0, 10)} ${v.kind}${v.status === "planned" ? " (prévu)" : ""} : ${[v.summary, v.agreed && "convenu: " + v.agreed, v.not_done && "non fait: " + v.not_done, v.demands && "demandes: " + v.demands, v.next_step && "suite: " + v.next_step, !v.summary && v.transcript ? v.transcript : ""].filter(Boolean).join(" · ").replace(/\s+/g, " ").slice(0, 400)}`).join("\n") || "(aucune activité)"}
+`;
+  }
   const text = `PORTEFEUILLE (${clients.length} fiches : ${nClients} clients, ${nProspects} prospects ; ${sleeping} sans activité faite depuis 30 jours ou plus)
 Par ville : ${Object.entries(byCity).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([k, v]) => k + " " + v).join(", ")}
 ${clients.length > shown.length ? `(seules ${shown.length} fiches sont listées, les plus proches de la demande)\n` : ""}Fiches (réf | code | nom | société | ville | type | secteur | contacts | dates) :
 ${cl || "(aucune fiche)"}
 
-AGENDA (rendez-vous, appels, tâches prévus, du plus proche au plus lointain) :
+AGENDA — prévu, du plus proche au plus lointain (réf | date | type | client | objet) :
 ${ag || "(rien de prévu)"}
+
+DERNIÈRES ACTIVITÉS FAITES (réf | date | type | client | contenu) :
+${done || "(aucune)"}
 
 AFFAIRES (réf | titre | client | étape | montant | signature) :
 ${dl || "(aucune affaire)"}
 ${team ? "\nÉQUIPE :\n" + team : ""}`;
-  return { text: text.slice(0, 42000), clients, deals, refs };
+  return { text: (focusTxt ? focusTxt + "\n" : "") + text.slice(0, 40000), clients, deals, refs, acts };
 }
 
 async function aiAssistant(req, env, me) {
@@ -1423,7 +1468,8 @@ async function aiAssistant(req, env, me) {
   const tz = num(b.tz, -840, 840) ?? 0;   // getTimezoneOffset() du téléphone
   const history = (Array.isArray(b.history) ? b.history : []).slice(-6).filter((x) => x && (x.role === "user" || x.role === "assistant")).map((x) => ({ role: x.role, content: str(x.content, 600) })).filter((x) => x.content);
   const s = await getSettings(env);
-  const ctx = await assistantContext(env, me, [msg, ...history.map((x) => x.content)].join(" "), tz);
+  const focusId = str(b.client_id, 40) || null;
+  const ctx = await assistantContext(env, me, [msg, ...history.map((x) => x.content)].join(" "), tz, focusId);
   const today = new Date(now() - tz * 60000);
   const JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
   const schema = { type: "object", properties: {
@@ -1431,20 +1477,31 @@ async function aiAssistant(req, env, me) {
     page: { type: "string" }, query: { type: "string" }, client_id: { type: "string" }, deal_id: { type: "string" },
     kind: { type: "string" }, date: { type: "string" }, time: { type: "string" }, text: { type: "string" },
     title: { type: "string" }, amount: { type: "string" }, stage: { type: "string" },
-    name: { type: "string" }, company: { type: "string" }, phone: { type: "string" }, email: { type: "string" }, city: { type: "string" }, sector: { type: "string" }, client_kind: { type: "string" },
+    name: { type: "string" }, company: { type: "string" }, contact: { type: "string" }, phone: { type: "string" }, phone2: { type: "string" }, email: { type: "string" }, website: { type: "string" }, city: { type: "string" }, address: { type: "string" }, sector: { type: "string" }, notes: { type: "string" }, client_kind: { type: "string" },
+    activity_id: { type: "string" }, client_ids: { type: "array", items: { type: "string" } }, suggestions: { type: "array", items: { type: "string" } },
   }, required: ["reply", "action"] };
   const system = `Tu es « Magi », le robot assistant de Magiscom CRM, l'outil des commerciaux de la société « ${s.company} ».
 Tu parles à ${me.name} (${me.p.admin ? "directeur / administrateur : voit toute l'équipe" : "commercial : voit son portefeuille"}).
 Aujourd'hui : ${JOURS[today.getUTCDay()]} ${today.toISOString().slice(0, 10)}, il est ${today.toISOString().slice(11, 16)}.
 
-Ton rôle : comprendre la demande (écrite ou dictée, en français, en arabe ou en darija marocaine) et soit répondre à partir des données ci-dessous, soit déclencher UNE action dans l'application.
-Réponds dans la langue de l'utilisateur (darija → arabe simple ou darija ; français → français). Réponse courte : 1 à 3 phrases, ou une petite liste.
+Ton rôle : un vrai bras droit commercial. Comprends la demande (écrite ou dictée, en français, en arabe ou en darija marocaine) et :
+- réponds à partir des données ci-dessous (chiffres, listes, historique, conseils de relance, priorités du jour) ;
+- explique comment utiliser l'application (mode d'emploi ci-dessous) et propose l'écran utile ;
+- ou déclenche UNE action dans l'application.
+Réponds dans la langue de l'utilisateur (darija → arabe simple ou darija ; français → français). Sois concret et bref : 1 à 4 phrases ou une petite liste à puces.
+Ajoute dans "suggestions" 2 ou 3 demandes de suivi utiles et courtes (dans la langue de l'utilisateur), que l'utilisateur pourra toucher.
 
 Actions possibles (champ "action") :
 - none : simple réponse (question sur les données, conseil, salutation).
+- guide : explication du fonctionnement de l'application ; page = écran à proposer (facultatif).
+- show_clients : afficher une liste de fiches cliquables ; client_ids = liste de références (ex. ["C1","C4"]). À utiliser pour toute réponse qui cite plusieurs clients.
 - open_page : ouvrir un écran ; page ∈ ${ASSIST_PAGES.filter((x) => me.p.admin || !["dashboard", "team", "journal", "settings"].includes(x)).join(", ")}.
 - search : chercher des fiches ; query = mots à chercher (nom, ville, secteur…).
 - open_client : ouvrir la fiche ; client_id.
+- open_activity : ouvrir une activité ; activity_id (réf « A3 »).
+- complete_activity : marquer comme faite une tâche / un RDV / un appel prévu ; activity_id.
+- reschedule : déplacer une activité prévue ; activity_id, date, time.
+- update_client : modifier une fiche ; client_id + seulement les champs à changer parmi contact, phone, phone2, email, website, city, address, company, sector, notes (notes = texte à AJOUTER aux remarques).
 - create_activity : planifier ou noter quelque chose pour un client ; client_id, kind ∈ rdv | appel | tache | note | visite, date (AAAA-MM-JJ), time (HH:MM, vide si inconnue), text (objet / contenu).
 - create_client : nouvelle fiche ; name, company, phone, email, city, sector, client_kind ∈ client | prospect.
 - create_deal : nouvelle affaire ; client_id, title, amount (nombre en MAD, vide si inconnu), stage ∈ nouveau | devis | negociation | gagne | perdu, date (signature prévue).
@@ -1452,13 +1509,16 @@ Actions possibles (champ "action") :
 - voice_note : enregistrer une note vocale pour client_id.
 - meeting : lancer l'enregistrement d'une réunion avec client_id.
 - brief : préparer la visite de client_id (résumé IA).
+- followup : rédiger le message de suivi de la dernière réunion / visite de client_id.
 - call / whatsapp / email / directions : appeler, écrire sur WhatsApp, envoyer un e-mail ou aller chez client_id.
 
 Règles :
-- client_id = la référence de la fiche (ex. « C3 »), deal_id = la référence de l'affaire (ex. « D2 »), copiées depuis les listes ci-dessous. Si le client est ambigu ou introuvable, action = none et demande des précisions (ou propose search).
+- client_id = la référence de la fiche (ex. « C3 »), deal_id = celle de l'affaire (« D2 »), activity_id = celle de l'activité (« A5 »), copiées depuis les listes ci-dessous. « ce client » = la fiche ouverte à l'écran si elle est indiquée. Si le client est ambigu ou introuvable, action = none et demande des précisions (ou propose search).
 - Dates relatives (« demain », « jeudi », « غدا », « الاثنين الجاي ») : calcule-les à partir d'aujourd'hui.
 - N'invente jamais un client, un chiffre, une date ou une information absente des données.
 - Les créations seront confirmées par l'utilisateur avant d'être enregistrées : décris dans reply ce que tu vas créer.
+
+${APP_GUIDE}
 
 DONNÉES :
 ${ctx.text}`;
@@ -1469,8 +1529,8 @@ ${ctx.text}`;
   for (const model of [ASSIST_MODEL, LLM_MODEL]) {
     try {
       let r;
-      try { r = await env.AI.run(model, { messages, response_format: { type: "json_schema", json_schema: schema }, max_tokens: 900, temperature: 0.1 }); }
-      catch (e) { if (aiFailMsg(e)) throw e; r = await env.AI.run(model, { messages: [{ role: "system", content: system + "\nRéponds uniquement avec un objet JSON {reply, action, …}, sans texte autour. /no_think" }, ...messages.slice(1)], max_tokens: 900, temperature: 0.1 }); }
+      try { r = await env.AI.run(model, { messages, response_format: { type: "json_schema", json_schema: schema }, max_tokens: 1100, temperature: 0.1 }); }
+      catch (e) { if (aiFailMsg(e)) throw e; r = await env.AI.run(model, { messages: [{ role: "system", content: system + "\nRéponds uniquement avec un objet JSON {reply, action, suggestions, …}, sans texte autour. /no_think" }, ...messages.slice(1)], max_tokens: 1100, temperature: 0.1 }); }
       const o = parseJsonLoose(r);
       if (valid(o)) { out = o; break; }
     } catch (e) { lastErr = e; console.error("assistant", model, e); if (aiFailMsg(e)) break; }
@@ -1485,13 +1545,18 @@ ${ctx.text}`;
 }
 
 function cleanAssistant(out, ctx, me) {
+  const res = cleanAction(out, ctx, me);
+  res.suggestions = (Array.isArray(out.suggestions) ? out.suggestions : []).map((x) => str(x, 90)).filter(Boolean).slice(0, 3);
+  return res;
+}
+function cleanAction(out, ctx, me) {
   const reply = str(out.reply, 2500) || "…";
   let action = ASSIST_ACTIONS.includes(out.action) ? out.action : "none";
   const a = { type: action };
   const ids = new Set(ctx.clients.map((c) => c.id));
   const ref = (v) => { const k = str(v, 60).toUpperCase().replace(/\s/g, ""); return ctx.refs.get(k) || str(v, 60); };
   const cid = ref(out.client_id);
-  const needClient = ["open_client", "create_activity", "create_deal", "voice_note", "meeting", "brief", "call", "whatsapp", "email", "directions"];
+  const needClient = ["open_client", "create_activity", "create_deal", "voice_note", "meeting", "brief", "followup", "update_client", "call", "whatsapp", "email", "directions"];
   if (needClient.includes(action)) {
     if (!ids.has(cid)) return { reply, action: { type: "none" } };
     a.client_id = cid;
@@ -1500,7 +1565,30 @@ function cleanAssistant(out, ctx, me) {
   }
   const day = /^\d{4}-\d{2}-\d{2}$/.test(str(out.date, 10)) ? str(out.date, 10) : "";
   const time = /^\d{1,2}:\d{2}$/.test(str(out.time, 5)) ? str(out.time, 5).padStart(5, "0") : "";
+  const actOf = () => { const id = ref(out.activity_id); return ctx.acts.get(id) || null; };
   switch (action) {
+    case "guide": { const pg = str(out.page, 30); if (ASSIST_PAGES.includes(pg) && (me.p.admin || !["dashboard", "team", "journal", "settings"].includes(pg))) a.page = pg; break; }
+    case "show_clients": {
+      const list = (Array.isArray(out.client_ids) ? out.client_ids : []).map(ref).filter((id, i, arr) => ids.has(id) && arr.indexOf(id) === i).slice(0, 40);
+      if (!list.length) return { reply, action: { type: "none" } };
+      a.clients = list.map((id) => { const c = ctx.clients.find((x) => x.id === id); return { id, name: c.name, code: c.code, city: c.city || "", kind: c.kind }; });
+      break;
+    }
+    case "open_activity": case "complete_activity": case "reschedule": {
+      const v = actOf();
+      if (!v || (action !== "open_activity" && v.status !== "planned")) return { reply, action: { type: "none" } };
+      a.activity_id = v.id; a.activity = { id: v.id, kind: v.kind, date: v.date, client: v.cname, client_id: v.client_id, text: String(v.summary || v.next_step || "").slice(0, 200) };
+      if (action === "reschedule") { if (!day) return { reply, action: { type: "none" } }; a.date = day; a.time = time; }
+      break;
+    }
+    case "update_client": {
+      const ch = {};
+      for (const k of ASSIST_EDIT) { const v = str(out[k], k === "notes" ? 2000 : 300); if (v) ch[k] = v; }
+      if (!Object.keys(ch).length) return { reply, action: { type: "none" } };
+      const c = ctx.clients.find((x) => x.id === cid);
+      a.changes = ch; a.current = Object.fromEntries(Object.keys(ch).map((k) => [k, c[k] || ""]));
+      break;
+    }
     case "open_page": {
       const pg = str(out.page, 30);
       if (!ASSIST_PAGES.includes(pg) || (!me.p.admin && ["dashboard", "team", "journal", "settings"].includes(pg))) return { reply, action: { type: "none" } };

@@ -108,7 +108,7 @@
     const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
     const file = blob && new File([blob], "my-catalog.png", { type: "image/png" });
     try {
-      if (file && navigator.canShare && navigator.canShare({ files: [file] })) return await navigator.share({ files: [file], text: t("cat.shareText", { a: p.have, b: p.total }) + " " + location.origin + "/" });
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) return await navigator.share({ files: [file], text: t("cat.shareText", { a: p.have, b: p.total }) + " " + ((window.JShare && window.JShare.withRef(location.origin + "/")) || location.origin + "/") });
     } catch (e) { if (e && e.name === "AbortError") return; }
     const sh = $("catShare");
     if (sh && window.JShare) window.JShare.bar(sh, { url: location.origin + "/", text: t("cat.shareText", { a: p.have, b: p.total }), labels: { copy: t("js.copy"), copied: t("js.copied"), more: t("js.more") } });

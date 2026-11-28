@@ -191,6 +191,7 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS bbox_burns ( item_id INTEGER PRIMARY KEY, uid TEXT NOT NULL, tier INTEGER NOT NULL, edition INTEGER NOT NULL, dates INTEGER NOT NULL, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS activity ( uid TEXT NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS usage_events ( uid TEXT NOT NULL, name TEXT NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (uid, name, day) )",
+  "CREATE TABLE IF NOT EXISTS ref_rewards ( invitee TEXT PRIMARY KEY, inviter TEXT NOT NULL, at INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0 )",
   "CREATE TABLE IF NOT EXISTS castle_day ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
   "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
@@ -346,6 +347,7 @@ const one = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
 const all = async (env, sql, ...p) => (await env.DB.prepare(sql).bind(...p).all()).results;
 const run = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).run();
 
+const REF = { WELCOME_DATES: 2000, WELCOME_SPINS: 1, INVITER_DATES: 3000, INVITER_JRY: 5, DAILY_MAX: 5 }; // in-game rewards for invited players and for who invited them (once the friend has played on 2 different days)
 const INVITER_DAYS = 7; // a new player can add who invited them during their first week
 
 // ---------- Memberships ----------
@@ -530,6 +532,22 @@ async function applyMult(env, u, m, now) {
 }
 
 // Loads the game and gives a new partner their welcome gift (a legendary camel, once)
+// The inviter is rewarded once, when the invited player has opened the game on 2 different days (a real player, not a fake sign-up).
+// At most REF.DAILY_MAX paid rewards per inviter per day, and none when both accounts share the same network hash.
+async function refMilestone(env, u, now) {
+  if (!u.referrer) return;
+  if (await one(env, "SELECT 1 AS x FROM ref_rewards WHERE invitee = ?", u.uid)) return;
+  if ((await one(env, "SELECT COUNT(*) AS n FROM activity WHERE uid = ?", u.uid)).n < 2) return;
+  const inv = await one(env, "SELECT uid, net FROM users WHERE uid = ?", u.referrer);
+  if (!inv) return;
+  const today = (await one(env, "SELECT COUNT(*) AS n FROM ref_rewards WHERE inviter = ? AND paid = 1 AND at > ?", inv.uid, now - DAY)).n;
+  const ok = today < REF.DAILY_MAX && !(u.net && inv.net && u.net === inv.net);
+  const ins = await run(env, "INSERT OR IGNORE INTO ref_rewards (invitee, inviter, at, paid) VALUES (?, ?, ?, ?)", u.uid, inv.uid, now, ok ? 1 : 0);
+  if (!ins.meta.changes || !ok) return;
+  await giveReward(env, inv.uid, "dates", REF.INVITER_DATES, now, "invite");
+  await giveReward(env, inv.uid, "jry", REF.INVITER_JRY, now, "invite");
+  await notify(env, [{ uid: inv.uid, kind: "refplay", ref: u.uid, vars: { u: u.username, d: REF.INVITER_DATES.toLocaleString("en-US"), j: REF.INVITER_JRY } }]).catch(() => {});
+}
 async function stateFor(env, u, now, tier) {
   const st = await loadState(env, u.uid, now);
   let changed = L.tickCity(st, now, secureRandom); // new city orders appear on their own
@@ -673,7 +691,7 @@ async function carryFromTestnet(env, me, now, mine) {
 
 // A game state remembers the version it was read at (not saved in the JSON): saveState only writes if nobody saved in between
 // Heavy public rankings are computed at most once a minute per Worker instance (BOARD_TTL_MS=0 in tests)
-const USAGE_EVENTS = ["open_kombat", "open_derby", "open_merge", "open_earn", "open_quests", "open_wheel", "open_arcade", "open_court", "open_season", "open_vipc", "open_castle", "open_magazine", "open_catalog", "open_market", "open_box", "open_chat", "open_services", "open_jry", "open_biz", "open_levels", "open_streak", "palm_tap", "tab_camels", "tab_city", "tab_granary", "tab_rank", "tab_club"];
+const USAGE_EVENTS = ["share_click", "open_kombat", "open_derby", "open_merge", "open_earn", "open_quests", "open_wheel", "open_arcade", "open_court", "open_season", "open_vipc", "open_castle", "open_magazine", "open_catalog", "open_market", "open_box", "open_chat", "open_services", "open_jry", "open_biz", "open_levels", "open_streak", "palm_tap", "tab_camels", "tab_city", "tab_granary", "tab_rank", "tab_club"];
 const MEMO = new Map();
 async function memo(env, key, fn) {
   const ttl = env.BOARD_TTL_MS != null ? Number(env.BOARD_TTL_MS) : 60000, hit = MEMO.get(key);
@@ -826,6 +844,10 @@ const routes = {
       }
       await run(env, "INSERT INTO users (uid, username, referrer, vip_until, ref_balance, created_at) VALUES (?, ?, ?, 0, 0, ?)", me.uid, me.username, referrer, now);
       await carryFromTestnet(env, me, now, null);
+      if (referrer) { // welcome gift for a player who came through an invitation
+        await giveReward(env, me.uid, "dates", REF.WELCOME_DATES, now, "welcome");
+        await giveReward(env, me.uid, "spins", REF.WELCOME_SPINS, now, "welcome");
+      }
     } else if (u.username !== me.username) {
       // Username changed on Pi: free the name if a stale row still holds it
       await run(env, "UPDATE users SET username = username || '#' || uid WHERE username = ? AND uid != ?", me.username, me.uid);
@@ -852,6 +874,7 @@ const routes = {
     const u = await auth(req, env);
     const now = Date.now();
     await run(env, "INSERT OR IGNORE INTO activity (uid, day) VALUES (?, ?)", u.uid, Math.floor(now / DAY)).catch(() => {}); // one row per player per day: retention
+    await refMilestone(env, u, now).catch((e) => logError(env, "refMilestone", 0, e.message));
     const acc = await account(env, u);
     return { account: acc, state: await stateFor(env, u, now, acc.tier), now };
   },
@@ -1185,7 +1208,13 @@ const routes = {
     const payers = await one(env, "SELECT COUNT(DISTINCT uid) AS n, ROUND(COALESCE(SUM(amount), 0), 2) AS pi FROM payments WHERE status = 'completed' AND created_at > ?", Date.now() - 7 * DAY);
     const owed = await one(env, "SELECT COUNT(*) AS n, ROUND(COALESCE(SUM(amount), 0), 3) AS pi, MIN(created_at) AS oldest FROM payouts WHERE status IN ('new', 'created', 'sending')");
     const failed = (await one(env, "SELECT COUNT(*) AS n FROM payments WHERE status = 'grant_failed'")).n;
-    return { today, dau, cohorts, weeklyActives: actives, usage: usage.map((x) => ({ ...x, share: actives ? Math.round((100 * x.players) / actives) : 0 })), payers, owed: { ...owed, oldestDays: owed.oldest ? Math.floor((Date.now() - owed.oldest) / DAY) : 0 }, grantFailed: failed };
+    // referrals: invited sign-ups, how many came back the next day, how many made the inviter earn, and the share clicks
+    const refs = await one(env, `SELECT COUNT(*) AS signups,
+      SUM(CASE WHEN EXISTS (SELECT 1 FROM activity a WHERE a.uid = u.uid AND a.day = CAST(u.created_at / 86400000 AS INTEGER) + 1) THEN 1 ELSE 0 END) AS d1,
+      SUM(CASE WHEN EXISTS (SELECT 1 FROM ref_rewards r WHERE r.invitee = u.uid AND r.paid = 1) THEN 1 ELSE 0 END) AS rewarded
+      FROM users u WHERE u.referrer IS NOT NULL AND u.created_at > ?`, Date.now() - 30 * DAY);
+    const shares = await one(env, "SELECT COUNT(DISTINCT uid) AS players FROM usage_events WHERE name = 'share_click' AND day > ?", today - 7);
+    return { referrals30d: { ...refs, sharersLast7d: shares.players }, today, dau, cohorts, weeklyActives: actives, usage: usage.map((x) => ({ ...x, share: actives ? Math.round((100 * x.players) / actives) : 0 })), payers, owed: { ...owed, oldestDays: owed.oldest ? Math.floor((Date.now() - owed.oldest) / DAY) : 0 }, grantFailed: failed };
   },
 
   // ---------- Harvest levels: XP = dates earned honestly; each level pays once ----------
@@ -3424,6 +3453,7 @@ const MK = L.MARKET;
 // Messages in the player's language (saved at sign-in). {x} are filled from vars.
 const NOTE = {
   mangaNew: { go: "mag", en: ["🎨 New manga chapter", "{s}: {t}. Read it now in Pi Oasis."], ar: ["🎨 فصل مانغا جديد", "{s}: {t}. اقرأه الآن في واحة باي."], fr: ["🎨 Nouveau chapitre de manga", "{s} : {t}. Lis-le maintenant dans Pi Oasis."] },
+  refplay: { go: "farm", en: ["🤝 {u} is playing!", "Your friend came back to Pi Oasis: +{d} dates and +{j} JRY points for you."], ar: ["🤝 ‎{u} يلعب الآن!", "عاد صديقك إلى واحة باي: لك +{d} تمرة و+{j} نقطة JRY."], fr: ["🤝 {u} joue !", "Ton ami est revenu sur Pi Oasis : +{d} dattes et +{j} points JRY pour toi."] },
   chatdm: { go: "chat", en: ["💬 {u} sent you a message", "Open the chat to reply."], ar: ["💬 رسالة من ‎{u}", "افتح الدردشة لتردّ."], fr: ["💬 Message de {u}", "Ouvrez le chat pour répondre."] },
   gift: { go: "box", en: ["🎁 You received a gift", "{u} sent you a gift. Open your box to see it."], ar: ["🎁 وصلتك هدية", "أرسل لك ‎{u} هدية. افتح صندوقك لتراها."], fr: ["🎁 Vous avez reçu un cadeau", "{u} vous a envoyé un cadeau. Ouvrez votre boîte."] },
   nftswap: { go: "kombat", en: ["🔁 Your card was swapped", "Someone accepted your swap offer. Open your collection to see the new card."], ar: ["🔁 تمت مبادلة بطاقتك", "قَبِل أحدهم عرض المبادلة. افتح مجموعتك لترى البطاقة الجديدة."], fr: ["🔁 Votre carte a été échangée", "Quelqu'un a accepté votre offre d'échange. Ouvrez votre collection."] },

@@ -140,3 +140,8 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 ## Usage measurement (Phase C, step 1)
 - `activity(uid, day)` (one row per player per day, written on `GET /api/me`) and `usage_events(uid, name, day)` (`POST /api/event`, whitelist `USAGE_EVENTS`, once per player/system/day). Client `public/track.js` sends the system openings (hub banners, tabs, level/streak bars, palm tap) once a day per name.
 - Owner report: `GET /api/admin/metrics` with `x-admin-token`: daily actives, D1/D7 of the last 14 sign-up cohorts, share of last week's actives who used each system, payers and Pi last week, Pi owed to winners and its age, `grant_failed` count. Tests `tests/usage.mjs` (10).
+
+## Growth (Phase F, first part)
+- Invitations: the invited player gets 2,000 dates + 1 wheel spin on sign-up through `?ref`; the inviter gets 3,000 dates + 5 JRY points once the friend has opened the game on 2 different days (table `ref_rewards`, `refMilestone`, notification `refplay`), max 5 paid rewards per inviter per day, none when both accounts share the same network hash. The Pi payment commission (10%) is unchanged. Tests `tests/invite.mjs` (8).
+- Every share bar link to the app now carries the sharer's `?ref` (`JShare.withRef` in `share.js`); `share_click` events; `/api/admin/metrics` has `referrals30d` (invited sign-ups, D1, rewarded, sharers last 7 days).
+- Site basics: `manifest.webmanifest`, `robots.txt`, `sitemap.xml` (pinet URL), canonical and og:locale tags. Not done yet: result-card images for sharing, "friend reached level N" and win-back notifications, magazine "open the game" links (no ref on another domain).

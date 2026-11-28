@@ -25,5 +25,8 @@ const co = (m.cohorts || []).find((c) => c.day === today - 10);
 ok(co && co.signups === 2 && co.d1 === 1 && co.d7 === 1, "cohort: 2 sign-ups, 1 came back the next day, 1 on day 7", co);
 ok(m.dau && m.dau.length >= 3, "daily actives are listed", m.dau);
 ok((m.usage || []).some((x) => x.name === "open_merge" && x.players === 1 && x.share >= 1), "system usage with the share of weekly actives", m.usage);
+ok((await post("/api/event", { name: "share_click" }, C)).ok, "share clicks are recorded");
+const m2 = await get("/api/admin/metrics", null, { "x-admin-token": "adm" });
+ok(m2.referrals30d && m2.referrals30d.sharersLast7d === 1 && typeof m2.referrals30d.signups === "number", "referral numbers (invited sign-ups, D1, rewarded, sharers) are in the report", m2.referrals30d);
 ok(m.owed && typeof m.owed.pi === "number" && typeof m.grantFailed === "number", "money owed and failed grants are in the report");
 console.log(`== ${pass} passed, ${fail} failed`);

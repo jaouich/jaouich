@@ -9,12 +9,14 @@ const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const db = new DatabaseSync(":memory:");
 // empty DB: worker must create tables
 const SEEN = new Set();
+// D1_LATENCY_MS=3 makes every query wait a random 0-3 ms, so parallel requests interleave like on the real D1 (tests/concurrency.mjs)
+const LAT = Number(process.env.D1_LATENCY_MS || 0), lag = (sql) => (LAT && !/^\s*(CREATE|ALTER|DROP|PRAGMA)/i.test(sql) ? new Promise((r) => setTimeout(r, Math.random() * LAT)) : null);
 const note = (d, sql) => { if (process.env.EXPLAIN && /^\s*(SELECT|UPDATE|DELETE)/i.test(sql) && !SEEN.has(sql)) { SEEN.add(sql); try { const plan = d.prepare("EXPLAIN QUERY PLAN " + sql).all(...Array((sql.match(/\?/g) || []).length).fill(null)).map((x) => x.detail).filter((x) => /^SCAN /.test(x) && !/USING (COVERING )?INDEX/.test(x)); if (plan.length) console.log("SCAN", plan.join(" | "), "::", sql.slice(0, 150).replace(/\s+/g, " ")); } catch (e) {} } };
 const mkStmt = (d) => { const stmt = (sql, p = []) => (note(d, sql), {
   bind: (...b) => stmt(sql, b),
-  first: async () => d.prepare(sql).get(...p) ?? null,
-  all: async () => ({ results: d.prepare(sql).all(...p) }),
-  run: async () => { const r = d.prepare(sql).run(...p); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
+  first: async () => { await lag(sql); return d.prepare(sql).get(...p) ?? null; },
+  all: async () => { await lag(sql); return { results: d.prepare(sql).all(...p) }; },
+  run: async () => { await lag(sql); const r = d.prepare(sql).run(...p); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; },
 }); return stmt; };
 const stmt = mkStmt(db);
 const DB = { prepare: (sql) => stmt(sql), batch: async (list) => Promise.all(list.map((s) => s.run())) };

@@ -34,6 +34,7 @@ ok(r.list.length === 3, "history of distributions");
 const last = weekId(Date.now() - 7 * 86400000);
 await exec(`INSERT INTO week_scores (week_id, uid, score, updated_at) VALUES (${last}, 'uC', 900, 1)`);
 const c1 = await jry("uC");
+{ const wk0 = (() => { const d = new Date(); const day = (d.getUTCDay() + 6) % 7; return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day); })(); await fetch(B + "/__test/exec", { method: "POST", body: `INSERT OR IGNORE INTO season_paid VALUES (${Math.floor((wk0 - 4 * 86400000) / (28 * 86400000)) - 1}, 1)` }); } // keep the league payout out of this test
 await fetch(B + "/__test/cron");
 ok(await jry("uC") === c1 + 500, "weekly #1 also gets 500 JRY");
 ok((await notifs()).some((x) => x.user_uid === "uC" && x.body.includes("+500 JRY")), "weekly notification mentions the JRY");

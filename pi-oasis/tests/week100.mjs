@@ -4,7 +4,8 @@ const post = (p, b, h = {}) => fetch(B + p, { method: "POST", headers: { "Conten
 const get = (p, h) => fetch(B + p, { headers: h }).then((r) => r.json());
 const exec = (q) => fetch(B + "/__test/exec", { method: "POST", body: q });
 const sql = (q) => fetch(B + "/__test/sql", { method: "POST", body: q }).then((r) => r.json());
-const cron = () => fetch(B + "/__test/cron");
+const cron = async () => { const wk0 = (() => { const d = new Date(); const day = (d.getUTCDay() + 6) % 7; return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day); })(); await fetch(B + "/__test/exec", { method: "POST", body: `INSERT OR IGNORE INTO season_paid VALUES (${Math.floor((wk0 - 4 * 86400000) / (28 * 86400000)) - 1}, 1)` });  return fetch(B + "/__test/cron"); }; // the league payout stays out of this test
+
 let pass = 0, fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); c ? pass++ : fail++; };
 const weekId = (t) => { const d = new Date(t); const day = (d.getUTCDay() + 6) % 7; return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day); };

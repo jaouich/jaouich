@@ -290,6 +290,7 @@ const SCHEMA = [
 let schemaReady = null;
 // Columns added after launch (each fails harmlessly once it exists)
 const ALTERS = [
+  "ALTER TABLE state ADD COLUMN ver INTEGER NOT NULL DEFAULT 0",
   "INSERT OR IGNORE INTO chat_members (uid, room) SELECT DISTINCT substr(room, 4, instr(substr(room, 4), ':') - 1), room FROM chat_msgs WHERE room LIKE 'dm:%'",
   "INSERT OR IGNORE INTO chat_members (uid, room) SELECT DISTINCT substr(room, 4 + instr(substr(room, 4), ':')), room FROM chat_msgs WHERE room LIKE 'dm:%'",
   "ALTER TABLE users ADD COLUMN vip_tier TEXT",
@@ -545,7 +546,14 @@ async function stateFor(env, u, now, tier) {
     st.partnerGift = 1;
     changed = true;
   }
-  if (changed) await saveState(env, u.uid, st, now);
+  if (changed) {
+    try { await saveState(env, u.uid, st, now); }
+    catch (e) {
+      // someone saved first: give back the credits we took (they are taken again on the retry)
+      if (e instanceof StateConflict) for (const c of credits) await run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, ?)", u.uid, c.amount, now, c.src || null);
+      throw e;
+    }
+  }
   return st;
 }
 
@@ -661,21 +669,32 @@ async function carryFromTestnet(env, me, now, mine) {
   }
 }
 
+// A game state remembers the version it was read at (not saved in the JSON): saveState only writes if nobody saved in between
+class StateConflict extends Error { constructor() { super("busy"); } }
 async function loadState(env, uid, now) {
-  const row = await one(env, "SELECT json FROM state WHERE uid = ?", uid);
-  return L.normalize(row ? JSON.parse(row.json) : null, now);
+  const row = await one(env, "SELECT json, ver FROM state WHERE uid = ?", uid);
+  const st = L.normalize(row ? JSON.parse(row.json) : null, now);
+  Object.defineProperty(st, "_ver", { value: row ? row.ver || 0 : null, writable: true, enumerable: false });
+  return st;
 }
 async function saveState(env, uid, s, now) {
   // Kombat weekly tournament row: at most once a minute (fewer database writes)
   const wk = s.kombat && s.kombat.wk;
   const saveWeek = wk && wk.n > 0 && now - (wk.at || 0) >= 60000;
   if (saveWeek) wk.at = now;
-  await run(
-    env,
-    `INSERT INTO state (uid, json, week_id, week_score, updated_at) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(uid) DO UPDATE SET json = excluded.json, week_id = excluded.week_id, week_score = excluded.week_score, updated_at = excluded.updated_at`,
-    uid, JSON.stringify(s), s.week.id, s.week.score, now
-  );
+  if (s._ver != null) {
+    // compare-and-set: a parallel request that saved first wins, this one must be redone (never a double credit)
+    const r = await run(env, "UPDATE state SET json = ?, week_id = ?, week_score = ?, updated_at = ?, ver = ver + 1 WHERE uid = ? AND ver = ?", JSON.stringify(s), s.week.id, s.week.score, now, uid, s._ver);
+    if (!r.meta.changes) { if (saveWeek) wk.at = 0; throw new StateConflict(); }
+    s._ver += 1;
+  } else {
+    await run(
+      env,
+      `INSERT INTO state (uid, json, week_id, week_score, updated_at) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(uid) DO UPDATE SET json = excluded.json, week_id = excluded.week_id, week_score = excluded.week_score, updated_at = excluded.updated_at, ver = state.ver + 1`,
+      uid, JSON.stringify(s), s.week.id, s.week.score, now
+    );
+  }
   // Kombat weekly tournament: coins earned this week, kept per week for the prizes
   if (saveWeek) {
     await run(
@@ -823,6 +842,8 @@ const routes = {
     let adVerified = false;
     if (a.type === "speedup" || a.type === "kAdRefill" || a.type === "kAdDaily") adVerified = await verifyAd(env, u.uid, a.adId, now);
     const tier = tierOf(u, now, await isPartner(env, u.username));
+    for (let attempt = 0; ; attempt++) {
+    try {
     const state = await stateFor(env, u, now, tier);
     let res;
     try {
@@ -835,6 +856,8 @@ const routes = {
     await saveState(env, u.uid, res.s, now);
     if (a.type === "kTap" && res.dmg > 0) await bossHit(env, u.uid, res.dmg, now).catch((e) => logError(env, "boss hit", 0, e.message));
     return { state: res.s, msg: res.msg, palm: res.palm, now };
+    } catch (e) { if (e instanceof StateConflict && attempt < 3) continue; throw e; }
+    }
   },
 
   // ---------- Payments (User → App) ----------
@@ -1441,11 +1464,11 @@ const routes = {
     if (n >= c.max) bad("k.nftSoldOut");
     const cost = KL.mintPrice(c, n);
     if (st.kombat.coins < cost) bad("k.noCoins", { n: cost - Math.floor(st.kombat.coins) });
-    const ins = await run(env, "INSERT OR IGNORE INTO nft_items (kind, edition, owner, minted_at) VALUES (?, ?, ?, ?)", c.id, n + 1, u.uid, now);
-    if (!ins.meta.changes) bad("k.nftBusy"); // someone minted the same number a moment ago: try again
-    const item = await one(env, "SELECT id, edition FROM nft_items WHERE kind = ? AND edition = ?", c.id, n + 1);
     st.kombat.coins -= cost;
-    await saveState(env, u.uid, st, now);
+    await saveState(env, u.uid, st, now); // pay first: a parallel request fails here instead of minting for free
+    const ins = await run(env, "INSERT OR IGNORE INTO nft_items (kind, edition, owner, minted_at) VALUES (?, ?, ?, ?)", c.id, n + 1, u.uid, now);
+    if (!ins.meta.changes) { await run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'refund')", u.uid, cost, now); bad("k.nftBusy"); } // same number minted a moment ago: refunded, try again
+    const item = await one(env, "SELECT id, edition FROM nft_items WHERE kind = ? AND edition = ?", c.id, n + 1);
     await run(env, "INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, NULL, ?, ?, ?)", item.id, u.uid, cost, now);
     return { state: st, item: { id: item.id, kind: c.id, edition: item.edition }, now };
   },
@@ -1483,17 +1506,23 @@ const routes = {
       const me = await one(env, "SELECT jry_pts FROM users WHERE uid = ?", u.uid);
       if (((me && me.jry_pts) || 0) < price) bad("k.noJry", { n: price - ((me && me.jry_pts) || 0) });
     } else if (st.kombat.coins < price) bad("k.noCoins", { n: price - Math.floor(st.kombat.coins) });
-    const r = await run(env, "UPDATE nft_items SET owner = ?, price = NULL, swap_want = NULL, cur = 'coins' WHERE id = ? AND owner = ? AND price = ? AND cur = ?", u.uid, id, item.owner, price, item.cur);
-    if (!r.meta.changes) bad("k.nftGone");
-    const net = Math.floor(price * (1 - KL.NFT_FEE));
+    // the buyer pays FIRST (checked), then the card moves; if the card is gone the buyer is refunded
     if (item.cur === "jry") {
-      await run(env, "UPDATE users SET jry_pts = jry_pts - ? WHERE uid = ? AND jry_pts >= ?", price, u.uid, price);
-      await giveReward(env, item.owner, "jry", net, now, "nft");
+      const d = await run(env, "UPDATE users SET jry_pts = jry_pts - ? WHERE uid = ? AND jry_pts >= ?", price, u.uid, price);
+      if (!d.meta.changes) bad("k.noJry", { n: price });
     } else {
       st.kombat.coins -= price;
       await saveState(env, u.uid, st, now);
-      await run(env, "INSERT INTO nft_credits (uid, amount, at) VALUES (?, ?, ?)", item.owner, net, now);
     }
+    const r = await run(env, "UPDATE nft_items SET owner = ?, price = NULL, swap_want = NULL, cur = 'coins' WHERE id = ? AND owner = ? AND price = ? AND cur = ?", u.uid, id, item.owner, price, item.cur);
+    if (!r.meta.changes) {
+      if (item.cur === "jry") await giveReward(env, u.uid, "jry", price, now, "refund");
+      else await run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'refund')", u.uid, price, now);
+      bad("k.nftGone");
+    }
+    const net = Math.floor(price * (1 - KL.NFT_FEE));
+    if (item.cur === "jry") await giveReward(env, item.owner, "jry", net, now, "nft");
+    else await run(env, "INSERT INTO nft_credits (uid, amount, at) VALUES (?, ?, ?)", item.owner, net, now);
     await run(env, "INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, ?, ?, ?, ?)", id, item.owner, u.uid, item.cur === "jry" ? price * 220 : price, now);
     return { state: st, now };
   },
@@ -2074,7 +2103,7 @@ const routes = {
     } else {
       cost = DL.trainCost(v);
       if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
-      const r = await run(env, "UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') - ?) WHERE uid = ? AND json_extract(json, '$.dates') >= ?", cost, u.uid, cost);
+      const r = await run(env, "UPDATE state SET ver = ver + 1, json = json_set(json, '$.dates', json_extract(json, '$.dates') - ?) WHERE uid = ? AND json_extract(json, '$.dates') >= ?", cost, u.uid, cost);
       if (!r.meta.changes) bad("notEnough");
       c.s[i] = v + 1;
     }
@@ -2819,7 +2848,7 @@ const routes = {
     if (to === "coins") await run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'jry')", u.uid, got, now);
     else {
       if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
-      await run(env, "UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?", got, got, u.uid);
+      await run(env, "UPDATE state SET ver = ver + 1, json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?", got, got, u.uid);
     }
     const fresh = await one(env, "SELECT * FROM users WHERE uid = ?", u.uid);
     const acc = await account(env, fresh);
@@ -2890,7 +2919,7 @@ const routes = {
       if (o.reward === "coins") await run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'jry')", u.uid, v.got, now);
       else {
         if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
-        await run(env, "UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?", v.got, v.got, u.uid);
+        await run(env, "UPDATE state SET ver = ver + 1, json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?", v.got, v.got, u.uid);
       }
     }
     const tier = tierOf(u, now, await isPartner(env, u.username));
@@ -3280,7 +3309,7 @@ async function grantItem(env, u, item, id, now, internal) {
       const F = L.SUPPORT_FREE, n = item.supFree;
       stmts.push(env.DB.prepare("UPDATE users SET sup_pi = ROUND(COALESCE(sup_pi, 0) + ?, 7), sup_at = COALESCE(sup_at, ?), jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(n, now, n * F.JRY, u.uid));
       if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
-      stmts.push(env.DB.prepare("UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?").bind(n * F.DATES, n * F.DATES, u.uid));
+      stmts.push(env.DB.prepare("UPDATE state SET ver = ver + 1, json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?").bind(n * F.DATES, n * F.DATES, u.uid));
     }
     if (item.sup) {
       // keeps the highest level reached; the total supported adds up
@@ -3290,7 +3319,7 @@ async function grantItem(env, u, item, id, now, internal) {
     if (item.lvl) {
       const k = item.lvl;
       if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
-      stmts.push(env.DB.prepare("UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?").bind(k.dates, k.dates, u.uid));
+      stmts.push(env.DB.prepare("UPDATE state SET ver = ver + 1, json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?").bind(k.dates, k.dates, u.uid));
       stmts.push(env.DB.prepare("INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, 'shop')").bind(u.uid, k.coins, now));
       if (k.spins) stmts.push(env.DB.prepare("UPDATE users SET wheel_spins = COALESCE(wheel_spins, 0) + ? WHERE uid = ?").bind(k.spins, u.uid));
       if (k.jry) stmts.push(env.DB.prepare("UPDATE users SET jry_pts = COALESCE(jry_pts, 0) + ? WHERE uid = ?").bind(k.jry, u.uid));
@@ -3298,7 +3327,7 @@ async function grantItem(env, u, item, id, now, internal) {
     if (item.pack) {
       // Bought dates go to the balance only: they never count toward the weekly ranking
       if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", u.uid))) await saveState(env, u.uid, L.fresh(now), now);
-      stmts.push(env.DB.prepare("UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?").bind(item.pack.dates, item.pack.dates, u.uid));
+      stmts.push(env.DB.prepare("UPDATE state SET ver = ver + 1, json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?, '$.bought', COALESCE(json_extract(json, '$.bought'), 0) + ?) WHERE uid = ?").bind(item.pack.dates, item.pack.dates, u.uid));
     }
     if (u.referrer && !internal) {
       stmts.push(env.DB.prepare("UPDATE users SET ref_balance = ROUND(ref_balance + ?, 7) WHERE uid = ?").bind(round(net(item.price) * REFERRAL_RATE), u.referrer));
@@ -3894,7 +3923,7 @@ async function giveReward(env, uid, kind, n, now, src) {
 async function creditPoints(env, uid, kind, n, now, src) {
   if (kind === "coins") return run(env, "INSERT INTO nft_credits (uid, amount, at, src) VALUES (?, ?, ?, ?)", uid, n, now, src);
   if (!(await one(env, "SELECT 1 AS x FROM state WHERE uid = ?", uid))) await saveState(env, uid, L.fresh(now), now);
-  return run(env, "UPDATE state SET json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?) WHERE uid = ?", n, uid);
+  return run(env, "UPDATE state SET ver = ver + 1, json = json_set(json, '$.dates', json_extract(json, '$.dates') + ?) WHERE uid = ?", n, uid);
 }
 async function mkReserve(env, u, item, payId, now) {
   const o = await one(env, "SELECT * FROM mk_offers WHERE id = ?", item.mk);
@@ -4271,7 +4300,11 @@ export default {
         if (text.length > 50000) bad("badAction");
         if (text) body = JSON.parse(text);
       }
-      const out = await handler(req, env, body);
+      let out;
+      for (let attempt = 0; ; attempt++) {
+        try { out = await handler(req, env, body); break; }
+        catch (e) { if (e instanceof StateConflict && req.method === "GET" && attempt < 3) continue; throw e; } // reading never fails because of a parallel save
+      }
       return out instanceof Response ? out : json(out);
     } catch (e) {
       if (e instanceof HttpError) {
@@ -4280,6 +4313,7 @@ export default {
         }
         return json(e.vars ? { error: e.code, vars: e.vars } : { error: e.code }, e.status);
       }
+      if (e instanceof StateConflict) return json({ error: "busy" }, 503);
       if (e instanceof SyntaxError) return json({ error: "badAction" }, 400);
       if (/exceeded|row read limit|D1_ERROR.*limit|too many requests/i.test((e && e.message) || "")) return json({ error: "busy" }, 503);
       console.error(e && e.stack);

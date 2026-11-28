@@ -9,7 +9,7 @@ global.window = global; await import("../public/logic.js"); await import("../pub
 const L = globalThis.OasisLogic, KL = globalThis.KombatLogic, BB = L.BBOX;
 ok(BB.TIERS.length === 10 && BB.TIERS.every((t, i) => t.p === i + 1), "ten boxes, 1 to 10 Pi");
 ok(BB.TIERS.every((t, i) => !i || (t.dates > BB.TIERS[i - 1].dates && t.jry > BB.TIERS[i - 1].jry && t.coins > BB.TIERS[i - 1].coins)), "every box is better than the one before");
-ok(KL.COLLECTIBLES.filter((c) => c.pi).length === 10 && KL.COLLECTIBLES.filter((c) => c.pi).every((c) => c.max === 1000000), "10 collectible cards with 1,000,000 copies each");
+ok(KL.COLLECTIBLES.filter((c) => c.r === "box").length === 10 && KL.COLLECTIBLES.filter((c) => c.r === "box").every((c) => c.max === 1000000), "10 collectible cards with 1,000,000 copies each");
 const cat = globalThis.CatalogLogic && globalThis.CatalogLogic.items ? globalThis.CatalogLogic.items() : null;
 ok(!cat || !cat.some((x) => /^box/.test(x.id || x.key || "")), "boxes are not part of the Catalog album");
 const C = (await post("/api/auth", { accessToken: "tokC" })).session, D = (await post("/api/auth", { accessToken: "tokD" })).session;

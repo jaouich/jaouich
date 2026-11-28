@@ -70,6 +70,7 @@ async function route(req, env, ctx, url = new URL(req.url)) {
   if (p === "/api/clients/reassign" && m === "POST") return reassign(req, env, me, log);
   if (p === "/api/clients/import" && m === "POST") return importClients(req, env, me, log);
   if (p === "/api/export/deals.xlsx" && m === "GET") return exportDeals(url, env, me, log);
+  if (p === "/api/import/modele.xlsx" && m === "GET") return importTemplate();
   if (p === "/api/files/mp" && m === "POST") return mpCreate(req, env, me);
   if (p === "/api/users" && m === "GET") return listUsers(env, me);
   if (p === "/api/users" && m === "POST") return createUser(req, env, me, log);
@@ -802,10 +803,11 @@ async function listAudit(url, env, me) {
 }
 
 // ------------------------------------------------------------------ export Excel (.xlsx)
+// sans le droit « exporter », chacun peut quand même exporter SON portefeuille (fiches dont il est responsable)
+const exportScope = (me, alias = "c") => (me.p.export ? scopeSql(me, alias) : { sql: `${alias}.owner_id = ?`, args: [me.id] });
 const fmtDate = (ms) => (ms ? new Date(ms).toISOString().replace("T", " ").slice(0, 16) : "");
 async function exportClients(url, env, me, log) {
-  if (!me.p.export) fail(403, "Vous n'avez pas le droit d'exporter");
-  const sc = scopeSql(me);
+  const sc = exportScope(me);
   const where = [sc.sql, "c.deleted_at IS NULL"], args = [...sc.args];
   const kind = url.searchParams.get("kind"), owner = url.searchParams.get("owner"), city = url.searchParams.get("city");
   if (KINDS.includes(kind)) { where.push("c.kind = ?"); args.push(kind); }
@@ -823,8 +825,7 @@ async function exportClients(url, env, me, log) {
   return xlsxResponse("clients", [{ name: "Clients", head, rows }]);
 }
 async function exportVisits(url, env, me, log) {
-  if (!me.p.export) fail(403, "Vous n'avez pas le droit d'exporter");
-  const sc = scopeSql(me);
+  const sc = exportScope(me);
   const where = [sc.sql, "v.deleted_at IS NULL", "c.deleted_at IS NULL"], args = [...sc.args];
   const from = Number(url.searchParams.get("from")) || 0, to = Number(url.searchParams.get("to")) || 4102444800000;
   where.push("v.date >= ? AND v.date <= ?"); args.push(from, to);
@@ -1297,8 +1298,7 @@ async function deleteDeal(id, env, me, log) {
   return json({ ok: true });
 }
 async function exportDeals(url, env, me, log) {
-  if (!me.p.export) fail(403, "Vous n'avez pas le droit d'exporter");
-  const sc = scopeSql(me);
+  const sc = exportScope(me);
   const { results } = await env.DB.prepare(`SELECT d.*, c.code, c.name AS client_name, c.city, u.name AS user_name FROM deals d JOIN clients c ON c.id = d.client_id LEFT JOIN users u ON u.id = d.user_id
     WHERE ${sc.sql} AND d.deleted_at IS NULL ORDER BY d.stage, d.close_date`).bind(...sc.args).all();
   const L = { nouveau: "Nouveau", devis: "Devis envoyé", negociation: "Négociation", gagne: "Gagné", perdu: "Perdu" };
@@ -1309,6 +1309,15 @@ async function exportDeals(url, env, me, log) {
 }
 
 // ------------------------------------------------------------------ import de clients (Excel / CSV exporté de Sage, EBP…)
+function importTemplate() {
+  const head = ["Code", "Nom", "Type", "Société", "Contact", "GSM", "Téléphone fixe", "E-mail", "Site web", "Ville", "Adresse", "Secteur", "Remarques"];
+  const rows = [
+    ["", "Café Les Palmiers", "Prospect", "Les Palmiers SARL", "M. Rachid", "0661 22 33 44", "", "contact@palmiers.ma", "palmiers.ma", "Mohammedia", "12 Bd Hassan II", "Café / restaurant", "Intéressé par la caisse tactile"],
+    ["", "Boulangerie Assalam", "Prospect", "", "Omar", "0662 55 66 77", "0523 30 30 30", "", "", "Aïn Harrouda", "", "Boulangerie", "Rappeler en janvier"],
+  ];
+  const help = [["Remplissez une ligne par client ou prospect, à partir de la ligne 2 de la feuille « Clients »."], ["Seul « Nom » est obligatoire. Laissez « Code » vide : le CRM le crée."], ["Type : Prospect ou Client (vide = le choix fait au moment de l'import)."], ["Supprimez les 2 lignes d'exemple avant d'importer."], ["Puis dans le CRM : Clients → bouton Excel « Importer » → choisir ce fichier."]];
+  return xlsxResponse("modele-import", [{ name: "Clients", head, rows }, { name: "Mode d'emploi", head: ["Mode d'emploi"], rows: help }]);
+}
 async function importClients(req, env, me, log) {
   // la direction et les commerciaux importent ; un commercial importe toujours dans son propre portefeuille
   const b = await readJson(req, 2 * MB);
@@ -1324,8 +1333,11 @@ async function importClients(req, env, me, log) {
       const f = {};
       for (const [k, max] of Object.entries(CLIENT_FIELDS)) if (r[k] != null && String(r[k]).trim()) f[k] = k === "name" ? str(r[k], max) : opt(String(r[k]), max);
       if (f.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) delete f.email;
+      // Excel enlève le 0 des numéros marocains (0661… → 661…) : on le remet
+      for (const k of ["phone", "phone2"]) if (f[k] && /^[5-8]\d{8}$/.test(f[k].replace(/\s/g, ""))) f[k] = "0" + f[k].replace(/\s/g, "");
       if (f.website) { let w = f.website.replace(/\s+/g, ""); if (!/^https?:\/\//i.test(w)) w = "https://" + w; try { f.website = new URL(w).href.slice(0, 300); } catch { delete f.website; } }
-      const kind = r.kind === "client" || r.kind === "prospect" ? r.kind : b.kind === "client" ? "client" : "prospect";
+      const rk = String(r.kind || "").toLowerCase().trim();
+      const kind = /^(client|clients|زبون|customer)$/.test(rk) ? "client" : /^(prospect|prospects|زبون محتمل|lead)$/.test(rk) ? "prospect" : b.kind === "client" ? "client" : "prospect";
       let code = r.code ? String(r.code).trim().toUpperCase().replace(/\s+/g, "").slice(0, 30) : null;
       if (code && !/^[A-Z0-9][A-Z0-9_.\-\/]{0,29}$/.test(code)) code = null;
       const ex = code ? await env.DB.prepare("SELECT id, owner_id, created_by FROM clients WHERE code = ? AND deleted_at IS NULL").bind(code).first() : null;
@@ -1408,7 +1420,8 @@ const ASSIST_ACTIONS = ["none", "guide", "open_page", "search", "show_clients", 
 const ASSIST_EDIT = ["contact", "phone", "phone2", "email", "website", "city", "address", "company", "sector", "notes"];
 // mode d'emploi de l'application, pour que Magi sache expliquer et guider
 const APP_GUIDE = `MODE D'EMPLOI DE MAGISCOM CRM (pour expliquer et guider ; page = écran à proposer) :
-- Clients (page clients) : liste, recherche, filtres client/prospect et ville. « + Nouveau » (page new_client) crée une fiche ; doublon signalé. Bouton « Importer » (icône Excel, à côté de la recherche) : tout le monde peut importer ses clients depuis un fichier Excel (.xlsx) ou CSV, des milliers de lignes ; un commercial importe dans son propre portefeuille, la direction choisit le commercial.
+- Clients (page clients) : liste, recherche, filtres client/prospect et ville. « + Nouveau » (page new_client) crée une fiche ; doublon signalé. Bouton « Importer » (icône Excel, à côté de la recherche, ou page export) : tout le monde peut importer ses clients ou prospects depuis un fichier Excel (.xlsx) ou CSV, des milliers de lignes ; « Télécharger le modèle Excel » donne un fichier prêt à remplir (colonnes Nom, Type, GSM, Ville…) ; un commercial importe dans son propre portefeuille, la direction choisit le commercial.
+- Export Excel (page export, ou Moi → Export / Importer sur téléphone) : chacun exporte ses fiches, activités et affaires ; avec le droit « exporter », toutes les fiches visibles.
 - Fiche client : code auto, nom, société, secteur, GSM, fixe, e-mail, site web, adresse, remarques ; boutons Appeler, WhatsApp, Itinéraire, Modifier ; « Mettre à jour la position » enregistre le GPS ; onglets Infos, Activité, Affaires, Documents.
 - Documents (onglet de la fiche) : Photo, Vidéo (jusqu'à 4 Go), Fichier (PDF, Excel, Word…) ; plusieurs fichiers à la fois ; marche hors ligne.
 - Bouton « Enregistrer » (micro au centre en bas) : Note vocale (10 min, l'IA écrit le texte) ou Réunion IA (2 h, accord du client obligatoire ; l'IA sépare commercial/client et fait le compte-rendu : résumé, convenu, non fait, demandes, prochaine étape → RDV ajouté à l'agenda).

@@ -104,6 +104,9 @@
   function buyBbox(tier) {
     return pay({ amount: tier, memo: `Pi Oasis Black Box ${tier}`, metadata: { type: "bbox", tier } });
   }
+  function buyCar(tier, price) {
+    return pay({ amount: price, memo: `Pi Oasis Collector Car ${tier}`, metadata: { type: "car", tier } });
+  }
   function buyHouse(name, emoji, fee) {
     return pay({ amount: fee, memo: `Pi Oasis House ${name}`, metadata: { type: "house", name, emoji, fee } });
   }
@@ -177,7 +180,7 @@
   }
   let payOpen = true; // false on Mainnet until the app wallet is approved (set from the account)
   // What can be paid from the Pi waiting in the player's box (the server decides again)
-  const BOX_OK = ["bbox", "house", "vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
+  const BOX_OK = ["car", "bbox", "house", "vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
   function choosePay(have, price) {
     return new Promise((resolve) => {
       const t = (k, v) => I18N.t(k, v), d = document.createElement("div");
@@ -325,6 +328,8 @@
     buyMk,
     buyMult,
     buyVipc,
+    buyCar,
+    cars: () => api("/api/cars"),
     buyBbox,
     bbox: () => api("/api/bbox"),
     bboxBurn: (id) => api("/api/bbox/burn", { id }),

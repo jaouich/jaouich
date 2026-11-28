@@ -2,7 +2,7 @@
 (function () {
   const G = window.OasisGame, Pi = window.PiBridge;
   if (!G || !Pi || !Pi.track) return;
-  const IDS = { kombatOpen: "open_kombat", derbyOpen: "open_derby", mergeOpen: "open_merge", earnOpen: "open_earn", qOpen: "open_quests", wheelOpen: "open_wheel", arcOpen: "open_arcade", courtOpen: "open_court", seasonOpen: "open_season", vipcOpen: "open_vipc", castleOpen: "open_castle", magOpen: "open_magazine", catOpen: "open_catalog", mkOpen: "open_market", boxOpen: "open_box", chatOpen: "open_chat", svcOpen: "open_services", jryOpen: "open_jry", bizOpen: "open_biz", lvBar: "open_levels", achBar: "open_streak", pmTree: "palm_tap" };
+  const IDS = { kombatOpen: "open_kombat", derbyOpen: "open_derby", mergeOpen: "open_merge", earnOpen: "open_earn", qOpen: "open_quests", wheelOpen: "open_wheel", arcOpen: "open_arcade", courtOpen: "open_court", seasonOpen: "open_season", garageOpen: "open_garage", vipcOpen: "open_vipc", castleOpen: "open_castle", magOpen: "open_magazine", catOpen: "open_catalog", mkOpen: "open_market", boxOpen: "open_box", chatOpen: "open_chat", svcOpen: "open_services", jryOpen: "open_jry", bizOpen: "open_biz", lvBar: "open_levels", achBar: "open_streak", pmTree: "palm_tap" };
   const TABS = { camels: "tab_camels", city: "tab_city", stake: "tab_granary", rank: "tab_rank", vip: "tab_club" };
   const day = () => Math.floor(Date.now() / 86400000);
   function send(name) {

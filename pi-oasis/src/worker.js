@@ -192,6 +192,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS activity ( uid TEXT NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS usage_events ( uid TEXT NOT NULL, name TEXT NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (uid, name, day) )",
   "CREATE TABLE IF NOT EXISTS ref_rewards ( invitee TEXT PRIMARY KEY, inviter TEXT NOT NULL, at INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0 )",
+  "CREATE TABLE IF NOT EXISTS car_counter ( tier INTEGER PRIMARY KEY, n INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS car_opens ( pay_id TEXT PRIMARY KEY, uid TEXT NOT NULL, tier INTEGER NOT NULL, edition INTEGER NOT NULL, item_id INTEGER, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS castle_day ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
   "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
@@ -691,7 +693,7 @@ async function carryFromTestnet(env, me, now, mine) {
 
 // A game state remembers the version it was read at (not saved in the JSON): saveState only writes if nobody saved in between
 // Heavy public rankings are computed at most once a minute per Worker instance (BOARD_TTL_MS=0 in tests)
-const USAGE_EVENTS = ["share_click", "open_kombat", "open_derby", "open_merge", "open_earn", "open_quests", "open_wheel", "open_arcade", "open_court", "open_season", "open_vipc", "open_castle", "open_magazine", "open_catalog", "open_market", "open_box", "open_chat", "open_services", "open_jry", "open_biz", "open_levels", "open_streak", "palm_tap", "tab_camels", "tab_city", "tab_granary", "tab_rank", "tab_club"];
+const USAGE_EVENTS = ["share_click", "open_garage", "open_kombat", "open_derby", "open_merge", "open_earn", "open_quests", "open_wheel", "open_arcade", "open_court", "open_season", "open_vipc", "open_castle", "open_magazine", "open_catalog", "open_market", "open_box", "open_chat", "open_services", "open_jry", "open_biz", "open_levels", "open_streak", "palm_tap", "tab_camels", "tab_city", "tab_granary", "tab_rank", "tab_club"];
 const MEMO = new Map();
 async function memo(env, key, fn) {
   const ttl = env.BOARD_TTL_MS != null ? Number(env.BOARD_TTL_MS) : 60000, hit = MEMO.get(key);
@@ -918,6 +920,7 @@ const routes = {
     const nowT = Date.now();
     if (item.mult) { const cur = multOf(u, nowT); if (cur && item.mult.f < cur.f) bad("multLower"); }
     if (item.house) await houseGuard(env, u, item.house);
+    if (item.car) await carGuard(env, item.car);
     if (item.tier && u.vip_until > nowT && item.price < L.TIERS[paidTier(u, nowT)].price) bad("lowerTier");
     if (item.jry) {
       if (!isTestnet(env)) bad("badPayment");
@@ -1163,6 +1166,13 @@ const routes = {
     return { ok: true, ...sum };
   },
 
+  // ---------- Collector cars (Pi): copies sold per car and my openings ----------
+  "GET /api/cars": async (req, env) => {
+    const u = await auth(req, env);
+    const minted = await all(env, "SELECT tier, n FROM car_counter");
+    const mine = await all(env, "SELECT tier, edition FROM car_opens WHERE uid = ? AND edition > 0 ORDER BY at DESC LIMIT 20", u.uid);
+    return { minted: Object.fromEntries(minted.map((x) => [x.tier, x.n])), mine, now: Date.now() };
+  },
   // ---------- Black Boxes: my openings and burning a card ----------
   "GET /api/bbox": async (req, env) => {
     const u = await auth(req, env);
@@ -2334,6 +2344,7 @@ const routes = {
     // the same guards as when approving a Pi payment
     if (item.mult) { const cur = multOf(u, now); if (cur && item.mult.f < cur.f) bad("multLower"); }
     if (item.house) await houseGuard(env, u, item.house);
+    if (item.car) await carGuard(env, item.car);
     if (item.tier && u.vip_until > now && item.price < L.TIERS[paidTier(u, now)].price) bad("lowerTier");
     if (item.royal && (await one(env, "SELECT 1 AS x FROM royal_cards WHERE tier = ? AND ed = ?", item.royal.tier, item.royal.ed))) bad("rc.taken");
     const taken = await boxTake(env, u.uid, item.price);
@@ -3249,6 +3260,11 @@ function checkPaymentInner(p, uid) {
     if (!(fee === L.COURT.HOUSE.FEE || fee === L.COURT.HOUSE.FEE_SUPPORTER) || Number(p.amount) !== fee || !KL.tribeNameOk(name) || !KL.TRIBE.EMOJIS.includes(String(m.emoji))) bad("badPayment");
     return { price: fee, house: { name, emoji: String(m.emoji), fee } };
   }
+  if (p.metadata?.type === "car") {
+    const n = Number(p.metadata.tier), t = L.CARS.of(n);
+    if (!Number.isInteger(n) || !t || Number(p.amount) !== t.price) bad("badPayment");
+    return { price: t.price, car: n };
+  }
   if (p.metadata?.type === "bbox") {
     const tier = Number(p.metadata.tier);
     if (!Number.isInteger(tier) || !L.BBOX.of(tier) || Number(p.amount) !== tier) bad("badPayment");
@@ -3348,7 +3364,7 @@ async function completePayment(env, id, txid, uid) {
 }
 
 // The Pi waiting in a player's box (prizes and refunds not sent yet) can pay for things inside the app.
-const BOX_SPEND_TYPES = ["bbox", "house", "vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
+const BOX_SPEND_TYPES = ["car", "bbox", "house", "vip_month", "dates", "spins", "jrypts", "kcoins", "derby", "royal", "lvl", "mult", "vipclub"];
 async function boxTake(env, uid, price) {
   const rows = await all(env, "SELECT id, amount FROM payouts WHERE uid = ? AND status = 'new' AND kind IN ('prize', 'refund') ORDER BY created_at ASC", uid);
   const have = rows.reduce((a, r) => a + Number(r.amount), 0);
@@ -3429,6 +3445,7 @@ async function grantItem(env, u, item, id, now, internal) {
   if (item.royal && u) await royalGrant(env, u.uid, item.royal, id, now, item.price);
   if (item.house && u) await houseCreate(env, u, item.house, id, now, item.price);
   if (item.bbox && u) await bboxOpen(env, u, item.bbox, id, now);
+  if (item.car && u) await carOpen(env, u, item.car, id, now);
   const camel = (item.lvl && item.lvl.camel) || (item.sup && item.sup.camel);
   if (camel && u) {
     const st = await loadState(env, u.uid, now);
@@ -3585,6 +3602,26 @@ async function grantSeasonPrizes(env) {
   }
   await notify(env, out.map((r) => ({ uid: r.uid, kind: "season", ref: last, vars: { d: r.dates.toLocaleString("en-US"), j: r.jry } })));
   return out.length;
+}
+// Black Box paid: a numbered card plus the fixed contents of that box
+// Collector car paid: a numbered limited card (Kombat profit perk) and its fixed small bundle
+async function carGuard(env, n) {
+  const t = L.CARS.of(n), c = await one(env, "SELECT n FROM car_counter WHERE tier = ?", n);
+  if (c && c.n >= t.max) bad("car.soldout");
+}
+async function carOpen(env, u, n, payId, now) {
+  const first = await run(env, "INSERT OR IGNORE INTO car_opens (pay_id, uid, tier, edition, at) VALUES (?, ?, ?, 0, ?)", payId, u.uid, n, now);
+  if (!first.meta.changes) return; // this payment was already opened
+  const T = L.CARS.of(n), B = L.CARS.bundle(n), kind = "car" + n;
+  const c = await one(env, "INSERT INTO car_counter (tier, n) VALUES (?, 1) ON CONFLICT(tier) DO UPDATE SET n = n + 1 RETURNING n", n);
+  await run(env, "INSERT INTO nft_items (kind, edition, owner, minted_at) VALUES (?, ?, ?, ?)", kind, c.n, u.uid, now);
+  const it = await one(env, "SELECT id FROM nft_items WHERE kind = ? AND edition = ?", kind, c.n);
+  await run(env, "INSERT INTO nft_moves (item_id, from_uid, to_uid, price, at) VALUES (?, NULL, ?, 0, ?)", it.id, u.uid, now);
+  await run(env, "UPDATE car_opens SET edition = ?, item_id = ? WHERE pay_id = ?", c.n, it.id, payId);
+  await creditPoints(env, u.uid, "dates", B.dates, now, "car");
+  await giveReward(env, u.uid, "jry", B.jry, now, "car");
+  await giveReward(env, u.uid, "spins", B.spins, now, "car");
+  if (c.n > T.max) await logError(env, "car oversold " + kind, 0, "edition " + c.n + " > " + T.max);
 }
 // Black Box paid: a numbered card plus the fixed contents of that box
 async function bboxOpen(env, u, tier, payId, now) {

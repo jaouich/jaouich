@@ -137,6 +137,9 @@
   ];
   // Black Boxes: 10 cards sold only for Pi (1 to 10 Pi), up to 1,000,000 copies each; the contents are fixed per box (OasisLogic.BBOX)
   for (let p = 1; p <= 10; p++) COLLECTIBLES.push({ id: "box" + p, e: ["📦", "🎁", "🧰", "🪙", "🔮", "🏺", "💼", "🗝️", "👑", "🌌"][p - 1], r: "box", max: 1000000, price: 0, pi: p, perk: 0.01 * p });
+  // Collector cars: sold only for Pi (OasisLogic.CARS), limited editions, perk = Kombat profit
+  const CAR_EMOJI = ["🚗", "🚙", "🚓", "🏎️", "🚘", "🚐", "🏁", "🚖", "🏆", "👑"], CAR_MAX = [5000, 5000, 3000, 3000, 2000, 1000, 500, 300, 100, 50], CAR_PERK = [0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.1, 0.13, 0.16, 0.2], CAR_PI = [3, 5, 8, 12, 18, 25, 40, 60, 80, 100];
+  for (let n = 1; n <= 10; n++) COLLECTIBLES.push({ id: "car" + n, e: CAR_EMOJI[n - 1], r: "car", max: CAR_MAX[n - 1], price: 0, pi: CAR_PI[n - 1], perk: CAR_PERK[n - 1] });
   // Mint price rises 10% for every 1,000 copies already made, so early collectors pay less
   const MINT_STEP = 1000, MINT_RISE = 0.1;
   const mintPrice = (c, minted) => Math.round(c.price * (1 + MINT_RISE * Math.floor((minted || 0) / MINT_STEP)));

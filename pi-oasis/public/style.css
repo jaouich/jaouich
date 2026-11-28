@@ -1716,3 +1716,15 @@ main { overflow-x: hidden; }
 .dc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .dc-more { border: 0; background: rgba(255,255,255,.55); border-radius: 99px; padding: 4px 10px; font: inherit; font-size: .75rem; font-weight: 700; color: #3a2400; cursor: pointer; min-height: 32px; }
 .status-row .ach-bar b:not(.dot) { font-size: .85rem; line-height: 1.2; }
+
+/* ---- Garage ---- */
+.hub-garage { background: radial-gradient(120% 140% at 0% 0%, #455a64 0%, #263238 60%, #11181c 100%); color: #fff; box-shadow: 0 5px 0 #0b1013; }
+.gr-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+.gr-card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px; border-radius: 16px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); text-align: center; }
+.gr-card.own { border-color: #ffd86b; background: rgba(255,216,107,.12); }
+.gr-card.pi { border-color: rgba(255,216,107,.55); background: linear-gradient(160deg, rgba(255,216,107,.16), rgba(255,255,255,.05)); }
+.gr-card b { font-size: .9rem; } .gr-card small { opacity: .85; font-size: .72rem; line-height: 1.35; }
+.gr-svg { width: 100%; max-width: 150px; height: auto; }
+.gr-card .btn { margin-top: 4px; width: 100%; min-height: 40px; }
+.gr-max { color: #ffd86b; font-weight: 700; font-size: .8rem; margin-top: 4px; }
+.r-car .n-art { background: radial-gradient(circle at 30% 20%, #3a4a52, #0d1417); } .r-car.n-card { border-color: #d4af37; }

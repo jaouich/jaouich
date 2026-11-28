@@ -213,6 +213,7 @@
     }
     if (!s.merge || !Array.isArray(s.merge.grid)) s.merge = MG.fresh(now);
     if (s.merge.wk.id !== weekId(now)) s.merge.wk = { id: weekId(now), n: 0 };
+    if (!s.garage || typeof s.garage.own !== "object") s.garage = { own: {} };
     if (!Array.isArray(s.animals)) { s.animals = []; s.nextAnimal = 1; }
     if (!s.city) s.city = freshCity(now);
     if (!s.missions || s.missions.day !== Math.floor(now / 86400000)) s.missions = newMissions(s.missions, now);
@@ -242,6 +243,44 @@
     icon(l) { return this.ICONS[this.tier(l)]; },
     reward(l) { return l < 2 ? null : { dates: 100 * l, jry: l % 5 === 0 ? l : 0, spins: l % 5 === 0 ? 1 : 0 }; },
     view(xp) { const lv = this.level(xp), a = this.need(lv), b = this.need(lv + 1); return { lv, xp: xp || 0, cur: (xp || 0) - a, span: b - a, next: b }; },
+  };
+
+  // 🚗 Garage: cars bought with dates (a date sink). Each car gives a small bonus on camel collection, palm hits and the daily gift
+  // (bonus dates never count for the ranking or the level); the total is capped. All brands are invented.
+  const GARAGE = {
+    CAP: 0.3, MAXLV: 3, LV: [1, 1.25, 1.5],
+    CARS: [
+      { id: "g1", price: 50000, b: 0.005, type: "hatch", color: "#f4b400" },
+      { id: "g2", price: 120000, b: 0.01, type: "pickup", color: "#8d6e63" },
+      { id: "g3", price: 300000, b: 0.015, type: "suv", color: "#43a047" },
+      { id: "g4", price: 700000, b: 0.02, type: "sedan", color: "#1e88e5" },
+      { id: "g5", price: 1500000, b: 0.03, type: "suv", color: "#212121" },
+      { id: "g6", price: 3000000, b: 0.04, type: "coupe", color: "#e53935" },
+      { id: "g7", price: 6000000, b: 0.05, type: "sedan", color: "#37474f" },
+      { id: "g8", price: 12000000, b: 0.06, type: "limo", color: "#111827" },
+      { id: "g9", price: 25000000, b: 0.08, type: "coupe", color: "#8e24aa" },
+      { id: "g10", price: 50000000, b: 0.1, type: "limo", color: "#d4af37" },
+    ],
+    byId(id) { return this.CARS.find((c) => c.id === id) || null; },
+    upCost(c, lv) { return Math.round(c.price * (lv === 1 ? 0.5 : 1)); }, // price to go from level lv to lv + 1
+    bonus(s) { const o = (s.garage && s.garage.own) || {}; let b = 0; for (const c of this.CARS) if (o[c.id]) b += c.b * this.LV[o[c.id] - 1]; return Math.min(this.CAP, b); },
+  };
+  // 🏎️ Collector cars: cards sold for Pi (fixed contents, numbered, limited, Kombat profit perk). Invented brands, no real car makers.
+  const CARS = {
+    TIERS: [
+      { n: 1, price: 3, max: 5000, perk: 0.02, type: "hatch", color: "#fb8c00" },
+      { n: 2, price: 5, max: 5000, perk: 0.03, type: "sedan", color: "#1e88e5" },
+      { n: 3, price: 8, max: 3000, perk: 0.04, type: "suv", color: "#2e7d32" },
+      { n: 4, price: 12, max: 3000, perk: 0.05, type: "coupe", color: "#e53935" },
+      { n: 5, price: 18, max: 2000, perk: 0.06, type: "sedan", color: "#455a64" },
+      { n: 6, price: 25, max: 1000, perk: 0.08, type: "suv", color: "#111827" },
+      { n: 7, price: 40, max: 500, perk: 0.1, type: "coupe", color: "#8e24aa" },
+      { n: 8, price: 60, max: 300, perk: 0.13, type: "limo", color: "#0d47a1" },
+      { n: 9, price: 80, max: 100, perk: 0.16, type: "coupe", color: "#f9a825" },
+      { n: 10, price: 100, max: 50, perk: 0.2, type: "limo", color: "#d4af37" },
+    ],
+    of(n) { return this.TIERS.find((t) => t.n === n) || null; },
+    bundle(n) { const t = this.of(n); return { dates: t.price * 500, jry: t.price * 2, spins: Math.floor(t.price / 10) + 1 }; }, // fixed, shown before buying
   };
 
   // 📦 Black Boxes: bought with 1-10 Pi. The contents are fixed for each box (nothing is random), a numbered card (up to 1,000,000 copies) comes with it.
@@ -367,7 +406,7 @@
           if (crit) gold++;
           got += P.perHit(p.lv) * (crit ? P.CRIT : 1);
         }
-        earn(s, got, Math.floor(got * (perks.boost + mult - 1)));
+        earn(s, got, Math.floor(got * (perks.boost + mult - 1 + GARAGE.bonus(s))));
         track(s, "tap", k);
         if (gold) track(s, "golden", gold);
         return { s, msg: { key: "t.palmHit", vars: { n: got } }, palm: { hits: k, got, gold } };
@@ -379,6 +418,21 @@
         if (s.dates < c) fail("notEnough");
         s.dates -= c; p.lv++;
         return { s, msg: { key: "t.palmUp", vars: { n: p.lv } } };
+      }
+      case "gBuy": {
+        const c = GARAGE.byId(String(a.id));
+        if (!c || s.garage.own[c.id]) fail("badAction");
+        if (s.dates < c.price) fail("notEnough");
+        s.dates -= c.price; s.garage.own[c.id] = 1;
+        return { s, msg: { key: "t.gBuy", vars: { n: c.price } } };
+      }
+      case "gUp": {
+        const c = GARAGE.byId(String(a.id)), lv = c && s.garage.own[c.id];
+        if (!c || !lv || lv >= GARAGE.MAXLV) fail("badAction");
+        const cost = GARAGE.upCost(c, lv);
+        if (s.dates < cost) fail("notEnough");
+        s.dates -= cost; s.garage.own[c.id] = lv + 1;
+        return { s, msg: { key: "t.gUp", vars: { n: lv + 1 } } };
       }
       case "mgBuy": {
         const m = s.merge, i = m.grid.indexOf(0);
@@ -477,7 +531,7 @@
         if (s.lastDaily === dayId(now)) fail("dailyDone");
         s.lastDaily = dayId(now);
         const n = C.DAILY * perks.daily;
-        earn(s, C.DAILY, n - C.DAILY);
+        earn(s, C.DAILY, n - C.DAILY + Math.floor(C.DAILY * GARAGE.bonus(s)));
         return { s, msg: { key: "t.daily", vars: { n } } };
       }
       case "buyCamel": {
@@ -495,7 +549,7 @@
           if (n > 0) { total += n; if (i < TIERS[0].camels) scored += n; an.lastCollect = now; }
         });
         if (!total) fail("notReady");
-        earn(s, scored, total - scored + Math.floor(total * (mult - 1)));
+        earn(s, scored, total - scored + Math.floor(total * (mult - 1)) + Math.floor(total * GARAGE.bonus(s)));
         track(s, "collect", 1);
         return { s, msg: { key: "t.collected", vars: { n: total } } };
       }
@@ -784,6 +838,6 @@
   COURT.titleOf = (rank, paid) => (rank >= 1 && rank <= COURT.SEATS ? (rank <= 3 ? COURT.TITLES[rank - 1] : COURT.TITLES[3]) : paid > 0 ? COURT.notable : COURT.citizen);
   COURT.voteWeight = (paid) => 1 + Math.min(COURT.VOTE.CAP, Math.max(0, Number(paid) || 0));
   COURT.phase = (t) => { const d = new Date(t).getUTCDate(), P = COURT.PARLIAMENT; return d >= P.RESULTS_FROM ? "results" : d >= P.VOTING[0] ? "voting" : "candidacy"; };
-  const api = { BBOX, SEASON, LV, MG, STREAK7, ACH, achFacts, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { GARAGE, CARS, BBOX, SEASON, LV, MG, STREAK7, ACH, achFacts, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

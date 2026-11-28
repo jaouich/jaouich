@@ -7,4 +7,6 @@ window.OASIS_CONFIG = {
   DEFAULT_LANG: "en",
   // Web-only banner (outside Pi Browser). Empty = no ads. Set to the https banner address of the ad network you chose.
   WEB_AD_UNIT: "",
+  // Car pictures in the Garage. Set to false to fall back to the drawn cars at once (e.g. if the pictures must be replaced).
+  CAR_PHOTOS: true,
 };

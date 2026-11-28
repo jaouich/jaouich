@@ -261,10 +261,32 @@
       { id: "g9", price: 25000000, b: 0.08, type: "coupe", color: "#8e24aa" },
       { id: "g10", price: 50000000, b: 0.1, type: "limo", color: "#d4af37" },
     ],
-    byId(id) { return this.CARS.find((c) => c.id === id) || null; },
+    byId(id) { return this.CARS.find((c) => c.id === id) || LUXE.CARS.find((c) => c.id === id) || null; },
     upCost(c, lv) { return Math.round(c.price * (lv === 1 ? 0.5 : 1)); }, // price to go from level lv to lv + 1
-    bonus(s) { const o = (s.garage && s.garage.own) || {}; let b = 0; for (const c of this.CARS) if (o[c.id]) b += c.b * this.LV[o[c.id] - 1]; return Math.min(this.CAP, b); },
+    bonus(s) {
+      const o = (s.garage && s.garage.own) || {}; let b = 0;
+      for (const c of this.CARS) if (o[c.id] && this.LV[o[c.id] - 1]) b += c.b * this.LV[o[c.id] - 1];
+      for (const c of LUXE.CARS) if (o[c.id] && this.LV[o[c.id] - 1]) b += c.b * this.LV[o[c.id] - 1];
+      for (const m of LUXE.MODELS) if (m.cols.every((_, j) => o[m.id + "c" + (j + 1)])) b += LUXE.SET; // all paints of one model
+      return Math.min(this.CAP, b);
+    },
   };
+  // 🚘 Luxury collection (photos): 6 invented models x 4 paints, bought with dates. A copy in another paint is another car; owning all 4 paints of a model
+  // gives a small set bonus (still inside the garage cap) and all 24 give the Grand Collector title with a one-time dates gift (never counted for ranking or level).
+  const LUXE = {
+    SET: 0.01, CROWN: 20000000,
+    MODELS: [
+      { id: "m1", img: "urus", price: 1500000, b: 0.02, cols: ["solar", "orange", "green", "violet"] },
+      { id: "m2", img: "g63", price: 2000000, b: 0.025, cols: ["ivory", "forest", "crimson", "azure"] },
+      { id: "m3", img: "porsche", price: 2500000, b: 0.03, cols: ["ruby", "cobalt", "emerald", "gold"] },
+      { id: "m4", img: "bentley", price: 3000000, b: 0.035, cols: ["sapphire", "emerald", "crimson", "amber"] },
+      { id: "m5", img: "rangerover", price: 4000000, b: 0.04, cols: ["slate", "forest", "midnight", "burgundy"] },
+      { id: "m6", img: "phantom", price: 5000000, b: 0.05, cols: ["onyx", "royal", "emerald", "burgundy"] },
+    ],
+    CARS: [],
+    photo(id) { const c = this.CARS.find((x) => x.id === id); return c ? "cars/" + c.img + "-" + c.col + ".webp" : null; },
+  };
+  for (const m of LUXE.MODELS) m.cols.forEach((col, j) => LUXE.CARS.push({ id: m.id + "c" + (j + 1), model: m.id, img: m.img, col, price: m.price, b: j ? Math.round(m.b * 500) / 1000 : m.b, luxe: true }));
   // 🏎️ Collector cars: cards sold for Pi (fixed contents, numbered, limited, Kombat profit perk). Invented brands, no real car makers.
   const CARS = {
     TIERS: [
@@ -279,6 +301,7 @@
       { n: 9, price: 80, max: 100, perk: 0.16, type: "coupe", color: "#f9a825" },
       { n: 10, price: 100, max: 50, perk: 0.2, type: "limo", color: "#d4af37" },
     ],
+    PHOTO: ["m1c2", "m2c2", "m3c2", "m4c2", "m1c3", "m5c2", "m2c3", "m5c3", "m6c2", "m6c1"], // picture of each collector card (cards n1..n10)
     of(n) { return this.TIERS.find((t) => t.n === n) || null; },
     bundle(n) { const t = this.of(n); return { dates: t.price * 500, jry: t.price * 2, spins: Math.floor(t.price / 10) + 1 }; }, // fixed, shown before buying
   };
@@ -425,6 +448,11 @@
         if (s.dates < c.price) fail("notEnough");
         s.dates -= c.price; s.garage.own[c.id] = 1;
         return { s, msg: { key: "t.gBuy", vars: { n: c.price } } };
+      }
+      case "gCrown": {
+        if (s.garage.crown || !LUXE.CARS.every((c) => s.garage.own[c.id])) fail("badAction");
+        s.garage.crown = 1; s.dates += LUXE.CROWN;
+        return { s, msg: { key: "t.gCrown", vars: { n: LUXE.CROWN } } };
       }
       case "gUp": {
         const c = GARAGE.byId(String(a.id)), lv = c && s.garage.own[c.id];
@@ -838,6 +866,6 @@
   COURT.titleOf = (rank, paid) => (rank >= 1 && rank <= COURT.SEATS ? (rank <= 3 ? COURT.TITLES[rank - 1] : COURT.TITLES[3]) : paid > 0 ? COURT.notable : COURT.citizen);
   COURT.voteWeight = (paid) => 1 + Math.min(COURT.VOTE.CAP, Math.max(0, Number(paid) || 0));
   COURT.phase = (t) => { const d = new Date(t).getUTCDate(), P = COURT.PARLIAMENT; return d >= P.RESULTS_FROM ? "results" : d >= P.VOTING[0] ? "voting" : "candidacy"; };
-  const api = { GARAGE, CARS, BBOX, SEASON, LV, MG, STREAK7, ACH, achFacts, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
+  const api = { GARAGE, LUXE, CARS, BBOX, SEASON, LV, MG, STREAK7, ACH, achFacts, COURT, P, MULT, multById, palmEnergy, freshPalm, SERVICES, SUPPORT_FREE, ROYAL, SUPPORTER, LEVEL_PACKS, WEEK100, FUTURE, ARCADE, SPONSOR, EARN, earnLevel, MARKET, WHEEL, EVENTS, eventOf, PACKS, MISSION_POOL, STREAK, GOODS, BUILDINGS, CITY, buildingById, goodById, cityLevel, xpFor, goodCap, cityStats, taxPending, jobMs, tickCity, SEEDS, STAKES, C, A, TIERS, tierIndex, RARITY, addAnimal, animalReady, maxAnimals, weekId, dayId, fresh, normalize, apply, readyAt, seedById, stakeById, GameError };
   root.OasisLogic = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

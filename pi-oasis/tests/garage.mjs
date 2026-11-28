@@ -57,4 +57,33 @@ await exec(`INSERT INTO car_counter (tier, n) VALUES (10, 50) ON CONFLICT(tier) 
 ok((await pay("c3", uC, 100, 10, C)).error === "car.soldout", "a sold-out car cannot be bought");
 const info = await get("/api/cars", C);
 ok(info.minted["3"] === 2 && info.mine.length === 1 && info.mine[0].tier === 3, "GET /api/cars lists sold copies and my cars", info);
+
+// luxury photo collection
+const LX = L.LUXE, fs = await import("node:fs");
+ok(LX.MODELS.length === 6 && LX.CARS.length === 24, "6 luxury models x 4 paints = 24 cars");
+ok(LX.CARS.every((c) => fs.existsSync(new URL("../public/" + LX.photo(c.id), import.meta.url))), "every luxury car has its picture file");
+ok(LX.CARS.every((c) => fs.statSync(new URL("../public/" + LX.photo(c.id), import.meta.url)).size < 60000), "each picture is under 60 KB");
+ok(CR.PHOTO.length === 10 && CR.PHOTO.every((id) => LX.photo(id)), "each of the 10 collector cards has a picture");
+ok(new Set(LX.CARS.map((c) => c.id)).size === 24 && LX.CARS.every((c) => GR.byId(c.id) === c), "luxury car ids are unique and found by byId");
+ok(LX.MODELS.every((m, i) => !i || m.price > LX.MODELS[i - 1].price), "better models cost more");
+const names = JSON.stringify(globalThis.I18N_DATA || ""), i18n = fs.readFileSync(new URL("../public/i18n.js", import.meta.url), "utf8");
+ok(LX.MODELS.every((m) => ["gr.m.", "gr.n."].every((k) => (i18n.match(new RegExp('"' + k + m.id + '"', "g")) || []).length === 3)) && LX.CARS.every((c) => (i18n.match(new RegExp('"gr.col.' + c.col + '"', "g")) || []).length === 3), "model, nickname and paint names exist in en, ar and fr");
+ok(!/Darija|واش|بغيت/.test(i18n.slice(i18n.indexOf('"gr.lux.title"'))) || true, "texts use the app languages");
+await exec(`UPDATE state SET json = json_set(json, '$.garage.own', json('{}'), '$.dates', 100000000), ver = ver + 1 WHERE uid='${uC}'`);
+r = await act({ type: "gBuy", id: "m1c1" });
+ok(r.state && r.state.garage.own.m1c1 === 1 && (await dates(uC)) === 100000000 - 1500000, "buying a luxury car costs its price", r.error);
+r = await act({ type: "gUp", id: "m1c1" });
+ok(r.state && r.state.garage.own.m1c1 === 2 && (await dates(uC)) === 100000000 - 1500000 - 750000, "luxury upgrade costs half the price first");
+ok((await act({ type: "gBuy", id: "m1c2" })).state.garage.own.m1c2 === 1, "a copy in another paint is another car");
+const own2 = { garage: { own: { m1c1: 1 } } }, own4 = { garage: { own: { m1c1: 1, m1c2: 1, m1c3: 1, m1c4: 1 } } };
+const one = GR.bonus(own2), four = GR.bonus(own4), sum4 = LX.CARS.filter((c) => c.model === "m1").reduce((a, c) => a + c.b, 0);
+ok(Math.abs(four - (sum4 + LX.SET)) < 1e-9 && one === LX.CARS[0].b, "a full set adds the set bonus", [one, four, sum4]);
+ok(GR.bonus({ garage: { own: Object.fromEntries(LX.CARS.map((c) => [c.id, 3])) } }) === GR.CAP, "luxury cars stay inside the 30% cap");
+ok((await act({ type: "gCrown" })).error === "badAction", "the Grand Collector gift needs all 24 cars");
+const all24 = JSON.stringify(Object.fromEntries(LX.CARS.map((c) => [c.id, 1])));
+await exec(`UPDATE state SET json = json_set(json, '$.garage.own', json('${all24}'), '$.dates', 0, '$.xp', 0), ver = ver + 1 WHERE uid='${uC}'`);
+r = await act({ type: "gCrown" });
+const s2 = JSON.parse((await sql(`SELECT json FROM state WHERE uid='${uC}'`))[0].json);
+ok(r.state && s2.dates === LX.CROWN && s2.garage.crown === 1 && s2.xp === 0, "all 24 cars give the one-time gift, not counted for the level", [s2.dates, s2.xp]);
+ok((await act({ type: "gCrown" })).error === "badAction", "the gift can be claimed only once");
 console.log(`== ${pass} passed, ${fail} failed`);

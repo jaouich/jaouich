@@ -1728,3 +1728,11 @@ main { overflow-x: hidden; }
 .gr-card .btn { margin-top: 4px; width: 100%; min-height: 40px; }
 .gr-max { color: #ffd86b; font-weight: 700; font-size: .8rem; margin-top: 4px; }
 .r-car .n-art { background: radial-gradient(circle at 30% 20%, #3a4a52, #0d1417); } .r-car.n-card { border-color: #d4af37; }
+
+.gr-img { width: 100%; height: auto; aspect-ratio: 400 / 190; object-fit: cover; border-radius: 12px; background: #0b0d12; display: block; }
+.gr-h { font-size: 1.05rem; margin: 14px 0 4px; } .gr-model h3 { margin: 14px 0 0; font-size: .98rem; } .gr-model h3 small { opacity: .75; font-weight: 400; }
+.gr-set { margin: 2px 0 0; font-size: .74rem; opacity: .85; } .gr-set.full { color: #ffd86b; opacity: 1; }
+.gr-crown { display: flex; flex-direction: column; gap: 6px; padding: 12px; margin: 14px 0; border-radius: 16px; border: 1px solid rgba(255,216,107,.55); background: linear-gradient(160deg, rgba(255,216,107,.16), rgba(255,255,255,.05)); text-align: center; }
+.gr-crown.own { border-color: #ffd86b; } .gr-crown small { opacity: .85; font-size: .74rem; }
+.gr-starter { margin-top: 14px; } .gr-starter summary { cursor: pointer; font-weight: 700; min-height: 40px; display: flex; align-items: center; }
+.gr-card .btn { font-size: .78rem; padding-inline: 6px; white-space: nowrap; }

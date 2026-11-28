@@ -34,21 +34,44 @@
   }
   async function loadInfo() { if (!G.account) return; try { info = await Pi.cars(); } catch (e) {} draw(); }
 
+  const PHOTOS = !window.OASIS_CONFIG || window.OASIS_CONFIG.CAR_PHOTOS !== false;
+  const img = (id, alt) => PHOTOS && L.LUXE.photo(id) ? `<img class="gr-img" src="${L.LUXE.photo(id)}" alt="${alt || ""}" loading="lazy" decoding="async" width="400" height="190">` : "";
+  function starterCard(c, o, dates) {
+    const lv = o[c.id] || 0, cost = lv ? (lv < GR.MAXLV ? GR.upCost(c, lv) : 0) : c.price, can = dates >= cost;
+    return `<div class="gr-card ${lv ? "own" : ""}">${carSvg(c.type, c.color)}<b>${t("gr.c." + c.id)}</b>
+      <small>${t("gr.bonus", { p: pct(c.b * (GR.LV[Math.max(0, lv - 1)] || 1)) })}${lv ? " · " + t("gr.level", { n: lv }) : ""}</small>
+      ${lv >= GR.MAXLV ? `<span class="gr-max">✅ ${t("gr.max")}</span>` : `<button class="btn small ${lv ? "" : "gold"}" data-gr="${lv ? "up" : "buy"}" data-id="${c.id}" ${can && !busy ? "" : "disabled"}>${lv ? t("gr.up") : t("gr.buy")} · <span dir="ltr">${fmtN(cost)}</span> 🌴</button>`}</div>`;
+  }
+  function luxeCard(c, o, dates) {
+    const lv = o[c.id] || 0, cost = lv ? (lv < GR.MAXLV ? GR.upCost(c, lv) : 0) : c.price, can = dates >= cost, name = t("gr.col." + c.col);
+    return `<div class="gr-card lux ${lv ? "own" : ""}">${img(c.id, t("gr.m." + c.model) + " " + name)}<b>${name}</b>
+      <small>${t("gr.bonus", { p: pct(c.b * (GR.LV[Math.max(0, lv - 1)] || 1)) })}${lv ? " · " + t("gr.level", { n: lv }) : ""}</small>
+      ${lv >= GR.MAXLV ? `<span class="gr-max">✅ ${t("gr.max")}</span>` : `<button class="btn small ${lv ? "" : "gold"}" data-gr="${lv ? "up" : "buy"}" data-id="${c.id}" ${can && !busy ? "" : "disabled"}>${lv ? t("gr.up") : t("gr.buy")} · <span dir="ltr">${fmtN(cost)}</span> 🌴</button>`}</div>`;
+  }
+  function luxeSection(o, dates) {
+    const LX = L.LUXE, have = LX.CARS.filter((c) => o[c.id]).length, crown = G.S.garage && G.S.garage.crown;
+    const models = LX.MODELS.map((m) => {
+      const cars = LX.CARS.filter((c) => c.model === m.id), n = cars.filter((c) => o[c.id]).length;
+      return `<section class="gr-model"><h3>${t("gr.m." + m.id)} <small>· ${t("gr.n." + m.id)}</small></h3>
+        <p class="gr-set ${n === 4 ? "full" : ""}">${t("gr.set", { n })}${n === 4 ? " · " + t("gr.setbonus", { p: pct(LX.SET) }) : ""}</p>
+        <div class="gr-grid">${cars.map((c) => luxeCard(c, o, dates)).join("")}</div></section>`;
+    }).join("");
+    const cr = `<div class="gr-crown ${crown ? "own" : ""}"><b>🏆 ${t("gr.crown.t")}</b><small>${t("gr.crown.d", { n: fmtN(LX.CROWN) })}</small>
+      ${crown ? `<span class="gr-max">${t("gr.crown.done")}</span>` : `<small>${t("gr.crown.have", { n: have })}</small><button class="btn small gold" data-gr="crown" ${have === LX.CARS.length && !busy ? "" : "disabled"}>${t("gr.crown.claim")}</button>`}</div>`;
+    return `<h2 class="gr-h">${t("gr.lux.title")}</h2><p class="jm-note">${t("gr.lux.d")}</p>${models}${cr}`;
+  }
   function datesTab() {
     const o = own(), bonus = GR.bonus(G.S), dates = Math.floor(G.S.dates);
     return `<div class="ct-me"><b>🚗 ${t("gr.total", { p: pct(bonus), m: pct(GR.CAP) })}</b><small>${t("gr.d")}</small><small>🌴 <span dir="ltr">${fmtN(dates)}</span></small></div>
-      <div class="gr-grid">` + GR.CARS.map((c) => {
-        const lv = o[c.id] || 0, cost = lv ? (lv < GR.MAXLV ? GR.upCost(c, lv) : 0) : c.price, can = dates >= cost;
-        return `<div class="gr-card ${lv ? "own" : ""}">${carSvg(c.type, c.color)}<b>${t("gr.c." + c.id)}</b>
-          <small>${t("gr.bonus", { p: pct(c.b * (GR.LV[Math.max(0, lv - 1)] || 1)) })}${lv ? " · " + t("gr.level", { n: lv }) : ""}</small>
-          ${lv >= GR.MAXLV ? `<span class="gr-max">✅ ${t("gr.max")}</span>` : `<button class="btn small ${lv ? "" : "gold"}" data-gr="${lv ? "up" : "buy"}" data-id="${c.id}" ${can && !busy ? "" : "disabled"}>${lv ? t("gr.up") : t("gr.buy")} · <span dir="ltr">${fmtN(cost)}</span> 🌴</button>`}</div>`;
-      }).join("") + `</div><p class="jm-note">${t("gr.rules")}</p>`;
+      ${PHOTOS ? luxeSection(o, dates) : ""}
+      <details class="gr-starter" ${PHOTOS ? "" : "open"}><summary>${t("gr.starter")}</summary><div class="gr-grid">${GR.CARS.map((c) => starterCard(c, o, dates)).join("")}</div></details>
+      <p class="jm-note">${t("gr.rules")} ${PHOTOS ? t("gr.pics") : ""}</p>`;
   }
   function piTab() {
     const minted = (info && info.minted) || {};
     return `<p class="jm-note">${t("gr.pi.d")}</p><div class="gr-grid">` + CR.TIERS.map((c) => {
       const B = CR.bundle(c.n), left = c.max - (minted[c.n] || 0);
-      return `<div class="gr-card pi">${carSvg(c.type, c.color)}<b>${t("n.c.car" + c.n)}</b>
+      return `<div class="gr-card pi">${PHOTOS ? img(CR.PHOTO[c.n - 1], t("n.c.car" + c.n)) : carSvg(c.type, c.color)}<b>${t("n.c.car" + c.n)}</b>
         <small>${t("gr.pi.contents", { d: fmtN(B.dates), j: B.jry, s: B.spins })}</small><small>${t("gr.pi.perk", { p: pct(c.perk) })}</small>
         <small>${t("gr.pi.left", { n: fmtN(Math.max(0, left)), m: fmtN(c.max) })}</small>
         ${left > 0 ? `<button class="btn small gold" data-gr="pi" data-n="${c.n}" data-price="${c.price}"><span dir="ltr">${c.price} Pi</span></button>` : `<span class="gr-max">${t("gr.pi.soldout")}</span>`}</div>`;
@@ -68,6 +91,7 @@
     if (a === "tab") { tab = b.dataset.t; draw(); return tab === "pi" ? loadInfo() : null; }
     if (a === "buy") return act({ type: "gBuy", id: b.dataset.id });
     if (a === "up") return act({ type: "gUp", id: b.dataset.id });
+    if (a === "crown") return act({ type: "gCrown" });
     if (a === "pi") {
       if (!G.account) return G.toast(t("t.loginFirst"));
       const n = +b.dataset.n, price = +b.dataset.price;

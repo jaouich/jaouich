@@ -149,3 +149,11 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 ## Garage and collector cars
 - Garage (dates sink): `OasisLogic.GARAGE`, 10 invented-brand cars from 50,000 to 50,000,000 dates, levels 1-3 (upgrade costs 50% then 100% of the price); bonus per car (+0.5% to +10%, x1/1.25/1.5 by level), total capped at +30%, applied as bonus dates (never ranking or XP) to camel collect, palm hits and the daily gift. Actions `gBuy`, `gUp` in `logic.js`; state `s.garage.own`.
 - Collector cars (Pi): `OasisLogic.CARS`, 10 limited numbered cards (3 to 100 Pi; 5,000 down to 50 copies), fixed bundle (dates = 500 x Pi, JRY points = 2 x Pi, spins) and a Kombat profit perk; collectibles `car1..car10` (excluded from the Catalog and from coin minting). Payment type `car` (`carGuard` sold-out check, `carOpen`, tables `car_counter`, `car_opens`, `GET /api/cars`). UI `public/garage.js` (hub: More > Garage), SVG cars drawn in code. No real car makers are named. Tests `tests/garage.mjs` (21).
+
+## Garage: luxury photo collection (Phase G)
+- 6 invented models (Titan X "The Beast", Colossus "The Legend", Apex Turbo "The Rocket", Sovereign GT "Luxury", Highland Prestige "Prestige", Monarch "The King") x 4 paints = 24 cars, bought with dates (1.5M to 5M), upgrade levels 1-3 like the other garage cars, all inside the 30% garage cap. Owning all 4 paints of a model adds +1%. All 24 = "Grand Collector" (action `gCrown`, one-time 20M dates, not counted for ranking or level).
+- The 10 Pi collector cards now show pictures (`CARS.PHOTO`); payment, numbering and market are unchanged.
+- Pictures: `public/cars/<model>-<paint>.webp` (800x380, 12-21 KB each, 464 KB total, lazy loaded). Made offline from the owner's photos: emblems, plates and lettering painted over (best effort), other paints by colour shifting. Texts in en/ar/fr only.
+- `CAR_PHOTOS: false` in `public/config.js` switches back to the drawn cars at once.
+- OPEN RISK (told to the owner): the photos show real cars; shapes and trade dress may still be recognisable. Replace with licensed or original pictures before the Mainnet listing, or switch `CAR_PHOTOS` off.
+- Tests: garage suite 37 checks.

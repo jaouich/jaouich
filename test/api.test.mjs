@@ -33,6 +33,8 @@ r = await admin.req("POST", "/api/setup", { setup_code: "MAUVAIS", name: "Direct
 ok(r.status === 403, "mauvais code refusé");
 r = await admin.req("POST", "/api/setup", { setup_code: "abc123", name: "Directeur", login: "directeur", password: "motdepasse1", company: "Magiscom Tech" });
 ok(r.status === 201 && r.data.user.role === "admin", "création admin");
+const recovery1 = r.data.recovery_code;
+ok(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(recovery1 || ""), "code de secours donné à la mise en service");
 r = await new Agent().req("POST", "/api/setup", { name: "X", login: "pirate", password: "motdepasse1" });
 ok(r.status === 403, "setup refusé ensuite");
 r = await admin.req("POST", "/api/clients/aaaaaaaa-1", { name: "x" }, {});
@@ -185,6 +187,49 @@ r = await admin.req("POST", "/api/users/" + omar.id + "/password");
 ok(r.status === 200 && r.data.password, "réinitialisation mot de passe");
 r = await admin.req("PATCH", "/api/settings", { company: "Magiscom Tech", client_prefix: "cli" });
 ok(r.status === 200 && r.data.settings.client_prefix === "CLI", "réglages");
+
+// fonction affichée (titre libre) et code de secours de la direction
+r = await admin.req("POST", "/api/users", { name: "Nadia", login: "nadia", role: "admin", title: "Directrice commerciale" });
+ok(r.status === 201 && r.data.user.title === "Directrice commerciale" && r.data.user.role === "admin", "titre à la création");
+const nadia = r.data.user;
+r = await admin.req("PATCH", "/api/users/" + karim.id, { title: "Chef d'équipe Casablanca" });
+ok(r.data.user.title === "Chef d'équipe Casablanca" && r.data.user.role === "commercial", "titre modifié, rôle inchangé");
+await admin.req("POST", "/api/users", { name: "Lina", login: "lina", password: "lina-123456" });
+const a4 = new Agent(); await a4.req("POST", "/api/auth/login", { login: "lina", password: "lina-123456" });
+r = await a4.req("GET", "/api/users");
+ok(r.data.users.find((u) => u.id === nadia.id).title === "Directrice commerciale", "titre visible par les commerciaux");
+r = await admin.req("GET", "/api/settings/recovery");
+ok(r.data.exists === true, "code de secours enregistré");
+const guest = new Agent();
+r = await guest.req("POST", "/api/auth/recover", { login: "karim", code: recovery1, password: "nouveau-mdp-1" });
+ok(r.status === 400, "secours refusé pour un commercial");
+r = await guest.req("POST", "/api/auth/recover", { login: "directeur", code: "AAAA-BBBB-CCCC", password: "nouveau-mdp-1" });
+ok(r.status === 400, "mauvais code refusé");
+r = await guest.req("POST", "/api/auth/recover", { login: "directeur", code: recovery1.toLowerCase().replace(/-/g, " "), password: "court" });
+ok(r.status === 400 && /8 caract/.test(r.data.error), "mot de passe trop court");
+r = await guest.req("POST", "/api/auth/recover", { login: "directeur", code: recovery1.toLowerCase().replace(/-/g, " "), password: "nouveau-mdp-1" });
+ok(r.status === 200 && r.data.user.login === "directeur" && /^[A-Z0-9]{4}-/.test(r.data.new_code) && r.data.new_code !== recovery1, "secours accepté, nouveau code");
+const recovery2 = r.data.new_code;
+r = await guest.req("GET", "/api/me");
+ok(r.status === 200 && r.data.user.login === "directeur", "connecté après secours");
+r = await new Agent().req("POST", "/api/auth/recover", { login: "directeur", code: recovery1, password: "nouveau-mdp-2" });
+ok(r.status === 400, "ancien code inutilisable");
+r = await new Agent().req("POST", "/api/auth/login", { login: "directeur", password: "nouveau-mdp-1" });
+ok(r.status === 200, "connexion avec le nouveau mot de passe");
+r = await admin.req("GET", "/api/me");
+ok(r.status === 401, "anciennes sessions du directeur fermées");
+const admin2 = new Agent(); await admin2.req("POST", "/api/auth/login", { login: "directeur", password: "nouveau-mdp-1" });
+r = await admin2.req("POST", "/api/settings/recovery", { password: "faux" });
+ok(r.status === 400, "nouveau code : mot de passe exigé");
+r = await admin2.req("POST", "/api/settings/recovery", { password: "nouveau-mdp-1" });
+ok(r.status === 200 && r.data.code && r.data.code !== recovery2, "nouveau code généré");
+r = await a4.req("POST", "/api/settings/recovery", { password: "x" });
+ok(r.status === 403, "code de secours réservé à la direction");
+r = await admin2.req("GET", "/api/status");
+ok(!JSON.stringify(r.data).includes("recovery"), "le code n'apparaît nulle part");
+for (let i = 0; i < 8; i++) await new Agent().req("POST", "/api/auth/recover", { login: "directeur", code: "ZZZZ-ZZZZ-ZZZZ", password: "x12345678" });
+r = await new Agent().req("POST", "/api/auth/recover", { login: "directeur", code: "ZZZZ-ZZZZ-ZZZZ", password: "x12345678" });
+ok(r.status === 429, "secours : trop de tentatives bloquées");
 
 // page et fichier de l'application
 r = await fetch(B + "/");

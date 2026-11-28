@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   phone TEXT,
   role TEXT NOT NULL DEFAULT 'commercial', -- admin | commercial
+  title TEXT,                              -- fonction affichée (libre) : « Directrice commerciale », « Chef d'équipe »…
   perms TEXT NOT NULL DEFAULT '{}',        -- {"scope":"own|all","export":0|1,"edit_all":0|1}
   active INTEGER NOT NULL DEFAULT 1,
   password_hash TEXT NOT NULL,

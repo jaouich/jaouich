@@ -53,6 +53,7 @@ async function route(req, env, ctx, url = new URL(req.url)) {
   if (p === "/api/setup" && m === "POST") return setup(req, env);
   if (p === "/api/auth/login" && m === "POST") return login(req, env);
   if (p === "/api/auth/logout" && m === "POST") return logout(req, env);
+  if (p === "/api/auth/recover" && m === "POST") return recoverAdmin(req, env);
 
   const me = await currentUser(req, env);
   if (!me) return json({ error: "Non connecté" }, 401);
@@ -63,6 +64,8 @@ async function route(req, env, ctx, url = new URL(req.url)) {
 
   if (p === "/api/me" && m === "GET") return json({ user: pubUser(me), settings: await getSettings(env) });
   if (p === "/api/me/password" && m === "POST") return changePassword(req, env, me);
+  if (p === "/api/settings/recovery" && m === "POST") return newRecoveryCode(req, env, me, log);
+  if (p === "/api/settings/recovery" && m === "GET") return json({ exists: !!(await env.DB.prepare("SELECT 1 FROM settings WHERE k = 'recovery_hash'").first()) });
   if (p === "/api/sync" && m === "GET") return sync(url, env, me);
   if (p === "/api/clients/reassign" && m === "POST") return reassign(req, env, me, log);
   if (p === "/api/clients/import" && m === "POST") return importClients(req, env, me, log);
@@ -164,7 +167,7 @@ function perms(u) {
   const admin = u.role === "admin";
   return { admin, all: admin || p.scope === "all", edit_all: admin || !!p.edit_all, export: admin || !!p.export };
 }
-const pubUser = (u) => ({ id: u.id, login: u.login, name: u.name, phone: u.phone, role: u.role, active: !!u.active, perms: perms(u), must_change: !!u.must_change, last_seen: u.last_seen, created_at: u.created_at });
+const pubUser = (u) => ({ id: u.id, login: u.login, name: u.name, phone: u.phone, role: u.role, title: u.title || null, active: !!u.active, perms: perms(u), must_change: !!u.must_change, last_seen: u.last_seen, created_at: u.created_at });
 async function audit(env, userId, action, entity, entityId, detail, ip) {
   try {
     await env.DB.prepare("INSERT INTO audit (at,user_id,action,entity,entity_id,detail,ip) VALUES (?,?,?,?,?,?,?)")
@@ -176,7 +179,7 @@ async function touch(env, me) {
   await env.DB.prepare("UPDATE users SET last_seen = ? WHERE id = ?").bind(now(), me.id).run();
 }
 async function getSettings(env) {
-  const { results } = await env.DB.prepare("SELECT k, v FROM settings WHERE k IN ('company','client_prefix','prospect_prefix')").all();
+  const { results } = await env.DB.prepare("SELECT k, v FROM settings WHERE k IN ('company','client_prefix','prospect_prefix','theme')").all();
   const s = { company: "Magiscom Tech", client_prefix: "CL", prospect_prefix: "PR" };
   for (const r of results) s[r.k] = r.v;
   if (env.IS_DEMO) s.demo = true;
@@ -214,7 +217,8 @@ async function setup(req, env) {
   ]);
   await audit(env, id, "setup", "user", id, null, req.headers.get("CF-Connecting-IP"));
   const u = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(id).first();
-  return json({ user: pubUser(u) }, 201, { "Set-Cookie": await createSession(env, id) });
+  const recovery_code = env.IS_DEMO ? null : await storeRecovery(env);
+  return json({ user: pubUser(u), recovery_code }, 201, { "Set-Cookie": await createSession(env, id) });
 }
 async function createSession(env, userId) {
   const token = toHex(crypto.getRandomValues(new Uint8Array(32)));
@@ -265,12 +269,56 @@ async function changePassword(req, env, me) {
   return json({ ok: true });
 }
 
+// ------------------------------------------------------------------ code de secours de la direction (mot de passe oublié)
+function recoveryCode() {
+  const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const c = [...crypto.getRandomValues(new Uint8Array(12))].map((x) => a[x % a.length]).join("");
+  return c.slice(0, 4) + "-" + c.slice(4, 8) + "-" + c.slice(8, 12);
+}
+const normRecovery = (v) => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+async function storeRecovery(env) {
+  const code = recoveryCode();
+  await env.DB.prepare("INSERT INTO settings (k, v) VALUES ('recovery_hash', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(await sha256("magiscom-recovery:" + normRecovery(code))).run();
+  return code;
+}
+async function newRecoveryCode(req, env, me, log) {
+  needAdmin(me);
+  if (env.IS_DEMO) fail(403, "Non disponible dans la démonstration");
+  const b = await readJson(req);
+  const { hash } = await hashPassword(String(b.password || "").slice(0, 200), me.password_salt);
+  if (!safeEqual(hash, me.password_hash)) fail(400, "Mot de passe incorrect");
+  const code = await storeRecovery(env);
+  await log("recovery.new", "user", me.id, null);
+  return json({ code });
+}
+// un administrateur qui a oublié son mot de passe : identifiant + code de secours → nouveau mot de passe ; le code est remplacé
+async function recoverAdmin(req, env) {
+  if (env.IS_DEMO) fail(403, "Non disponible dans la démonstration");
+  const b = await readJson(req);
+  const ip = req.headers.get("CF-Connecting-IP") || "local";
+  if ((await tooMany(env, "r:" + ip, 8)) || (await tooMany(env, "r:all", 30))) fail(429, "Trop de tentatives. Réessayez dans 15 minutes.");
+  const login = normLogin(b.login);
+  const row = await env.DB.prepare("SELECT v FROM settings WHERE k = 'recovery_hash'").first();
+  const u = await env.DB.prepare("SELECT * FROM users WHERE login = ? AND role = 'admin' AND active = 1").bind(login).first();
+  const ok = row && u && safeEqual(await sha256("magiscom-recovery:" + normRecovery(b.code)), row.v);
+  if (!ok) { await noteFailure(env, "r:" + ip); await noteFailure(env, "r:all"); fail(400, "Identifiant de direction ou code de secours incorrect"); }
+  checkPasswordRules(b.password);
+  const h = await hashPassword(b.password);
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET password_hash = ?, password_salt = ?, must_change = 0 WHERE id = ?").bind(h.hash, h.salt, u.id),
+    env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(u.id),
+  ]);
+  const code = await storeRecovery(env);
+  await audit(env, u.id, "recovery.used", "user", u.id, null, ip);
+  return json({ user: pubUser(u), settings: await getSettings(env), new_code: code }, 200, { "Set-Cookie": await createSession(env, u.id) });
+}
+
 // ------------------------------------------------------------------ utilisateurs (admin)
 const needAdmin = (me) => { if (!me.p.admin) fail(403, "Réservé à l'administrateur"); };
 async function listUsers(env, me) {
   // tout le monde voit les noms (pour afficher qui a fait quoi) ; détails pour l'admin
   const { results } = await env.DB.prepare("SELECT * FROM users ORDER BY active DESC, name").all();
-  return json({ users: results.map((u) => (me.p.admin ? pubUser(u) : { id: u.id, name: u.name, role: u.role, active: !!u.active })) });
+  return json({ users: results.map((u) => (me.p.admin ? pubUser(u) : { id: u.id, name: u.name, role: u.role, title: u.title || null, active: !!u.active })) });
 }
 function readPerms(b) {
   const p = b.perms || {};
@@ -292,8 +340,8 @@ async function createUser(req, env, me, log) {
   checkPasswordRules(pw);
   const { hash, salt } = await hashPassword(pw);
   const id = uid();
-  await env.DB.prepare("INSERT INTO users (id,login,name,phone,role,perms,active,password_hash,password_salt,must_change,created_at) VALUES (?,?,?,?,?,?,1,?,?,1,?)")
-    .bind(id, login, name, opt(b.phone, 30), role, readPerms(b), hash, salt, now()).run();
+  await env.DB.prepare("INSERT INTO users (id,login,name,phone,role,title,perms,active,password_hash,password_salt,must_change,created_at) VALUES (?,?,?,?,?,?,?,1,?,?,1,?)")
+    .bind(id, login, name, opt(b.phone, 30), role, opt(b.title, 60), readPerms(b), hash, salt, now()).run();
   await log("user.create", "user", id, `${name} (${role})`);
   const u = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(id).first();
   return json({ user: pubUser(u), password: pw }, 201);
@@ -304,7 +352,8 @@ async function updateUser(id, req, env, me, log) {
   if (!u) fail(404, "Utilisateur introuvable");
   const b = await readJson(req);
   if (demoLocked(env, id) && ((b.active !== undefined && !b.active) || (b.login !== undefined && normLogin(b.login) !== u.login) || (b.role !== undefined && b.role !== u.role))) fail(403, "Ce compte de démonstration ne peut pas être désactivé ni renommé");
-  const f = { name: u.name, phone: u.phone, role: u.role, perms: u.perms, active: u.active, login: u.login };
+  const f = { name: u.name, phone: u.phone, role: u.role, title: u.title || null, perms: u.perms, active: u.active, login: u.login };
+  if (b.title !== undefined) f.title = opt(b.title, 60);
   if (b.name !== undefined) { f.name = str(b.name, 80); if (f.name.length < 2) fail(400, "Indiquez le nom"); }
   if (b.phone !== undefined) f.phone = opt(b.phone, 30);
   if (b.login !== undefined) {
@@ -320,7 +369,7 @@ async function updateUser(id, req, env, me, log) {
     const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND active = 1").first();
     if (n.n <= 1) fail(400, "Il doit rester au moins un administrateur actif");
   }
-  const stmts = [env.DB.prepare("UPDATE users SET name=?, phone=?, role=?, perms=?, active=?, login=? WHERE id=?").bind(f.name, f.phone, f.role, f.perms, f.active, f.login, id)];
+  const stmts = [env.DB.prepare("UPDATE users SET name=?, phone=?, role=?, title=?, perms=?, active=?, login=? WHERE id=?").bind(f.name, f.phone, f.role, f.title, f.perms, f.active, f.login, id)];
   if (!f.active) stmts.push(env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id));
   await env.DB.batch(stmts);
   await log(!f.active && u.active ? "user.disable" : "user.update", "user", id, f.name);
@@ -1370,7 +1419,8 @@ const APP_GUIDE = `MODE D'EMPLOI DE MAGISCOM CRM (pour expliquer et guider ; pag
 - Moi (page me) : thème de couleurs, langue, mot de passe, synchronisation, déconnexion (attention : la déconnexion efface les données du téléphone).
 - Hors ligne : tout s'enregistre sur le téléphone et part au retour du réseau (point vert « À jour »). L'IA (Magi, transcription, rapports) a besoin d'internet.
 - Direction seulement : tableau de bord (dashboard), commerciaux et droits (team : ajouter, mot de passe provisoire, transférer le portefeuille, désactiver), export Excel (export) et import en choisissant le commercial, journal (journal), réglages (settings : société, préfixes des codes, thème).
-- Première connexion : identifiant donné par la direction, puis choisir son mot de passe. Mot de passe oublié : la direction en génère un nouveau.`;
+- Première connexion : identifiant donné par la direction, puis choisir son mot de passe. Mot de passe oublié : un commercial demande à la direction (Commerciaux → son nom → Nouveau mot de passe) ; un administrateur utilise « Mot de passe oublié ? » sur l'écran de connexion avec le code de secours (créé dans Réglages → Code de secours).
+- Commerciaux (team) : chaque compte a un rôle (Administrateur ou Commercial = les droits) et une fonction libre affichée (ex. Directrice commerciale, Chef d'équipe).`;
 const ASSIST_KINDS = ["rdv", "appel", "tache", "note", "visite"];
 const normTxt = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9؀-ۿ ]/g, " ");
 const dayStr = (ms, tz) => new Date(ms - tz * 60000).toISOString().slice(0, 16).replace("T", " ");

@@ -428,3 +428,7 @@ table.t th{text-transform:none;letter-spacing:0;font-size:12.5px}
 @media (max-width:600px){.search .btn.imp span{display:none}.search .btn.imp{padding-inline:12px}}
 .imp-err{margin:0;padding-inline-start:18px;color:#9A5B00;max-height:160px;overflow:auto}
 .modal .sheet > .card{box-shadow:none;border:0;padding:0}
+.tipbox{background:var(--blue-s);color:var(--fg,#1B1733);border-radius:12px;padding:10px 12px}
+.btn.small{min-height:36px;font-size:14px}
+.list .item .row .t{flex:none;max-width:62%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list .item .row .badge{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

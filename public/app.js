@@ -129,7 +129,7 @@ Object.assign(T.en, {
 });
 // thèmes : choisis par chaque utilisateur sur son appareil, ou imposés par défaut par la direction
 Object.assign(T.fr, {
-  importShort: 'Importer', importLine: 'Ligne {n}', close: 'Fermer', magiOpenPage: 'Ouvrir cet écran', magiToday: 'Aujourd’hui : {x}.', magiRdv: '{n} rendez-vous / appel(s)', magiLate: '{n} en retard', magiSleep: '{n} client(s) sans visite depuis 30 jours', magiFree: 'rien de prévu', magiOffHelp: 'Sans internet, je peux ouvrir un écran, trouver un client ou résumer votre journée. Pour le reste, je reviens dès que le réseau est là.', magiFound: 'Voici ce que j’ai trouvé :', magiMarkDone: 'Marquer comme fait', magiMoveTo: 'Déplacer au', magiChanges: 'Modifications', magiAdd: 'à ajouter', magiOpenAct: 'Ouvrir l’activité', magiNoMeet: 'Pas encore de réunion ou de visite avec compte-rendu pour ce client.', aiToday: 'IA aujourd’hui', aiTodayD: '{a} questions à Magi · {s} transcriptions · {l} rapports', aiYest: 'Hier : {a} · {s} · {l}', magiMenu: 'Questions rapides', magi: 'Assistant Magi', magiHi: 'Bonjour {n} ! Je suis Magi. Écrivez ou parlez : je trouve un client, je planifie un rendez-vous, je crée une fiche ou une affaire, je réponds sur votre activité.',
+  jobTitle: 'Fonction (titre affiché)', jobTitlePh: 'ex. Directrice commerciale, Chef d’équipe…', roleHelp: 'Le rôle donne les droits : « Administrateur » voit tout et gère l’équipe ; « Commercial » gère son portefeuille. La fonction est seulement le titre affiché.', forgot: 'Mot de passe oublié ?', forgotT: 'Mot de passe oublié', forgotRep: 'Commercial : demandez à votre direction. Elle ouvre « Commerciaux », touche votre nom puis « Nouveau mot de passe ».', forgotAdmin: 'Direction : entrez votre identifiant, le code de secours et un nouveau mot de passe.', recCode: 'Code de secours', recNew: 'Nouveau mot de passe', recGo: 'Changer le mot de passe', recSaveT: 'Votre nouveau code de secours', recSaveP: 'Notez-le et gardez-le en lieu sûr (papier, coffre). L’ancien ne marche plus. Sans ce code, seule l’assistance Magiscom peut débloquer un compte de direction.', recSec: 'Code de secours de la direction', recSecP: 'Si un directeur oublie son mot de passe, ce code permet d’en choisir un nouveau depuis l’écran de connexion. Gardez-le hors du téléphone.', recSecOk: 'Un code de secours existe.', recSecNone: 'Aucun code de secours : créez-en un maintenant.', recGen: 'Générer un nouveau code', recPw: 'Confirmez avec votre mot de passe', recTip: 'Conseil : créez au moins deux comptes « Administrateur ».', importShort: 'Importer', importLine: 'Ligne {n}', close: 'Fermer', magiOpenPage: 'Ouvrir cet écran', magiToday: 'Aujourd’hui : {x}.', magiRdv: '{n} rendez-vous / appel(s)', magiLate: '{n} en retard', magiSleep: '{n} client(s) sans visite depuis 30 jours', magiFree: 'rien de prévu', magiOffHelp: 'Sans internet, je peux ouvrir un écran, trouver un client ou résumer votre journée. Pour le reste, je reviens dès que le réseau est là.', magiFound: 'Voici ce que j’ai trouvé :', magiMarkDone: 'Marquer comme fait', magiMoveTo: 'Déplacer au', magiChanges: 'Modifications', magiAdd: 'à ajouter', magiOpenAct: 'Ouvrir l’activité', magiNoMeet: 'Pas encore de réunion ou de visite avec compte-rendu pour ce client.', aiToday: 'IA aujourd’hui', aiTodayD: '{a} questions à Magi · {s} transcriptions · {l} rapports', aiYest: 'Hier : {a} · {s} · {l}', magiMenu: 'Questions rapides', magi: 'Assistant Magi', magiHi: 'Bonjour {n} ! Je suis Magi. Écrivez ou parlez : je trouve un client, je planifie un rendez-vous, je crée une fiche ou une affaire, je réponds sur votre activité.',
   magiPh: 'Écrivez ou parlez…', magiSend: 'Envoyer', magiMic: 'Parler', magiListening: 'Je vous écoute… touchez pour arrêter', magiThinking: 'Magi réfléchit…', magiHear: 'Je transcris…',
   magiVoiceOn: 'Réponses à voix haute : activées', magiVoiceOff: 'Réponses à voix haute : désactivées', magiDone: 'C’est fait ✅', magiOpen: 'Ouvrir la fiche', magiNew: 'Nouvelle conversation',
   magiS1: 'Mes rendez-vous de demain', magiS2: 'Clients pas visités depuis 30 jours', magiS3: 'Où en est le pipeline ?', magiS4: 'Ouvre l’agenda', magiNeedNet: 'Magi a besoin d’internet pour comprendre votre demande.',
@@ -137,7 +137,7 @@ Object.assign(T.fr, {
   magiStage: 'Nouvelle étape', magiWhen: 'Quand', magiWhat: 'Objet', magiMicLang: 'Langue parlée',
 });
 Object.assign(T.ar, {
-  importShort: 'استيراد', importLine: 'السطر {n}', close: 'إغلاق', magiOpenPage: 'فتح هذه الشاشة', magiToday: 'اليوم: {x}.', magiRdv: '{n} موعد / اتصال', magiLate: '{n} متأخرة', magiSleep: '{n} زبون بدون زيارة منذ 30 يوما', magiFree: 'لا شيء مبرمج', magiOffHelp: 'بدون إنترنت يمكنني فتح شاشة، إيجاد زبون أو تلخيص يومك. والباقي عند عودة الشبكة.', magiFound: 'هذا ما وجدته:', magiMarkDone: 'تحديد كمنجز', magiMoveTo: 'تأجيل إلى', magiChanges: 'التعديلات', magiAdd: 'للإضافة', magiOpenAct: 'فتح النشاط', magiNoMeet: 'لا يوجد بعد اجتماع أو زيارة بتقرير لهذا الزبون.', aiToday: 'الذكاء الاصطناعي اليوم', aiTodayD: '{a} سؤال لماجي · {s} تحويل صوت · {l} تقرير', aiYest: 'أمس: {a} · {s} · {l}', magiMenu: 'أسئلة سريعة', magi: 'المساعد ماجي', magiHi: 'مرحبا {n}! أنا ماجي. اكتب أو تكلم: أجد زبونا، أبرمج موعدا، أنشئ ملفا أو صفقة، وأجيب عن نشاطك.',
+  jobTitle: 'الوظيفة (الاسم المعروض)', jobTitlePh: 'مثلا: مديرة تجارية، رئيس فريق…', roleHelp: 'الدور يحدد الصلاحيات: «مدير» يرى كل شيء ويسيّر الفريق، و«مندوب» يسيّر محفظته. الوظيفة مجرد اسم معروض.', forgot: 'نسيت كلمة المرور؟', forgotT: 'نسيت كلمة المرور', forgotRep: 'المندوب: اطلب من الإدارة. تفتح «المناديب» ثم تضغط على اسمك ثم «كلمة مرور جديدة».', forgotAdmin: 'الإدارة: أدخل اسم المستخدم ورمز الطوارئ وكلمة مرور جديدة.', recCode: 'رمز الطوارئ', recNew: 'كلمة المرور الجديدة', recGo: 'تغيير كلمة المرور', recSaveT: 'رمز الطوارئ الجديد', recSaveP: 'اكتبه واحتفظ به في مكان آمن (ورقة، خزنة). الرمز القديم لم يعد يعمل. بدون هذا الرمز لا يمكن فتح حساب الإدارة إلا عبر دعم ماجيسكوم.', recSec: 'رمز الطوارئ للإدارة', recSecP: 'إذا نسي المدير كلمة المرور، يسمح هذا الرمز باختيار كلمة جديدة من شاشة الدخول. احتفظ به خارج الهاتف.', recSecOk: 'يوجد رمز طوارئ.', recSecNone: 'لا يوجد رمز طوارئ: أنشئ واحدا الآن.', recGen: 'إنشاء رمز جديد', recPw: 'أكد بكلمة المرور', recTip: 'نصيحة: أنشئ حسابين على الأقل بدور «مدير».', importShort: 'استيراد', importLine: 'السطر {n}', close: 'إغلاق', magiOpenPage: 'فتح هذه الشاشة', magiToday: 'اليوم: {x}.', magiRdv: '{n} موعد / اتصال', magiLate: '{n} متأخرة', magiSleep: '{n} زبون بدون زيارة منذ 30 يوما', magiFree: 'لا شيء مبرمج', magiOffHelp: 'بدون إنترنت يمكنني فتح شاشة، إيجاد زبون أو تلخيص يومك. والباقي عند عودة الشبكة.', magiFound: 'هذا ما وجدته:', magiMarkDone: 'تحديد كمنجز', magiMoveTo: 'تأجيل إلى', magiChanges: 'التعديلات', magiAdd: 'للإضافة', magiOpenAct: 'فتح النشاط', magiNoMeet: 'لا يوجد بعد اجتماع أو زيارة بتقرير لهذا الزبون.', aiToday: 'الذكاء الاصطناعي اليوم', aiTodayD: '{a} سؤال لماجي · {s} تحويل صوت · {l} تقرير', aiYest: 'أمس: {a} · {s} · {l}', magiMenu: 'أسئلة سريعة', magi: 'المساعد ماجي', magiHi: 'مرحبا {n}! أنا ماجي. اكتب أو تكلم: أجد زبونا، أبرمج موعدا، أنشئ ملفا أو صفقة، وأجيب عن نشاطك.',
   magiPh: 'اكتب أو تكلم…', magiSend: 'إرسال', magiMic: 'تكلم', magiListening: 'أنا أستمع… اضغط للتوقف', magiThinking: 'ماجي يفكر…', magiHear: 'جاري تحويل الصوت إلى نص…',
   magiVoiceOn: 'قراءة الأجوبة بالصوت: مفعلة', magiVoiceOff: 'قراءة الأجوبة بالصوت: متوقفة', magiDone: 'تم ✅', magiOpen: 'فتح الملف', magiNew: 'محادثة جديدة',
   magiS1: 'مواعيدي غدا', magiS2: 'الزبناء الذين لم أزرهم منذ 30 يوما', magiS3: 'كيف حال الصفقات؟', magiS4: 'افتح الأجندة', magiNeedNet: 'ماجي يحتاج إلى الإنترنت لفهم طلبك.',
@@ -145,7 +145,7 @@ Object.assign(T.ar, {
   magiStage: 'المرحلة الجديدة', magiWhen: 'متى', magiWhat: 'الموضوع', magiMicLang: 'لغة الكلام',
 });
 Object.assign(T.en, {
-  importShort: 'Import', importLine: 'Line {n}', close: 'Close', magiOpenPage: 'Open this screen', magiToday: 'Today: {x}.', magiRdv: '{n} meeting(s) / call(s)', magiLate: '{n} overdue', magiSleep: '{n} client(s) not visited for 30 days', magiFree: 'nothing planned', magiOffHelp: 'Offline I can open a screen, find a client or sum up your day. The rest as soon as the network is back.', magiFound: 'Here is what I found:', magiMarkDone: 'Mark as done', magiMoveTo: 'Move to', magiChanges: 'Changes', magiAdd: 'to add', magiOpenAct: 'Open activity', magiNoMeet: 'No meeting or visit with a report for this client yet.', aiToday: 'AI today', aiTodayD: '{a} Magi questions · {s} transcriptions · {l} reports', aiYest: 'Yesterday: {a} · {s} · {l}', magiMenu: 'Quick questions', magi: 'Magi assistant', magiHi: 'Hi {n}! I’m Magi. Type or talk: I find a client, schedule a meeting, create a record or a deal, and answer questions about your activity.',
+  jobTitle: 'Job title (shown)', jobTitlePh: 'e.g. Sales director, Team leader…', roleHelp: 'The role sets the rights: “Administrator” sees everything and manages the team; “Sales rep” manages their own portfolio. The job title is only what is shown.', forgot: 'Forgot password?', forgotT: 'Forgot password', forgotRep: 'Sales rep: ask your manager. They open “Team”, tap your name, then “New password”.', forgotAdmin: 'Management: enter your login, the recovery code and a new password.', recCode: 'Recovery code', recNew: 'New password', recGo: 'Change password', recSaveT: 'Your new recovery code', recSaveP: 'Write it down and keep it safe. The old one no longer works. Without it, only Magiscom support can unlock a management account.', recSec: 'Management recovery code', recSecP: 'If a manager forgets their password, this code lets them choose a new one from the login screen. Keep it off the phone.', recSecOk: 'A recovery code exists.', recSecNone: 'No recovery code: create one now.', recGen: 'Generate a new code', recPw: 'Confirm with your password', recTip: 'Tip: create at least two “Administrator” accounts.', importShort: 'Import', importLine: 'Line {n}', close: 'Close', magiOpenPage: 'Open this screen', magiToday: 'Today: {x}.', magiRdv: '{n} meeting(s) / call(s)', magiLate: '{n} overdue', magiSleep: '{n} client(s) not visited for 30 days', magiFree: 'nothing planned', magiOffHelp: 'Offline I can open a screen, find a client or sum up your day. The rest as soon as the network is back.', magiFound: 'Here is what I found:', magiMarkDone: 'Mark as done', magiMoveTo: 'Move to', magiChanges: 'Changes', magiAdd: 'to add', magiOpenAct: 'Open activity', magiNoMeet: 'No meeting or visit with a report for this client yet.', aiToday: 'AI today', aiTodayD: '{a} Magi questions · {s} transcriptions · {l} reports', aiYest: 'Yesterday: {a} · {s} · {l}', magiMenu: 'Quick questions', magi: 'Magi assistant', magiHi: 'Hi {n}! I’m Magi. Type or talk: I find a client, schedule a meeting, create a record or a deal, and answer questions about your activity.',
   magiPh: 'Type or talk…', magiSend: 'Send', magiMic: 'Talk', magiListening: 'Listening… tap to stop', magiThinking: 'Magi is thinking…', magiHear: 'Transcribing…',
   magiVoiceOn: 'Spoken answers: on', magiVoiceOff: 'Spoken answers: off', magiDone: 'Done ✅', magiOpen: 'Open record', magiNew: 'New conversation',
   magiS1: 'My meetings tomorrow', magiS2: 'Clients not visited for 30 days', magiS3: 'How is the pipeline?', magiS4: 'Open the agenda', magiNeedNet: 'Magi needs internet to understand you.',
@@ -493,6 +493,33 @@ function getPosition() {
 
 // =================================================================== écrans : connexion
 const app = () => $('#app');
+function showRecovery(code) {
+  const m = modal(h('h3', {}, t('recSaveT')), h('div', { class: 'pw', dir: 'ltr' }, code), h('p', { class: 'small muted', style: 'margin:0' }, t('recSaveP')),
+    h('button', { class: 'btn primary', onclick: () => { try { navigator.clipboard.writeText(code).catch(() => {}); } catch (e) {} m.remove(); } }, 'OK'));
+}
+function forgotModal(login) {
+  const err = h('p', { class: 'small', role: 'alert', style: 'color:var(--red);margin:0' });
+  const lg = h('input', { class: 'input', value: login || '', dir: 'ltr', autocomplete: 'username', autocapitalize: 'none' });
+  const code = h('input', { class: 'input', dir: 'ltr', autocomplete: 'off', autocapitalize: 'characters', placeholder: 'XXXX-XXXX-XXXX' });
+  const pw = h('input', { class: 'input', type: 'password', dir: 'ltr', autocomplete: 'new-password', minlength: 8 });
+  const m = modal(h('h3', {}, t('forgotT')),
+    h('div', { class: 'tipbox small' }, t('forgotRep')),
+    h('p', { class: 'small', style: 'margin:0' }, t('forgotAdmin')),
+    h('label', { class: 'f' }, t('login'), lg), h('label', { class: 'f' }, t('recCode'), code), h('label', { class: 'f' }, t('recNew') + ' (8+)', pw), err,
+    h('div', { class: 'row', style: 'justify-content:flex-end' }, h('button', { class: 'btn ghost', onclick: () => m.remove() }, t('cancel')),
+      h('button', { class: 'btn primary', onclick: async (e) => {
+        err.textContent = ''; e.target.disabled = true;
+        try {
+          const d = await api('POST', '/api/auth/recover', { login: lg.value, code: code.value, password: pw.value });
+          const prev = await DB.get('meta', 'me');
+          if (prev && prev.id !== d.user.id) await DB.wipe();
+          S.user = d.user; if (d.settings) S.settings = d.settings;
+          await DB.put('meta', S.user, 'me');
+          m.remove(); start(); showRecovery(d.new_code);
+        } catch (x) { err.textContent = x.status === 0 ? t('offline') : x.message; e.target.disabled = false; }
+      } }, t('recGo'))));
+  setTimeout(() => (login ? code : lg).focus(), 50);
+}
 async function showLogin() {
   let st = { setup_needed: false, settings: S.settings };
   try { st = await (await fetch(BASE + '/api/status')).json(); } catch (e) {}
@@ -515,11 +542,13 @@ async function showLogin() {
       S.user = d.user; if (d.settings) S.settings = d.settings;
       await DB.put('meta', S.user, 'me');
       start();
+      if (d.recovery_code) showRecovery(d.recovery_code);
     } catch (x) { err.textContent = x.status === 0 ? t('offline') : x.message; btn.disabled = false; }
   } },
     setup ? [h('h2', { style: 'margin:0' }, t('setupT')), h('p', { class: 'muted', style: 'margin:0' }, t('setupP')), st.setup_code ? field('code', t('setupCode'), 'text', 'off') : null, field('company', t('company'), 'text', 'organization'), field('name', t('yourName'), 'text', 'name')] : null,
     field('login', t('login'), 'text', 'username'), field('password', t('password'), 'password', setup ? 'new-password' : 'current-password'), err,
-    h('button', { class: 'btn primary block', type: 'submit' }, setup ? t('create') : t('signIn')));
+    h('button', { class: 'btn primary block', type: 'submit' }, setup ? t('create') : t('signIn')),
+    !setup && !st.demo ? h('button', { type: 'button', class: 'btn ghost block small', onclick: () => forgotModal(f.login.value) }, t('forgot')) : null);
   if (setup) f.company.value = 'Magiscom Tech';
   const demoBox = st.demo && !setup ? h('div', { class: 'demo-box stack' }, h('b', {}, t('demoT')), h('span', { class: 'small' }, t('demoP')),
     ...st.demo.accounts.map((a) => h('button', { type: 'button', class: 'btn ' + (a.role === 'admin' ? 'primary' : 'green') + ' block', onclick: () => { f.login.value = a.login; f.password.value = a.password; form.requestSubmit(); } },
@@ -1733,13 +1762,15 @@ async function viewTeam() {
     const s = st.get(u.id) || {};
     return h('button', { class: 'item', onclick: () => userSheet(u, users.users) },
       h('span', { class: 'av', style: u.active ? null : 'background:var(--red-s);color:var(--red)' }, initials(u.name)),
-      h('div', { class: 'grow' }, h('div', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' }, h('span', { class: 't' }, u.name), h('span', { class: 'badge ' + (u.role === 'admin' ? 'b-planned' : 'b-muted') }, t(u.role)), u.active ? null : h('span', { class: 'badge b-cancelled' }, t('disabled'))),
+      h('div', { class: 'grow' }, h('div', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' }, h('span', { class: 't' }, u.name), h('span', { class: 'badge ' + (u.role === 'admin' ? 'b-planned' : 'b-muted') }, userTitle(u)), u.active ? null : h('span', { class: 'badge b-cancelled' }, t('disabled'))),
         h('div', { class: 's', dir: 'ltr', style: 'text-align:start' }, u.login + (u.phone ? ' · ' + u.phone : '')),
         h('div', { class: 's' }, `${s.clients || 0} ${t('clients').toLowerCase()} · ${s.visits_30 || 0} ${t('visits').toLowerCase()} / 30 j · ${t('lastSeen')} ${ago(u.last_seen)}`)),
       ic('chev', 18));
   }));
   layout(t('team'), [h('div', { class: 'row', style: 'margin-bottom:12px' }, h('button', { class: 'btn primary', onclick: () => userSheet(null, users.users) }, ic('plus', 20), t('addUser'))), list]);
 }
+const JOB_TITLES = ['Directeur commercial', 'Directrice commerciale', 'Gérant', 'Responsable des ventes', 'Chef d’équipe', 'Superviseur', 'Commercial terrain', 'Technico-commercial', 'Assistante commerciale', 'Responsable grands comptes'];
+const userTitle = (u) => (u && u.title) || t(u && u.role === 'admin' ? 'admin' : 'commercial');
 function userSheet(u, all) {
   const isNew = !u;
   const f = {};
@@ -1748,14 +1779,17 @@ function userSheet(u, all) {
   f.login = h('input', { class: 'input', value: u ? u.login : '', dir: 'ltr', autocapitalize: 'none', required: true });
   f.phone = h('input', { class: 'input', value: u ? u.phone || '' : '', dir: 'ltr', type: 'tel' });
   f.role = h('select', { class: 'input' }, ...['commercial', 'admin'].map((r) => { const o = h('option', { value: r }, t(r)); if (u && u.role === r) o.selected = true; return o; }));
+  f.title = h('input', { class: 'input', value: u ? u.title || '' : '', list: 'job-titles', maxlength: 60, placeholder: t('jobTitlePh') });
+  const titles = h('datalist', { id: 'job-titles' }, ...JOB_TITLES.map((x) => h('option', { value: x })));
   f.all = h('input', { type: 'checkbox', checked: p.all });
   f.edit = h('input', { type: 'checkbox', checked: p.edit_all });
   f.exp = h('input', { type: 'checkbox', checked: p.export });
   const err = h('p', { class: 'small', role: 'alert', style: 'color:var(--red);margin:0' });
-  const body = () => ({ name: f.name.value, login: f.login.value, phone: f.phone.value, role: f.role.value, perms: { scope: f.all.checked ? 'all' : 'own', edit_all: f.edit.checked, export: f.exp.checked } });
+  const body = () => ({ name: f.name.value, login: f.login.value, phone: f.phone.value, role: f.role.value, title: f.title.value.trim(), perms: { scope: f.all.checked ? 'all' : 'own', edit_all: f.edit.checked, export: f.exp.checked } });
   const m = modal(h('h3', {}, isNew ? t('addUser') : u.name),
     h('label', { class: 'f' }, t('fullName'), f.name), h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('login'), f.login), h('label', { class: 'f' }, t('phone'), f.phone)),
-    h('label', { class: 'f' }, t('role'), f.role),
+    h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('jobTitle'), f.title, titles), h('label', { class: 'f' }, t('role'), f.role)),
+    h('p', { class: 'small muted', style: 'margin:0' }, t('roleHelp')),
     h('label', { class: 'check' }, f.all, t('scopeAll')), h('label', { class: 'check' }, f.edit, t('permEdit')), h('label', { class: 'check' }, f.exp, t('permExport')),
     err,
     h('div', { class: 'row', style: 'justify-content:flex-end' }, h('button', { class: 'btn ghost', onclick: () => m.remove() }, t('cancel')),
@@ -1932,14 +1966,29 @@ async function viewJournal() {
 }
 
 // =================================================================== écran : réglages (admin)
+function recoverySection() {
+  const state = h('p', { class: 'small muted', style: 'margin:0' }, '…');
+  api('GET', '/api/settings/recovery').then((r) => { state.textContent = r.exists ? t('recSecOk') : t('recSecNone'); state.style.color = r.exists ? '' : 'var(--red)'; }).catch(() => { state.textContent = ''; });
+  const pw = h('input', { class: 'input', type: 'password', dir: 'ltr', autocomplete: 'current-password' });
+  const err = h('p', { class: 'small', role: 'alert', style: 'color:var(--red);margin:0' });
+  return h('section', { class: 'card pad stack', style: 'margin-top:12px' }, h('h3', { style: 'margin:0' }, t('recSec')), h('p', { class: 'small muted', style: 'margin:0' }, t('recSecP')), state,
+    h('label', { class: 'f' }, t('recPw'), pw), err,
+    h('button', { class: 'btn', type: 'button', onclick: async () => {
+      err.textContent = '';
+      try { const r = await api('POST', '/api/settings/recovery', { password: pw.value }); pw.value = ''; state.textContent = t('recSecOk'); state.style.color = ''; showRecovery(r.code); }
+      catch (x) { err.textContent = x.status === 0 ? t('offlineAdmin') : x.message; }
+    } }, t('recGen')),
+    h('p', { class: 'small muted', style: 'margin:0' }, t('recTip')));
+}
 function viewSettings() {
   const thSel = h('select', { class: 'input' }, ...THEMES.map(([k, l]) => { const o = h('option', { value: k }, l); if (k === (S.settings.theme || 'indigo')) o.selected = true; return o; }));
   const f = { company: h('input', { class: 'input', value: S.settings.company }), cp: h('input', { class: 'input', value: S.settings.client_prefix, dir: 'ltr', maxlength: 6 }), pp: h('input', { class: 'input', value: S.settings.prospect_prefix, dir: 'ltr', maxlength: 6 }) };
-  layout(t('settings'), h('form', { class: 'card pad stack', onsubmit: async (e) => {
+  layout(t('settings'), [h('form', { class: 'card pad stack', onsubmit: async (e) => {
     e.preventDefault();
     try { const d = await api('PATCH', '/api/settings', { company: f.company.value, client_prefix: f.cp.value, prospect_prefix: f.pp.value, theme: thSel.value }); S.settings = d.settings; await DB.put('meta', S.settings, 'settings'); toast(t('saved')); render(); }
     catch (x) { toast(x.status === 0 ? t('offlineAdmin') : t('error', { e: x.message })); }
-  } }, h('label', { class: 'f' }, t('companyName'), f.company), h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('prefixC'), f.cp), h('label', { class: 'f' }, t('prefixP'), f.pp)), h('label', { class: 'f' }, t('themeDefault'), thSel), h('button', { class: 'btn primary', type: 'submit' }, t('save'))));
+  } }, h('label', { class: 'f' }, t('companyName'), f.company), h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('prefixC'), f.cp), h('label', { class: 'f' }, t('prefixP'), f.pp)), h('label', { class: 'f' }, t('themeDefault'), thSel), h('button', { class: 'btn primary', type: 'submit' }, t('save'))),
+    S.settings.demo ? null : recoverySection()]);
 }
 
 // =================================================================== écran : moi
@@ -1961,7 +2010,7 @@ async function viewMe() {
   layout(t('me'), h('div', { class: 'stack' },
     h('section', { class: 'card pad stack' }, h('b', {}, t('theme')), h('span', { class: 'small muted', style: 'margin-top:-8px' }, t('themeHelp')), themeBox),
     S.user.must_change ? h('div', { class: 'card pad', style: 'background:var(--orange-s);border-color:transparent' }, t('mustChange')) : null,
-    h('section', { class: 'card pad' }, h('div', { class: 'item', style: 'border:0;padding:0' }, h('span', { class: 'av' }, initials(S.user.name)), h('div', { class: 'grow' }, h('div', { class: 't' }, S.user.name), h('div', { class: 's', dir: 'ltr', style: 'text-align:start' }, S.user.login), h('div', { class: 's' }, t(S.user.role) + ' · ' + S.settings.company)))),
+    h('section', { class: 'card pad' }, h('div', { class: 'item', style: 'border:0;padding:0' }, h('span', { class: 'av' }, initials(S.user.name)), h('div', { class: 'grow' }, h('div', { class: 't' }, S.user.name), h('div', { class: 's', dir: 'ltr', style: 'text-align:start' }, S.user.login), h('div', { class: 's' }, userTitle(S.user) + ' · ' + S.settings.company)))),
     h('section', { class: 'card pad stack' }, h('div', { class: 'row' }, h('span', { id: 'sync2', class: 'grow small muted' }, t('lastSync', { d: lastSync ? fdt(lastSync) : '—' }) + (S.pending ? ' · ' + t('toSend', { n: S.pending }) : '')), h('button', { class: 'btn sm', onclick: async () => { await syncNow(true); viewMe(); } }, ic('sync', 18), t('syncNow')))),
     failed,
     h('section', { class: 'card pad stack' }, h('label', { class: 'f' }, t('language'), langSel)),

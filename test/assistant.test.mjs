@@ -136,7 +136,7 @@ const line = (sys, needle) => sys.split("\n").find((x) => x.includes(needle)) ||
 nextOut = (id, sys) => ({ reply: "ok", action: "none", suggestions: ["Planifier une visite", "Voir le pipeline", "x".repeat(200), "4e"] });
 r = await karim.req("POST", "/api/ai/assistant", { text: "comment j'importe des clients ?", client_id: amal });
 let sys2 = last.messages[0].content;
-ok(sys2.includes("MODE D'EMPLOI") && sys2.includes("import de clients"), "mode d'emploi dans le contexte");
+ok(sys2.includes("MODE D'EMPLOI") && sys2.includes("importer ses clients"), "mode d'emploi dans le contexte");
 ok(sys2.includes("FICHE OUVERTE") && sys2.includes("Client exigeant sur les délais"), "fiche ouverte détaillée");
 ok(/A\d+ \|.*tache \(EN RETARD\) \| Droguerie Al Amal/.test(sys2), "tâche en retard avec référence");
 ok(r.data.suggestions.length === 3 && r.data.suggestions[2].length <= 90, "suggestions nettoyées");

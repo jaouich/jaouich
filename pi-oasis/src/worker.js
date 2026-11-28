@@ -670,6 +670,24 @@ async function carryFromTestnet(env, me, now, mine) {
 }
 
 // A game state remembers the version it was read at (not saved in the JSON): saveState only writes if nobody saved in between
+// Heavy public rankings are computed at most once a minute per Worker instance (BOARD_TTL_MS=0 in tests)
+const MEMO = new Map();
+async function memo(env, key, fn) {
+  const ttl = env.BOARD_TTL_MS != null ? Number(env.BOARD_TTL_MS) : 60000, hit = MEMO.get(key);
+  if (ttl > 0 && hit && Date.now() - hit.at < ttl) return hit.v;
+  const v = await fn();
+  if (ttl > 0) { if (MEMO.size > 50) MEMO.clear(); MEMO.set(key, { at: Date.now(), v }); }
+  return v;
+}
+// Simple per-IP limit (per Worker instance) on sign-in and payment calls: they trigger calls to Pi. RATE_LIMIT_PER_MIN overrides (0 = off, used by tests).
+const HITS = new Map();
+function rateLimited(env, req, bucket, perMin) {
+  const lim = env.RATE_LIMIT_PER_MIN != null ? Number(env.RATE_LIMIT_PER_MIN) : perMin;
+  if (!(lim > 0)) return false;
+  const k = bucket + (req.headers.get("CF-Connecting-IP") || ""), m = Math.floor(Date.now() / 60000), h = HITS.get(k);
+  if (!h || h.m !== m) { if (HITS.size > 5000) HITS.clear(); HITS.set(k, { m, n: 1 }); return false; }
+  return ++h.n > lim;
+}
 class StateConflict extends Error { constructor() { super("busy"); } }
 async function loadState(env, uid, now) {
   const row = await one(env, "SELECT json, ver FROM state WHERE uid = ?", uid);
@@ -920,6 +938,9 @@ const routes = {
   // ---------- Leaderboard ----------
   // Health check: is the server set up, and what failed recently (no secrets shown)
   "GET /api/status": async (req, env) => {
+    // public: only whether things are configured. Wallet address, payouts and errors need the admin token.
+    const isAdmin = !!env.ADMIN_TOKEN && req.headers.get("x-admin-token") === env.ADMIN_TOKEN;
+    if (!isAdmin) return { piApiKeyConfigured: !!env.PI_NETWORK_API_KEY, studioKeyConfigured: !!env.PI_STUDIO_API_KEY, payoutsConfigured: !!env.PI_WALLET_SEED };
     const errors = await all(env, "SELECT at, place, status, message FROM errlog ORDER BY at DESC LIMIT 10");
     return {
       piApiKeyConfigured: !!env.PI_NETWORK_API_KEY,
@@ -1158,7 +1179,7 @@ const routes = {
     return { ok: true, ...sum };
   },
   "GET /api/level/top": async (req, env) => {
-    const top = await all(env, "SELECT u.username, CAST(json_extract(s.json, '$.xp') AS INTEGER) AS xp FROM state s JOIN users u ON u.uid = s.uid WHERE json_extract(s.json, '$.xp') > 0 ORDER BY xp DESC LIMIT 50");
+    const top = await memo(env, "ltop", () => all(env, "SELECT u.username, CAST(json_extract(s.json, '$.xp') AS INTEGER) AS xp FROM state s JOIN users u ON u.uid = s.uid WHERE json_extract(s.json, '$.xp') > 0 ORDER BY xp DESC LIMIT 50"));
     return { top: top.map((r) => ({ username: r.username, xp: r.xp, lv: L.LV.level(r.xp) })) };
   },
 
@@ -1174,12 +1195,12 @@ const routes = {
       } catch {}
       return { top, ends: wid + 7 * DAY, prize, prizes: KL.WEEK_PRIZES };
     }
-    const rows = await all(
+    const rows = await memo(env, "ktop", () => all(
       env,
       `SELECT u.username, CAST(json_extract(s.json, '$.kombat.coins') AS INTEGER) AS total
        FROM state s JOIN users u ON u.uid = s.uid
        WHERE json_extract(s.json, '$.kombat.coins') > 0 ORDER BY total DESC LIMIT 50`
-    );
+    ));
     return { top: rows };
   },
 
@@ -3242,7 +3263,7 @@ async function completePayment(env, id, txid, uid) {
   // Must be a payment this server approved for this same user
   const row = await one(env, "SELECT uid, status FROM payments WHERE id = ?", id);
   if (!row || row.uid !== p.user_uid) bad("badPayment");
-  if (row.status === "completed") return; // already granted: idempotent
+  if (row.status === "completed" || row.status === "grant_failed") return; // already granted (or failed once: never granted twice, the owner is told)
   // The txid must be the one Pi recorded for this payment
   if (!p.transaction || p.transaction.txid !== txid) bad("badPayment");
   if (!p.status?.developer_completed) {
@@ -3252,10 +3273,17 @@ async function completePayment(env, id, txid, uid) {
   // Mark completed once; only the first call grants VIP and credits anything
   const r = await run(env, "UPDATE payments SET status = 'completed', txid = ? WHERE id = ? AND status != 'completed'", txid, id);
   if (!r.meta.changes) return;
-  const u = await one(env, "SELECT * FROM users WHERE uid = ?", p.user_uid);
-  if (item.p2p) return settleOffer(env, item, id, p.user_uid, now);
-  if (item.mk) return mkSettle(env, item, id, p.user_uid, now);
-  return grantItem(env, u, item, id, now, false);
+  try {
+    const u = await one(env, "SELECT * FROM users WHERE uid = ?", p.user_uid);
+    if (item.p2p) return await settleOffer(env, item, id, p.user_uid, now);
+    if (item.mk) return await mkSettle(env, item, id, p.user_uid, now);
+    return await grantItem(env, u, item, id, now, false);
+  } catch (e) {
+    // the Pi payment is complete but the grant failed: flag it (the daily report shows these) instead of hiding it
+    await run(env, "UPDATE payments SET status = 'grant_failed' WHERE id = ?", id).catch(() => {});
+    await logError(env, "GRANT FAILED " + id, 500, String((e && e.message) || e)).catch(() => {});
+    throw e;
+  }
 }
 
 // The Pi waiting in a player's box (prizes and refunds not sent yet) can pay for things inside the app.
@@ -3461,6 +3489,9 @@ async function derbyGrant(env, uid, item, now) {
 const leagueRank = (n) => [{ k: "week_scores", c: "score" }, { k: "merge_weeks", c: "pts" }, { k: "derby_weeks", c: "pts" }, { k: "kombat_weeks", c: "earned" }, { k: "castle_weeks", c: "pts" }]
   .map((t) => `SELECT uid, ROW_NUMBER() OVER (PARTITION BY week_id ORDER BY ${t.c} DESC, updated_at ASC) AS rk FROM ${t.k} WHERE week_id BETWEEN ?1 AND ?2 AND ${t.c} > 0`).join(" UNION ALL ");
 async function seasonBoard(env, season) {
+  return memo(env, "season" + season, () => seasonBoardRaw(env, season));
+}
+async function seasonBoardRaw(env, season) {
   const a = L.SEASON.start(season), b = a + 21 * DAY;
   return all(env, `WITH r AS (${leagueRank()}), p AS (SELECT uid, CASE rk WHEN 1 THEN 100 WHEN 2 THEN 80 WHEN 3 THEN 65 ELSE MAX(1, 60 - (rk - 4) * 59 / 96) END AS sp FROM r WHERE rk <= 100)
     SELECT p.uid, u.username, SUM(p.sp) AS sp, COALESCE(d.div, 0) AS div FROM p JOIN users u ON u.uid = p.uid LEFT JOIN league_div d ON d.uid = p.uid GROUP BY p.uid ORDER BY sp DESC, p.uid ASC`, a, b);
@@ -3912,6 +3943,7 @@ async function chatRoom(env, u, raw) {
 }
 async function chatClean(env) {
   const now = Date.now();
+  await run(env, "DELETE FROM sessions WHERE created_at < ?", now - 31 * DAY).catch(() => {}); // sessions older than their 30 days are never used again
   await run(env, "DELETE FROM chat_msgs WHERE (room = 'main' AND at < ?) OR (room != 'main' AND at < ?)", now - 7 * DAY, now - 30 * DAY);
 }
 async function giveReward(env, uid, kind, n, now, src) {
@@ -4292,6 +4324,7 @@ export default {
     if (/^pi-oasis\.|^oasisgame6033\./.test(url.hostname)) return json({ error: "testnetClosed" }, 403);
     const handler = routes[`${req.method} ${url.pathname}`];
     if (!handler) return json({ error: "notFound" }, 404);
+    if ((url.pathname === "/api/auth" && rateLimited(env, req, "auth", 30)) || (url.pathname.startsWith("/api/payments/") && rateLimited(env, req, "pay", 60))) return json({ error: "busy" }, 429);
     try {
       await ensureSchema(env);
       let body = {};

@@ -85,11 +85,16 @@ export async function processPayouts(env, d) {
   // 4) Send. A2U_LIVE = "0": the app's outgoing wallet is still waiting for Pi's approval, so
   // payouts stay queued ('new') and go out on their own once it is approved and A2U_LIVE is removed.
   if (env.A2U_LIVE === "0") return { ...report, held: true };
+  // a run that stopped half way leaves its claim behind: free it after 10 minutes
+  await d.run(env, "UPDATE payouts SET status = 'new' WHERE status = 'sending' AND pi_payment_id IS NULL AND updated_at < ?", now - 10 * 60e3);
   const todo = await d.all(env, "SELECT * FROM payouts WHERE status IN ('new', 'created') ORDER BY tries ASC, created_at LIMIT ?", PER_RUN);
   for (const po of todo) {
     try {
       let p;
       if (!po.pi_payment_id) {
+        // Claim the row first: two runs at the same time (cron, withdraw, admin) must not create two Pi payments
+        const claim = await d.run(env, "UPDATE payouts SET status = 'sending', updated_at = ? WHERE id = ? AND status = 'new' AND pi_payment_id IS NULL", Date.now(), po.id);
+        if (!claim.meta.changes) continue;
         // Create the Pi payment and save its id before sending anything
         p = await d.pi(env, "/payments", {
           method: "POST",

@@ -46,4 +46,9 @@ const taps = await Promise.all(Array.from({ length: 10 }, () => post("/api/actio
 const p = await energyOf(uD);
 ok(p.hits <= 20 && p.hits >= 1, "parallel taps use the energy only once (at most 20 hits with 20 energy)", p);
 ok(taps.every((t) => t.state || t.error), "every parallel request got an answer");
+// 4) sign-in is rate limited per IP (turned on only for this check)
+await fetch(B + "/__test/env", { method: "POST", body: JSON.stringify({ key: "RATE_LIMIT_PER_MIN", value: "5" }) });
+const logins = await Promise.all(Array.from({ length: 9 }, () => fetch(B + "/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accessToken: "tokC" }) }).then((r) => r.status)));
+ok(logins.filter((s) => s === 429).length >= 3 && logins.filter((s) => s === 200).length >= 1, "too many sign-ins from one address are refused (429)", logins);
+await fetch(B + "/__test/env", { method: "POST", body: JSON.stringify({ key: "RATE_LIMIT_PER_MIN", value: "0" }) });
 console.log(`== ${pass} passed, ${fail} failed`);

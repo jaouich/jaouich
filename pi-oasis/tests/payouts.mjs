@@ -93,8 +93,10 @@ global.window = global; await import("../public/logic.js");
 const evMult = globalThis.OasisLogic.eventOf(Date.now()).camels || 1; // the daily event (e.g. festival: camels x1.5) changes with the day
 ok(r.msg && r.msg.key === "t.collected" && r.msg.vars.n === Math.round(160 * evMult), "collect: legendary 80/h x 2 h = 160 (x today's event)");
 
-const st = await get("/api/status");
-ok(st.payoutsConfigured === true && Array.isArray(st.payouts), "status shows payouts");
+const st = await fetch(B + "/api/status", { headers: { "x-admin-token": "adm" } }).then((r) => r.json());
+ok(st.payoutsConfigured === true && Array.isArray(st.payouts), "status shows payouts (admin token)");
+const pub = await get("/api/status");
+ok(pub.payoutsConfigured === true && !pub.payouts && !pub.payoutWalletAddress && !pub.recentErrors, "public status hides wallet, payouts and errors");
 ok((await fetch(B + "/api/admin/run-payouts", { method: "POST" })).status === 403, "admin run refused without token");
 console.log(`== ${pass} passed, ${fail} failed`);
 process.exitCode = fail ? 1 : 0;

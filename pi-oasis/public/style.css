@@ -1704,3 +1704,15 @@ main { overflow-x: hidden; }
 @keyframes bbShake { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-12deg); } 40% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 80% { transform: rotate(8deg); } }
 @keyframes bbIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
 #nList > .k-note { grid-column: 1 / -1; }
+
+/* ---- compact status row (level + streak) and compact gift code ---- */
+.status-row { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 8px; margin: 8px 0; }
+.status-row:has(.ach-bar.hidden) { grid-template-columns: 1fr; }
+.status-row .lv-bar, .status-row .ach-bar { margin: 0; padding: 8px 10px; gap: 8px; min-height: 54px; }
+.status-row .lv-bar i, .status-row .ach-bar i { font-size: 24px; }
+.status-row .ach-bar small { font-size: .68rem; line-height: 1.25; }
+.status-row .lv-bar small { display: none; }
+.daycode.dc-compact { padding: 8px 12px; gap: 6px; }
+.dc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.dc-more { border: 0; background: rgba(255,255,255,.55); border-radius: 99px; padding: 4px 10px; font: inherit; font-size: .75rem; font-weight: 700; color: #3a2400; cursor: pointer; min-height: 32px; }
+.status-row .ach-bar b:not(.dot) { font-size: .85rem; line-height: 1.2; }

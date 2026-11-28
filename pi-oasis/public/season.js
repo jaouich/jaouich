@@ -39,6 +39,6 @@
     if (!G.account) return;
     try { const d = await Pi.season(), l = d.last, k = "oasis_lg_seen"; if (l && String(localStorage.getItem(k)) !== String(l.season)) { localStorage.setItem(k, String(l.season)); G.toast((l.outcome === "up" ? "⬆️ " : l.outcome === "down" ? "⬇️ " : "➡️ ") + t("se.last." + l.outcome, { d: t("se.div." + NAMES[l.to]) })); } } catch (e) {}
   }
-  let shown = false; setInterval(() => { if (!shown && G.account) { shown = true; popup(); } }, 1500);
+  let shown = false; const pt = setInterval(() => { if (!shown && G.account) { shown = true; popup(); clearInterval(pt); } }, 1500);
   document.addEventListener("langchange", paint);
 })();

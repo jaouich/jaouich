@@ -17,7 +17,7 @@
     if (!G.account) { el.classList.add("hidden"); return; }
     el.classList.remove("hidden");
     const pend = ac ? ac.list.filter((a) => a.done && !a.claimed).length : 0, can = st && !st.claimed;
-    el.innerHTML = `<i>🔥</i><span><b>${t("ach.bar")}</b><small>${st ? (can ? t("ach.todayOpen", { d: st.day }) : t("ach.streakN", { n: st.n })) : "…"}${pend ? " · " + t("ach.pend", { n: pend }) : ""}</small></span>${can || pend ? '<b class="dot"></b>' : ""}`;
+    el.innerHTML = `<i>🔥</i><span><b>${st && st.n > 0 ? t("ach.streakN", { n: st.n }) : can ? t("ach.giftShort") : t("ach.bar")}</b><small>${st && st.n > 0 && can ? t("ach.giftShort") : pend ? t("ach.pend", { n: pend }) : ""}</small></span>${can || pend ? '<b class="dot"></b>' : ""}`;
   }
   function paint() {
     const el = $("ach"); if (el.classList.contains("hidden")) return;
@@ -46,5 +46,5 @@
     busy = false; refresh();
   });
   document.addEventListener("langchange", () => { bar(); paint(); });
-  const orig = G.render; let loaded = false; const kick = () => { if (!loaded && G.account) { loaded = true; refresh(); } }; G.render = () => { orig(); kick(); }; setInterval(kick, 1000);
+  const orig = G.render; let loaded = false; const kick = () => { if (!loaded && G.account) { loaded = true; refresh(); } }; G.render = () => { orig(); kick(); }; const kt = setInterval(() => { kick(); if (loaded) clearInterval(kt); }, 1000);
 })();

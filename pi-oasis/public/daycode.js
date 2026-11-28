@@ -13,14 +13,18 @@
     el.classList.remove("hidden");
     const v = { j: fmtN(d.jry), d: fmtN(d.dates), n: fmtN(d.max || 100), l: fmtN(d.left == null ? 100 : d.left) };
     if (!d.code) { el.innerHTML = `<b>🎁 ${t("dc.t")}</b><small>${t("dc.taken", v)}</small>`; return; }
-    el.innerHTML = `<b>🎁 ${t("dc.t")}</b><small>${t("dc.d", v)}</small>
+    let open = false; try { open = localStorage.getItem("oasis_dc_open") === d.code; } catch (e) {}
+    el.classList.toggle("dc-compact", !open);
+    el.innerHTML = `<div class="dc-head"><b>🎁 ${t("dc.t")}</b><button class="dc-more" data-dc="more" type="button" aria-expanded="${open}">${open ? "▴" : "▾"} ${t("dc.more")}</button></div>
+      ${open ? `<small>${t("dc.d", v)}</small>` : ""}
       <div class="dc-row"><code dir="ltr">${d.code}</code><button class="btn small" data-dc="copy" type="button">${t("dc.copy")}</button><button class="btn small gold" data-dc="use" type="button">${t("dc.use")}</button></div>
-      <div id="dcShare"></div>`;
+      ${open ? `<div id="dcShare"></div>` : ""}`;
     const link = G.refLink() || d.app || location.origin; // always the Pi Browser (pinet) link
-    if (window.JShare) window.JShare.bar($("dcShare"), { url: link, text: t("dc.share", v) + d.code });
+    if (open && window.JShare) window.JShare.bar($("dcShare"), { url: link, text: t("dc.share", v) + d.code });
   }
   $("dayCode").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-dc]"); if (!b || !d || !d.code) return;
+    if (b.dataset.dc === "more") { try { const k = "oasis_dc_open"; localStorage.setItem(k, localStorage.getItem(k) === d.code ? "" : d.code); } catch (x) {} return draw(); }
     if (b.dataset.dc === "copy") { try { await navigator.clipboard.writeText(d.code); G.toast(t("t.copied")); } catch (x) {} return; }
     if (!G.account) return G.toast(t("t.loginFirst"));
     b.disabled = true;

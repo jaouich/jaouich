@@ -372,6 +372,7 @@
     streakClaim: () => api("/api/streak/claim", {}),
     ach: () => api("/api/ach"),
     achClaim: () => api("/api/ach/claim", {}),
+    track: (name) => api("/api/event", { name }),
     merge: () => api("/api/merge"),
     mergeClaim: () => api("/api/merge/claim", {}),
     level: () => api("/api/level"),

@@ -189,6 +189,8 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS bbox_counter ( tier INTEGER PRIMARY KEY, n INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS bbox_opens ( pay_id TEXT PRIMARY KEY, uid TEXT NOT NULL, tier INTEGER NOT NULL, edition INTEGER NOT NULL, item_id INTEGER, at INTEGER NOT NULL )",
   "CREATE TABLE IF NOT EXISTS bbox_burns ( item_id INTEGER PRIMARY KEY, uid TEXT NOT NULL, tier INTEGER NOT NULL, edition INTEGER NOT NULL, dates INTEGER NOT NULL, at INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS activity ( uid TEXT NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (uid, day) )",
+  "CREATE TABLE IF NOT EXISTS usage_events ( uid TEXT NOT NULL, name TEXT NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (uid, name, day) )",
   "CREATE TABLE IF NOT EXISTS castle_day ( uid TEXT NOT NULL, day INTEGER NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (uid, day) )",
   "CREATE TABLE IF NOT EXISTS chat_msgs ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL, uid TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL, del INTEGER NOT NULL DEFAULT 0 )",
   "CREATE INDEX IF NOT EXISTS chat_room ON chat_msgs(room, id)",
@@ -671,6 +673,7 @@ async function carryFromTestnet(env, me, now, mine) {
 
 // A game state remembers the version it was read at (not saved in the JSON): saveState only writes if nobody saved in between
 // Heavy public rankings are computed at most once a minute per Worker instance (BOARD_TTL_MS=0 in tests)
+const USAGE_EVENTS = ["open_kombat", "open_derby", "open_merge", "open_earn", "open_quests", "open_wheel", "open_arcade", "open_court", "open_season", "open_vipc", "open_castle", "open_magazine", "open_catalog", "open_market", "open_box", "open_chat", "open_services", "open_jry", "open_biz", "open_levels", "open_streak", "palm_tap", "tab_camels", "tab_city", "tab_granary", "tab_rank", "tab_club"];
 const MEMO = new Map();
 async function memo(env, key, fn) {
   const ttl = env.BOARD_TTL_MS != null ? Number(env.BOARD_TTL_MS) : 60000, hit = MEMO.get(key);
@@ -848,6 +851,7 @@ const routes = {
   "GET /api/me": async (req, env) => {
     const u = await auth(req, env);
     const now = Date.now();
+    await run(env, "INSERT OR IGNORE INTO activity (uid, day) VALUES (?, ?)", u.uid, Math.floor(now / DAY)).catch(() => {}); // one row per player per day: retention
     const acc = await account(env, u);
     return { account: acc, state: await stateFor(env, u, now, acc.tier), now };
   },
@@ -1154,6 +1158,34 @@ const routes = {
     await run(env, "INSERT OR IGNORE INTO bbox_burns (item_id, uid, tier, edition, dates, at) VALUES (?, ?, ?, ?, ?, ?)", it.id, u.uid, tier, it.edition, dates, now);
     await creditPoints(env, u.uid, "dates", dates, now, "burn");
     return { ok: true, dates, now };
+  },
+
+  // ---------- Usage measurement: which systems players open (one row per player, system and day) ----------
+  "POST /api/event": async (req, env, body) => {
+    const u = await auth(req, env), name = String(body.name || "");
+    if (!USAGE_EVENTS.includes(name)) bad("badAction");
+    await run(env, "INSERT OR IGNORE INTO usage_events (uid, name, day) VALUES (?, ?, ?)", u.uid, name, Math.floor(Date.now() / DAY));
+    return { ok: true };
+  },
+  // Owner only (x-admin-token): daily actives, D1/D7 return of recent sign-up cohorts, share of last week's actives who used each system, payers
+  "GET /api/admin/metrics": async (req, env) => {
+    admin(req, env);
+    const today = Math.floor(Date.now() / DAY);
+    const dau = await all(env, "SELECT day, COUNT(*) AS n FROM activity WHERE day > ? GROUP BY day ORDER BY day", today - 15);
+    const cohorts = [];
+    for (let d = today - 14; d <= today - 1; d++) {
+      const c = await one(env, `SELECT COUNT(*) AS n,
+        SUM(CASE WHEN EXISTS (SELECT 1 FROM activity a WHERE a.uid = u.uid AND a.day = ? + 1) THEN 1 ELSE 0 END) AS d1,
+        SUM(CASE WHEN EXISTS (SELECT 1 FROM activity a WHERE a.uid = u.uid AND a.day = ? + 7) THEN 1 ELSE 0 END) AS d7
+        FROM users u WHERE CAST(u.created_at / 86400000 AS INTEGER) = ?`, d, d, d);
+      if (c && c.n) cohorts.push({ day: d, signups: c.n, d1: c.d1 || 0, d7: d + 7 <= today ? c.d7 || 0 : null });
+    }
+    const actives = (await one(env, "SELECT COUNT(DISTINCT uid) AS n FROM activity WHERE day > ?", today - 7)).n;
+    const usage = await all(env, "SELECT name, COUNT(DISTINCT uid) AS players FROM usage_events WHERE day > ? GROUP BY name ORDER BY players DESC", today - 7);
+    const payers = await one(env, "SELECT COUNT(DISTINCT uid) AS n, ROUND(COALESCE(SUM(amount), 0), 2) AS pi FROM payments WHERE status = 'completed' AND created_at > ?", Date.now() - 7 * DAY);
+    const owed = await one(env, "SELECT COUNT(*) AS n, ROUND(COALESCE(SUM(amount), 0), 3) AS pi, MIN(created_at) AS oldest FROM payouts WHERE status IN ('new', 'created', 'sending')");
+    const failed = (await one(env, "SELECT COUNT(*) AS n FROM payments WHERE status = 'grant_failed'")).n;
+    return { today, dau, cohorts, weeklyActives: actives, usage: usage.map((x) => ({ ...x, share: actives ? Math.round((100 * x.players) / actives) : 0 })), payers, owed: { ...owed, oldestDays: owed.oldest ? Math.floor((Date.now() - owed.oldest) / DAY) : 0 }, grantFailed: failed };
   },
 
   // ---------- Harvest levels: XP = dates earned honestly; each level pays once ----------

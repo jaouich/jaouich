@@ -136,3 +136,7 @@ custom connector; use `get_app` to check the Mainnet wallet and listing status i
 - Payouts: a row is claimed (`status='sending'`) before creating the Pi payment; stale claims are freed after 10 minutes.
 - `/api/status` is public only for the three "configured" flags; wallet address, payouts and errors need `x-admin-token`. Rankings (`kombat/top`, `level/top`, season board) are cached 60 s per Worker instance (`BOARD_TTL_MS`). Sessions older than 31 days are deleted by the cron. Sign-in and payment routes are rate limited per IP (30 and 60 per minute, `RATE_LIMIT_PER_MIN`).
 - Still to do: Cloudflare-level rate limiting rules, pin the admin to a uid instead of a username (needs a Pi answer on username reuse).
+
+## Usage measurement (Phase C, step 1)
+- `activity(uid, day)` (one row per player per day, written on `GET /api/me`) and `usage_events(uid, name, day)` (`POST /api/event`, whitelist `USAGE_EVENTS`, once per player/system/day). Client `public/track.js` sends the system openings (hub banners, tabs, level/streak bars, palm tap) once a day per name.
+- Owner report: `GET /api/admin/metrics` with `x-admin-token`: daily actives, D1/D7 of the last 14 sign-up cohorts, share of last week's actives who used each system, payers and Pi last week, Pi owed to winners and its age, `grant_failed` count. Tests `tests/usage.mjs` (10).

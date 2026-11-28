@@ -1,0 +1,29 @@
+// Usage measurement: events (whitelist, once per day) and the owner's metrics. Fresh harness.
+const B = "http://localhost:3457";
+const post = (p, b, tok, extra = {}) => fetch(B + p, { method: "POST", headers: { "Content-Type": "application/json", ...(tok ? { Authorization: "Bearer " + tok } : {}), ...extra }, body: typeof b === "string" ? b : JSON.stringify(b) }).then((r) => r.json());
+const get = (p, tok, extra = {}) => fetch(B + p, { headers: { ...(tok ? { Authorization: "Bearer " + tok } : {}), ...extra } }).then((r) => r.json().catch(() => ({})));
+const sql = (q) => post("/__test/sql", q);
+const exec = (q) => fetch(B + "/__test/exec", { method: "POST", body: q });
+let pass = 0, fail = 0;
+const ok = (c, m, x) => { console.log((c ? "PASS  " : "FAIL  ") + m + (c || x === undefined ? "" : " -> " + JSON.stringify(x))); c ? pass++ : fail++; };
+const C = (await post("/api/auth", { accessToken: "tokC" })).session, D = (await post("/api/auth", { accessToken: "tokD" })).session;
+const uC = (await sql("SELECT uid FROM users WHERE username='carol'"))[0].uid, uD = (await sql("SELECT uid FROM users WHERE username='dina'"))[0].uid;
+await get("/api/me", C); await get("/api/me", C);
+const today = Math.floor(Date.now() / 86400000);
+ok((await sql(`SELECT COUNT(*) AS n FROM activity WHERE uid='${uC}' AND day=${today}`))[0].n === 1, "opening the app counts one active day, even if opened twice");
+ok((await post("/api/event", { name: "open_merge" }, C)).ok, "a system opening is recorded");
+await post("/api/event", { name: "open_merge" }, C);
+ok((await sql(`SELECT COUNT(*) AS n FROM usage_events WHERE uid='${uC}' AND name='open_merge'`))[0].n === 1, "once per player, system and day");
+ok((await post("/api/event", { name: "free text with <script>" }, C)).error === "badAction", "unknown names are refused");
+ok((await post("/api/event", { name: "open_merge" })).error, "needs a signed-in player");
+// owner metrics
+ok((await get("/api/admin/metrics", C)).error === "forbidden", "metrics need the admin token");
+await exec(`UPDATE users SET created_at = ${(today - 10) * 86400000 + 1000} WHERE uid IN ('${uC}', '${uD}')`);
+await exec(`INSERT OR IGNORE INTO activity VALUES ('${uC}', ${today - 10}), ('${uC}', ${today - 9}), ('${uC}', ${today - 3}), ('${uD}', ${today - 10}), ('${uC}', ${today - 3})`);
+const m = await get("/api/admin/metrics", null, { "x-admin-token": "adm" });
+const co = (m.cohorts || []).find((c) => c.day === today - 10);
+ok(co && co.signups === 2 && co.d1 === 1 && co.d7 === 1, "cohort: 2 sign-ups, 1 came back the next day, 1 on day 7", co);
+ok(m.dau && m.dau.length >= 3, "daily actives are listed", m.dau);
+ok((m.usage || []).some((x) => x.name === "open_merge" && x.players === 1 && x.share >= 1), "system usage with the share of weekly actives", m.usage);
+ok(m.owed && typeof m.owed.pi === "number" && typeof m.grantFailed === "number", "money owed and failed grants are in the report");
+console.log(`== ${pass} passed, ${fail} failed`);

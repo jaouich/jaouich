@@ -154,6 +154,15 @@ ok(ki.length === 2 && ki.every((c) => c.owner_id === kme.id), "import commercial
 ok(r.data.clients.find((c) => c.code === "CLI001").phone === "0522 11 22 33", "import commercial : fiche d'un autre intacte");
 r = await k.req("POST", "/api/clients/import", { rows: [{ code: "KIM01", name: "Import Karim Un", phone: "0661" }] });
 ok(r.data.updated === 1, "import commercial : met à jour sa propre fiche");
+// réimporter le même fichier : complète, ne duplique pas ; même nom ailleurs = autre fiche
+r = await k.req("POST", "/api/clients/import", { rows: [{ name: "Hôtel Ibis", city: "Rabat", phone: "0537000001" }, { name: "Hôtel Ibis", city: "Tanger", phone: "0539000002" }, { name: "Garage Sans Info" }] });
+ok(r.data.created === 3, "même nom, autre ville : deux fiches " + JSON.stringify(r.data));
+r = await k.req("POST", "/api/clients/import", { rows: [{ name: "hotel ibis", city: "Rabat", email: "rabat@ibis.ma", notes: "Activité : Hôtellerie\nEffectif : 120" }, { name: "Hôtel IBIS", city: "Tanger" }, { name: "Garage Sans Info", city: "Fès", notes: "Source : Salon OFEC" }] });
+const ibis = env.DB.db.prepare("SELECT * FROM clients WHERE name = 'Hôtel Ibis' AND city = 'Rabat'").get();
+const gsi = env.DB.db.prepare("SELECT * FROM clients WHERE name = 'Garage Sans Info'").all();
+ok(r.data.created === 0 && r.data.updated === 3 && ibis.email === "rabat@ibis.ma" && /Effectif : 120/.test(ibis.notes) && gsi.length === 1 && gsi[0].city === "Fès", "réimport : complète sans doublon " + JSON.stringify(r.data));
+r = await k.req("POST", "/api/clients/import", { rows: [{ name: "hotel ibis", city: "Rabat", notes: "Activité : Hôtellerie" }] });
+ok(env.DB.db.prepare("SELECT notes FROM clients WHERE id = ?").get(ibis.id).notes.split("Activité").length === 2, "remarques pas répétées");
 const big = Array.from({ length: 300 }, (_, i) => ({ name: "Société en masse numéro " + i, phone: "0522 00 00 " + String(i).padStart(3, "0"), email: "contact" + i + "@exemple-tres-long-pour-le-test.ma", address: "Rue très longue numéro " + i + ", quartier industriel, Casablanca", city: "Casablanca" }));
 r = await k.req("POST", "/api/clients/import", { rows: big });
 ok(r.status === 200 && r.data.created === 300, "import de 300 lignes d'un coup : " + r.status);

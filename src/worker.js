@@ -1327,6 +1327,16 @@ async function importClients(req, env, me, log) {
   const t = now();
   let created = 0, updated = 0;
   const errors = [];
+  // fiches déjà présentes du même responsable, par nom : réimporter le même fichier complète au lieu de créer des doublons
+  const target = owner || me.id;
+  const normName = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\u0600-\u06ff]+/g, " ").trim();
+  const byName = new Map();
+  const remember = (c) => { const k = normName(c.name); if (!byName.has(k)) byName.set(k, []); byName.get(k).push(c); };
+  for (const c of (await env.DB.prepare("SELECT id, name, notes, contact, company, phone, phone2, email, website, city, address, sector, ice FROM clients WHERE owner_id = ? AND deleted_at IS NULL").bind(target).all()).results) remember(c);
+  // même nom mais autre ville, autre téléphone, autre e-mail ou autre adresse = une autre fiche (agences, hôtels d'une chaîne…)
+  const digits = (x) => String(x || "").replace(/\D/g, "");
+  const conflict = (a, b) => ["city", "address"].some((k) => a[k] && b[k] && normName(a[k]) !== normName(b[k])) || ["phone", "phone2"].some((k) => digits(a[k]) && digits(b[k]) && digits(a[k]) !== digits(b[k])) || (a.email && b.email && a.email.toLowerCase() !== b.email.toLowerCase());
+  const findSame = (f) => (byName.get(normName(f.name)) || []).find((c) => !conflict(c, f));
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i] || {};
     try {
@@ -1350,10 +1360,26 @@ async function importClients(req, env, me, log) {
         continue;
       }
       if (!f.name || f.name.length < 2) { errors.push({ line: i + 1, error: "Nom manquant" }); continue; }
+      const same = !code && findSame(f);
+      if (same) {
+        // on complète seulement les champs vides, et on ajoute aux remarques ce qui n'y est pas encore
+        const up = {};
+        for (const [k, v] of Object.entries(f)) {
+          if (k === "name") continue;
+          if (k === "notes") { const cur = same.notes || ""; const add = String(v).split("\n").filter((l) => l && !cur.includes(l)).join("\n"); if (add) up.notes = (cur ? cur + "\n" : "") + add; }
+          else if (!same[k]) up[k] = v;
+        }
+        if (up.notes) up.notes = up.notes.slice(0, CLIENT_FIELDS.notes);
+        const keys = Object.keys(up);
+        if (keys.length) { await env.DB.prepare(`UPDATE clients SET ${keys.map((k) => k + " = ?").join(", ")}, updated_at = ? WHERE id = ?`).bind(...Object.values(up), t, same.id).run(); Object.assign(same, up); }
+        updated++;
+        continue;
+      }
       if (!code || (await env.DB.prepare("SELECT 1 FROM clients WHERE code = ?").bind(code).first())) code = await nextCode(env, kind);
       const id = crypto.randomUUID();
       const cols = ["id", "code", "kind", "owner_id", "created_by", "created_at", "updated_at", ...Object.keys(f)];
       await env.DB.prepare(`INSERT INTO clients (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`).bind(id, code, kind, owner || me.id, me.id, t, t, ...Object.values(f)).run();
+      remember({ id, ...f });
       created++;
     } catch (e) { errors.push({ line: i + 1, error: e.message || "Erreur" }); }
   }

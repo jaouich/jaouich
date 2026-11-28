@@ -1261,11 +1261,11 @@ async function exportDeals(url, env, me, log) {
 
 // ------------------------------------------------------------------ import de clients (Excel / CSV exporté de Sage, EBP…)
 async function importClients(req, env, me, log) {
-  needAdmin(me);
-  const b = await readJson(req);
+  // la direction et les commerciaux importent ; un commercial importe toujours dans son propre portefeuille
+  const b = await readJson(req, 2 * MB);
   const rows = Array.isArray(b.rows) ? b.rows.slice(0, 500) : [];
   if (!rows.length) fail(400, "Aucune ligne à importer");
-  const owner = b.owner_id ? await activeUserId(env, b.owner_id) : null;
+  const owner = me.p.admin && b.owner_id ? await activeUserId(env, b.owner_id) : null;
   const t = now();
   let created = 0, updated = 0;
   const errors = [];
@@ -1279,8 +1279,10 @@ async function importClients(req, env, me, log) {
       const kind = r.kind === "client" || r.kind === "prospect" ? r.kind : b.kind === "client" ? "client" : "prospect";
       let code = r.code ? String(r.code).trim().toUpperCase().replace(/\s+/g, "").slice(0, 30) : null;
       if (code && !/^[A-Z0-9][A-Z0-9_.\-\/]{0,29}$/.test(code)) code = null;
-      const ex = code ? await env.DB.prepare("SELECT id FROM clients WHERE code = ? AND deleted_at IS NULL").bind(code).first() : null;
+      const ex = code ? await env.DB.prepare("SELECT id, owner_id, created_by FROM clients WHERE code = ? AND deleted_at IS NULL").bind(code).first() : null;
       if (ex) {
+        const canEdit = me.p.admin || ex.owner_id === me.id || (!ex.owner_id && ex.created_by === me.id) || (me.p.edit_all && me.p.all);
+        if (!canEdit) { errors.push({ line: i + 1, error: `Code ${code} déjà utilisé par une fiche que vous ne pouvez pas modifier` }); continue; }
         const keys = Object.keys(f);
         if (keys.length) await env.DB.prepare(`UPDATE clients SET ${keys.map((k) => k + " = ?").join(", ")}, updated_at = ? WHERE id = ?`).bind(...Object.values(f), t, ex.id).run();
         updated++;
@@ -1357,7 +1359,7 @@ const ASSIST_ACTIONS = ["none", "guide", "open_page", "search", "show_clients", 
 const ASSIST_EDIT = ["contact", "phone", "phone2", "email", "website", "city", "address", "company", "sector", "notes"];
 // mode d'emploi de l'application, pour que Magi sache expliquer et guider
 const APP_GUIDE = `MODE D'EMPLOI DE MAGISCOM CRM (pour expliquer et guider ; page = écran à proposer) :
-- Clients (page clients) : liste, recherche, filtres client/prospect et ville. « + Nouveau » (page new_client) crée une fiche ; doublon signalé.
+- Clients (page clients) : liste, recherche, filtres client/prospect et ville. « + Nouveau » (page new_client) crée une fiche ; doublon signalé. Bouton « Importer » (icône Excel, à côté de la recherche) : tout le monde peut importer ses clients depuis un fichier Excel (.xlsx) ou CSV, des milliers de lignes ; un commercial importe dans son propre portefeuille, la direction choisit le commercial.
 - Fiche client : code auto, nom, société, secteur, GSM, fixe, e-mail, site web, adresse, remarques ; boutons Appeler, WhatsApp, Itinéraire, Modifier ; « Mettre à jour la position » enregistre le GPS ; onglets Infos, Activité, Affaires, Documents.
 - Documents (onglet de la fiche) : Photo, Vidéo (jusqu'à 4 Go), Fichier (PDF, Excel, Word…) ; plusieurs fichiers à la fois ; marche hors ligne.
 - Bouton « Enregistrer » (micro au centre en bas) : Note vocale (10 min, l'IA écrit le texte) ou Réunion IA (2 h, accord du client obligatoire ; l'IA sépare commercial/client et fait le compte-rendu : résumé, convenu, non fait, demandes, prochaine étape → RDV ajouté à l'agenda).
@@ -1367,7 +1369,7 @@ const APP_GUIDE = `MODE D'EMPLOI DE MAGISCOM CRM (pour expliquer et guider ; pag
 - Carte (page map) : clients localisés.
 - Moi (page me) : thème de couleurs, langue, mot de passe, synchronisation, déconnexion (attention : la déconnexion efface les données du téléphone).
 - Hors ligne : tout s'enregistre sur le téléphone et part au retour du réseau (point vert « À jour »). L'IA (Magi, transcription, rapports) a besoin d'internet.
-- Direction seulement : tableau de bord (dashboard), commerciaux et droits (team : ajouter, mot de passe provisoire, transférer le portefeuille, désactiver), export Excel et import de clients depuis Excel/CSV (export, 500 lignes par envoi, .xlsx ou .csv), journal (journal), réglages (settings : société, préfixes des codes, thème).
+- Direction seulement : tableau de bord (dashboard), commerciaux et droits (team : ajouter, mot de passe provisoire, transférer le portefeuille, désactiver), export Excel (export) et import en choisissant le commercial, journal (journal), réglages (settings : société, préfixes des codes, thème).
 - Première connexion : identifiant donné par la direction, puis choisir son mot de passe. Mot de passe oublié : la direction en génère un nouveau.`;
 const ASSIST_KINDS = ["rdv", "appel", "tache", "note", "visite"];
 const normTxt = (x) => String(x || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9؀-ۿ ]/g, " ");

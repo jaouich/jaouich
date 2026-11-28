@@ -129,7 +129,7 @@ Object.assign(T.en, {
 });
 // thèmes : choisis par chaque utilisateur sur son appareil, ou imposés par défaut par la direction
 Object.assign(T.fr, {
-  magiOpenPage: 'Ouvrir cet écran', magiToday: 'Aujourd’hui : {x}.', magiRdv: '{n} rendez-vous / appel(s)', magiLate: '{n} en retard', magiSleep: '{n} client(s) sans visite depuis 30 jours', magiFree: 'rien de prévu', magiOffHelp: 'Sans internet, je peux ouvrir un écran, trouver un client ou résumer votre journée. Pour le reste, je reviens dès que le réseau est là.', magiFound: 'Voici ce que j’ai trouvé :', magiMarkDone: 'Marquer comme fait', magiMoveTo: 'Déplacer au', magiChanges: 'Modifications', magiAdd: 'à ajouter', magiOpenAct: 'Ouvrir l’activité', magiNoMeet: 'Pas encore de réunion ou de visite avec compte-rendu pour ce client.', aiToday: 'IA aujourd’hui', aiTodayD: '{a} questions à Magi · {s} transcriptions · {l} rapports', aiYest: 'Hier : {a} · {s} · {l}', magiMenu: 'Questions rapides', magi: 'Assistant Magi', magiHi: 'Bonjour {n} ! Je suis Magi. Écrivez ou parlez : je trouve un client, je planifie un rendez-vous, je crée une fiche ou une affaire, je réponds sur votre activité.',
+  importShort: 'Importer', importLine: 'Ligne {n}', close: 'Fermer', magiOpenPage: 'Ouvrir cet écran', magiToday: 'Aujourd’hui : {x}.', magiRdv: '{n} rendez-vous / appel(s)', magiLate: '{n} en retard', magiSleep: '{n} client(s) sans visite depuis 30 jours', magiFree: 'rien de prévu', magiOffHelp: 'Sans internet, je peux ouvrir un écran, trouver un client ou résumer votre journée. Pour le reste, je reviens dès que le réseau est là.', magiFound: 'Voici ce que j’ai trouvé :', magiMarkDone: 'Marquer comme fait', magiMoveTo: 'Déplacer au', magiChanges: 'Modifications', magiAdd: 'à ajouter', magiOpenAct: 'Ouvrir l’activité', magiNoMeet: 'Pas encore de réunion ou de visite avec compte-rendu pour ce client.', aiToday: 'IA aujourd’hui', aiTodayD: '{a} questions à Magi · {s} transcriptions · {l} rapports', aiYest: 'Hier : {a} · {s} · {l}', magiMenu: 'Questions rapides', magi: 'Assistant Magi', magiHi: 'Bonjour {n} ! Je suis Magi. Écrivez ou parlez : je trouve un client, je planifie un rendez-vous, je crée une fiche ou une affaire, je réponds sur votre activité.',
   magiPh: 'Écrivez ou parlez…', magiSend: 'Envoyer', magiMic: 'Parler', magiListening: 'Je vous écoute… touchez pour arrêter', magiThinking: 'Magi réfléchit…', magiHear: 'Je transcris…',
   magiVoiceOn: 'Réponses à voix haute : activées', magiVoiceOff: 'Réponses à voix haute : désactivées', magiDone: 'C’est fait ✅', magiOpen: 'Ouvrir la fiche', magiNew: 'Nouvelle conversation',
   magiS1: 'Mes rendez-vous de demain', magiS2: 'Clients pas visités depuis 30 jours', magiS3: 'Où en est le pipeline ?', magiS4: 'Ouvre l’agenda', magiNeedNet: 'Magi a besoin d’internet pour comprendre votre demande.',
@@ -137,7 +137,7 @@ Object.assign(T.fr, {
   magiStage: 'Nouvelle étape', magiWhen: 'Quand', magiWhat: 'Objet', magiMicLang: 'Langue parlée',
 });
 Object.assign(T.ar, {
-  magiOpenPage: 'فتح هذه الشاشة', magiToday: 'اليوم: {x}.', magiRdv: '{n} موعد / اتصال', magiLate: '{n} متأخرة', magiSleep: '{n} زبون بدون زيارة منذ 30 يوما', magiFree: 'لا شيء مبرمج', magiOffHelp: 'بدون إنترنت يمكنني فتح شاشة، إيجاد زبون أو تلخيص يومك. والباقي عند عودة الشبكة.', magiFound: 'هذا ما وجدته:', magiMarkDone: 'تحديد كمنجز', magiMoveTo: 'تأجيل إلى', magiChanges: 'التعديلات', magiAdd: 'للإضافة', magiOpenAct: 'فتح النشاط', magiNoMeet: 'لا يوجد بعد اجتماع أو زيارة بتقرير لهذا الزبون.', aiToday: 'الذكاء الاصطناعي اليوم', aiTodayD: '{a} سؤال لماجي · {s} تحويل صوت · {l} تقرير', aiYest: 'أمس: {a} · {s} · {l}', magiMenu: 'أسئلة سريعة', magi: 'المساعد ماجي', magiHi: 'مرحبا {n}! أنا ماجي. اكتب أو تكلم: أجد زبونا، أبرمج موعدا، أنشئ ملفا أو صفقة، وأجيب عن نشاطك.',
+  importShort: 'استيراد', importLine: 'السطر {n}', close: 'إغلاق', magiOpenPage: 'فتح هذه الشاشة', magiToday: 'اليوم: {x}.', magiRdv: '{n} موعد / اتصال', magiLate: '{n} متأخرة', magiSleep: '{n} زبون بدون زيارة منذ 30 يوما', magiFree: 'لا شيء مبرمج', magiOffHelp: 'بدون إنترنت يمكنني فتح شاشة، إيجاد زبون أو تلخيص يومك. والباقي عند عودة الشبكة.', magiFound: 'هذا ما وجدته:', magiMarkDone: 'تحديد كمنجز', magiMoveTo: 'تأجيل إلى', magiChanges: 'التعديلات', magiAdd: 'للإضافة', magiOpenAct: 'فتح النشاط', magiNoMeet: 'لا يوجد بعد اجتماع أو زيارة بتقرير لهذا الزبون.', aiToday: 'الذكاء الاصطناعي اليوم', aiTodayD: '{a} سؤال لماجي · {s} تحويل صوت · {l} تقرير', aiYest: 'أمس: {a} · {s} · {l}', magiMenu: 'أسئلة سريعة', magi: 'المساعد ماجي', magiHi: 'مرحبا {n}! أنا ماجي. اكتب أو تكلم: أجد زبونا، أبرمج موعدا، أنشئ ملفا أو صفقة، وأجيب عن نشاطك.',
   magiPh: 'اكتب أو تكلم…', magiSend: 'إرسال', magiMic: 'تكلم', magiListening: 'أنا أستمع… اضغط للتوقف', magiThinking: 'ماجي يفكر…', magiHear: 'جاري تحويل الصوت إلى نص…',
   magiVoiceOn: 'قراءة الأجوبة بالصوت: مفعلة', magiVoiceOff: 'قراءة الأجوبة بالصوت: متوقفة', magiDone: 'تم ✅', magiOpen: 'فتح الملف', magiNew: 'محادثة جديدة',
   magiS1: 'مواعيدي غدا', magiS2: 'الزبناء الذين لم أزرهم منذ 30 يوما', magiS3: 'كيف حال الصفقات؟', magiS4: 'افتح الأجندة', magiNeedNet: 'ماجي يحتاج إلى الإنترنت لفهم طلبك.',
@@ -145,7 +145,7 @@ Object.assign(T.ar, {
   magiStage: 'المرحلة الجديدة', magiWhen: 'متى', magiWhat: 'الموضوع', magiMicLang: 'لغة الكلام',
 });
 Object.assign(T.en, {
-  magiOpenPage: 'Open this screen', magiToday: 'Today: {x}.', magiRdv: '{n} meeting(s) / call(s)', magiLate: '{n} overdue', magiSleep: '{n} client(s) not visited for 30 days', magiFree: 'nothing planned', magiOffHelp: 'Offline I can open a screen, find a client or sum up your day. The rest as soon as the network is back.', magiFound: 'Here is what I found:', magiMarkDone: 'Mark as done', magiMoveTo: 'Move to', magiChanges: 'Changes', magiAdd: 'to add', magiOpenAct: 'Open activity', magiNoMeet: 'No meeting or visit with a report for this client yet.', aiToday: 'AI today', aiTodayD: '{a} Magi questions · {s} transcriptions · {l} reports', aiYest: 'Yesterday: {a} · {s} · {l}', magiMenu: 'Quick questions', magi: 'Magi assistant', magiHi: 'Hi {n}! I’m Magi. Type or talk: I find a client, schedule a meeting, create a record or a deal, and answer questions about your activity.',
+  importShort: 'Import', importLine: 'Line {n}', close: 'Close', magiOpenPage: 'Open this screen', magiToday: 'Today: {x}.', magiRdv: '{n} meeting(s) / call(s)', magiLate: '{n} overdue', magiSleep: '{n} client(s) not visited for 30 days', magiFree: 'nothing planned', magiOffHelp: 'Offline I can open a screen, find a client or sum up your day. The rest as soon as the network is back.', magiFound: 'Here is what I found:', magiMarkDone: 'Mark as done', magiMoveTo: 'Move to', magiChanges: 'Changes', magiAdd: 'to add', magiOpenAct: 'Open activity', magiNoMeet: 'No meeting or visit with a report for this client yet.', aiToday: 'AI today', aiTodayD: '{a} Magi questions · {s} transcriptions · {l} reports', aiYest: 'Yesterday: {a} · {s} · {l}', magiMenu: 'Quick questions', magi: 'Magi assistant', magiHi: 'Hi {n}! I’m Magi. Type or talk: I find a client, schedule a meeting, create a record or a deal, and answer questions about your activity.',
   magiPh: 'Type or talk…', magiSend: 'Send', magiMic: 'Talk', magiListening: 'Listening… tap to stop', magiThinking: 'Magi is thinking…', magiHear: 'Transcribing…',
   magiVoiceOn: 'Spoken answers: on', magiVoiceOff: 'Spoken answers: off', magiDone: 'Done ✅', magiOpen: 'Open record', magiNew: 'New conversation',
   magiS1: 'My meetings tomorrow', magiS2: 'Clients not visited for 30 days', magiS3: 'How is the pipeline?', magiS4: 'Open the agenda', magiNeedNet: 'Magi needs internet to understand you.',
@@ -604,7 +604,8 @@ async function viewClients() {
     chip(t('prospect'), listState.kind === 'prospect', () => { listState.kind = 'prospect'; viewClients(); }),
     cities.length ? h('select', { class: 'chip', 'aria-label': t('city'), onchange: (e) => { listState.city = e.target.value; paint(); } }, h('option', { value: '' }, t('allCities')), ...cities.map((c) => { const o = h('option', { value: c }, c); if (c === listState.city) o.selected = true; return o; })) : null,
     owners.length > 1 ? h('select', { class: 'chip', 'aria-label': t('owner'), onchange: (e) => { listState.owner = e.target.value; paint(); } }, h('option', { value: '' }, t('allOwners')), ...owners.map((id) => { const o = h('option', { value: id }, userName(id)); if (id === listState.owner) o.selected = true; return o; })) : null);
-  layout(t('clients'), [h('div', { class: 'search' }, search, h('a', { class: 'btn primary', href: '#/new' }, ic('plus', 20), h('span', {}, t('newClient')))), filters, countEl, listEl]);
+  const impBtn = h('button', { class: 'btn imp', title: t('importT'), 'aria-label': t('importT'), onclick: () => { const m = modal(importBox([...S.users.values()], () => m.remove())); m.classList.add('wide'); } }, ic('xls', 20), h('span', {}, t('importShort')));
+  layout(t('clients'), [h('div', { class: 'search' }, search, impBtn, h('a', { class: 'btn primary', href: '#/new' }, ic('plus', 20), h('span', {}, t('newClient')))), filters, countEl, listEl]);
   paint();
 }
 
@@ -1868,11 +1869,12 @@ async function parseXlsx(buf) {
   }
   return rows.filter((r) => r.some((x) => String(x).trim()));
 }
-function importBox(users) {
+function importBox(users, onDone) {
   const info = h('p', { class: 'small muted', style: 'margin:0' });
   const kindSel = h('select', { class: 'input' }, h('option', { value: 'client' }, t('client')), h('option', { value: 'prospect' }, t('prospect')));
   const ownSel = h('select', { class: 'input' }, h('option', { value: '' }, S.user.name), ...users.filter((u) => u.active && u.id !== S.user.id).map((u) => h('option', { value: u.id }, u.name)));
   const go2 = h('button', { class: 'btn primary', disabled: true }, ic('plus', 18), t('importPick'));
+  const errBox = h('ul', { class: 'small imp-err', hidden: true });
   let rows = [];
   const pick = h('button', { class: 'btn', onclick: async () => {
     const [file] = await pickFiles('.xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, false);
@@ -1889,20 +1891,24 @@ function importBox(users) {
   go2.onclick = async () => {
     if (!navigator.onLine) return toast(t('offlineAdmin'));
     go2.disabled = true;
-    let c = 0, u = 0;
+    let c = 0, u = 0; const errs = [];
     try {
       for (let i = 0; i < rows.length; i += 300) {
         go2.replaceChildren(h('span', { class: 'spinner' }), `${Math.min(i + 300, rows.length)} / ${rows.length}`);
-        const r = await api('POST', '/api/clients/import', { rows: rows.slice(i, i + 300), kind: kindSel.value, owner_id: ownSel.value || null });
+        const r = await api('POST', '/api/clients/import', { rows: rows.slice(i, i + 300), kind: kindSel.value, owner_id: admin() ? ownSel.value || null : null });
         c += r.created; u += r.updated;
+        for (const x of r.errors || []) errs.push({ ...x, line: x.line + i + 1 });
       }
       info.textContent = t('importDone', { c, u }); toast(t('importDone', { c, u }), 5000); rows = [];
+      errBox.replaceChildren(...errs.slice(0, 20).map((x) => h('li', {}, t('importLine', { n: x.line }) + ' : ' + x.error)));
+      errBox.hidden = !errs.length;
       syncNow(true);
     } catch (e) { toast(t('error', { e: e.message })); }
     go2.replaceChildren(ic('plus', 18), t('importPick'));
   };
   return h('section', { class: 'card pad stack' }, h('h3', { style: 'margin:0' }, t('importT')), h('p', { class: 'small muted', style: 'margin:0' }, t('importP')),
-    h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('importKind'), kindSel), h('label', { class: 'f' }, t('importOwner'), ownSel)), pick, info, go2);
+    admin() ? h('div', { class: 'grid2' }, h('label', { class: 'f' }, t('importKind'), kindSel), h('label', { class: 'f' }, t('importOwner'), ownSel)) : h('label', { class: 'f' }, t('importKind'), kindSel),
+    pick, info, go2, errBox, onDone ? h('button', { class: 'btn ghost', type: 'button', onclick: onDone }, t('close')) : null);
 }
 
 // =================================================================== écran : journal (admin)

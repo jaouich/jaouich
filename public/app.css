@@ -424,3 +424,7 @@ table.t th{text-transform:none;letter-spacing:0;font-size:12.5px}
 .mg-list b{display:block;font-size:14px}.mg-list small{color:var(--muted,#6A6390);font-size:12px}
 .magi-sugg.small{margin-top:10px}
 .magi-sugg.small button{font-size:13px;padding:6px 11px}
+.search .btn.imp{flex:none}
+@media (max-width:600px){.search .btn.imp span{display:none}.search .btn.imp{padding-inline:12px}}
+.imp-err{margin:0;padding-inline-start:18px;color:#9A5B00;max-height:160px;overflow:auto}
+.modal .sheet > .card{box-shadow:none;border:0;padding:0}

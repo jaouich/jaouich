@@ -143,8 +143,20 @@ r = await admin.req("GET", "/api/sync");
 const imp = r.data.clients.find((c) => c.code === "CLI001");
 ok(imp && imp.kind === "client" && imp.website === "https://import-un.ma/" && imp.phone === "0522 11 22 33", "import : fiche complétée");
 ok(r.data.clients.find((c) => c.name === "Sans Code SARL").email == null, "import : e-mail invalide ignoré");
-r = await k.req("POST", "/api/clients/import", { rows: [{ name: "Test" }] });
-ok(r.status === 403, "import réservé à la direction");
+// un commercial importe dans son propre portefeuille, sans toucher aux fiches des autres
+const kme = (await k.req("GET", "/api/me")).data.user;
+const others = (await admin.req("GET", "/api/users")).data.users.filter((u) => u.id !== kme.id);
+r = await k.req("POST", "/api/clients/import", { owner_id: others[0].id, rows: [{ code: "KIM01", name: "Import Karim Un" }, { name: "Import Karim Deux", city: "Fès" }, { code: "CLI001", name: "Piratage", phone: "000" }] });
+ok(r.status === 200 && r.data.created === 2 && r.data.updated === 0 && r.data.errors.length === 1 && /ne pouvez pas modifier/.test(r.data.errors[0].error), "import commercial : " + JSON.stringify(r.data));
+r = await admin.req("GET", "/api/sync");
+const ki = r.data.clients.filter((c) => /^Import Karim/.test(c.name));
+ok(ki.length === 2 && ki.every((c) => c.owner_id === kme.id), "import commercial : fiches à son nom");
+ok(r.data.clients.find((c) => c.code === "CLI001").phone === "0522 11 22 33", "import commercial : fiche d'un autre intacte");
+r = await k.req("POST", "/api/clients/import", { rows: [{ code: "KIM01", name: "Import Karim Un", phone: "0661" }] });
+ok(r.data.updated === 1, "import commercial : met à jour sa propre fiche");
+const big = Array.from({ length: 300 }, (_, i) => ({ name: "Société en masse numéro " + i, phone: "0522 00 00 " + String(i).padStart(3, "0"), email: "contact" + i + "@exemple-tres-long-pour-le-test.ma", address: "Rue très longue numéro " + i + ", quartier industriel, Casablanca", city: "Casablanca" }));
+r = await k.req("POST", "/api/clients/import", { rows: big });
+ok(r.status === 200 && r.data.created === 300, "import de 300 lignes d'un coup : " + r.status);
 
 // --- préparer la visite + message de suivi
 r = await admin.req("POST", "/api/ai/brief/" + cid, { lang: "fr" });
